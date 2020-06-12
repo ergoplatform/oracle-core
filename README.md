@@ -1,11 +1,20 @@
 # Oracle Core
-The oracle core is the off-chain component that oracles who are part of an oracle pool must run. This oracle core provides an HTTP interface for submitting datapoints to and will automatically generate and post transactions, thereby participating in the oracle pool protocol without any extra work by the oracle.
+The oracle core is the off-chain component that oracles who are part of an oracle pool must run. This oracle core provides a HTTP interface for submitting datapoints and will automatically generate/post transactions thereby participating in the oracle pool protocol without any extra work by the oracle operator.
 
 The current design does not include bootstrapping of the oracle pool. This must be done separately.
 
-Do note, that the oracle core requires the user to have access to a full node in order to perform UTXO-set scanning. Also, each oracle core is designed to work with a single oracle pool. If an operator runs several oracles in several oracle pools, a single full node can be used, but several instances of oracle cores must be run (and set with different api ports).
+Do note, that the oracle core requires the user to have access to a full node wallet in order to create txs & perform UTXO-set scanning. Furthermore each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools, a single full node can be used, but several instances of oracle cores must be run (and set with different api ports).
 
 
+## Roadmap
+1. Define basic requirements/structure of the oracle core.
+2. Implement functions for all core <-> full node interactions.
+3. Build tiny CLI which allows for manual testing of oracle pool protocol using the interaction functions.
+4. Build automated logic into the oracle core for interacting with the oracle pool on-chain/building txs. (Using placeholder data)
+5. Build the HTTP API which operators can use to submit data & check the status of their oracle core.
+
+
+## Initial Design Notes
 
 
 ### Potential HTTP API Endpoints
@@ -34,8 +43,11 @@ Allows the owner of an oracle to commit a datapoint for the current running epoc
 
 
 ### Oracle Pool Config
-Each operator must set up their `oracle-config.yaml` with information about their oracle and the oracle pool they are taking part in.
+Each operator must set up their `oracle-config.yaml` with information about their address, the node they are using, and the oracle pool they are taking part in.
 
+- IP Address of the node (default is local)
+- Port that the node is on (default is 9053)
+- Node API key
 - Oracle address (address of the oracle which must be in R4 of the datapoint box and owned in the full node wallet)
 - The type of the oracle pool datapoint. Current options: `[Int, String]`
 - Oracle Pool NFT/Singleton Token ID (Token which always stays in the oracle pool box)
@@ -63,3 +75,14 @@ The oracle core will save each of the `scanId`s locally after registering them w
 
 
 ### Transaction Building
+
+The oracle core will have to build transactions for the following actions which are possible in the basic oracle pool protocol.
+
+1. Commit Datapoint
+2. Collect Datapoints
+3. Fund Oracle Pool
+4. Collect Funds
+5. Start Next Epoch
+6. Create New Epoch
+
+Reference the informal specification for details on building said transactions.

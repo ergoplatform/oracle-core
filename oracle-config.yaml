@@ -1,4 +1,10 @@
 ---
+# IP Address of the node (default is local)
+node-ip: "0.0.0.0"
+# Port that the node is on (default is 9053)
+node-port: "9053"
+# API key for the node
+node-api-key: "hello"
 # Your oracle address 
 oracle-address:
 # The type of the oracle pool datapoint. Current options: [Int, String]
