@@ -33,7 +33,6 @@ Allows the owner of an oracle to commit a datapoint for the current running epoc
 
 
 
-
 ### Oracle Pool Config
 Each operator must set up their `oracle-config.yaml` with information about their oracle and the oracle pool they are taking part in.
 
@@ -47,3 +46,20 @@ Each operator must set up their `oracle-config.yaml` with information about thei
 - *Pool Deposit* Stage Contract Address
 - Stake Slashing (Boolean for now, set to false as no support in initial version)
 - Governance Voting (Boolean for now, set to false as no support in initial version)
+
+
+
+### Oracle Core <-> Node Interaction
+Using the new [EIP-1 Application-Friendly Wallet API](https://github.com/ergoplatform/eips/blob/master/eip-0001.md), the oracle core will register scans to find all of the relevant boxes.
+
+For the initial implementation these scans include:
+
+1. A box in the `Datapoint` contract address which also contains the oracle's address in R4.
+2. Any boxes at the `Pool Deposit` contract address.
+3. A box in the "Epoch Preparation" contract address which holds the oracle pool NFT.
+4. A box in the "Oracle Pool Epoch" contract address which holds the oracle pool NFT.
+
+The oracle core will save each of the `scanId`s locally after registering them with the full node. At any time the oracle core wishes to check the current state of the protocol, it simply uses the `scanId`s to acquire all of the relevant boxes.
+
+
+### Transaction Building
