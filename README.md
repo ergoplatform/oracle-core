@@ -1,5 +1,5 @@
 # Oracle Core
-The off-chain component that oracles who are part of an oracle pool must run. This oracle core provides an HTTP interface for submitting datapoints to and will automatically generate and post transactions, thereby participating in the oracle pool protocol without any extra work by the oracle.
+The oracle core is the off-chain component that oracles who are part of an oracle pool must run. This oracle core provides an HTTP interface for submitting datapoints to and will automatically generate and post transactions, thereby participating in the oracle pool protocol without any extra work by the oracle.
 
 The current design does not include bootstrapping of the oracle pool. This must be done separately.
 
@@ -35,11 +35,15 @@ Allows the owner of an oracle to commit a datapoint for the current running epoc
 
 
 ### Oracle Pool Config
-Each oracle core has a config file which requires specifying:
+Each operator must set up their `oracle-config.yaml` with information about their oracle and the oracle pool they are taking part in.
+
 - Oracle address (address of the oracle which must be in R4 of the datapoint box and owned in the full node wallet)
+- The type of the oracle pool datapoint. Current options: `[Int, String]`
 - Oracle Pool NFT/Singleton Token ID (Token which always stays in the oracle pool box)
 - Oracle Pool Participant Token ID (Token which is held in the oracle's datapoint box)
 - *Epoch Preparation* Stage Contract Address
 - *Oracle Pool Epoch* Stage Contract Address
 - *Datapoint* Stage Contract Address
-- *Oracle Pool* Stage Contract Address
+- *Pool Deposit* Stage Contract Address
+- Stake Slashing (Boolean for now, set to false as no support in initial version)
+- Governance Voting (Boolean for now, set to false as no support in initial version)
