@@ -2,16 +2,16 @@ use yaml_rust::{YamlLoader};
 
 
 /// Reads the `oracle-config.yaml` file
-pub fn get_config_yaml() -> String {
+fn get_config_yaml() -> String {
     std::fs::read_to_string("oracle-config.yaml").expect("Failed to open config.")
 }
 
-/// Returns the `ip:port` from the config file
-pub fn get_node_ip_port() -> String {
+/// Returns `http://ip:port` using node-ip and node-port from the config file
+pub fn get_node_url() -> String {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
     let ip = config["node-ip"].as_str().expect("No node-ip specified in config file.");
     let port = config["node-port"].as_str().expect("No node-port specified in config file.");
-    ip.to_string() + ":" + &port
+    "http://".to_string() + ip + ":" + &port
 }
 
 pub fn get_node_api_key() -> String {
