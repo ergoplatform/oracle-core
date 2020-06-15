@@ -7,8 +7,6 @@ node-port: "9053"
 node-api-key: "hello"
 # Your oracle address 
 oracle-address: ""
-# The type of the oracle pool datapoint. Current options: [Int, String]
-datapoint-type: Int
 # ID of the oracle pool NFT
 oracle-pool-nft: ""
 # ID of the oracle pool participant token

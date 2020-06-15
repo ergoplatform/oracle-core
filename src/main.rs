@@ -2,6 +2,12 @@ mod oracle_config;
 mod node_interface;
 mod oracle_state;
 
+pub type NanoErg = u64;
+pub type BlockHeight = u64;
+pub type EpochID = String;
+
+
+
 
 fn main() {
     println!("Hello, oracle pool!");
