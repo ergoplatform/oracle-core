@@ -45,12 +45,21 @@ pub fn erg_to_nanoerg(erg_amount: f64) -> u64 {
 }
 
 
+/// Convert from nanoErg to Erg
+pub fn nanoerg_to_erg(nanoerg_amount: u64) -> f64 {
+    (nanoerg_amount as f64) / (1000000000 as f64)
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn erg_conv_is_valid() {
+        assert_eq!((1 as f64), nanoerg_to_erg(1000000000));
+        assert_eq!((1.23 as f64), nanoerg_to_erg(1230000000));
+
         assert_eq!(1000000000, erg_to_nanoerg(1 as f64));
         assert_eq!(erg_to_nanoerg(3.64), 3640000000);
         assert_eq!(erg_to_nanoerg(0.64), 640000000);
