@@ -29,3 +29,27 @@ pub fn get_wallet_addresses(node_ip: &String, api_key: &String) -> Vec<String> {
     }
     addresses
 }
+
+
+
+
+/// Convert from Erg to nanoErg
+pub fn erg_to_nanoerg(erg_amount: f64) -> u64 {
+    (erg_amount * 1000000000 as f64) as u64
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn erg_conv_is_valid() {
+        assert_eq!(1000000000, erg_to_nanoerg(1 as f64));
+        assert_eq!(erg_to_nanoerg(3.64), 3640000000);
+        assert_eq!(erg_to_nanoerg(0.64), 640000000);
+        assert_eq!(erg_to_nanoerg(0.0064), 6400000);
+        assert_eq!(erg_to_nanoerg(0.000000064), 64);
+        assert_eq!(erg_to_nanoerg(0.000000001), 1);
+    }
+}

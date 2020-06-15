@@ -27,7 +27,7 @@ mod tests {
 
     #[test]
     fn valid_ip_port_from_config() {
-        assert_eq!(get_node_ip_port(), "0.0.0.0:9053".to_string())
+        assert_eq!(get_node_url(), "http://0.0.0.0:9053".to_string())
     }
     #[test]
     fn valid_api_key_from_config() {
