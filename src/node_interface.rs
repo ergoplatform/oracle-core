@@ -3,7 +3,7 @@ use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use crate::oracle_config::{get_node_api_key, get_node_url};
 
 
-// Registers a scan with the node and returns
+/// Registers a scan with the node and returns the `scanID`
 pub fn register_scan(scan_name: &String, tracking_rule: &String) -> Option<String> {
     None
 }

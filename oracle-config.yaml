@@ -6,21 +6,21 @@ node-port: "9053"
 # API key for the node
 node-api-key: "hello"
 # Your oracle address 
-oracle-address:
+oracle-address: ""
 # The type of the oracle pool datapoint. Current options: [Int, String]
 datapoint-type: Int
 # ID of the oracle pool NFT
-oracle-pool-nft:
+oracle-pool-nft: ""
 # ID of the oracle pool participant token
-oracle-pool-participant-token:
+oracle-pool-participant-token: ""
 # Address of the pool's "Epoch Preparation" contract
-epoch-preparation-contract-address:
+epoch-preparation-contract-address: ""
 # Address of the pool's "Oracle Pool Epoch" contract
-oracle-pool-epoch-contract-address:
+oracle-pool-epoch-contract-address: ""
 # Address of the pool's "Datapoint" contract
-datapoint-contract-address:
+datapoint-contract-address: ""
 # Address of the "Pool Deposit" contract
-pool-deposit-contract-address:
+pool-deposit-contract-address: ""
 # Stake Slashing Config (Currently False as no support in initial version)
 stake-slashing: False
 # Governance (Currently False as no support in initial version)
