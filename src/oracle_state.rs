@@ -1,9 +1,10 @@
 /// This files relates to the state of the oracle/oracle pool.
-use yaml_rust::{YamlLoader};
 use crate::node_interface::{register_scan};
 use crate::oracle_config::{get_config_yaml, get_node_url, get_node_api_key};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally};
+use std::path::Path;
+use yaml_rust::{YamlLoader};
 
 
 /// Overarching Trait object for `PreparationState` and `EpochState`
@@ -57,15 +58,17 @@ impl OraclePool {
         let datapoint_contract_address = config["datapoint_contract_address"].as_str().expect("No datapoint_contract_address specified in config file.").to_string();
         let pool_deposit_contract_address = config["pool_deposit_contract_address"].as_str().expect("No pool_deposit_contract_address specified in config file.").to_string();
 
-        // Add logic if scanIDs.json exists, skip, else register scans and save to file
-            // .. 
-        // Then read scanIDs.json whether or not the file existed prior to get input.
-        let epoch_preparation_scan_id = "".to_string();
-        let oracle_pool_epoch_scan_id = "".to_string();
-        let datapoint_scan_id = "".to_string();
-        let pool_deposit_scan_id = "".to_string();
-
-        save_scan_ids_locally(epoch_preparation_scan_id.clone(), oracle_pool_epoch_scan_id.clone(), datapoint_scan_id.clone(), pool_deposit_scan_id.clone());
+        // If scanIDs.json exists, skip registering scans & saving generated ids
+        if !Path::new("scanIDs.json").exists() {
+            // Add registering here and calling save_scan_ids_locally with returned ids
+            save_scan_ids_locally("abc123".to_string(), "abc123".to_string(), "abc123".to_string(), "abc123".to_string());
+        }
+        // Read scanIDs.json for scan ids
+        let scan_ids = json::parse(&std::fs::read_to_string("scanIDs.json").expect("Unable to read scanIDs.json")).expect("Failed to parse scanIDs.json");
+        let epoch_preparation_scan_id = scan_ids["epoch_preparation_scan_id"].to_string();
+        let oracle_pool_epoch_scan_id = scan_ids["oracle_pool_epoch_scan_id"].to_string();
+        let datapoint_scan_id = scan_ids["datapoint_scan_id"].to_string();
+        let pool_deposit_scan_id = scan_ids["pool_deposit_scan_id"].to_string();
 
 
         OraclePool {
