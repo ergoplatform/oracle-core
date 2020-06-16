@@ -5,6 +5,7 @@ use crate::node_interface::{register_scan};
 use crate::oracle_config::{get_oracle_pool_nft_id};
 use crate::{NanoErg, BlockHeight, EpochID};
 
+
 /// Overarching Trait object for `PreparationState` and `EpochState`
 pub trait OraclePoolBox {
     fn stage(&self) -> PoolStage;
@@ -18,12 +19,34 @@ pub enum PoolStage {
     Epoch
 }
 
-/// Overarching struct which summarizes the state of the whole oracle pool protocol
+/// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 pub struct OraclePool {
-    pub current_block_height: BlockHeight,
-    pub datapoint_state: DatapointState,
-    pub deposits_state: PoolDepositsState,
-    pub pool_box_state: dyn OraclePoolBox,
+    /// Address of the local oracle running the oracle core
+    pub local_oracle_address: String,
+    /// Token IDs
+    pub oracle_pool_nft: String,
+    pub oracle_pool_participant_token: String,
+    /// Contracts Addresses
+    pub epoch_preparation_contract_address: String,
+    pub oracle_pool_epoch_contract_address: String,
+    pub datapoint_contract_address: String,
+    pub pool_deposit_contract_address: String,
+    /// Scan IDs
+    pub epoch_preparation_scan_id: Option<String>,
+    pub oracle_pool_epoch_scan_id: Option<String>,
+    pub datapoint_scan_id: Option<String>,
+    pub pool_deposit_scan_id: Option<String>,
+
+
+}
+
+
+impl OraclePool {
+    // Create methods to acquire said values
+    // pub current_block_height: BlockHeight,
+    // pub datapoint_state: DatapointState,
+    // pub deposits_state: PoolDepositsState,
+    // pub pool_box_state: dyn OraclePoolBox,
 }
 
 
@@ -34,7 +57,6 @@ pub struct EpochState {
     pub epoch_id: EpochID,
     pub commit_datapoint_in_epoch: bool,
     pub epoch_ends: BlockHeight,
-
 }
 
 /// The state of the oracle pool when it is in the Epoch Preparation stage
@@ -42,7 +64,6 @@ pub struct EpochState {
 pub struct PreparationState {
     pub funds: NanoErg,
     pub next_epoch_ends: BlockHeight,
-
 }
 
 /// The state of the local oracle's Datapoint box
@@ -50,7 +71,6 @@ pub struct PreparationState {
 pub struct DatapointState {
     datapoint: String,
     from_epoch: EpochID,
-
 }
 
 /// The current UTXO-set state of all of the Pool Deposit boxes
