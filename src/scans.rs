@@ -14,10 +14,28 @@ pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String
 
 
 /// This function registers scanning for the Epoch Preparation stage box
-pub fn register_epoch_preparation_scan() -> Option<String> {
+pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparation_address: &String) -> Option<String> {
     // Scan for NFT id + Epoch Preparation address
+    let scan_json = object!{
+        appName: "Epoch Preparation Scan",
+        trackingRule: {
+            "predicate": "and",
+            "args": [
+                {
+                "predicate": "containsAsset",
+                "assetId": oracle_pool_nft.clone(),
+                },
+                {
+                "predicate": "equals",
+                "bytes": epoch_preparation_address.clone(),
+                }
+            ]}
+        };
+
+    println!("{:?}", json::stringify_pretty(scan_json, 4));
     None
 }
+
 
 /// This function registers scanning for the Oracle Pool Epoch stage box
 pub fn register_oracle_pool_epoch_scan() -> Option<String> {

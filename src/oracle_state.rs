@@ -2,7 +2,7 @@
 use crate::node_interface::{register_scan};
 use crate::oracle_config::{get_config_yaml, get_node_url, get_node_api_key};
 use crate::{NanoErg, BlockHeight, EpochID};
-use crate::scans::{save_scan_ids_locally};
+use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan};
 use std::path::Path;
 use yaml_rust::{YamlLoader};
 
@@ -61,6 +61,7 @@ impl OraclePool {
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
             // Add registering here and calling save_scan_ids_locally with returned ids
+            let id1 = register_epoch_preparation_scan(&oracle_pool_nft, &epoch_preparation_contract_address);
             save_scan_ids_locally("abc123".to_string(), "abc123".to_string(), "abc123".to_string(), "abc123".to_string());
         }
         // Read scanIDs.json for scan ids
