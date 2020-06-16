@@ -1,13 +1,19 @@
-use reqwest::blocking;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use crate::oracle_config::{get_node_api_key, get_node_url};
+use crate::{NanoErg, BlockHeight, EpochID};
 
 
 /// Registers a scan with the node and returns the `scanID`
+/// To Be Implemented
 pub fn register_scan(scan_name: &String, tracking_rule: &String) -> Option<String> {
     None
 }
 
+/// Get the current block height of the chain
+/// To Be Implemented
+pub fn current_block_height() -> BlockHeight {
+    0
+}
 
 
 

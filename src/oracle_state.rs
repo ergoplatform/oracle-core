@@ -19,6 +19,7 @@ pub enum PoolStage {
 }
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
+#[derive(Debug, Clone)]
 pub struct OraclePool {
     /// Address of the local oracle running the oracle core
     pub local_oracle_address: String,
@@ -81,6 +82,17 @@ impl OraclePool {
 
     }
 
+    // Get the current state of the oracle pool box. Returns trait object OraclePoolBox which may be either `EpochState` or `PreparationState`.
+    // pub fn get_oracle_pool_state (&self) -> dyn OraclePoolBox {
+    // }
+
+    // Get the current state of the local oracle's datapoint
+    // pub fn get_datapoint_state(&self) -> DatapointState {
+    // }
+
+    // Get the current state of all of the pool deposit boxes
+    // pub fn get_pool_deposits_state(&self) -> PoolDepositsState {
+    // }
 }
 
 

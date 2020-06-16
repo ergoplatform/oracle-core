@@ -4,7 +4,7 @@ use yaml_rust::{YamlLoader};
 
 /// Reads the `oracle_config.yaml` file
 pub fn get_config_yaml() -> String {
-    std::fs::read_to_string("oracle_config.yaml").expect("Failed to open config.")
+    std::fs::read_to_string("oracle-config.yaml").expect("Failed to open oracle_config.yaml")
 }
 
 /// Returns `http://ip:port` using `node_ip` and `node_port` from the config file
