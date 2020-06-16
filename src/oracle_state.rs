@@ -1,6 +1,4 @@
 /// This files relates to the state of the oracle/oracle pool.
-/// It provides the functions for setting up the required scans to follow the given oracle pool
-/// as well as checking the scans in regular intervals and generating structs from the results.
 use yaml_rust::{YamlLoader};
 use crate::node_interface::{register_scan};
 use crate::oracle_config::{get_config_yaml, get_node_url, get_node_api_key};
@@ -33,21 +31,56 @@ pub struct OraclePool {
     pub datapoint_contract_address: String,
     pub pool_deposit_contract_address: String,
     /// Scan IDs
-    pub epoch_preparation_scan_id: Option<String>,
-    pub oracle_pool_epoch_scan_id: Option<String>,
-    pub datapoint_scan_id: Option<String>,
-    pub pool_deposit_scan_id: Option<String>,
+    pub epoch_preparation_scan_id: String,
+    pub oracle_pool_epoch_scan_id: String,
+    pub datapoint_scan_id: String,
+    pub pool_deposit_scan_id: String,
 
 
 }
 
 
 impl OraclePool {
-    // Create methods to acquire said values
-    // pub current_block_height: BlockHeight,
-    // pub datapoint_state: DatapointState,
-    // pub deposits_state: PoolDepositsState,
-    // pub pool_box_state: dyn OraclePoolBox,
+
+    /// Create a new `OraclePool` struct
+    pub fn new() -> OraclePool {
+        let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
+
+        let local_oracle_address = config["oracle_address"].as_str().expect("No oracle_pool_nft specified in config file.").to_string();
+        let oracle_pool_nft = config["oracle_pool_nft"].as_str().expect("No oracle_pool_nft specified in config file.").to_string();
+        let oracle_pool_participant_token = config["oracle_pool_participant_token"].as_str().expect("No oracle_pool_participant_token specified in config file.").to_string();
+        
+        let epoch_preparation_contract_address = config["epoch_preparation_contract_address"].as_str().expect("No epoch_preparation_contract_address specified in config file.").to_string();
+        let oracle_pool_epoch_contract_address = config["oracle_pool_epoch_contract_address"].as_str().expect("No oracle_pool_epoch_contract_address specified in config file.").to_string();
+        let datapoint_contract_address = config["datapoint_contract_address"].as_str().expect("No datapoint_contract_address specified in config file.").to_string();
+        let pool_deposit_contract_address = config["pool_deposit_contract_address"].as_str().expect("No pool_deposit_contract_address specified in config file.").to_string();
+
+        // Add logic of opening of scanIDs.yaml and reading from them if available. Else register scans and create file/store scanIDs there automatically.
+        let epoch_preparation_scan_id = "".to_string();
+        let oracle_pool_epoch_scan_id = "".to_string();
+        let datapoint_scan_id = "".to_string();
+        let pool_deposit_scan_id = "".to_string();
+
+
+        OraclePool {
+            local_oracle_address: local_oracle_address,
+            oracle_pool_nft: oracle_pool_nft,
+            oracle_pool_participant_token: oracle_pool_participant_token,
+
+            epoch_preparation_contract_address: epoch_preparation_contract_address,
+            oracle_pool_epoch_contract_address: oracle_pool_epoch_contract_address,
+            datapoint_contract_address: datapoint_contract_address,
+            pool_deposit_contract_address: pool_deposit_contract_address,
+
+            epoch_preparation_scan_id: epoch_preparation_scan_id,
+            oracle_pool_epoch_scan_id: oracle_pool_epoch_scan_id,
+            datapoint_scan_id: datapoint_scan_id,
+            pool_deposit_scan_id: pool_deposit_scan_id,
+        }
+
+
+    }
+
 }
 
 
@@ -98,27 +131,3 @@ impl OraclePoolBox for PreparationState {
 
 
 
-
-/// This function registers scanning for the Epoch Preparation stage box
-pub fn register_epoch_preparation_scan() -> Option<String> {
-    // Scan for NFT id + Epoch Preparation address
-    None
-}
-
-/// This function registers scanning for the Oracle Pool Epoch stage box
-pub fn register_oracle_pool_epoch_scan() -> Option<String> {
-    // Scan for NFT id + Oracle Pool Epoch address
-    None
-}
-
-/// This function registers scanning for the oracle's personal Datapoint box
-pub fn register_datapoint_scan() -> Option<String> {
-    // Scan for pool participant token id + oracle-address in R4
-    None
-}
-
-/// This function registers scanning for any boxes in the Pool Deposit stage address
-pub fn register_pool_deposit_scan() -> Option<String> {
-    // Scan for pool participant token id + oracle-address in R4
-    None
-}

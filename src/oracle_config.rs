@@ -1,4 +1,4 @@
-/// Basic functions for acquiring oracle config and node data
+/// Basic functions for acquiring oracle config/node data
 use yaml_rust::{YamlLoader};
 
 

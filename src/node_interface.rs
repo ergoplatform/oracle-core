@@ -10,6 +10,7 @@ pub fn register_scan(scan_name: &String, tracking_rule: &String) -> Option<Strin
 
 
 
+
 /// Gets a list of all addresses from the local unlocked node wallet
 pub fn get_wallet_addresses() -> Option<Vec<String>> {
     let endpoint = get_node_url().to_owned() + "/wallet/addresses";
