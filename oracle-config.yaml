@@ -1,26 +1,25 @@
----
 # IP Address of the node (default is local)
-node-ip: "0.0.0.0"
+node_ip: "0.0.0.0"
 # Port that the node is on (default is 9053)
-node-port: "9053"
+node_port: "9053"
 # API key for the node
-node-api-key: "hello"
+node_api_key: "hello"
 # Your oracle address 
-oracle-address: ""
+oracle_address: ""
 # ID of the oracle pool NFT
-oracle-pool-nft: ""
+oracle_pool_nft: ""
 # ID of the oracle pool participant token
-oracle-pool-participant-token: ""
+oracle_pool_participant_token: ""
 # Address of the pool's "Epoch Preparation" contract
-epoch-preparation-contract-address: ""
+epoch_preparation_contract_address: ""
 # Address of the pool's "Oracle Pool Epoch" contract
-oracle-pool-epoch-contract-address: ""
+oracle_pool_epoch_contract_address: ""
 # Address of the pool's "Datapoint" contract
-datapoint-contract-address: ""
+datapoint_contract_address: ""
 # Address of the "Pool Deposit" contract
-pool-deposit-contract-address: ""
+pool_deposit_contract_address: ""
 # Stake Slashing Config (Currently False as no support in initial version)
-stake-slashing: False
+stake_slashing: False
 # Governance (Currently False as no support in initial version)
 governance: False
 

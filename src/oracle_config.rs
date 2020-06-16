@@ -1,30 +1,24 @@
+/// Basic functions for acquiring oracle config and node data
 use yaml_rust::{YamlLoader};
 
 
-/// Reads the `oracle-config.yaml` file
-fn get_config_yaml() -> String {
-    std::fs::read_to_string("oracle-config.yaml").expect("Failed to open config.")
+/// Reads the `oracle_config.yaml` file
+pub fn get_config_yaml() -> String {
+    std::fs::read_to_string("oracle_config.yaml").expect("Failed to open config.")
 }
 
-/// Returns `http://ip:port` using `node-ip` and `node-port` from the config file
+/// Returns `http://ip:port` using `node_ip` and `node_port` from the config file
 pub fn get_node_url() -> String {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    let ip = config["node-ip"].as_str().expect("No node-ip specified in config file.");
-    let port = config["node-port"].as_str().expect("No node-port specified in config file.");
+    let ip = config["node_ip"].as_str().expect("No node_ip specified in config file.");
+    let port = config["node_port"].as_str().expect("No node_port specified in config file.");
     "http://".to_string() + ip + ":" + &port
 }
 
-/// Returns `node-api-key` from the config file
+/// Returns `node_api_key` from the config file
 pub fn get_node_api_key() -> String {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["node-api-key"].as_str().expect("No node-api-key specified in config file.").to_string()
-}
-
-
-/// Returns `oracle-pool-nft` from the config file
-pub fn get_oracle_pool_nft_id() -> String {
-    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["oracle-pool-nft"].as_str().expect("No oracle-pool-nft specified in config file.").to_string()
+    config["node_api_key"].as_str().expect("No node_api_key specified in config file.").to_string()
 }
 
 
