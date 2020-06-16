@@ -3,6 +3,7 @@ use yaml_rust::{YamlLoader};
 use crate::node_interface::{register_scan};
 use crate::oracle_config::{get_config_yaml, get_node_url, get_node_api_key};
 use crate::{NanoErg, BlockHeight, EpochID};
+use crate::scans::{save_scan_ids_locally};
 
 
 /// Overarching Trait object for `PreparationState` and `EpochState`
@@ -56,23 +57,25 @@ impl OraclePool {
         let datapoint_contract_address = config["datapoint_contract_address"].as_str().expect("No datapoint_contract_address specified in config file.").to_string();
         let pool_deposit_contract_address = config["pool_deposit_contract_address"].as_str().expect("No pool_deposit_contract_address specified in config file.").to_string();
 
-        // Add logic of opening of scanIDs.yaml and reading from them if available. Else register scans and create file/store scanIDs there automatically.
+        // Add logic if scanIDs.json exists, skip, else register scans and save to file
+            // .. 
+        // Then read scanIDs.json whether or not the file existed prior to get input.
         let epoch_preparation_scan_id = "".to_string();
         let oracle_pool_epoch_scan_id = "".to_string();
         let datapoint_scan_id = "".to_string();
         let pool_deposit_scan_id = "".to_string();
+
+        save_scan_ids_locally(epoch_preparation_scan_id.clone(), oracle_pool_epoch_scan_id.clone(), datapoint_scan_id.clone(), pool_deposit_scan_id.clone());
 
 
         OraclePool {
             local_oracle_address: local_oracle_address,
             oracle_pool_nft: oracle_pool_nft,
             oracle_pool_participant_token: oracle_pool_participant_token,
-
             epoch_preparation_contract_address: epoch_preparation_contract_address,
             oracle_pool_epoch_contract_address: oracle_pool_epoch_contract_address,
             datapoint_contract_address: datapoint_contract_address,
             pool_deposit_contract_address: pool_deposit_contract_address,
-
             epoch_preparation_scan_id: epoch_preparation_scan_id,
             oracle_pool_epoch_scan_id: oracle_pool_epoch_scan_id,
             datapoint_scan_id: datapoint_scan_id,

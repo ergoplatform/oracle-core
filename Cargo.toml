@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 yaml-rust       = "0.4.4"
+json            = "0.12.4"
 reqwest = { version = "0.10.6", features = ["blocking"] }
