@@ -1,4 +1,5 @@
 /// This file holds logic related to UTXO-set scans
+use crate::node_interface::{register_scan};
 use json;
 
 /// Saves UTXO-set scan ids to scanIDs.json
@@ -14,7 +15,7 @@ pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String
 
 
 /// This function registers scanning for the Epoch Preparation stage box
-pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparation_address: &String) -> Option<String> {
+pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparation_address: &String) -> String {
     // Scan for NFT id + Epoch Preparation address
     let scan_json = object!{
         appName: "Epoch Preparation Scan",
@@ -32,8 +33,7 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
             ]}
         };
 
-    println!("{:?}", json::stringify_pretty(scan_json, 4));
-    None
+    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register epoch preparation scan.")
 }
 
 

@@ -64,6 +64,7 @@ impl OraclePool {
             let id1 = register_epoch_preparation_scan(&oracle_pool_nft, &epoch_preparation_contract_address);
             save_scan_ids_locally("abc123".to_string(), "abc123".to_string(), "abc123".to_string(), "abc123".to_string());
         }
+
         // Read scanIDs.json for scan ids
         let scan_ids = json::parse(&std::fs::read_to_string("scanIDs.json").expect("Unable to read scanIDs.json")).expect("Failed to parse scanIDs.json");
         let epoch_preparation_scan_id = scan_ids["epoch_preparation_scan_id"].to_string();

@@ -4,9 +4,21 @@ use crate::{NanoErg, BlockHeight, EpochID};
 
 
 /// Registers a scan with the node and returns the `scanID`
-/// To Be Implemented
-pub fn register_scan(scan_name: &String, tracking_rule: &String) -> Option<String> {
+pub fn register_scan(scan_json : &String) -> Option<String> {
+    let endpoint = get_node_url().to_owned() + "/application/register";
+    println!("{:?}", endpoint);
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let mut res = client.post(&endpoint)
+                .header("accept", "application/json")
+                .header("api_key", hapi_key)
+                .header(CONTENT_TYPE, "application/json")
+                .body(scan_json.to_string())
+                .send().ok()?;
+
+    let result = res.text().ok();
     None
+
 }
 
 /// Get the current block height of the chain
@@ -20,9 +32,8 @@ pub fn current_block_height() -> BlockHeight {
 /// Gets a list of all addresses from the local unlocked node wallet
 pub fn get_wallet_addresses() -> Option<Vec<String>> {
     let endpoint = get_node_url().to_owned() + "/wallet/addresses";
-    println!("{:?}", endpoint);
     let client = reqwest::blocking::Client::new();
-    let hapi_key = HeaderValue::from_str(&get_node_api_key()).expect("Failed to create header value from api key.");
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
     let mut res = client.get(&endpoint)
                 .header("accept", "application/json")
                 .header("api_key", hapi_key)
