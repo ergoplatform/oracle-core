@@ -1,5 +1,5 @@
 /// This files relates to the state of the oracle/oracle pool.
-use crate::node_interface::{register_scan};
+use crate::node_interface::{register_scan, get_scan_boxes};
 use crate::oracle_config::{get_config_yaml, get_node_url, get_node_api_key};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_oracle_pool_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
@@ -8,7 +8,7 @@ use yaml_rust::{YamlLoader};
 
 
 /// Overarching Trait object for `PreparationState` and `EpochState`
-pub trait OraclePoolBox {
+pub trait OraclePoolState {
     fn stage(&self) -> PoolStage;
 }
 
@@ -95,8 +95,11 @@ impl OraclePool {
 
     }
 
-    // Get the current state of the oracle pool box. Returns trait object OraclePoolBox which may be either `EpochState` or `PreparationState`.
-
+    // Get the current state of the oracle pool box. Returns trait object OraclePoolState which may be either `EpochState` or `PreparationState`.
+    // pub fn get_oracle_pool_state (&self) -> dyn OraclePoolState {
+    //     let epoch_preparation_box_list = get_scan_boxes(self.epoch_preparation_scan_id);
+    //     let pool_epoch_box_list = get_scan_boxes(self.oracle_pool_epoch_scan_id);
+    // }
 
     // Get the current state of the local oracle's datapoint
     // pub fn get_datapoint_state(&self) -> DatapointState {
@@ -140,14 +143,14 @@ pub struct PoolDepositsState {
 
 
 
-impl OraclePoolBox for EpochState {
+impl OraclePoolState for EpochState {
     fn stage(&self) -> PoolStage {
         PoolStage::Epoch
     }
 }
 
 
-impl OraclePoolBox for PreparationState {
+impl OraclePoolState for PreparationState {
     fn stage(&self) -> PoolStage {
         PoolStage::Preparation
     }
