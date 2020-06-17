@@ -10,7 +10,7 @@ struct Box {
     ergo_tree: String,
     creation_height: u64,
     assets: Vec<Asset>,
-    registers: Vec<Register>,
+    additional_registers: Vec<Register>,
     transaction_id: String,
     index: u64,
 }
@@ -26,3 +26,10 @@ struct Register {
     register: String,
     value: String,
 }
+
+
+// impl Box {
+//     pub fn from_json_str(box_json: &String) -> Box {
+
+//     }
+// }
