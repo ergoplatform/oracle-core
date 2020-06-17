@@ -96,8 +96,7 @@ impl OraclePool {
     }
 
     // Get the current state of the oracle pool box. Returns trait object OraclePoolBox which may be either `EpochState` or `PreparationState`.
-    // pub fn get_oracle_pool_state (&self) -> dyn OraclePoolBox {
-    // }
+
 
     // Get the current state of the local oracle's datapoint
     // pub fn get_datapoint_state(&self) -> DatapointState {

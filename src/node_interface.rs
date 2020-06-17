@@ -3,7 +3,7 @@ use crate::oracle_config::{get_node_api_key, get_node_url};
 use crate::{NanoErg, BlockHeight, EpochID};
 
 
-/// Registers a scan with the node and returns the `scanID`
+/// Registers a scan with the node and returns the `scan_id`
 pub fn register_scan(scan_json : &String) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/application/register";
     println!("{:?}", endpoint);
@@ -17,9 +17,28 @@ pub fn register_scan(scan_json : &String) -> Option<String> {
                 .send().ok()?;
 
     let result = res.text().ok();
+    println!("{:?}", result);
     None
-
 }
+
+/// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
+pub fn get_scan_boxes(scan_id : &String) -> Option<String> {
+    let endpoint = get_node_url().to_owned() + "/application/unspentBoxes/" + scan_id;
+    println!("{:?}", endpoint);
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let mut res = client.get(&endpoint)
+                .header("accept", "application/json")
+                .header("api_key", hapi_key)
+                .header(CONTENT_TYPE, "application/json")
+                .send().ok()?;
+
+    let result = res.text().ok();
+    println!("{:?}", result);
+    None
+}
+
+
 
 /// Get the current block height of the chain
 /// To Be Implemented
