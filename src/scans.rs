@@ -38,19 +38,64 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
 
 
 /// This function registers scanning for the Oracle Pool Epoch stage box
-pub fn register_oracle_pool_epoch_scan() -> Option<String> {
+pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &String) -> String {
     // Scan for NFT id + Oracle Pool Epoch address
-    None
+    let scan_json = object!{
+        appName: "Oracle Pool Epoch Scan",
+        trackingRule: {
+            "predicate": "and",
+            "args": [
+                {
+                "predicate": "containsAsset",
+                "assetId": oracle_pool_nft.clone(),
+                },
+                {
+                "predicate": "equals",
+                "bytes": pool_epoch_address.clone(),
+                }
+            ]}
+        };
+
+    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register oracle pool epoch scan.")
 }
 
 /// This function registers scanning for the oracle's personal Datapoint box
-pub fn register_datapoint_scan() -> Option<String> {
-    // Scan for pool participant token id + oracle-address in R4
-    None
+pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint_address: &String, oracle_address: &String) -> String {
+    // Scan for pool participant token id + oracle_address in R4
+    let scan_json = object!{
+        appName: "Personal Oracle Datapoint Scan",
+        trackingRule: {
+            "predicate": "and",
+            "args": [
+                {
+                "predicate": "containsAsset",
+                "assetId": oracle_pool_participant_token.clone(),
+                },
+                {
+                "predicate": "equals",
+                "bytes": datapoint_address.clone(),
+                },
+                {
+                "predicate": "equals",
+                "register": "R4",
+                "bytes": oracle_address.clone(),
+                }
+            ]}
+        };
+
+    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register oracle datapoint scan.")
 }
 
 /// This function registers scanning for any boxes in the Pool Deposit stage address
-pub fn register_pool_deposit_scan() -> Option<String> {
-    // Scan for pool participant token id + oracle-address in R4
-    None
+pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> String {
+    // Scan for boxes at pool deposit address
+    let scan_json = object!{
+        appName: "Oracle Pool Deposit Scan",
+        trackingRule: {
+                "predicate": "equals",
+                "bytes": pool_deposit_address.clone(),
+        }
+    };
+
+    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register pool deposit scan.")
 }
