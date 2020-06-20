@@ -62,7 +62,7 @@ Each operator must set up their `oracle-config.yaml` with information about thei
 
 
 ### Oracle Core <-> Node Interaction
-Using the new [EIP-1 Application-Friendly Wallet API](https://github.com/ergoplatform/eips/blob/master/eip-0001.md), the oracle core will register scans to find all of the relevant boxes.
+Using the new [EIP-1](https://github.com/ergoplatform/eips/blob/master/eip-0001.md), the oracle core will register scans to find all relevant boxes.
 
 For the initial implementation these scans include:
 
@@ -71,7 +71,7 @@ For the initial implementation these scans include:
 3. A box in the "Epoch Preparation" contract address which holds the oracle pool NFT.
 4. A box in the "Oracle Pool Epoch" contract address which holds the oracle pool NFT.
 
-The oracle core will save each of the `scanId`s locally after registering them with the full node. At any time the oracle core wishes to check the current state of the protocol, it simply uses the `scanId`s to acquire all of the relevant boxes.
+The oracle core saves each of the `scanId`s locally into `scanIDs.json` after registering them with the full node. At any time the oracle core wishes to check the current state of the protocol, it simply reads the `scanId`s from the file and acquire all of the relevant unspent boxes from the node.
 
 
 ### Transaction Building
