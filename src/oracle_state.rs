@@ -1,6 +1,6 @@
 /// This files relates to the state of the oracle/oracle pool.
 use crate::node_interface::{register_scan, get_scan_boxes};
-use crate::oracle_config::{get_config_yaml, get_node_url, get_node_api_key};
+use crate::oracle_config::{get_config_yaml};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_oracle_pool_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
 use std::path::Path;
@@ -14,6 +14,12 @@ pub enum PoolBoxState {
 }
 
 
+/// A `Stage` is defined here by it's contract address & it's scan_id
+#[derive(Debug, Clone)]
+pub struct Stage {
+    contract_address: String,
+    scan_id: String,
+}
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug, Clone)]
@@ -23,18 +29,11 @@ pub struct OraclePool {
     /// Token IDs
     pub oracle_pool_nft: String,
     pub oracle_pool_participant_token: String,
-    /// Contracts Addresses
-    pub epoch_preparation_contract_address: String,
-    pub oracle_pool_epoch_contract_address: String,
-    pub datapoint_contract_address: String,
-    pub pool_deposit_contract_address: String,
-    /// Scan IDs
-    pub epoch_preparation_scan_id: String,
-    pub oracle_pool_epoch_scan_id: String,
-    pub datapoint_scan_id: String,
-    pub pool_deposit_scan_id: String,
-
-
+    /// Stages
+    pub epoch_preparation_stage: Stage,
+    pub oracle_pool_epoch_stage: Stage,
+    pub datapoint_stage: Stage,
+    pub pool_deposit_stage: Stage,
 }
 
 
@@ -76,14 +75,10 @@ impl OraclePool {
             local_oracle_address: local_oracle_address,
             oracle_pool_nft: oracle_pool_nft,
             oracle_pool_participant_token: oracle_pool_participant_token,
-            epoch_preparation_contract_address: epoch_preparation_contract_address,
-            oracle_pool_epoch_contract_address: oracle_pool_epoch_contract_address,
-            datapoint_contract_address: datapoint_contract_address,
-            pool_deposit_contract_address: pool_deposit_contract_address,
-            epoch_preparation_scan_id: epoch_preparation_scan_id,
-            oracle_pool_epoch_scan_id: oracle_pool_epoch_scan_id,
-            datapoint_scan_id: datapoint_scan_id,
-            pool_deposit_scan_id: pool_deposit_scan_id,
+            epoch_preparation_stage: Stage { contract_address: epoch_preparation_contract_address, scan_id: epoch_preparation_scan_id},
+            oracle_pool_epoch_stage: Stage { contract_address: oracle_pool_epoch_contract_address, scan_id: oracle_pool_epoch_scan_id },
+            datapoint_stage: Stage { contract_address: datapoint_contract_address, scan_id: datapoint_scan_id },
+            pool_deposit_stage: Stage { contract_address: pool_deposit_contract_address, scan_id: pool_deposit_scan_id },
         }
 
 
@@ -91,7 +86,7 @@ impl OraclePool {
 
     /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
     pub fn check_oracle_pool_stage(&self) -> PoolBoxState {
-        let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_scan_id).unwrap_or(vec![]);
+        let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id).unwrap_or(vec![]);
 
         if epoch_preparation_box_list.len() > 0 {
            return PoolBoxState::Preparation;
