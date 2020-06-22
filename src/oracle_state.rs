@@ -7,15 +7,9 @@ use std::path::Path;
 use yaml_rust::{YamlLoader};
 
 
-/// Overarching Trait object for `PreparationState` and `EpochState`
-pub trait OraclePoolState {
-    fn stage(&self) -> PoolStage;
-}
-
-
 #[derive(Debug, Clone)]
 /// Enum for the oracle pool box stage
-pub enum PoolStage { 
+pub enum PoolBoxStage { 
     Preparation,
     Epoch
 }
@@ -94,10 +88,24 @@ impl OraclePool {
 
     }
 
-    // Get the current state of the oracle pool box. Returns trait object OraclePoolState which may be either `EpochState` or `PreparationState`.
-    // pub fn get_oracle_pool_state (&self) -> dyn OraclePoolState {
-    //     let epoch_preparation_box_list = get_scan_boxes(self.epoch_preparation_scan_id);
-    //     let pool_epoch_box_list = get_scan_boxes(self.oracle_pool_epoch_scan_id);
+    /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
+    pub fn check_oracle_pool_stage(&self) -> PoolBoxStage {
+        let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_scan_id).unwrap_or(vec![]);
+
+        if epoch_preparation_box_list.len() > 0 {
+           return PoolBoxStage::Preparation;
+        }
+        else {
+           return PoolBoxStage::Epoch;
+        }
+    }
+
+    // Get the state of the current oracle pool epoch
+    // pub fn get_epoch_state(&self) -> EpochState {
+    // }
+
+    // Get the state of the current epoch preparation box
+    // pub fn get_preparation_state(&self) -> EpochState {
     // }
 
     // Get the current state of the local oracle's datapoint
@@ -139,21 +147,3 @@ pub struct PoolDepositsState {
     number_of_boxes: u64,
     total_ergs: u64
 }
-
-
-
-impl OraclePoolState for EpochState {
-    fn stage(&self) -> PoolStage {
-        PoolStage::Epoch
-    }
-}
-
-
-impl OraclePoolState for PreparationState {
-    fn stage(&self) -> PoolStage {
-        PoolStage::Preparation
-    }
-}
-
-
-
