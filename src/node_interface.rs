@@ -25,7 +25,6 @@ pub fn register_scan(scan_json: &String) -> Option<String> {
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
 pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<String>> {
     let endpoint = get_node_url().to_owned() + "/application/unspentBoxes/" + scan_id;
-    println!("{:?}", endpoint);
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
     let mut res = client

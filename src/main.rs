@@ -20,10 +20,8 @@ fn main() {
     let node_api_key = oracle_config::get_node_api_key();
 
     let op = oracle_state::OraclePool::new();
-    let addresses = node_interface::get_wallet_addresses();
-    let scanBoxes = node_interface::get_scan_boxes(&"17".to_string());
 
-    println!("{:?}", op);
+    println!("{:?}", op.get_epoch_state());
 }
 
 

@@ -98,12 +98,17 @@ impl OraclePool {
 
     /// Get the state of the current oracle pool epoch
     pub fn get_epoch_state(&self) -> Option<EpochState> {
-        // let epoch_box = get_scan_boxes(self.oracle_pool_epoch_scan_id)
+        let epoch_box_list = get_scan_boxes(&self.oracle_pool_epoch_stage.scan_id)?;
+        let epoch_box = epoch_box_list.into_iter().nth(0)?;
+
+        // Add epoch state creation logic here
+
         None
     }
 
     /// Get the state of the current epoch preparation box
     pub fn get_preparation_state(&self) -> Option<EpochState> {
+        let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id)?;
         None
     }
 
