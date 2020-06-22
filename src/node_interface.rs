@@ -6,7 +6,6 @@ use reqwest::header::{HeaderValue, CONTENT_TYPE};
 /// Registers a scan with the node and returns the `scan_id`
 pub fn register_scan(scan_json: &String) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/application/register";
-    println!("{:?}", endpoint);
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
     let mut res = client
@@ -19,13 +18,12 @@ pub fn register_scan(scan_json: &String) -> Option<String> {
         .ok()?;
 
     let result = res.text().ok()?;
-    println!("{:?}", result);
     let res_json = json::parse(&result).ok()?;
     Some(res_json["appId"].to_string().clone())
 }
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
-pub fn get_scan_boxes(scan_id: &String) -> Option<String> {
+pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<String>> {
     let endpoint = get_node_url().to_owned() + "/application/unspentBoxes/" + scan_id;
     println!("{:?}", endpoint);
     let client = reqwest::blocking::Client::new();

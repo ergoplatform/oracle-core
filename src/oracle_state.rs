@@ -67,7 +67,6 @@ impl OraclePool {
             let id4 = register_pool_deposit_scan(&pool_deposit_contract_address);
 
             save_scan_ids_locally(id1, id2, id3, id4);
-            // save_scan_ids_locally("1234".to_string(), "1234".to_string(),"1234".to_string(),"1234".to_string());
         }
 
         // Read scanIDs.json for scan ids
