@@ -6,13 +6,14 @@ use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, regis
 use std::path::Path;
 use yaml_rust::{YamlLoader};
 
-
 #[derive(Debug, Clone)]
-/// Enum for the oracle pool box stage
-pub enum PoolBoxStage { 
+/// Enum for the state that the oracle pool box is currently in
+pub enum PoolBoxState { 
     Preparation,
     Epoch
 }
+
+
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug, Clone)]
@@ -89,32 +90,37 @@ impl OraclePool {
     }
 
     /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
-    pub fn check_oracle_pool_stage(&self) -> PoolBoxStage {
+    pub fn check_oracle_pool_stage(&self) -> PoolBoxState {
         let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_scan_id).unwrap_or(vec![]);
 
         if epoch_preparation_box_list.len() > 0 {
-           return PoolBoxStage::Preparation;
+           return PoolBoxState::Preparation;
         }
         else {
-           return PoolBoxStage::Epoch;
+           return PoolBoxState::Epoch;
         }
     }
 
-    // Get the state of the current oracle pool epoch
-    // pub fn get_epoch_state(&self) -> EpochState {
-    // }
+    /// Get the state of the current oracle pool epoch
+    pub fn get_epoch_state(&self) -> Option<EpochState> {
+        // let epoch_box = get_scan_boxes(self.oracle_pool_epoch_scan_id)
+        None
+    }
 
-    // Get the state of the current epoch preparation box
-    // pub fn get_preparation_state(&self) -> EpochState {
-    // }
+    /// Get the state of the current epoch preparation box
+    pub fn get_preparation_state(&self) -> Option<EpochState> {
+        None
+    }
 
-    // Get the current state of the local oracle's datapoint
-    // pub fn get_datapoint_state(&self) -> DatapointState {
-    // }
+    ///Get the current state of the local oracle's datapoint
+    pub fn get_datapoint_state(&self) -> Option<DatapointState> {
+        None
+    }
 
-    // Get the current state of all of the pool deposit boxes
-    // pub fn get_pool_deposits_state(&self) -> PoolDepositsState {
-    // }
+    ///Get the current state of all of the pool deposit boxes
+    pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
+        None
+    }
 }
 
 
