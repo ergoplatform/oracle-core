@@ -114,22 +114,43 @@ impl OraclePool {
 
         // let commit_datapoint_in_epoch = box_id == datapoint_r5;
 
+        // Latest pool datapoint is held in R4 of the epoch box
+        // let latest_pool_datapoint = epoch_box.additional_registers.get_ordered_values()[0];
+
         // Block height epochs ends is held in R5 of the epoch box
         // let epoch_ends = epoch_box.additional_registers.get_ordered_values()[1];
 
-        // let es = EpochState {
+        // let epoch_state = EpochState {
             // funds: epoch_box.value.0,
             // epoch_id: epoch_box_id,
             // commit_datapoint_in_epoch: commit_datapoint_in_epoch,
             // epoch_ends: epoch_ends
+            // latest_pool_datapoint: latest_pool_datapoint,
         // }
-
+        // Some(epoch_state)
         None
     }
 
     /// Get the state of the current epoch preparation box
-    pub fn get_preparation_state(&self) -> Option<EpochState> {
-        let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id)?;
+    pub fn get_preparation_state(&self, epoch_prep_box: ErgoBoxCandidate) -> Option<PreparationState> {
+        let epoch_prep_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id)?;
+        // let epoch_prep_box = epoch_prep_box_list.into_iter().nth(0)?;
+
+        // Latest pool datapoint is held in R4
+        // let latest_pool_datapoint = epoch_prep_box.additional_registers.get_ordered_values()[0];
+
+        // Next epoch ends height held in R5
+        // let next_epoch_ends = epoch_prep_box.additional_registers.get_ordered_values()[1];
+
+
+        // let prep_state = PreparationState {
+        //     funds: epoch_prep_box.value.0,
+        //     next_epoch_ends: next_epoch_ends,
+        //     latest_pool_datapoint: latest_pool_datapoint,
+        // }
+        // Some(prep_state)
+
+
         None
     }
 
@@ -152,6 +173,7 @@ pub struct EpochState {
     pub epoch_id: EpochID,
     pub commit_datapoint_in_epoch: bool,
     pub epoch_ends: BlockHeight,
+    pub latest_pool_datapoint: String,
 }
 
 /// The state of the oracle pool when it is in the Epoch Preparation stage
@@ -159,6 +181,7 @@ pub struct EpochState {
 pub struct PreparationState {
     pub funds: NanoErg,
     pub next_epoch_ends: BlockHeight,
+    pub latest_pool_datapoint: String,
 }
 
 /// The state of the local oracle's Datapoint box
