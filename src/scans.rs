@@ -18,7 +18,7 @@ pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String
 pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparation_address: &String) -> String {
     // Scan for NFT id + Epoch Preparation address
     let scan_json = object!{
-        appName: "Epoch Preparation Scan",
+        scanName: "Epoch Preparation Scan",
         trackingRule: {
             "predicate": "and",
             "args": [
@@ -41,7 +41,7 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
 pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &String) -> String {
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = object!{
-        appName: "Oracle Pool Epoch Scan",
+        scanName: "Oracle Pool Epoch Scan",
         trackingRule: {
             "predicate": "and",
             "args": [
@@ -63,7 +63,7 @@ pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_addr
 pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint_address: &String, oracle_address: &String) -> String {
     // Scan for pool participant token id + oracle_address in R4
     let scan_json = object!{
-        appName: "Personal Oracle Datapoint Scan",
+        scanName: "Personal Oracle Datapoint Scan",
         trackingRule: {
             "predicate": "and",
             "args": [
@@ -90,7 +90,7 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
 pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> String {
     // Scan for boxes at pool deposit address
     let scan_json = object!{
-        appName: "Oracle Pool Deposit Scan",
+        scanName: "Oracle Pool Deposit Scan",
         trackingRule: {
                 "predicate": "equals",
                 "bytes": pool_deposit_address.clone(),
