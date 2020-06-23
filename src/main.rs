@@ -8,6 +8,7 @@ mod scans;
 
 pub type NanoErg = u64;
 pub type BlockHeight = u64;
+/// The id of the oracle pool epoch box
 pub type EpochID = String;
 
 

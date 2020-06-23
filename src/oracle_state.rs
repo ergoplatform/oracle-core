@@ -98,8 +98,7 @@ impl OraclePool {
     }
 
     /// Get the state of the current oracle pool epoch
-    // Include boxes as input to design the function until json deserialization is implemented
-    pub fn get_epoch_state(&self, epoch_box: ErgoBoxCandidate, datapoint_box: ErgoBoxCandidate) -> Option<EpochState> {
+    pub fn get_epoch_state(&self) -> Option<EpochState> {
         let epoch_box_list = get_scan_boxes(&self.oracle_pool_epoch_stage.scan_id)?;
         // let epoch_box = epoch_box_list.into_iter().nth(0)?;
 
@@ -132,7 +131,7 @@ impl OraclePool {
     }
 
     /// Get the state of the current epoch preparation box
-    pub fn get_preparation_state(&self, epoch_prep_box: ErgoBoxCandidate) -> Option<PreparationState> {
+    pub fn get_preparation_state(&self) -> Option<PreparationState> {
         let epoch_prep_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id)?;
         // let epoch_prep_box = epoch_prep_box_list.into_iter().nth(0)?;
 
@@ -154,9 +153,25 @@ impl OraclePool {
         None
     }
 
-    ///Get the current state of the local oracle's datapoint
+    /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
+        let datapoint_box_list = get_scan_boxes(&self.datapoint_stage.scan_id)?;
+        // let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
+
+
+        // From epoch box id held in R5
+        // let from_epoch = epoch_prep_box.additional_registers.get_ordered_values()[1];
+
+        // Oracle datapoint held in R6
+        // let datapoint = epoch_prep_box.additional_registers.get_ordered_values()[1];
+
+        // let datapoint_state = DatapointState {
+        //     datapoint: datapoint,
+        //     from_epoch: from_epoch,
+        // }
+        // Some(datapoint_state)
         None
+
     }
 
     ///Get the current state of all of the pool deposit boxes
