@@ -2,6 +2,7 @@ use crate::oracle_config::{get_node_api_key, get_node_url};
 use crate::{BlockHeight, EpochID, NanoErg};
 use json;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
+use sigma_tree::chain::ErgoBox;
 
 /// Registers a scan with the node and returns the `scan_id`
 pub fn register_scan(scan_json: &String) -> Option<String> {

@@ -10,3 +10,4 @@ edition = "2018"
 yaml-rust       = "0.4.4"
 json            = "0.12.4"
 reqwest = { version = "0.10.6", features = ["blocking"] }
+sigma-tree = { git = "https://github.com/ergoplatform/sigma-rust", branch = "develop" }
