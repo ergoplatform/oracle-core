@@ -21,7 +21,6 @@ fn main() {
 
     let op = oracle_state::OraclePool::new();
 
-    println!("{:?}", op.get_epoch_state());
 }
 
 

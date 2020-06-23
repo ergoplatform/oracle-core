@@ -4,6 +4,7 @@ use crate::oracle_config::{get_config_yaml};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_oracle_pool_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
 use std::path::Path;
+use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
 use yaml_rust::{YamlLoader};
 
 #[derive(Debug, Clone)]
@@ -97,11 +98,31 @@ impl OraclePool {
     }
 
     /// Get the state of the current oracle pool epoch
-    pub fn get_epoch_state(&self) -> Option<EpochState> {
+    // Include boxes as input to design the function until json deserialization is implemented
+    pub fn get_epoch_state(&self, epoch_box: ErgoBoxCandidate, datapoint_box: ErgoBoxCandidate) -> Option<EpochState> {
         let epoch_box_list = get_scan_boxes(&self.oracle_pool_epoch_stage.scan_id)?;
-        let epoch_box = epoch_box_list.into_iter().nth(0)?;
+        // let epoch_box = epoch_box_list.into_iter().nth(0)?;
 
-        // Add epoch state creation logic here
+        let datapoint_box_list = get_scan_boxes(&self.datapoint_stage.scan_id)?;
+        // let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
+
+
+        // The box id of the epoch that the oracle last posted a datapoint
+        // let datapoint_r5 = datapoint_box.additional_registers.get_ordered_values()[1];
+
+        // let epoch_box_id = ...
+
+        // let commit_datapoint_in_epoch = box_id == datapoint_r5;
+
+        // Block height epochs ends is held in R5 of the epoch box
+        // let epoch_ends = epoch_box.additional_registers.get_ordered_values()[1];
+
+        // let es = EpochState {
+            // funds: epoch_box.value.0,
+            // epoch_id: epoch_box_id,
+            // commit_datapoint_in_epoch: commit_datapoint_in_epoch,
+            // epoch_ends: epoch_ends
+        // }
 
         None
     }

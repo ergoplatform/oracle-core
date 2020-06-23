@@ -2,10 +2,11 @@ use crate::oracle_config::{get_node_api_key, get_node_url};
 use crate::{BlockHeight, EpochID, NanoErg};
 use json;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
-use sigma_tree::chain::ErgoBox;
+use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
 
 /// Registers a scan with the node and returns the `scan_id`
 pub fn register_scan(scan_json: &String) -> Option<String> {
+    println!("{}", scan_json);
     let endpoint = get_node_url().to_owned() + "/scan/register";
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
@@ -19,6 +20,7 @@ pub fn register_scan(scan_json: &String) -> Option<String> {
         .ok()?;
 
     let result = res.text().ok()?;
+    println!("{}", &result);
     let res_json = json::parse(&result).ok()?;
     Some(res_json["scanId"].to_string().clone())
 }
