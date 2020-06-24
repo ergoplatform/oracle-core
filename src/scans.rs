@@ -1,5 +1,5 @@
 /// This file holds logic related to UTXO-set scans
-use crate::node_interface::{register_scan};
+use crate::node_interface::{register_scan, address_to_tree};
 use json;
 
 /// Saves UTXO-set scan ids to scanIDs.json
@@ -16,6 +16,10 @@ pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String
 
 /// This function registers scanning for the Epoch Preparation stage box
 pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparation_address: &String) -> String {
+
+    // ErgoTree bytes of the P2S address/script
+    let ergo_tree_bytes = address_to_tree(epoch_preparation_address).expect("Failed to access node to use addressToTree.");
+
     // Scan for NFT id + Epoch Preparation address
     let scan_json = object!{
         scanName: "Epoch Preparation Scan",
@@ -28,7 +32,7 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
                 },
                 {
                 "predicate": "equals",
-                "bytes": epoch_preparation_address.clone(),
+                "bytes": ergo_tree_bytes.clone(),
                 }
             ]}
         };
@@ -39,6 +43,10 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
 
 /// This function registers scanning for the Oracle Pool Epoch stage box
 pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &String) -> String {
+
+    // ErgoTree bytes of the P2S address/script
+    let ergo_tree_bytes = address_to_tree(pool_epoch_address).expect("Failed to access node to use addressToTree.");
+
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = object!{
         scanName: "Oracle Pool Epoch Scan",
@@ -51,7 +59,7 @@ pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_addr
                 },
                 {
                 "predicate": "equals",
-                "bytes": pool_epoch_address.clone(),
+                "bytes": ergo_tree_bytes.clone(),
                 }
             ]}
         };
@@ -61,6 +69,13 @@ pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_addr
 
 /// This function registers scanning for the oracle's personal Datapoint box
 pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint_address: &String, oracle_address: &String) -> String {
+
+    // ErgoTree bytes of the datapoint P2S address/script
+    let datapoint_add_bytes = address_to_tree(datapoint_address).expect("Failed to access node to use addressToTree.");
+
+    // ErgoTree bytes of the datapoint P2S address/script
+    let oracle_add_bytes = address_to_tree(oracle_address).expect("Failed to access node to use addressToTree.");
+
     // Scan for pool participant token id + oracle_address in R4
     let scan_json = object!{
         scanName: "Personal Oracle Datapoint Scan",
@@ -73,12 +88,12 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
                 },
                 {
                 "predicate": "equals",
-                "bytes": datapoint_address.clone(),
+                "bytes": datapoint_add_bytes.clone(),
                 },
                 {
                 "predicate": "equals",
                 "register": "R4",
-                "bytes": oracle_address.clone(),
+                "bytes": oracle_add_bytes.clone(),
                 }
             ]}
         };
@@ -88,12 +103,17 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
 
 /// This function registers scanning for any boxes in the Pool Deposit stage address
 pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> String {
+
+    // ErgoTree bytes of the datapoint P2S address/script
+    let pool_dep_add_bytes = address_to_tree(pool_deposit_address).expect("Failed to access node to use addressToTree.");
+    println!("Pool Dep Bytes: {}", pool_dep_add_bytes);
+
     // Scan for boxes at pool deposit address
     let scan_json = object!{
         scanName: "Oracle Pool Deposit Scan",
         trackingRule: {
                 "predicate": "equals",
-                "bytes": pool_deposit_address.clone(),
+                "bytes": pool_dep_add_bytes.clone(),
         }
     };
 

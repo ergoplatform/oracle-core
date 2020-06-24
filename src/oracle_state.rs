@@ -55,7 +55,6 @@ impl OraclePool {
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
-            // Add registering here and calling save_scan_ids_locally with returned ids
             let id1 = register_epoch_preparation_scan(&oracle_pool_nft, &epoch_preparation_contract_address);
             let id2 = register_oracle_pool_epoch_scan(&oracle_pool_nft, &oracle_pool_epoch_contract_address);
             let id3 = register_datapoint_scan(&oracle_pool_participant_token, &datapoint_contract_address, &local_oracle_address);
