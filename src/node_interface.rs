@@ -43,6 +43,28 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<String>> {
     None
 }
 
+
+/// Generates (and sends) a tx using the node endpoints.
+/// Input must be a json formatted request with either inputs (and data-inputs)
+/// manualy selected or will be automatically selected by wallet.
+pub fn send_transaction(tx_request_json: &String) -> Option<String> {
+    let endpoint = get_node_url().to_owned() + "/wallet/transaction/send/";
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let mut res = client
+        .post(&endpoint)
+        .header("accept", "application/json")
+        .header("api_key", hapi_key)
+        .header(CONTENT_TYPE, "application/json")
+        .body(tx_request_json.to_string())
+        .send()
+        .ok()?;
+
+    let result = res.text().ok()?;
+    Some(result)
+}
+
+
 /// Given an Ergo address, extract the hex-encoded serialized ErgoTree (script)
 /// which can then be utilized for many use cases 
 /// (ie. comparing proposition bytes for scanning boxes)
@@ -63,6 +85,8 @@ pub fn address_to_tree(address: &String) -> Option<String> {
     Some(res_json["tree"].to_string().clone())
 }
 
+/// Given a box id that is being tracked by the node wallet
+/// return the given box serialized in Base16 encoding
 pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/utxo/byIdBinary/" + box_id;
     let client = reqwest::blocking::Client::new();
