@@ -63,6 +63,23 @@ pub fn address_to_tree(address: &String) -> Option<String> {
     Some(res_json["tree"].to_string().clone())
 }
 
+pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
+    let endpoint = get_node_url().to_owned() + "/utxo/byIdBinary/" + box_id;
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let mut res = client
+        .get(&endpoint)
+        .header("accept", "application/json")
+        .header("api_key", hapi_key)
+        .header(CONTENT_TYPE, "application/json")
+        .send()
+        .ok()?;
+
+    let result = res.text().ok()?;
+    let res_json = json::parse(&result).ok()?;
+    Some(res_json["bytes"].to_string().clone())
+}
+
 /// Get the current block height of the chain
 /// To Be Implemented
 pub fn current_block_height() -> BlockHeight {
