@@ -1,5 +1,5 @@
 /// This files relates to the state of the oracle/oracle pool.
-use crate::node_interface::{register_scan, get_scan_boxes};
+use crate::node_interface::{get_scan_boxes, send_transaction};
 use crate::oracle_config::{get_config_yaml};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_oracle_pool_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
@@ -186,6 +186,10 @@ impl OraclePool {
         // Some(deposits_state)
         None
     }
+
+
+
+
 }
 
 

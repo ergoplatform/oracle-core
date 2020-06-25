@@ -69,6 +69,7 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
         .ok()?;
 
     let result = res.text().ok()?;
+    println!("Send Tx Result: {}", result);
     Some(result)
 }
 

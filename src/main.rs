@@ -1,10 +1,12 @@
 #[macro_use]
 extern crate json;
 
+mod actions;
 mod oracle_config;
-mod node_interface;
 mod oracle_state;
+mod node_interface;
 mod scans;
+
 
 pub type NanoErg = u64;
 pub type BlockHeight = u64;
