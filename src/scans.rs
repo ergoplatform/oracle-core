@@ -37,7 +37,7 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
             ]}
         };
 
-    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register epoch preparation scan.")
+    register_scan(&scan_json).expect("Failed to register epoch preparation scan.")
 }
 
 
@@ -64,7 +64,7 @@ pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_addr
             ]}
         };
 
-    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register oracle pool epoch scan.")
+    register_scan(&scan_json).expect("Failed to register oracle pool epoch scan.")
 }
 
 /// This function registers scanning for the oracle's personal Datapoint box
@@ -98,7 +98,7 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
             ]}
         };
 
-    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register oracle datapoint scan.")
+    register_scan(&scan_json).expect("Failed to register oracle datapoint scan.")
 }
 
 /// This function registers scanning for any boxes in the Pool Deposit stage address
@@ -117,5 +117,5 @@ pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> String {
         }
     };
 
-    register_scan(&json::stringify(scan_json.clone())).expect("Failed to register pool deposit scan.")
+    register_scan(&scan_json).expect("Failed to register pool deposit scan.")
 }

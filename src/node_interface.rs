@@ -1,21 +1,22 @@
 use crate::oracle_config::{get_node_api_key, get_node_url};
 use crate::{BlockHeight, EpochID, NanoErg};
-use json;
+use json::{JsonValue};
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
 
 /// Registers a scan with the node and returns the `scan_id`
-pub fn register_scan(scan_json: &String) -> Option<String> {
+pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
     println!("{}", scan_json);
     let endpoint = get_node_url().to_owned() + "/scan/register";
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let scan_json_string = json::stringify(scan_json.clone());
     let mut res = client
         .post(&endpoint)
         .header("accept", "application/json")
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
-        .body(scan_json.to_string())
+        .body(scan_json_string)
         .send()
         .ok()?;
 
@@ -47,16 +48,23 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<String>> {
 /// Generates (and sends) a tx using the node endpoints.
 /// Input must be a json formatted request with either inputs (and data-inputs)
 /// manualy selected or will be automatically selected by wallet.
-pub fn send_transaction(tx_request_json: &String) -> Option<String> {
+pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/wallet/transaction/send/";
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let transaction_send_json = object! {
+        requests: [
+            tx_request_json.clone()
+        ]
+    };
+    println!("{}", transaction_send_json.to_string());
+
     let mut res = client
         .post(&endpoint)
         .header("accept", "application/json")
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
-        .body(tx_request_json.to_string())
+        .body(transaction_send_json.to_string())
         .send()
         .ok()?;
 
