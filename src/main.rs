@@ -26,7 +26,6 @@ fn main() {
 
     let boxes = node_interface::get_scan_boxes(&op.pool_deposit_stage.scan_id);
 
-    op.get_pool_deposits_state();
 }
 
 

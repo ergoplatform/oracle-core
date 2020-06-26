@@ -101,8 +101,8 @@ impl OraclePool {
         let epoch_box_list = get_scan_boxes(&self.oracle_pool_epoch_stage.scan_id)?;
         // let epoch_box = epoch_box_list.into_iter().nth(0)?;
 
-        let datapoint_box_list = get_scan_boxes(&self.datapoint_stage.scan_id)?;
-        // let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
+        let datapoint_state = self.get_datapoint_state();
+        // use datapoint_state.from_epoch() to get the oracle pool epoch box id to compare
 
 
         // The box id of the epoch that the oracle last posted a datapoint
@@ -155,14 +155,15 @@ impl OraclePool {
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
         let datapoint_box_list = get_scan_boxes(&self.datapoint_stage.scan_id)?;
-        // let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
+        let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
 
+        // The Oracle Pool box id of the epoch the datapoint was posted which is held in R5
+        let from_epoch = &datapoint_box.additional_registers.get_ordered_values()[1];
 
-        // From epoch box id held in R5
-        // let from_epoch = epoch_prep_box.additional_registers.get_ordered_values()[1];
+        println!("{:?}", from_epoch);
 
         // Oracle datapoint held in R6
-        // let datapoint = epoch_prep_box.additional_registers.get_ordered_values()[1];
+        // let datapoint = &datapoint_box.additional_registers.get_ordered_values()[2];
 
         // let datapoint_state = DatapointState {
         //     datapoint: datapoint,
