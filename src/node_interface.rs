@@ -2,6 +2,7 @@ use crate::oracle_config::{get_node_api_key, get_node_url};
 use crate::{BlockHeight, EpochID, NanoErg};
 use json::{JsonValue};
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
+use serde_json::{from_str};
 use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
 
 /// Registers a scan with the node and returns the `scan_id`
@@ -27,7 +28,7 @@ pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
 }
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
-pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<String>> {
+pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
     let endpoint = get_node_url().to_owned() + "/scan/unspentBoxes/" + scan_id;
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
@@ -39,9 +40,12 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<String>> {
         .send()
         .ok()?;
 
-    let result = res.text().ok();
-    println!("{:?}", result);
-    None
+    let mut result_text = res.text().ok()?;
+    result_text.truncate(result_text.len() - 2);
+    let res_json = json::parse(&result_text[4..]).ok()?;
+    let ergo_box : ErgoBox = from_str(&res_json["box"].to_string()).ok()?;
+
+    Some(vec![ergo_box])
 }
 
 

@@ -18,8 +18,8 @@ pub enum PoolBoxState {
 /// A `Stage` is defined here by it's contract address & it's scan_id
 #[derive(Debug, Clone)]
 pub struct Stage {
-    contract_address: String,
-    scan_id: String,
+    pub contract_address: String,
+    pub scan_id: String,
 }
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol

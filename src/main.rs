@@ -24,6 +24,8 @@ fn main() {
 
     let op = oracle_state::OraclePool::new();
 
+    let boxes = node_interface::get_scan_boxes(&op.pool_deposit_stage.scan_id);
+
 }
 
 
