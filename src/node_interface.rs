@@ -41,8 +41,8 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
         .ok()?;
 
     let res_json = json::parse(&res.text().ok()?).ok()?;
-
     let mut box_list = vec![];
+
     for i in 0.. {
         let box_json = &res_json[i]["box"];
         if box_json.is_null() {
@@ -53,8 +53,6 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
             box_list.push(ergo_box);
         }
     }
-
-    println!("{:?}", box_list);
 
     Some(box_list)
 }
@@ -130,8 +128,22 @@ pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
 
 /// Get the current block height of the chain
 /// To Be Implemented
-pub fn current_block_height() -> BlockHeight {
-    0
+pub fn current_block_height() -> Option<BlockHeight> {
+    let endpoint = get_node_url().to_owned() + "/info";
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let mut res = client
+        .get(&endpoint)
+        .header("accept", "application/json")
+        .header("api_key", hapi_key)
+        .header(CONTENT_TYPE, "application/json")
+        .send()
+        .ok()?;
+
+    let result = res.text().ok()?;
+    let res_json = json::parse(&result).ok()?;
+    let blockheight = res_json["fullHeight"].to_string().parse().ok()?;
+    Some(blockheight)
 }
 
 /// Gets a list of all addresses from the local unlocked node wallet
