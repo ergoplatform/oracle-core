@@ -26,7 +26,7 @@ fn main() {
 
     let boxes = node_interface::get_scan_boxes(&op.pool_deposit_stage.scan_id);
 
-    node_interface::current_block_height();
+    op.get_pool_deposits_state();
 }
 
 

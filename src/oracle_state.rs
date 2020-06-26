@@ -177,14 +177,15 @@ impl OraclePool {
     pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
         let datapoint_box_list = get_scan_boxes(&self.pool_deposit_stage.scan_id)?;
 
-        // let sum_ergs = datapoint_box_list.iter().fold(0, |acc, b| b.value.0);
+        let sum_ergs = datapoint_box_list.iter().fold(0, |acc, b| acc + b.value.value());
 
-        // let deposits_state = PoolDepositsState {
-        //     number_of_boxes: datapoint_box_list.len() as u64,
-        //     total_ergs: sum_ergs,
-        // }
-        // Some(deposits_state)
-        None
+        let deposits_state = PoolDepositsState {
+            number_of_boxes: datapoint_box_list.len() as u64,
+            total_ergs: sum_ergs,
+        };
+
+        println!("{:?}", deposits_state);
+        Some(deposits_state)
     }
 
 
