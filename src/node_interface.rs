@@ -40,12 +40,23 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
         .send()
         .ok()?;
 
-    let mut result_text = res.text().ok()?;
-    result_text.truncate(result_text.len() - 2);
-    let res_json = json::parse(&result_text[4..]).ok()?;
-    let ergo_box : ErgoBox = from_str(&res_json["box"].to_string()).ok()?;
+    let res_json = json::parse(&res.text().ok()?).ok()?;
 
-    Some(vec![ergo_box])
+    let mut box_list = vec![];
+    for i in 0.. {
+        let box_json = &res_json[i]["box"];
+        if box_json.is_null() {
+            break;
+        }
+        else {
+            let ergo_box : ErgoBox = from_str(&box_json.to_string()).ok()?;
+            box_list.push(ergo_box);
+        }
+    }
+
+    println!("{:?}", box_list);
+
+    Some(box_list)
 }
 
 
