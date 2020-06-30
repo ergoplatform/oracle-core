@@ -45,7 +45,7 @@ The diagram below shows off the state machines which comprise a basic oracle poo
 Do note, this only displays the state transitions (actions), which map onto spending paths, and thus does not include data-input relations. Furthermore, this diagram is for the basic oracle pool design, thus does not include stake slashing or governance. These choices were made to keep things understandable and to prevent the diagram from becoming overcrowded. The current spec is more complicated than the above diagram, however it is merely an extension on top of the basic design. Thus this diagram is still key in understanding the current informal spec.
 
 ## Stage ToC
-1. [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>)
+1. [Live Epoch](<#Stage-Live-Epoch>)
 2. [Epoch Preparation](<#Epoch-Preparation-Stage>)
 3. [Datapoint](<#Stage-Datapoint>)
 4. [Pool Deposit](<#Stage-Pool-Deposit>)
@@ -80,7 +80,8 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
-- Oracle pool epoch length/posting schedule (integer number of blocks in between epochs)
+- Live epoch duration 
+- Epoch preparation duration 
 - Margin of error(%) that oracles are allowed to be off by.
 - Minimum collateral an oracle is required to put up
 - The oracle pool NFT/singleton token id
@@ -97,7 +98,7 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 ## Stage: Epoch Preparation
 This is the alternative stage that the oracle pool box can be in after a previous epoch has finished. The pool is awaiting for the next epoch to begin.
 
-Progression into the proceeding epoch (and thus into the [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) stage once again) is allowed if:
+Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is allowed if:
 - The box has sufficient funds to payout oracles
 - At least 4 blocks have passed since the [Epoch Preparation](<#Epoch-Preparation-Stage>) has started
 
@@ -110,12 +111,13 @@ If the oracle pool has insufficient funds and thus skips posting for a given epo
 - R5: Block height the upcoming epoch will finish on (Typically previous epoch finish height + epoch length)
 - R6: The address of the latest collector (oracle who submitted the previous [Collect Datapoints](<#Action-Collect-Datapoints>) action)
 - R7: A list of all of the oracles who had their datapoints collected in the last epoch
-- R8: The box id of the previous [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box
+- R8: The box id of the previous [Live Epoch](<#Stage-Live-Epoch>) box
 - R9: Posting price of the oracle pool.
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
-- Oracle pool epoch length/posting schedule (integer number of blocks in between epochs)
+- Live epoch duration 
+- Epoch preparation duration 
 - Minimum collateral an oracle is required to put up
 - The oracle pool NFT/singleton token id
 
@@ -138,7 +140,7 @@ A box at this stage means that the oracle at hand has posted data on-chain in th
 
 ### Registers
 - R4: The address of the oracle (never allowed to change after bootstrap).
-- R5: The box id of the latest [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box.
+- R5: The box id of the latest [Live Epoch](<#Stage-Live-Epoch>) box.
 - R6: The oracle's datapoint.
 - R7: The oracle's vote for a new posting price. (Can be empty if not voting to change price)
 
@@ -168,7 +170,7 @@ Anyone on the Ergo Blockchain can fund the given oracle pool by creating a box w
 
 ## Action: Bootstrap Oracle Pool
 ---
-In order to create a new oracle pool, a NFT/singleton token must be created prior and will be used in bootstrapping. This singleton token will be locked initially inside the bootstrapped [Epoch Preparation](<#Epoch-Preparation-Stage>) box. As the pool progresses forward in and out of the [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) stage, the NFT/singleton token must always be within the box and cannot be spent elsewhere. This token thereby marks the given oracle pool's current box (in whichever of the two stages it is currently in) and makes it unique/unforgable.
+In order to create a new oracle pool, a NFT/singleton token must be created prior and will be used in bootstrapping. This singleton token will be locked initially inside the bootstrapped [Epoch Preparation](<#Epoch-Preparation-Stage>) box. As the pool progresses forward in and out of the [Live Epoch](<#Stage-Live-Epoch>) stage, the NFT/singleton token must always be within the box and cannot be spent elsewhere. This token thereby marks the given oracle pool's current box (in whichever of the two stages it is currently in) and makes it unique/unforgable.
 
 Before creation, the oracle pool must decide on the:
 - Epoch length (Hardcoded into contract)
@@ -225,18 +227,18 @@ A box in [Datapoint](<#Stage-Datapoint>) stage which:
 
 
 ## Action: Commit Datapoint
-During an active epoch when the oracle pool box is in the [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) stage, any oracle can commit a new datapoint for said epoch.
+During an active epoch when the oracle pool box is in the [Live Epoch](<#Stage-Live-Epoch>) stage, any oracle can commit a new datapoint for said epoch.
 
 In order to commit a datapoint, the output [Datapoint](<#Stage-Datapoint>) box must hold at least minimum collateral Ergs that the pool requires. As such if an oracle's collateral was slashed previously, this means that they must include extra inputs that hold Ergs when performing this action thereby recollateralizing their box. 
 
 If an oracle never had their collateral slashed, then their previously held collateral is sufficient and therefore they do not need to provide extra input boxes holding Ergs.
 
-When a new datapoint is commit, the [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) must be used as a data-input in order to acquire it's box id. This box id is then put in R5 of the new [Datapoint](<#Stage-Datapoint>) output, thereby ensuring that the datapoint was posted in the current epoch.
+When a new datapoint is commit, the [Live Epoch](<#Stage-Live-Epoch>) must be used as a data-input in order to acquire it's box id. This box id is then put in R5 of the new [Datapoint](<#Stage-Datapoint>) output, thereby ensuring that the datapoint was posted in the current epoch.
 
 An oracle can also include a "vote" for a new oracle pool price by placing an integer in R7.
 
 ### Data-Inputs
-1. [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>)
+1. [Live Epoch](<#Stage-Live-Epoch>)
 
 ### Inputs
 1. The oracle's [Datapoint](<#Stage-Datapoint>) box.
@@ -261,11 +263,11 @@ An oracle can also include a "vote" for a new oracle pool price by placing an in
 ## Action: Collect Datapoints
 Allows an oracle to use all of the individual oracle [Datapoint](<#Stage-Datapoint>) boxes (from the current epoch) as data-inputs and fold the datapoints together into the finalized oracle pool datapoint and thereby finishing the current epoch.
 
-This action can only be initiated if the current height is greater than the block height in R5 of the existing [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box (which represents the end height of the epoch). Due to all oracles being incentivized to collect via double payout, it is expected that at least one oracle will post the collection tx at the exact height of the new epoch, thereby generating the new [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
+This action can only be initiated if the current height is greater than the block height in R5 of the existing [Live Epoch](<#Stage-Live-Epoch>) box (which represents the end height of the epoch). Due to all oracles being incentivized to collect via double payout, it is expected that at least one oracle will post the collection tx at the exact height of the new epoch, thereby generating the new [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
 
-An oracle is rewarded for the epoch if they posted a datapoint that is within the margin of error (which is a % hardcoded in the [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) contract) of the finalized datapoint.
+An oracle is rewarded for the epoch if they posted a datapoint that is within the margin of error (which is a % hardcoded in the [Live Epoch](<#Stage-Live-Epoch>) contract) of the finalized datapoint.
 
-Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box) are allowed to be collected.
+Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) are allowed to be collected.
 
 Lastly if 75% of oracles submit a "vote" to change the oracle pool posting price (by placing an integer value in R7 of their [Datapoint](<#Stage-Datapoint>) box) then the pool posting price in R9 of the [Epoch Preparation](<#Epoch-Preparation-Stage>) output box will be updated.
 
@@ -286,7 +288,7 @@ This is the amount of Ergs which a successful oracle (one that has provided a da
 1. Every oracle's [Datapoint](<#Stage-Datapoint>) box.
 
 ### Inputs
-1. The [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box.
+1. The [Live Epoch](<#Stage-Live-Epoch>) box.
 
 ### Outputs
 #### Output #1
@@ -439,7 +441,7 @@ If an epoch has passed without collecting funds in time, the oracle pool must in
 
 
 ### Outputs
-1. The [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box in a new epoch.
+1. The [Live Epoch](<#Stage-Live-Epoch>) box in a new epoch.
 
 
 ### Action Conditions
@@ -461,7 +463,7 @@ If the oracle pool is in the [Epoch Preparation](<#Epoch-Preparation-Stage>) sta
 
 Therefore, this action allows creating a brand new epoch after funds have been collected and an epoch has been missed. This is done by checking R5 and seeing if the block height has been passed. If so, it means that none of the oracles started said epoch (which they have a game theoretic incentive to do so because they get paid & if any oracle fails to submit a datapoint then their collateral gets slashed which equates to guaranteed future returns for the active/good-acting oracles) due to the pool not having sufficient funds to payout the oracles for the next epoch.
 
-When a new epoch is created, the resulting R5 (the epoch finish height) of the new [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box, must be between:
+When a new epoch is created, the resulting R5 (the epoch finish height) of the new [Live Epoch](<#Stage-Live-Epoch>) box, must be between:
 
 ```haskell
 Minimum:
@@ -481,7 +483,7 @@ This is the biggest difference compared to [Start Next Epoch](<#Action-Start-Nex
 
 
 ### Outputs
-1. The [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>) box in a new epoch.
+1. The [Live Epoch](<#Stage-Live-Epoch>) box in a new epoch.
 
 
 ### Action Conditions
