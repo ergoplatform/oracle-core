@@ -13,7 +13,13 @@ Oracles must put up a predefined amount of collateral in order to participate. T
 
 There is also a *margin of error* which all oracles must be within in order to get rewarded for being accurate in the given epoch. If they are not accurate, the current scheme does not pay them out (rather than slashing which is a bit aggressive).
 
-Submitting funds to the pool, oracles submitting datapoints, and collateral slashing are all parallelized which allows for the pool to move through epochs smoothly without any delays thereby taking advantage of the novel UTXO-model for smart contracts.
+Submitting funds to the pool, oracles submitting datapoints, and collateral slashing are all parallelized which allows for the pool to move through epochs smoothly.
+
+The diagram below shows off the state machines which comprise a basic oracle pool. This explains at a high level how a simple oracle pool works.
+
+![State Machine Diagrams](./diagrams/basic_oracle_pool_state_machines.jpg)
+
+Do note, this only displays the state transitions (actions), which map onto spending paths, and thus does not include data-input relations. Furthermore, this diagram is for the basic oracle pool design, thus does not include stake slashing. These choices were made to keep things understandable and to prevent the diagram from becoming overcrowded. The current spec is more complicated than the above diagram, however it is merely an extension on top of the basic design. Thus this diagram is still key in understanding the current informal spec.
 
 ## Stage ToC
 1. [Oracle Pool Epoch](<#Stage-Oracle-Pool-Epoch>)
