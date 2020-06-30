@@ -11,9 +11,9 @@ The posting schedule (the number of block between new datapoint postings by an o
 [Epoch Preparation Duration] + [Live Epoch Duration]
 ```
 
-The duration of each stage can be customized for the given use case at hand to to create a posting schedule that makes sense. For example since Ergo has a 2 minute block time, if one wishes to have a new finalized datapoint every hour, you can set the durations to:
+The duration of each stage can be customized for the given use case at hand to create a posting schedule that makes sense. For example since Ergo has a 2 minute block time, if one wishes to have a new finalized datapoint every hour, you can set the durations to:
 ```haskell
-Epoch Preparation Stage Duration = 10
+Epoch Preparation Duration = 10
 Live Epoch Duration = 20
 ```
 
@@ -27,7 +27,7 @@ The diagram below displays how the epoch logic works for a pool with a 60 block 
 
 The datapoint collection transaction itself folds all of the individual datapoints, thereby averaging them out and coming up with a *finalized datapoint* which is then saved in register R4 of the oracle pool's box. This transaction pays out all of the oracles who submitted good data. Thus at the end of each live epoch after all datapoints have been collected, anyone on the Blockchain has access to a new finalized datapoint from the oracle pool that is ready to be used as a data-input.
 
-In this design all of the oracles are incentivized to be the first to submit the collection transaction to end an epoch. The first to get their collection accepted into a block (hereby dubbed the **collector**), gets double the reward for the current epoch payout. Thus we have incentives for both oracles submitting their individual datapoints on time as well as finalizing the oracle pool's datapoint every epoch.
+In this design all of the oracles are incentivized to be the first to submit the collection transaction to generate the new finalized datapoint. The first to get their collection accepted into a block (hereby dubbed the **collector**), gets double the reward for the current epoch payout. Thus we have incentives for both oracles submitting their individual datapoints on time as well as finalizing the oracle pool's datapoint every epoch.
 
 There is a *margin of error* which all oracles must be within in order to get rewarded for being accurate in the given epoch. If they are not accurate, the current scheme does not pay them out (rather than slashing which is a bit aggressive).
 
