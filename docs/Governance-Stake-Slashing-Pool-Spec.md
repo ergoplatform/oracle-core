@@ -158,7 +158,7 @@ The epoch can only be started on block heights after `[Finish Block Height Of Up
 
 ### Outputs
 #### Output #1
-An [Oracle Pool](<#Stage-Oracle-Pool>) box with:
+An [Epoch Preparation](<#Epoch-Preparation-Stage>) box with:
 - The Input NFT
 - The Input Ergs
 - R4: A default/placeholder datapoint value (has no effect in bootstrap)
