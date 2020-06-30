@@ -1,9 +1,30 @@
 # Stake Slashing Oracle Pool Spec
 This is an informal specification which defines an oracle pool implementation which allows entry by predefined/whitelisted trusted oracles and includes stake slashing.
 
-Oracle pools split up time into *epochs* which are the number of blocks in between datapoint postings by the pool. For example an oracle pool may have a posting schedule of every 30 blocks, thus every epoch is 30 blocks long. Oracles must post their individual datapoint into their own designated UTXO on-chain every single epoch. At the end of an epoch, all oracles race to find all of the other oracle's datapoint boxes, and post a collection transaction.
+This implementation of oracle pools splits the state of the pool into two distinct stages:
+1. Epoch Preparation
+2. Live Epoch
 
-The collection transaction folds all of the individual datapoints, thereby averaging them out and coming up with a *finalized datapoint* which is then saved in register R4 of the oracle pool's box. This transaction marks the end of the previous epoch and pays out all oracles who submitted good data. Thus at the end of each epoch, anyone on the Blockchain has access to a new finalized datapoint from the oracle pool that can be used as a data-input.
+The posting schedule (the number of block between new datapoint postings by an oracle pool) is defined as:
+```haskell
+[Epoch Preparation Duration] + [Live Epoch Duration]
+```
+
+The duration of each stage can be customized for the given use case at hand to to create a posting schedule that makes sense. For example since Ergo has a 2 minute block time, if one wishes to have a new finalized datapoint every hour, you can set the durations to:
+```haskell
+Epoch Preparation Stage Duration = 10
+Live Epoch Duration = 20
+```
+
+The Epoch Preparation stage offers an in-between period between Live Epochs where the pool has a chance to do "house-keeping". In other words things such as collecting funds into the pool from deposits users have made, stake slashing, and governance. In this current specification, only fund collecting is implemented from the above list.
+
+During the Live Epoch stage oracles post their individual datapoint into their own designated UTXO on-chain. Once the live epoch concludes (based on block height) no oracle can post datapoints to the pool. At this point all of the oracles race to find all of the other oracle's datapoint boxes in order to post a collection transaction. This most often happens immediately in the first block after the Live Epoch ends. However if the blockchain is congested then this can take longer which will eat into the duration of the following Epoch Preparation stage.
+
+The diagram below displays how the epoch logic works for a pool with a 60 block posting schedule (10 block Epoch Preparation, 50 block Live Epoch):
+
+![Ergo Oracle Pool Epochs](./diagrams/ergo_oracle_pool_epochs.jpg)
+
+The datapoint collection transaction itself folds all of the individual datapoints, thereby averaging them out and coming up with a *finalized datapoint* which is then saved in register R4 of the oracle pool's box. This transaction pays out all of the oracles who submitted good data. Thus at the end of each live epoch after all datapoints have been collected, anyone on the Blockchain has access to a new finalized datapoint from the oracle pool that is ready to be used as a data-input.
 
 In this design all of the oracles are incentivized to be the first to submit the collection transaction to end an epoch. The first to get their collection accepted into a block (hereby dubbed the **collector**), gets double the reward for the current epoch payout. Thus we have incentives for both oracles submitting their individual datapoints on time as well as finalizing the oracle pool's datapoint every epoch.
 
