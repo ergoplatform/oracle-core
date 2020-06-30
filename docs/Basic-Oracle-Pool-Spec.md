@@ -42,7 +42,7 @@ Do note, this only displays the state transitions (actions), which map onto spen
 
 ## Stage ToC
 1. [Live Epoch](<#Stage-Live-Epoch>)
-2. [Epoch Preparation](<#Epoch-Preparation-Stage>)
+2. [Epoch Preparation](<#Stage-Epoch-Preparation>)
 3. [Datapoint](<#Stage-Datapoint>)
 4. [Pool Deposit](<#Stage-Pool-Deposit>)
 
@@ -93,7 +93,7 @@ This is the alternative stage that the oracle pool box can be in after a previou
 
 Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is allowed if:
 - The box has sufficient funds to payout oracles
-- At least 4 blocks have passed since the [Epoch Preparation](<#Epoch-Preparation-Stage>) has started
+- At least 4 blocks have passed since the [Epoch Preparation](<#Stage-Epoch-Preparation>) has started
 
 During this epoch preparation period collecting [Pool Deposit](<#Stage-Pool-Deposit>) boxes can be done. 
 
@@ -156,13 +156,13 @@ Anyone on the Ergo Blockchain can fund the given oracle pool by creating a box w
 
 ## Action: Bootstrap Oracle Pool
 ---
-In order to create a new oracle pool, a NFT/singleton token must be created prior and will be used in bootstrapping. This singleton token will be locked initially inside the bootstrapped [Epoch Preparation](<#Epoch-Preparation-Stage>) box. As the pool progresses forward in and out of the [Live Epoch](<#Stage-Live-Epoch>) stage, the NFT/singleton token must always be within the box and cannot be spent elsewhere. This token thereby marks the given oracle pool's current box (in whichever of the two stages it is currently in) and makes it unique/unforgable.
+In order to create a new oracle pool, a NFT/singleton token must be created prior and will be used in bootstrapping. This singleton token will be locked initially inside the bootstrapped [Epoch Preparation](<#Stage-Epoch-Preparation>) box. As the pool progresses forward in and out of the [Live Epoch](<#Stage-Live-Epoch>) stage, the NFT/singleton token must always be within the box and cannot be spent elsewhere. This token thereby marks the given oracle pool's current box (in whichever of the two stages it is currently in) and makes it unique/unforgable.
 
 Before creation, the oracle pool must decide on the:
 - Epoch length (Hardcoded into contract)
 - The addresses of the oracles (Hardcoded)
 - Post price (Hardcoded)
-- The block height that the first epoch ends (Stored in R5 of bootstrapped [Epoch Preparation](<#Epoch-Preparation-Stage>))
+- The block height that the first epoch ends (Stored in R5 of bootstrapped [Epoch Preparation](<#Stage-Epoch-Preparation>))
 
 The epoch can only be started on block heights after `[Finish Block Height Of Upcoming Epoch (R5)] - [Epoch Length] + 4` and so it will bootstrap cleanly.
 
@@ -172,7 +172,7 @@ The epoch can only be started on block heights after `[Finish Block Height Of Up
 
 ### Outputs
 #### Output #1
-An [Epoch Preparation](<#Epoch-Preparation-Stage>) box with:
+An [Epoch Preparation](<#Stage-Epoch-Preparation>) box with:
 - The Input NFT
 - The Input Ergs
 - R4: A default/placeholder datapoint value (has no effect in bootstrap)
@@ -237,7 +237,7 @@ Lastly, when a new datapoint is commit, the [Live Epoch](<#Stage-Live-Epoch>) mu
 ## Action: Collect Datapoints
 Allows an oracle to use all of the individual oracle [Datapoint](<#Stage-Datapoint>) boxes (from the current epoch) as data-inputs and fold the datapoints together into the finalized oracle pool datapoint and thereby finishing the current epoch.
 
-This action can only be initiated if the current height is greater than the block height in R5 of the existing [Live Epoch](<#Stage-Live-Epoch>) box (which represents the end height of the epoch). Due to all oracles being incentivized to collect via double payout, it is expected that at least one oracle will post the collection tx at the exact height of the new epoch, thereby generating the new [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
+This action can only be initiated if the current height is greater than the block height in R5 of the existing [Live Epoch](<#Stage-Live-Epoch>) box (which represents the end height of the epoch). Due to all oracles being incentivized to collect via double payout, it is expected that at least one oracle will post the collection tx at the exact height of the new epoch, thereby generating the new [Epoch Preparation](<#Stage-Epoch-Preparation>) box.
 
 An oracle is rewarded for the epoch if they posted a datapoint that is within the margin of error (which is a % hardcoded in the [Live Epoch](<#Stage-Live-Epoch>) contract) of the finalized datapoint.
 
@@ -264,7 +264,7 @@ This is the amount of Ergs which a successful oracle (one that has provided a da
 
 ### Outputs
 #### Output #1
-The [Epoch Preparation](<#Epoch-Preparation-Stage>) box with the new datapoint
+The [Epoch Preparation](<#Stage-Epoch-Preparation>) box with the new datapoint
 
 #### Output #2+
 Payment boxes which are holding Ergs that are sent to each oracle who successfully provided a datapoint within the margin of error, plus an extra payment box to the collector (meaning the collector can get 1 or 2 payment boxes depending if they provide accurate data).
@@ -300,16 +300,16 @@ A user can fund a given oracle pool by locking Ergs in the [Pool Deposit](<#Stag
 
 
 ## Action: Collect Funds
-One of the oracles can collect any/all boxes on the blockchain that are in the [Pool Deposit](<#Stage-Pool-Deposit>) stage. Their Ergs are deposited into the [Epoch Preparation](<#Epoch-Preparation-Stage>) box thereby funding the oracle pool.
+One of the oracles can collect any/all boxes on the blockchain that are in the [Pool Deposit](<#Stage-Pool-Deposit>) stage. Their Ergs are deposited into the [Epoch Preparation](<#Stage-Epoch-Preparation>) box thereby funding the oracle pool.
 
 If a pool is ever underfunded, then this action must be performed to increase the funds above the threshold of one oracle pool payment before the next/a new epoch can begin.
 
 ### Inputs
-1. The [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
+1. The [Epoch Preparation](<#Stage-Epoch-Preparation>) box.
 2. One or more [Pool Deposit](<#Stage-Pool-Deposit>) boxes.
 
 ### Outputs
-1. The [Epoch Preparation](<#Epoch-Preparation-Stage>) box with everything the same but with an increased number of Ergs held.
+1. The [Epoch Preparation](<#Stage-Epoch-Preparation>) box with everything the same but with an increased number of Ergs held.
 
 ### Action Conditions
 1. Input #1 holds the oracle pool NFT (the NFT id is hardcoded in the [Pool Deposit](<#Stage-Pool-Deposit>) contract)
@@ -321,7 +321,7 @@ If a pool is ever underfunded, then this action must be performed to increase th
 
 
 ## Action: Start Next Epoch
-After the previous epoch has ended via [Collect Datapoints](<#Action-Collect-Datapoints>) the oracle pool box *must* stay in the [Epoch Preparation](<#Epoch-Preparation-Stage>) stage until the blockchain height has passed the following:
+After the previous epoch has ended via [Collect Datapoints](<#Action-Collect-Datapoints>) the oracle pool box *must* stay in the [Epoch Preparation](<#Stage-Epoch-Preparation>) stage until the blockchain height has passed the following:
 
 ```haskell
 [Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration] + [Epoch Preparation Duration]
@@ -329,12 +329,12 @@ After the previous epoch has ended via [Collect Datapoints](<#Action-Collect-Dat
 
 This provides a preparation period where [Start Next Epoch](<#Action-Start-Next-Epoch>) cannot be used. Thus the next Live Epoch cannot officially start and datapoints cannot be updated. The oracles can use this period to collect funds into the pool.
 
-Starting the next epoch requires the [Epoch Preparation](<#Epoch-Preparation-Stage>) box to have sufficient Ergs in order to payout the oracles at the end of the epoch. Thus even if the block height passes the epoch preparation buffer period, if the box has no funds then the live epoch cannot begin. Once sufficient funds are collected via [Collect Funds](<#Action-Collect-Funds>) action, then the live epoch can start.
+Starting the next epoch requires the [Epoch Preparation](<#Stage-Epoch-Preparation>) box to have sufficient Ergs in order to payout the oracles at the end of the epoch. Thus even if the block height passes the epoch preparation buffer period, if the box has no funds then the live epoch cannot begin. Once sufficient funds are collected via [Collect Funds](<#Action-Collect-Funds>) action, then the live epoch can start.
 
 If the finish block height of an epoch has passed without the live epoch being started in time (due to lack of funds), the oracle pool must instead use [Create New Epoch](<#Action-Create-New-Epoch>) to continue the protocol.
 
 ### Inputs
-1. The [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
+1. The [Epoch Preparation](<#Stage-Epoch-Preparation>) box.
 
 
 ### Outputs
@@ -355,9 +355,9 @@ If the finish block height of an epoch has passed without the live epoch being s
 
 ## Action: Create New Epoch
 
-If the oracle pool is in the [Epoch Preparation](<#Epoch-Preparation-Stage>) stage and is underfunded, it can miss starting it's next Live Epoch (because [Start Next Epoch](<#Action-Start-Next-Epoch>) requires sufficient funds). 
+If the oracle pool is in the [Epoch Preparation](<#Stage-Epoch-Preparation>) stage and is underfunded, it can miss starting it's next Live Epoch (because [Start Next Epoch](<#Action-Start-Next-Epoch>) requires sufficient funds). 
 
-Therefore, this action allows creating a brand new upcoming epoch after funds have been collected and a previous epoch has been missed. This is done by checking R5 of the [Epoch Preparation](<#Epoch-Preparation-Stage>) box and seeing if the block height has passed. If so, it means that none of the oracles started said epoch (which they have a game theoretic incentive to do so because they get paid) due to the pool not having sufficient funds to payout the oracles for the next epoch.
+Therefore, this action allows creating a brand new upcoming epoch after funds have been collected and a previous epoch has been missed. This is done by checking R5 of the [Epoch Preparation](<#Stage-Epoch-Preparation>) box and seeing if the block height has passed. If so, it means that none of the oracles started said epoch (which they have a game theoretic incentive to do so because they get paid) due to the pool not having sufficient funds to payout the oracles for the next epoch.
 
 When a new epoch is created, the resulting R5 (the finish height) of the new [Live Epoch](<#Stage-Live-Epoch>) box, must be between:
 
@@ -375,7 +375,7 @@ Here in [Create New Epoch](<#Action-Create-New-Epoch>) we set the next Live Epoc
 
 
 ### Inputs
-1. The [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
+1. The [Epoch Preparation](<#Stage-Epoch-Preparation>) box.
 
 
 ### Outputs
