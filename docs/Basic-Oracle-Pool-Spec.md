@@ -101,7 +101,7 @@ If the oracle pool has insufficient funds and thus skips posting for a given epo
 
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
-- R5: Block height the upcoming epoch will finish on (Typically previous epoch finish height + epoch length)
+- R5: Block height the upcoming Live Epoch will finish on
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
@@ -321,24 +321,17 @@ If a pool is ever underfunded, then this action must be performed to increase th
 
 
 ## Action: Start Next Epoch
-After the previous epoch has ended via [Collect Datapoints](<#Action-Collect-Datapoints>) the oracle pool box *must* stay in the [Epoch Preparation](<#Epoch-Preparation-Stage>) stage until the block height has passed the following:
+After the previous epoch has ended via [Collect Datapoints](<#Action-Collect-Datapoints>) the oracle pool box *must* stay in the [Epoch Preparation](<#Epoch-Preparation-Stage>) stage until the blockchain height has passed the following:
 
 ```haskell
-[Finish Block Height Of Upcoming Epoch (R5)] - [Epoch Length] + 4
+[Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration] + [Epoch Preparation Duration]
 ```
 
-This provides a 4 block period (assuming the datapoint collection was performed on the first possible block height) where [Start Next Epoch](<#Action-Start-Next-Epoch>) cannot be used, and thus the new epoch cannot officially start (and so datapoints cant be updated). This is a buffer period where oracles can collect funds before the next epoch begins.
+This provides a preparation period where [Start Next Epoch](<#Action-Start-Next-Epoch>) cannot be used. Thus the next Live Epoch cannot officially start and datapoints cannot be updated. The oracles can use this period to collect funds into the pool.
 
-Furthermore, starting the next epoch requires the [Epoch Preparation](<#Epoch-Preparation-Stage>) box to have sufficient Ergs in order to payout the oracles at the end of the epoch. Thus even if the block height passes the epoch preparation buffer period, if the box has no funds then the epoch cannot begin. Once sufficient funds are collected via [Collect Funds](<#Action-Collect-Funds>) action, then the next epoch can begin.
+Starting the next epoch requires the [Epoch Preparation](<#Epoch-Preparation-Stage>) box to have sufficient Ergs in order to payout the oracles at the end of the epoch. Thus even if the block height passes the epoch preparation buffer period, if the box has no funds then the live epoch cannot begin. Once sufficient funds are collected via [Collect Funds](<#Action-Collect-Funds>) action, then the live epoch can start.
 
-This [Start Next Epoch](<#Action-Start-Next-Epoch>) action can only be called up until the block height has reached:
-```haskell
-[Finish Block Height Of Upcoming Epoch (R5)] - 4
-```
-
-This provides at least a few blocks for the new epoch to begin and datapoints to be submitted by oracles if acquiring/collecting funds took a long time.
-
-If an epoch has passed without collecting funds in time, the oracle pool must instead use [Create New Epoch](<#Action-Create-New-Epoch>) to continue the protocol.
+If the finish block height of an epoch has passed without the live epoch being started in time (due to lack of funds), the oracle pool must instead use [Create New Epoch](<#Action-Create-New-Epoch>) to continue the protocol.
 
 ### Inputs
 1. The [Epoch Preparation](<#Epoch-Preparation-Stage>) box.
