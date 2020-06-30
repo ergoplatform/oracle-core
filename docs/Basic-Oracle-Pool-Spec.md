@@ -342,12 +342,11 @@ If the finish block height of an epoch has passed without the live epoch being s
 
 
 ### Action Conditions
-1. The current block height is greater than  `[Input R5] - [Epoch Length] + 4`.
-2. The current block height is less than  `[Input R5] - 4`.
-3. The input box has more Ergs than the cost for one oracle pool posting payout.
-4. R4 of both the input and output are equivalent.
-5. R5 of both the input and output are equivalent.
-6. The oracle pool NFT and all held Ergs from the input are in the output.
+1. The current block height is greater than  `[Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration] + [Epoch Preparation Duration]`.
+2. The input box has more Ergs than the cost for one oracle pool posting payout.
+3. R4 of both the input and output are equivalent.
+4. R5 of both the input and output are equivalent.
+5. The oracle pool NFT and all held Ergs from the input are in the output.
 ---
 
 
@@ -356,23 +355,23 @@ If the finish block height of an epoch has passed without the live epoch being s
 
 ## Action: Create New Epoch
 
-If the oracle pool is in the [Epoch Preparation](<#Epoch-Preparation-Stage>) stage and is underfunded, it can miss starting the next epoch (as [Start Next Epoch](<#Action-Start-Next-Epoch>) requires sufficient funds). 
+If the oracle pool is in the [Epoch Preparation](<#Epoch-Preparation-Stage>) stage and is underfunded, it can miss starting it's next Live Epoch (because [Start Next Epoch](<#Action-Start-Next-Epoch>) requires sufficient funds). 
 
-Therefore, this action allows creating a brand new epoch after funds have been collected and an epoch has been missed. This is done by checking R5 and seeing if the block height has passed. If so, it means that none of the oracles started said epoch (which they have a game theoretic incentive to do so because they get paid) due to the pool not having sufficient funds to payout the oracles for the next epoch.
+Therefore, this action allows creating a brand new upcoming epoch after funds have been collected and a previous epoch has been missed. This is done by checking R5 of the [Epoch Preparation](<#Epoch-Preparation-Stage>) box and seeing if the block height has passed. If so, it means that none of the oracles started said epoch (which they have a game theoretic incentive to do so because they get paid) due to the pool not having sufficient funds to payout the oracles for the next epoch.
 
-When a new epoch is created, the resulting R5 (the epoch finish height) of the new [Live Epoch](<#Stage-Live-Epoch>) box, must be between:
+When a new epoch is created, the resulting R5 (the finish height) of the new [Live Epoch](<#Stage-Live-Epoch>) box, must be between:
 
 ```haskell
 Minimum:
-[Current Block Height] + [Epoch Length]
+[Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length]
 
 Maximum:
-[Current Block Height] + [Epoch Length] + 4
+[Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length] + 4
 ```
 
-This is to allow a bit of leeway for both submitting the tx (which could theoretically be in the mempool for a bit) as well as for oracles to have an extra buffer to notice that a new epoch has been created and thus the protocol restarted.
+This is to allow a bit of leeway for the tx to be accepted on-chain while also setting an upper limit for when the next [Live Epoch](<#Stage-Live-Epoch>) begins.
 
-This is the biggest difference compared to [Start Next Epoch](<#Action-Start-Next-Epoch>), where [Create New Epoch](<#Action-Create-New-Epoch>) bases the epoch's finish block height off of when the action is submitted on-chain, while [Start Next Epoch](<#Action-Start-Next-Epoch>) continues the previous posting schedule by simply incrementing the previous epoch's finish height by the epoch length.
+Here in [Create New Epoch](<#Action-Create-New-Epoch>) we set the next Live Epoch's finish block height based off of when the action is submitted on-chain. [Start Next Epoch](<#Action-Start-Next-Epoch>) merely increments the previous epoch's finish height, thereby keeping to the old posting schedule. This is the biggest difference between the two actions.
 
 
 ### Inputs
@@ -388,5 +387,5 @@ This is the biggest difference compared to [Start Next Epoch](<#Action-Start-Nex
 2. The input box has more Ergs than the cost for one oracle pool posting payout.
 3. The oracle pool NFT and all held Ergs from the input are in the output.
 4. R4 of both the input and output are equivalent.
-5. R5 of the output must be between `[Current Block Height] + [Epoch Length]` and `[Current Block Height] + [Epoch Length] + 4`.
+5. R5 of the output must be within the valid range described within the preamble.
 ---
