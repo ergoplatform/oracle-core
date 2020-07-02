@@ -49,7 +49,6 @@ Each operator must set up their `oracle-config.yaml` with information about thei
 - Port that the node is on (default is 9053)
 - Node API key
 - Oracle address (address of the oracle which must be in R4 of the datapoint box and owned in the full node wallet)
-- The type of the oracle pool datapoint. Current options: `[Int, String]`
 - Oracle Pool NFT/Singleton Token ID (Token which always stays in the oracle pool box)
 - Oracle Pool Participant Token ID (Token which is held in the oracle's datapoint box)
 - *Epoch Preparation* Stage Contract Address
