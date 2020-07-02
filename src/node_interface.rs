@@ -3,7 +3,8 @@ use crate::{BlockHeight, EpochID, NanoErg};
 use json::{JsonValue};
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde_json::{from_str};
-use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
+use sigma_tree::chain::{ErgoBox};
+use sigma_tree::ast::{Constant, ConstantVal};
 
 /// Registers a scan with the node and returns the `scan_id`
 pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
@@ -45,7 +46,6 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
 
     for i in 0.. {
         let box_json = &res_json[i]["box"];
-        println!("{}", &box_json);
         if box_json.is_null() {
             break;
         }
@@ -172,6 +172,23 @@ pub fn get_wallet_addresses() -> Option<Vec<String>> {
         panic!("No addresses were found. Please make sure the node is running on the node-ip & node-port specified in `oracle-config.yaml` file and that your wallet is unlocked.");
     }
     Some(addresses)
+}
+
+/// Serialize a `i64` value into a hex-encoded string to be used inside of a register for a box
+pub fn serialize_integer(i: i64) -> String {
+    let c = Constant::long(i);
+    serde_json::to_string_pretty(&c).unwrap()
+
+}
+
+/// Serialize a `String` value into a hex-encoded bytestring to be used inside of a register for a box
+pub fn serialize_string(s: &String) -> String {
+    let a = s.clone().into_bytes();
+    let b = a.iter().map(|c| c.clone() as i8).collect();
+    let ca = Constant::byte_array(b);
+    println!("{:?}", ca);
+    serde_json::to_string_pretty(&ca).unwrap()
+
 }
 
 /// Convert from Erg to nanoErg
