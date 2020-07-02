@@ -23,7 +23,7 @@ During the Live Epoch stage oracles post their individual datapoint into their o
 
 The diagram below displays how the epoch logic works for a pool with a 60 block posting schedule (10 block Epoch Preparation, 50 block Live Epoch):
 
-![Ergo Oracle Pool Epochs](./diagrams/ergo_oracle_pool_epochs.jpg)
+![Ergo Oracle Pool Epochs](./images/implementation_pool_epochs.jpg)
 
 The datapoint collection transaction itself folds all of the individual datapoints, thereby averaging them out and coming up with a *finalized datapoint* which is then saved in register R4 of the oracle pool's box. This transaction pays out all of the oracles who submitted good data. Thus at the end of each live epoch after all datapoints have been collected, anyone on the Blockchain has access to a new finalized datapoint from the oracle pool that is ready to be used as a data-input.
 
@@ -35,7 +35,7 @@ Submitting funds to the pool and oracles submitting datapoints are parallelized 
 
 The diagram below shows off the state machines which comprise such a basic oracle pool. This explains at a high level how a simple oracle pool works:
 
-![State Machine Diagrams](./diagrams/basic_oracle_pool_state_machines.jpg)
+![State Machine Diagrams](./images/basic_oracle_pool_state_machines.jpg)
 
 Do note, this only displays the state transitions (actions), which map onto spending paths. This diagram does not include data-inputs to keep it readable and understandable.
 

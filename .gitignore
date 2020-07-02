@@ -12,3 +12,4 @@ Cargo.lock
 
 # Custom Ignores #
 scanIDs.json
+*.kra*
