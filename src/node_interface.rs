@@ -45,12 +45,14 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
 
     for i in 0.. {
         let box_json = &res_json[i]["box"];
+        println!("{}", &box_json);
         if box_json.is_null() {
             break;
         }
         else {
-            let ergo_box : ErgoBox = from_str(&box_json.to_string()).ok()?;
-            box_list.push(ergo_box);
+            if let Some(ergo_box) = from_str(&box_json.to_string()).ok() {
+                box_list.push(ergo_box);
+            }
         }
     }
 
