@@ -15,7 +15,7 @@ oracle_pool_participant_token: ""
 # Address of the pool's "Epoch Preparation" contract
 epoch_preparation_contract_address: ""
 # Address of the pool's "Oracle Pool Epoch" contract
-oracle_pool_epoch_contract_address: ""
+live_epoch_contract_address: ""
 # Address of the pool's "Datapoint" contract
 datapoint_contract_address: ""
 # Address of the "Pool Deposit" contract

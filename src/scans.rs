@@ -6,7 +6,7 @@ use json;
 pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String, datapoint_id: String, pool_deposit_id: String) {
     let id_json = object!{
         epoch_preparation_scan_id: epoch_preparation_id,
-        oracle_pool_epoch_scan_id: pool_epoch_id,
+        live_epoch_scan_id: pool_epoch_id,
         datapoint_scan_id: datapoint_id,
         pool_deposit_scan_id: pool_deposit_id,
     };
@@ -42,7 +42,7 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
 
 
 /// This function registers scanning for the Oracle Pool Epoch stage box
-pub fn register_oracle_pool_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &String) -> String {
+pub fn register_live_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &String) -> String {
 
     // ErgoTree bytes of the P2S address/script
     let ergo_tree_bytes = address_to_tree(pool_epoch_address).expect("Failed to access node to use addressToTree.");

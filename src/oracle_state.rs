@@ -2,7 +2,7 @@
 use crate::node_interface::{get_scan_boxes, send_transaction};
 use crate::oracle_config::{get_config_yaml};
 use crate::{NanoErg, BlockHeight, EpochID};
-use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_oracle_pool_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
+use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_live_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
 use std::path::Path;
 use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
 use yaml_rust::{YamlLoader};
@@ -32,7 +32,7 @@ pub struct OraclePool {
     pub oracle_pool_participant_token: String,
     /// Stages
     pub epoch_preparation_stage: Stage,
-    pub oracle_pool_epoch_stage: Stage,
+    pub live_epoch_stage: Stage,
     pub datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
 }
@@ -49,14 +49,14 @@ impl OraclePool {
         let oracle_pool_participant_token = config["oracle_pool_participant_token"].as_str().expect("No oracle_pool_participant_token specified in config file.").to_string();
         
         let epoch_preparation_contract_address = config["epoch_preparation_contract_address"].as_str().expect("No epoch_preparation_contract_address specified in config file.").to_string();
-        let oracle_pool_epoch_contract_address = config["oracle_pool_epoch_contract_address"].as_str().expect("No oracle_pool_epoch_contract_address specified in config file.").to_string();
+        let live_epoch_contract_address = config["live_epoch_contract_address"].as_str().expect("No live_epoch_contract_address specified in config file.").to_string();
         let datapoint_contract_address = config["datapoint_contract_address"].as_str().expect("No datapoint_contract_address specified in config file.").to_string();
         let pool_deposit_contract_address = config["pool_deposit_contract_address"].as_str().expect("No pool_deposit_contract_address specified in config file.").to_string();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
             let id1 = register_epoch_preparation_scan(&oracle_pool_nft, &epoch_preparation_contract_address);
-            let id2 = register_oracle_pool_epoch_scan(&oracle_pool_nft, &oracle_pool_epoch_contract_address);
+            let id2 = register_live_epoch_scan(&oracle_pool_nft, &live_epoch_contract_address);
             let id3 = register_datapoint_scan(&oracle_pool_participant_token, &datapoint_contract_address, &local_oracle_address);
             let id4 = register_pool_deposit_scan(&pool_deposit_contract_address);
 
@@ -66,7 +66,7 @@ impl OraclePool {
         // Read scanIDs.json for scan ids
         let scan_ids = json::parse(&std::fs::read_to_string("scanIDs.json").expect("Unable to read scanIDs.json")).expect("Failed to parse scanIDs.json");
         let epoch_preparation_scan_id = scan_ids["epoch_preparation_scan_id"].to_string();
-        let oracle_pool_epoch_scan_id = scan_ids["oracle_pool_epoch_scan_id"].to_string();
+        let live_epoch_scan_id = scan_ids["live_epoch_scan_id"].to_string();
         let datapoint_scan_id = scan_ids["datapoint_scan_id"].to_string();
         let pool_deposit_scan_id = scan_ids["pool_deposit_scan_id"].to_string();
 
@@ -76,7 +76,7 @@ impl OraclePool {
             oracle_pool_nft: oracle_pool_nft,
             oracle_pool_participant_token: oracle_pool_participant_token,
             epoch_preparation_stage: Stage { contract_address: epoch_preparation_contract_address, scan_id: epoch_preparation_scan_id},
-            oracle_pool_epoch_stage: Stage { contract_address: oracle_pool_epoch_contract_address, scan_id: oracle_pool_epoch_scan_id },
+            live_epoch_stage: Stage { contract_address: live_epoch_contract_address, scan_id: live_epoch_scan_id },
             datapoint_stage: Stage { contract_address: datapoint_contract_address, scan_id: datapoint_scan_id },
             pool_deposit_stage: Stage { contract_address: pool_deposit_contract_address, scan_id: pool_deposit_scan_id },
         }
@@ -97,9 +97,9 @@ impl OraclePool {
     }
 
     /// Get the state of the current oracle pool epoch
-    pub fn get_epoch_state(&self) -> Option<EpochState> {
-        let epoch_box_list = get_scan_boxes(&self.oracle_pool_epoch_stage.scan_id)?;
-        // let epoch_box = epoch_box_list.into_iter().nth(0)?;
+    pub fn get_live_epoch_state(&self) -> Option<EpochState> {
+        let live_epoch_box_list = get_scan_boxes(&self.live_epoch_stage.scan_id)?;
+        // let epoch_box = live_epoch_box_list.into_iter().nth(0)?;
 
         let datapoint_state = self.get_datapoint_state();
         // use datapoint_state.from_epoch() to get the oracle pool epoch box id to compare
