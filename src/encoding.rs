@@ -6,8 +6,8 @@ use std::str;
 
 /// Serialize a `i64` value into a hex-encoded string to be used inside of a register for a box
 pub fn serialize_integer(i: i64) -> String {
-    let c = Constant::long(i);
-    serde_json::to_string_pretty(&c).unwrap()
+    let c = serde_json::to_string_pretty(&Constant::long(i)).unwrap();
+    (c[1..(c.len() -1)]).to_string()
 
 }
 
@@ -15,7 +15,8 @@ pub fn serialize_integer(i: i64) -> String {
 pub fn serialize_string(s: &String) -> String {
     let a = s.clone().into_bytes();
     let b = a.iter().map(|c| c.clone() as i8).collect();
-    serde_json::to_string_pretty(&Constant::byte_array(b)).unwrap()
+    let c = serde_json::to_string(&Constant::byte_array(b)).unwrap();
+    (c[1..(c.len() -1)]).to_string()
 }
 
 
