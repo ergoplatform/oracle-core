@@ -1,6 +1,5 @@
 /// This file holds various functions related to encoding/serialization of values that are relevant
 /// to the oracle core.
-
 use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
 use std::str;
 
@@ -19,6 +18,7 @@ pub fn serialize_string(s: &String) -> String {
     serde_json::to_string_pretty(&Constant::byte_array(b)).unwrap()
 }
 
+
 /// Deserialize a hex-encoded `i64` inside of a `Constant` acquired from a register of a box
 pub fn deserialize_integer(c: &Constant) -> Option<i64> {
     match &c.v {
@@ -35,7 +35,6 @@ pub fn deserialize_string(c: &Constant) -> Option<String> {
     };
     Some(str::from_utf8(&byte_array).ok()?.to_string())
 }
-
 
 
 /// Convert from Erg to nanoErg

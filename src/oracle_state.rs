@@ -3,8 +3,10 @@ use crate::node_interface::{get_scan_boxes, send_transaction};
 use crate::oracle_config::{get_config_yaml};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_live_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
+use crate::encoding::{deserialize_string};
 use std::path::Path;
 use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
+use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
 use yaml_rust::{YamlLoader};
 
 #[derive(Debug, Clone)]
@@ -156,11 +158,12 @@ impl OraclePool {
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
         let datapoint_box_list = get_scan_boxes(&self.datapoint_stage.scan_id)?;
         let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
+        let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
-        // The Oracle Pool box id of the epoch the datapoint was posted which is held in R5
-        let from_epoch = &datapoint_box.additional_registers.get_ordered_values()[1];
+        // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
+        let from_epoch = deserialize_string(&datapoint_box_regs[1]);
 
-        println!("{:?}", from_epoch);
+
 
         // Oracle datapoint held in R6
         // let datapoint = &datapoint_box.additional_registers.get_ordered_values()[2];
@@ -174,7 +177,7 @@ impl OraclePool {
 
     }
 
-    ///Get the current state of all of the pool deposit boxes
+    /// Get the current state of all of the pool deposit boxes
     pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
         let datapoint_box_list = get_scan_boxes(&self.pool_deposit_stage.scan_id)?;
 
