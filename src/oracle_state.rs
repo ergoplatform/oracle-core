@@ -5,7 +5,7 @@ use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_live_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
 use crate::encoding::{deserialize_string, deserialize_integer};
 use std::path::Path;
-use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
+use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate, Base16EncodedBytes};
 use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
 use yaml_rust::{YamlLoader};
 
@@ -46,7 +46,7 @@ pub struct EpochState {
     pub epoch_id: EpochID,
     pub commit_datapoint_in_epoch: bool,
     pub epoch_ends: BlockHeight,
-    pub latest_pool_datapoint: String,
+    pub latest_pool_datapoint: u64,
 }
 
 /// The state of the oracle pool when it is in the Epoch Preparation stage
@@ -54,14 +54,15 @@ pub struct EpochState {
 pub struct PreparationState {
     pub funds: NanoErg,
     pub next_epoch_ends: BlockHeight,
-    pub latest_pool_datapoint: String,
+    pub latest_pool_datapoint: u64,
 }
 
 /// The state of the local oracle's Datapoint box
 #[derive(Debug, Clone)]
 pub struct DatapointState {
     datapoint: u64,
-    from_epoch: EpochID,
+    /// Box id of the epoch which the datapoint was posted in/originates from
+    origin_epoch_id: EpochID,
 }
 
 /// The current UTXO-set state of all of the Pool Deposit boxes
@@ -132,57 +133,54 @@ impl OraclePool {
     /// Get the state of the current oracle pool epoch
     pub fn get_live_epoch_state(&self) -> Option<EpochState> {
         let live_epoch_box_list = get_scan_boxes(&self.live_epoch_stage.scan_id)?;
-        // let epoch_box = live_epoch_box_list.into_iter().nth(0)?;
+        let epoch_box = live_epoch_box_list.into_iter().nth(0)?;
+        let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
+        let epoch_box_id_bytes : Base16EncodedBytes = epoch_box.box_id().0.into();
+        let epoch_box_id : String = epoch_box_id_bytes.into();
 
-        let datapoint_state = self.get_datapoint_state();
-        // use datapoint_state.from_epoch() to get the oracle pool epoch box id to compare
+        let datapoint_state = self.get_datapoint_state()?;
+        let commit_datapoint_in_epoch : bool = epoch_box_id == datapoint_state.origin_epoch_id;
 
-
-        // The box id of the epoch that the oracle last posted a datapoint
-        // let datapoint_r5 = datapoint_box.additional_registers.get_ordered_values()[1];
-
-        // let epoch_box_id = ...
-
-        // let commit_datapoint_in_epoch = box_id == datapoint_r5;
+        println!("Epoch Box id: {}", epoch_box_id);
+        println!("Datapoint Box id: {}", epoch_box_id);
+        println!("Commit datapoint in current live epoch: {}", commit_datapoint_in_epoch);
 
         // Latest pool datapoint is held in R4 of the epoch box
-        // let latest_pool_datapoint = epoch_box.additional_registers.get_ordered_values()[0];
+        let latest_pool_datapoint = deserialize_integer(&epoch_box_regs[0])?;
 
         // Block height epochs ends is held in R5 of the epoch box
-        // let epoch_ends = epoch_box.additional_registers.get_ordered_values()[1];
+        let epoch_ends = deserialize_integer(&epoch_box_regs[1])?;
 
-        // let epoch_state = EpochState {
-            // funds: epoch_box.value.0,
-            // epoch_id: epoch_box_id,
-            // commit_datapoint_in_epoch: commit_datapoint_in_epoch,
-            // epoch_ends: epoch_ends
-            // latest_pool_datapoint: latest_pool_datapoint,
-        // }
-        // Some(epoch_state)
-        None
+        let epoch_state = EpochState {
+            funds: epoch_box.value.value(),
+            epoch_id: epoch_box_id,
+            commit_datapoint_in_epoch: commit_datapoint_in_epoch,
+            epoch_ends: epoch_ends as u64,
+            latest_pool_datapoint: latest_pool_datapoint as u64,
+        };
+        Some(epoch_state)
     }
 
     /// Get the state of the current epoch preparation box
     pub fn get_preparation_state(&self) -> Option<PreparationState> {
         let epoch_prep_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id)?;
-        // let epoch_prep_box = epoch_prep_box_list.into_iter().nth(0)?;
+        let epoch_prep_box = epoch_prep_box_list.into_iter().nth(0)?;
+        let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
         // Latest pool datapoint is held in R4
-        // let latest_pool_datapoint = epoch_prep_box.additional_registers.get_ordered_values()[0];
+        let latest_pool_datapoint = deserialize_integer(&epoch_prep_box_regs[0])?;
 
         // Next epoch ends height held in R5
-        // let next_epoch_ends = epoch_prep_box.additional_registers.get_ordered_values()[1];
+        let next_epoch_ends = deserialize_integer(&epoch_prep_box_regs[1])?;
 
 
-        // let prep_state = PreparationState {
-        //     funds: epoch_prep_box.value.0,
-        //     next_epoch_ends: next_epoch_ends,
-        //     latest_pool_datapoint: latest_pool_datapoint,
-        // }
-        // Some(prep_state)
+        let prep_state = PreparationState {
+            funds: epoch_prep_box.value.value(),
+            next_epoch_ends: next_epoch_ends as u64,
+            latest_pool_datapoint: latest_pool_datapoint as u64,
+        };
+        Some(prep_state)
 
-
-        None
     }
 
     /// Get the current state of the local oracle's datapoint
@@ -192,7 +190,7 @@ impl OraclePool {
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        let from_epoch = deserialize_string(&datapoint_box_regs[1])?;
+        let origin_epoch_id = deserialize_string(&datapoint_box_regs[1])?;
 
         // Oracle datapoint held in R6
         let datapoint = deserialize_integer(&datapoint_box_regs[2])?;
@@ -200,7 +198,7 @@ impl OraclePool {
 
         let datapoint_state = DatapointState {
             datapoint: datapoint as u64,
-            from_epoch: from_epoch,
+            origin_epoch_id: origin_epoch_id,
         };
         Some(datapoint_state)
 
