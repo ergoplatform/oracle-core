@@ -3,7 +3,7 @@ use crate::node_interface::{get_scan_boxes, send_transaction};
 use crate::oracle_config::{get_config_yaml};
 use crate::{NanoErg, BlockHeight, EpochID};
 use crate::scans::{save_scan_ids_locally, register_epoch_preparation_scan, register_live_epoch_scan, register_datapoint_scan, register_pool_deposit_scan};
-use crate::encoding::{deserialize_string};
+use crate::encoding::{deserialize_string, deserialize_integer};
 use std::path::Path;
 use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate};
 use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
@@ -39,6 +39,37 @@ pub struct OraclePool {
     pub pool_deposit_stage: Stage,
 }
 
+/// The state of the oracle pool when it is in the Oracle Pool Epoch stage
+#[derive(Debug, Clone)]
+pub struct EpochState {
+    pub funds: NanoErg,
+    pub epoch_id: EpochID,
+    pub commit_datapoint_in_epoch: bool,
+    pub epoch_ends: BlockHeight,
+    pub latest_pool_datapoint: String,
+}
+
+/// The state of the oracle pool when it is in the Epoch Preparation stage
+#[derive(Debug, Clone)]
+pub struct PreparationState {
+    pub funds: NanoErg,
+    pub next_epoch_ends: BlockHeight,
+    pub latest_pool_datapoint: String,
+}
+
+/// The state of the local oracle's Datapoint box
+#[derive(Debug, Clone)]
+pub struct DatapointState {
+    datapoint: u64,
+    from_epoch: EpochID,
+}
+
+/// The current UTXO-set state of all of the Pool Deposit boxes
+#[derive(Debug, Clone)]
+pub struct PoolDepositsState {
+    number_of_boxes: u64,
+    total_ergs: u64
+}
 
 impl OraclePool {
 
@@ -161,19 +192,17 @@ impl OraclePool {
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        let from_epoch = deserialize_string(&datapoint_box_regs[1]);
-
-
+        let from_epoch = deserialize_string(&datapoint_box_regs[1])?;
 
         // Oracle datapoint held in R6
-        // let datapoint = &datapoint_box.additional_registers.get_ordered_values()[2];
+        let datapoint = deserialize_integer(&datapoint_box_regs[2])?;
 
-        // let datapoint_state = DatapointState {
-        //     datapoint: datapoint,
-        //     from_epoch: from_epoch,
-        // }
-        // Some(datapoint_state)
-        None
+
+        let datapoint_state = DatapointState {
+            datapoint: datapoint as u64,
+            from_epoch: from_epoch,
+        };
+        Some(datapoint_state)
 
     }
 
@@ -195,37 +224,4 @@ impl OraclePool {
 
 
 
-}
-
-
-/// The state of the oracle pool when it is in the Oracle Pool Epoch stage
-#[derive(Debug, Clone)]
-pub struct EpochState {
-    pub funds: NanoErg,
-    pub epoch_id: EpochID,
-    pub commit_datapoint_in_epoch: bool,
-    pub epoch_ends: BlockHeight,
-    pub latest_pool_datapoint: String,
-}
-
-/// The state of the oracle pool when it is in the Epoch Preparation stage
-#[derive(Debug, Clone)]
-pub struct PreparationState {
-    pub funds: NanoErg,
-    pub next_epoch_ends: BlockHeight,
-    pub latest_pool_datapoint: String,
-}
-
-/// The state of the local oracle's Datapoint box
-#[derive(Debug, Clone)]
-pub struct DatapointState {
-    datapoint: String,
-    from_epoch: EpochID,
-}
-
-/// The current UTXO-set state of all of the Pool Deposit boxes
-#[derive(Debug, Clone)]
-pub struct PoolDepositsState {
-    number_of_boxes: u64,
-    total_ergs: u64
 }
