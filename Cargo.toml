@@ -11,6 +11,5 @@ yaml-rust       = "0.4.4"
 # Replace json eventually with just serde_json which is required for sigma-tree anyways
 json            = "0.12.4"
 reqwest         = { version = "0.10.6", features = ["blocking"] }
-serde_json      = "1.0.55"
-sigma-tree      = { git = "https://github.com/ergoplatform/sigma-rust", branch = "make-ast-mod-public",  features = ["with-serde"]  }
-# sigma-tree = { git = "https://github.com/ergoplatform/sigma-rust", branch = "develop" }
+serde_json      = "1.0.56"
+sigma-tree      = { git = "https://github.com/ergoplatform/sigma-rust", branch = "develop",  features = ["with-serde"]  }
