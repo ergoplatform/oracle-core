@@ -88,7 +88,6 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
     Some(result)
 }
 
-
 /// Given an Ergo address, extract the hex-encoded serialized ErgoTree (script)
 /// which can then be utilized for many use cases 
 /// (ie. comparing proposition bytes for scanning boxes)
@@ -109,8 +108,8 @@ pub fn address_to_tree(address: &String) -> Option<String> {
     Some(res_json["tree"].to_string().clone())
 }
 
-/// Given a box id that is being tracked by the node wallet
-/// return the given box serialized in Base16 encoding
+/// Given a box id return the given box (which must be part of the UTXO-set) as
+/// a serialized string in Base16 encoding
 pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/utxo/byIdBinary/" + box_id;
     let client = reqwest::blocking::Client::new();

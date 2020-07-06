@@ -195,13 +195,13 @@ impl OraclePool {
         // Oracle datapoint held in R6
         let datapoint = deserialize_integer(&datapoint_box_regs[2])?;
 
-
         let datapoint_state = DatapointState {
             datapoint: datapoint as u64,
             origin_epoch_id: origin_epoch_id,
         };
-        Some(datapoint_state)
 
+        println!("{:?}", datapoint_state);
+        Some(datapoint_state)
     }
 
     /// Get the current state of all of the pool deposit boxes

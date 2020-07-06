@@ -26,6 +26,7 @@ fn main() {
     let op = oracle_state::OraclePool::new();
 
     op.get_pool_deposits_state();
+    op.get_datapoint_state();
 
     // Go from P2PK or P2S address to tree encoded for use in register
     let a = node_interface::address_to_tree(&"3sSMhchmak6PHo5BXXavCiw1XkwZfsjox5N3sjVqbWVNyHojHJWBUL1JPswsEHttCiFfmVfwpFqaqjFF68D35vC9rkjCwwCFdKNR1GYdpTVbBdumH".to_string());

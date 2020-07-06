@@ -9,7 +9,7 @@ oracle_address: "3sSMhchmak6PHo5BXXavCiw1XkwZfsjox5N3sjVqbWVNyHojHJWBUL1JPswsEHt
 # ID of the oracle pool NFT
 oracle_pool_nft: ""
 # ID of the oracle pool participant token
-oracle_pool_participant_token: ""
+oracle_pool_participant_token: "3ff9fdfcda75531d1b5933d016a128bacf92e33817ba9441a4838ba3f247da31"
 # Address of the pool's "Epoch Preparation" contract
 epoch_preparation_contract_address: ""
 # Address of the pool's "Oracle Pool Epoch" contract
