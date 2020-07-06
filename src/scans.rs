@@ -4,10 +4,10 @@ use crate::node_interface::{register_scan, address_to_tree};
 use json;
 
 /// Saves UTXO-set scan ids to scanIDs.json
-pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String, datapoint_id: String, pool_deposit_id: String) {
+pub fn save_scan_ids_locally(epoch_preparation_id: String, live_epoch_id: String, datapoint_id: String, pool_deposit_id: String) {
     let id_json = object!{
         epoch_preparation_scan_id: epoch_preparation_id,
-        live_epoch_scan_id: pool_epoch_id,
+        live_epoch_scan_id: live_epoch_id,
         datapoint_scan_id: datapoint_id,
         pool_deposit_scan_id: pool_deposit_id,
     };
@@ -19,7 +19,7 @@ pub fn save_scan_ids_locally(epoch_preparation_id: String, pool_epoch_id: String
 pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparation_address: &String) -> String {
 
     // ErgoTree bytes of the P2S address/script
-    let ergo_tree_bytes = address_to_tree(epoch_preparation_address).expect("Failed to access node to use addressToTree.");
+    let epoch_prep_bytes = address_to_tree(epoch_preparation_address).expect("Failed to access node to use addressToTree.");
 
     // Scan for NFT id + Epoch Preparation address
     let scan_json = object!{
@@ -33,7 +33,7 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
                 },
                 {
                 "predicate": "equals",
-                "bytes": ergo_tree_bytes.clone(),
+                "bytes": epoch_prep_bytes.clone(),
                 }
             ]}
         };
@@ -43,10 +43,10 @@ pub fn register_epoch_preparation_scan(oracle_pool_nft: &String, epoch_preparati
 
 
 /// This function registers scanning for the Oracle Pool Epoch stage box
-pub fn register_live_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &String) -> String {
+pub fn register_live_epoch_scan(oracle_pool_nft: &String, live_epoch_address: &String) -> String {
 
     // ErgoTree bytes of the P2S address/script
-    let ergo_tree_bytes = address_to_tree(pool_epoch_address).expect("Failed to access node to use addressToTree.");
+    let live_epoch_bytes = address_to_tree(live_epoch_address).expect("Failed to access node to use addressToTree.");
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = object!{
@@ -60,7 +60,7 @@ pub fn register_live_epoch_scan(oracle_pool_nft: &String, pool_epoch_address: &S
                 },
                 {
                 "predicate": "equals",
-                "bytes": ergo_tree_bytes.clone(),
+                "bytes": live_epoch_bytes.clone(),
                 }
             ]}
         };
@@ -77,8 +77,6 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
     // ErgoTree bytes of the datapoint P2S address/script
     let oracle_add_bytes = serialize_string(&address_to_tree(oracle_address).expect("Failed to access node to use addressToTree."))[6..].to_string();
     println!("{}", oracle_add_bytes);
-
-    // let oracle_token = serial
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object!{
