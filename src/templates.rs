@@ -1,7 +1,6 @@
-
-
 /// Tx Request Template 
-static BASIC_TRANSACTION_SEND_REQUEST : &'static str = r#"{
+pub static BASIC_TRANSACTION_SEND_REQUEST : &'static str = r#"
+{
   "requests": [
     {
       "address": "",
@@ -20,8 +19,6 @@ static BASIC_TRANSACTION_SEND_REQUEST : &'static str = r#"{
     }
   ],
   "fee": 1000000,
-  "inputsRaw": [ 
-  ]
-  "dataInputsRaw": [
-  ]
+  "inputsRaw": [],
+  "dataInputsRaw": []
 }"#;

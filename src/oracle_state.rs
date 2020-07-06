@@ -156,7 +156,6 @@ impl OraclePool {
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
 
-        println!("{:?}", epoch_state);
         Some(epoch_state)
     }
 
@@ -216,8 +215,5 @@ impl OraclePool {
 
         Some(deposits_state)
     }
-
-
-
 
 }
