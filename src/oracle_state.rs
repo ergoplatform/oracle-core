@@ -13,7 +13,7 @@ use yaml_rust::{YamlLoader};
 /// Enum for the state that the oracle pool box is currently in
 pub enum PoolBoxState { 
     Preparation,
-    Epoch
+    LiveEpoch
 }
 
 
@@ -39,9 +39,9 @@ pub struct OraclePool {
     pub pool_deposit_stage: Stage,
 }
 
-/// The state of the oracle pool when it is in the Oracle Pool Epoch stage
+/// The state of the oracle pool when it is in the Live Epoch stage
 #[derive(Debug, Clone)]
-pub struct EpochState {
+pub struct LiveEpochState {
     pub funds: NanoErg,
     pub epoch_id: EpochID,
     pub commit_datapoint_in_epoch: bool,
@@ -126,24 +126,21 @@ impl OraclePool {
            return PoolBoxState::Preparation;
         }
         else {
-           return PoolBoxState::Epoch;
+           return PoolBoxState::LiveEpoch;
         }
     }
 
     /// Get the state of the current oracle pool epoch
-    pub fn get_live_epoch_state(&self) -> Option<EpochState> {
+    pub fn get_live_epoch_state(&self) -> Option<LiveEpochState> {
         let live_epoch_box_list = get_scan_boxes(&self.live_epoch_stage.scan_id)?;
         let epoch_box = live_epoch_box_list.into_iter().nth(0)?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
         let epoch_box_id_bytes : Base16EncodedBytes = epoch_box.box_id().0.into();
         let epoch_box_id : String = epoch_box_id_bytes.into();
-
         let datapoint_state = self.get_datapoint_state()?;
-        let commit_datapoint_in_epoch : bool = epoch_box_id == datapoint_state.origin_epoch_id;
 
-        println!("Epoch Box id: {}", epoch_box_id);
-        println!("Datapoint Box id: {}", epoch_box_id);
-        println!("Commit datapoint in current live epoch: {}", commit_datapoint_in_epoch);
+        // Whether datapoint was commit in the current Live Epoch
+        let commit_datapoint_in_epoch : bool = epoch_box_id == datapoint_state.origin_epoch_id;
 
         // Latest pool datapoint is held in R4 of the epoch box
         let latest_pool_datapoint = deserialize_integer(&epoch_box_regs[0])?;
@@ -151,13 +148,15 @@ impl OraclePool {
         // Block height epochs ends is held in R5 of the epoch box
         let epoch_ends = deserialize_integer(&epoch_box_regs[1])?;
 
-        let epoch_state = EpochState {
+        let epoch_state = LiveEpochState {
             funds: epoch_box.value.value(),
             epoch_id: epoch_box_id,
             commit_datapoint_in_epoch: commit_datapoint_in_epoch,
             epoch_ends: epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
+
+        println!("{:?}", epoch_state);
         Some(epoch_state)
     }
 
@@ -179,6 +178,7 @@ impl OraclePool {
             next_epoch_ends: next_epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
+
         Some(prep_state)
 
     }
@@ -200,7 +200,6 @@ impl OraclePool {
             origin_epoch_id: origin_epoch_id,
         };
 
-        println!("{:?}", datapoint_state);
         Some(datapoint_state)
     }
 
@@ -215,7 +214,6 @@ impl OraclePool {
             total_ergs: sum_ergs,
         };
 
-        println!("{:?}", deposits_state);
         Some(deposits_state)
     }
 
