@@ -75,14 +75,21 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
     let datapoint_add_bytes = address_to_tree(datapoint_address).expect("Failed to access node to use addressToTree.");
 
     // ErgoTree bytes of the datapoint P2S address/script
-    let oracle_add_bytes = address_to_tree(oracle_address).expect("Failed to access node to use addressToTree.");
+    let oracle_add_bytes = serialize_string(&address_to_tree(oracle_address).expect("Failed to access node to use addressToTree."))[6..].to_string();
+    println!("{}", oracle_add_bytes);
 
-    // Test scan to be used for testing
+    // let oracle_token = serial
+
+    // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object!{
         scanName: "Personal Oracle Datapoint Scan",
         trackingRule: {
             "predicate": "and",
             "args": [
+                {
+                "predicate": "containsAsset",
+                "assetId": oracle_pool_participant_token.clone(),
+                },
                 {
                 "predicate": "equals",
                 "bytes": datapoint_add_bytes.clone(),
@@ -94,28 +101,6 @@ pub fn register_datapoint_scan(oracle_pool_participant_token: &String, datapoint
                 }
             ]}
         };
-
-    // Scan for pool participant token id + datapoint contract address + oracle_address in R4
-    // let scan_json = object!{
-    //     scanName: "Personal Oracle Datapoint Scan",
-    //     trackingRule: {
-    //         "predicate": "and",
-    //         "args": [
-    //             {
-    //             "predicate": "containsAsset",
-    //             "assetId": oracle_pool_participant_token.clone(),
-    //             },
-    //             {
-    //             "predicate": "equals",
-    //             "bytes": datapoint_add_bytes.clone(),
-    //             },
-    //             {
-    //             "predicate": "equals",
-    //             "register": "R4",
-    //             "bytes": oracle_add_bytes.clone(),
-    //             }
-    //         ]}
-    //     };
 
     register_scan(&scan_json).expect("Failed to register oracle datapoint scan.")
 }
