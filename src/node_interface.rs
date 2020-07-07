@@ -89,10 +89,29 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
 }
 
 /// Given an Ergo address, extract the hex-encoded serialized ErgoTree (script)
-/// which can then be utilized for many use cases 
-/// (ie. comparing proposition bytes for scanning boxes)
 pub fn address_to_tree(address: &String) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/script/addressToTree/" + address;
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let mut res = client
+        .get(&endpoint)
+        .header("accept", "application/json")
+        .header("api_key", hapi_key)
+        .header(CONTENT_TYPE, "application/json")
+        .send()
+        .ok()?;
+
+    let result = res.text().ok()?;
+    let res_json = json::parse(&result).ok()?;
+    Some(res_json["tree"].to_string().clone())
+}
+
+
+/// Given an Ergo address, convert it to a hex-encoded Sigma byte array constant
+///  which contains script bytes. Can then be utilized for many use cases 
+/// (ie. comparing proposition bytes for scanning boxes)
+pub fn address_to_bytes(address: &String) -> Option<String> {
+    let endpoint = get_node_url().to_owned() + "/script/addressToBytes/" + address;
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
     let mut res = client
