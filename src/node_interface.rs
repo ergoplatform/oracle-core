@@ -124,7 +124,7 @@ pub fn address_to_bytes(address: &String) -> Option<String> {
 
     let result = res.text().ok()?;
     let res_json = json::parse(&result).ok()?;
-    Some(res_json["tree"].to_string().clone())
+    Some(res_json["bytes"].to_string().clone())
 }
 
 /// Given a box id return the given box (which must be part of the UTXO-set) as
