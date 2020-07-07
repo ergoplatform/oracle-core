@@ -130,11 +130,14 @@ impl OraclePool {
     pub fn get_live_epoch_state(&self) -> Option<LiveEpochState> {
         let epoch_box = self.live_epoch_stage.get_box()?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
+
+        // Get the epoch box id
         let epoch_box_id_bytes : Base16EncodedBytes = epoch_box.box_id().0.into();
         let epoch_box_id : String = epoch_box_id_bytes.into();
-        let datapoint_state = self.get_datapoint_state()?;
+
 
         // Whether datapoint was commit in the current Live Epoch
+        let datapoint_state = self.get_datapoint_state()?;
         let commit_datapoint_in_epoch : bool = epoch_box_id == datapoint_state.origin_epoch_id;
 
         // Latest pool datapoint is held in R4 of the epoch box
@@ -199,6 +202,7 @@ impl OraclePool {
     pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
         let datapoint_box_list = self.pool_deposit_stage.get_boxes()?;
 
+        // Sum up all Ergs held in pool deposit boxes
         let sum_ergs = datapoint_box_list.iter().fold(0, |acc, b| acc + b.value.value());
 
         let deposits_state = PoolDepositsState {
