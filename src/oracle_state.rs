@@ -128,8 +128,7 @@ impl OraclePool {
 
     /// Get the state of the current oracle pool epoch
     pub fn get_live_epoch_state(&self) -> Option<LiveEpochState> {
-        let live_epoch_box_list = self.live_epoch_stage.get_boxes()?;
-        let epoch_box = live_epoch_box_list.into_iter().nth(0)?;
+        let epoch_box = self.live_epoch_stage.get_box()?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
         let epoch_box_id_bytes : Base16EncodedBytes = epoch_box.box_id().0.into();
         let epoch_box_id : String = epoch_box_id_bytes.into();
@@ -157,8 +156,7 @@ impl OraclePool {
 
     /// Get the state of the current epoch preparation box
     pub fn get_preparation_state(&self) -> Option<PreparationState> {
-        let epoch_prep_box_list = self.epoch_preparation_stage.get_boxes()?;
-        let epoch_prep_box = epoch_prep_box_list.into_iter().nth(0)?;
+        let epoch_prep_box = self.epoch_preparation_stage.get_box()?;
         let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
         // Latest pool datapoint is held in R4
@@ -180,8 +178,7 @@ impl OraclePool {
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
-        let datapoint_box_list = self.datapoint_stage.get_boxes()?;
-        let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
+        let datapoint_box = self.datapoint_stage.get_box()?;
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
@@ -217,8 +214,14 @@ impl OraclePool {
 
 impl Stage {
 
-    /// Returns all boxes held at the given stage
+    /// Returns all boxes held at the given stage based on the registered scan
     pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
         get_scan_boxes(&self.scan_id)
+    }
+
+
+    /// Returns the first box found by the registered scan for a given `Stage`
+    pub fn get_box(&self) -> Option<ErgoBox> {
+        self.get_boxes()?.into_iter().nth(0)
     }
 }
