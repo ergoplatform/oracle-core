@@ -9,8 +9,8 @@ use sigma_tree::chain::{ErgoBox, ErgoBoxCandidate, Base16EncodedBytes};
 use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
 use yaml_rust::{YamlLoader};
 
-#[derive(Debug, Clone)]
 /// Enum for the state that the oracle pool box is currently in
+#[derive(Debug, Clone)]
 pub enum PoolBoxState { 
     Preparation,
     LiveEpoch
@@ -69,7 +69,7 @@ pub struct DatapointState {
 #[derive(Debug, Clone)]
 pub struct PoolDepositsState {
     number_of_boxes: u64,
-    total_ergs: u64
+    total_nanoergs: u64
 }
 
 impl OraclePool {
@@ -120,13 +120,9 @@ impl OraclePool {
 
     /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
     pub fn check_oracle_pool_stage(&self) -> PoolBoxState {
-        let epoch_preparation_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id).unwrap_or(vec![]);
-
-        if epoch_preparation_box_list.len() > 0 {
-           return PoolBoxState::Preparation;
-        }
-        else {
-           return PoolBoxState::LiveEpoch;
+        match self.get_live_epoch_state(){
+            Some(_) => PoolBoxState::LiveEpoch,
+            None => PoolBoxState::Preparation
         }
     }
 
@@ -210,7 +206,7 @@ impl OraclePool {
 
         let deposits_state = PoolDepositsState {
             number_of_boxes: datapoint_box_list.len() as u64,
-            total_ergs: sum_ergs,
+            total_nanoergs: sum_ergs,
         };
 
         Some(deposits_state)
