@@ -130,10 +130,7 @@ impl OraclePool {
     pub fn get_live_epoch_state(&self) -> Option<LiveEpochState> {
         let epoch_box = self.live_epoch_stage.get_box()?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
-
-        // Get the epoch box id
-        let epoch_box_id_bytes : Base16EncodedBytes = epoch_box.box_id().0.into();
-        let epoch_box_id : String = epoch_box_id_bytes.into();
+        let epoch_box_id : String = epoch_box.box_id().into();
 
 
         // Whether datapoint was commit in the current Live Epoch
@@ -200,13 +197,13 @@ impl OraclePool {
 
     /// Get the current state of all of the pool deposit boxes
     pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
-        let datapoint_box_list = self.pool_deposit_stage.get_boxes()?;
+        let deposits_box_list = self.pool_deposit_stage.get_boxes()?;
 
         // Sum up all Ergs held in pool deposit boxes
-        let sum_ergs = datapoint_box_list.iter().fold(0, |acc, b| acc + b.value.value());
+        let sum_ergs = deposits_box_list.iter().fold(0, |acc, b| acc + b.value.value());
 
         let deposits_state = PoolDepositsState {
-            number_of_boxes: datapoint_box_list.len() as u64,
+            number_of_boxes: deposits_box_list.len() as u64,
             total_nanoergs: sum_ergs,
         };
 

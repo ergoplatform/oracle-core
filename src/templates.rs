@@ -12,9 +12,6 @@ pub static BASIC_TRANSACTION_SEND_REQUEST : &'static str = r#"
         }
       ],
       "registers": {
-        "R4": "",
-        "R5": "",
-        "R6": ""
       }
     }
   ],
