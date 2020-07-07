@@ -1,12 +1,13 @@
 /// This file holds various functions related to encoding/serialization of values that are relevant
 /// to the oracle core.
-use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
+use sigma_tree::ast::{ConstantColl, CollPrim, Constant, ConstantVal};
 use std::str;
 
 
 /// Serialize a `i64` value into a hex-encoded string to be used inside of a register for a box
 pub fn serialize_integer(i: i64) -> String {
-    let c = serde_json::to_string_pretty(&Constant::long(i)).unwrap();
+    let constant : Constant = i.into();
+    let c = serde_json::to_string_pretty(&constant).unwrap();
     (c[1..(c.len() -1)]).to_string()
 
 }
@@ -14,8 +15,9 @@ pub fn serialize_integer(i: i64) -> String {
 /// Serialize a `String` value into a hex-encoded string to be used inside of a register for a box
 pub fn serialize_string(s: &String) -> String {
     let a = s.clone().into_bytes();
-    let b = a.iter().map(|c| c.clone() as i8).collect();
-    let c = serde_json::to_string(&Constant::byte_array(b)).unwrap();
+    let b : Vec<i8> = a.iter().map(|c| c.clone() as i8).collect();
+    let constant : Constant = b.into();
+    let c = serde_json::to_string(&constant).unwrap();
     (c[1..(c.len() -1)]).to_string()
 }
 
@@ -31,7 +33,7 @@ pub fn deserialize_integer(c: &Constant) -> Option<i64> {
 /// Deserialize a hex-encoded string inside of a `Constant` acquired from a register of a box
 pub fn deserialize_string(c: &Constant) -> Option<String> {
     let byte_array = match &c.v {
-        ConstantVal::CollPrim(CollPrim::CollByte(ba)) => ba.iter().map(|x| x.clone() as u8).collect(),
+        ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => ba.iter().map(|x| x.clone() as u8).collect(),
         _ => vec![]
     };
     Some(str::from_utf8(&byte_array).ok()?.to_string())
