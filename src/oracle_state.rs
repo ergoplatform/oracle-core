@@ -128,7 +128,7 @@ impl OraclePool {
 
     /// Get the state of the current oracle pool epoch
     pub fn get_live_epoch_state(&self) -> Option<LiveEpochState> {
-        let live_epoch_box_list = get_scan_boxes(&self.live_epoch_stage.scan_id)?;
+        let live_epoch_box_list = self.live_epoch_stage.get_boxes()?;
         let epoch_box = live_epoch_box_list.into_iter().nth(0)?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
         let epoch_box_id_bytes : Base16EncodedBytes = epoch_box.box_id().0.into();
@@ -157,7 +157,7 @@ impl OraclePool {
 
     /// Get the state of the current epoch preparation box
     pub fn get_preparation_state(&self) -> Option<PreparationState> {
-        let epoch_prep_box_list = get_scan_boxes(&self.epoch_preparation_stage.scan_id)?;
+        let epoch_prep_box_list = self.epoch_preparation_stage.get_boxes()?;
         let epoch_prep_box = epoch_prep_box_list.into_iter().nth(0)?;
         let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
@@ -180,7 +180,7 @@ impl OraclePool {
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
-        let datapoint_box_list = get_scan_boxes(&self.datapoint_stage.scan_id)?;
+        let datapoint_box_list = self.datapoint_stage.get_boxes()?;
         let datapoint_box = datapoint_box_list.into_iter().nth(0)?;
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
@@ -200,7 +200,7 @@ impl OraclePool {
 
     /// Get the current state of all of the pool deposit boxes
     pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
-        let datapoint_box_list = get_scan_boxes(&self.pool_deposit_stage.scan_id)?;
+        let datapoint_box_list = self.pool_deposit_stage.get_boxes()?;
 
         let sum_ergs = datapoint_box_list.iter().fold(0, |acc, b| acc + b.value.value());
 
@@ -212,4 +212,13 @@ impl OraclePool {
         Some(deposits_state)
     }
 
+}
+
+
+impl Stage {
+
+    /// Returns all boxes held at the given stage
+    pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
+        get_scan_boxes(&self.scan_id)
+    }
 }
