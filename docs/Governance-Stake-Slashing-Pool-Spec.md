@@ -76,7 +76,7 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
 - R5: Block height that the current epoch will finish on
-- R9: Posting price of the oracle pool.
+- R6: Posting price of the oracle pool.
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
@@ -312,7 +312,7 @@ The equation for the amount of Ergs inside each payment box can be found in *Suc
 9. A (potentially second) payment box output is generated for the collector who's address is in R6 of Output #1.
 10. Each payment box has a total amount of Ergs inside equal to the result of the `Successful Oracle Epoch Payout Function`.
 11. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
-12. If 75%+ of all oracle [Datapoint](<#Stage-Datapoint>) boxes have the same value in R7, then said value is placed in R9 of Output #1. Else the previous value is used from Input #1.
+12. If 75%+ of all oracle [Datapoint](<#Stage-Datapoint>) boxes have the same value in R7, then said value is placed in R9 of Output #1. Else the R6 from Input #1 is used.
 ---
 
 
@@ -443,6 +443,7 @@ If the finish block height of an epoch has passed without the live epoch being s
 3. R4 of both the input and output are equivalent.
 4. R5 of both the input and output are equivalent.
 5. The oracle pool NFT and all held Ergs from the input are in the output.
+6. Output R6 is equal to input R9. (Preserving the posting price.)
 ---
 
 
@@ -484,4 +485,5 @@ Here in [Create New Epoch](<#Action-Create-New-Epoch>) we set the next Live Epoc
 3. The oracle pool NFT and all held Ergs from the input are in the output.
 4. R4 of both the input and output are equivalent.
 5. R5 of the output must be within the valid range described within the preamble.
+6. Output R6 is equal to input R9. (Preserving the posting price.)
 ---
