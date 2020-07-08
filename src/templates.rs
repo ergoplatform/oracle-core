@@ -1,5 +1,5 @@
-/// Tx Request Template 
-pub static BASIC_TRANSACTION_SEND_REQUEST : &'static str = r#"
+/// Tx Request Template
+pub static BASIC_TRANSACTION_SEND_REQUEST: &'static str = r#"
 {
   "requests": [
     {
