@@ -12,15 +12,16 @@ pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
     let endpoint = get_node_url().to_owned() + "/scan/register";
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
-    let scan_json_string = json::stringify(scan_json.clone());
     let res = client
         .post(&endpoint)
         .header("accept", "application/json")
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
-        .body(scan_json_string)
+        .body(json::stringify(scan_json.clone()))
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let result = res.text().ok()?;
     println!("{}", &result);
@@ -28,9 +29,10 @@ pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
     Some(res_json["scanId"].to_string().clone())
 }
 
-/// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
-pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
-    let endpoint = get_node_url().to_owned() + "/scan/unspentBoxes/" + scan_id;
+/// Acquires unspent boxes from the node wallet
+pub fn get_unspent_wallet_boxes() -> Option<Vec<ErgoBox>> {
+    let endpoint =
+        get_node_url().to_owned() + "/wallet/boxes/unspent?minConfirmations=0&minInclusionHeight=0";
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
     let res = client
@@ -39,7 +41,9 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let res_json = json::parse(&res.text().ok()?).ok()?;
     let mut box_list = vec![];
@@ -54,7 +58,59 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
             }
         }
     }
+    Some(box_list)
+}
 
+/// Acquires the unspent box with the highest value of Ergs inside
+/// from the wallet
+pub fn get_highest_value_unspent_box() -> Option<ErgoBox> {
+    let boxes = get_unspent_wallet_boxes()?;
+
+    // Find the highest value amount held in a single box in the wallet
+    let highest_value = boxes.iter().fold(0, |acc, b| {
+        if b.value.value() > acc {
+            b.value.value()
+        } else {
+            acc
+        }
+    });
+
+    for b in boxes {
+        if b.value.value() == highest_value {
+            return Some(b);
+        }
+    }
+    None
+}
+
+/// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
+pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
+    let endpoint = get_node_url().to_owned() + "/scan/unspentBoxes/" + scan_id;
+    let client = reqwest::blocking::Client::new();
+    let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
+    let res = client
+        .get(&endpoint)
+        .header("accept", "application/json")
+        .header("api_key", hapi_key)
+        .header(CONTENT_TYPE, "application/json")
+        .send()
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
+
+    let res_json = json::parse(&res.text().ok()?).ok()?;
+    let mut box_list = vec![];
+
+    for i in 0.. {
+        let box_json = &res_json[i]["box"];
+        if box_json.is_null() {
+            break;
+        } else {
+            if let Some(ergo_box) = from_str(&box_json.to_string()).ok() {
+                box_list.push(ergo_box);
+            }
+        }
+    }
     Some(box_list)
 }
 
@@ -62,7 +118,7 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
 /// Input must be a json formatted request with rawInputs (and rawDataInputs)
 /// manually selected or will be automatically selected by wallet.
 pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
-    let endpoint = get_node_url().to_owned() + "/wallet/transaction/send/";
+    let endpoint = get_node_url().to_owned() + "/wallet/transaction/send";
     let client = reqwest::blocking::Client::new();
     let hapi_key = HeaderValue::from_str(&get_node_api_key()).ok()?;
 
@@ -73,7 +129,9 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
         .header(CONTENT_TYPE, "application/json")
         .body(json::stringify(tx_request_json.clone()))
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let result = res.text().ok()?;
     println!("Send Tx Result: {}", result);
@@ -91,7 +149,9 @@ pub fn address_to_tree(address: &String) -> Option<String> {
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let result = res.text().ok()?;
     let res_json = json::parse(&result).ok()?;
@@ -111,7 +171,9 @@ pub fn address_to_bytes(address: &String) -> Option<String> {
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let result = res.text().ok()?;
     let res_json = json::parse(&result).ok()?;
@@ -130,7 +192,9 @@ pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let result = res.text().ok()?;
     let res_json = json::parse(&result).ok()?;
@@ -149,7 +213,9 @@ pub fn current_block_height() -> Option<BlockHeight> {
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let result = res.text().ok()?;
     let res_json = json::parse(&result).ok()?;
@@ -168,7 +234,9 @@ pub fn get_wallet_addresses() -> Option<Vec<String>> {
         .header("api_key", hapi_key)
         .header(CONTENT_TYPE, "application/json")
         .send()
-        .ok()?;
+        .expect(
+            "Ensure that your node is running, configured properly, and the wallet is unlocked.",
+        );
 
     let mut addresses: Vec<String> = vec![];
     for segment in res.text().ok()?.split("\"") {
