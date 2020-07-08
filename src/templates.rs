@@ -4,7 +4,7 @@ pub static BASIC_TRANSACTION_SEND_REQUEST: &'static str = r#"
   "requests": [
     {
       "address": "",
-      "value": 5000000,
+      "value": 1000000,
       "assets": [
         {
           "tokenId": "",

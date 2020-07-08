@@ -11,8 +11,8 @@ pub fn save_scan_ids_locally(
     pool_deposit_id: String,
 ) {
     let id_json = object! {
-        live_epoch_scan_id: live_epoch_id,
         epoch_preparation_scan_id: epoch_preparation_id,
+        live_epoch_scan_id: live_epoch_id,
         datapoint_scan_id: datapoint_id,
         pool_deposit_scan_id: pool_deposit_id,
     };
