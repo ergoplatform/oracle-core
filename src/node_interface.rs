@@ -83,6 +83,13 @@ pub fn get_highest_value_unspent_box() -> Option<ErgoBox> {
     None
 }
 
+/// Acquires the unspent box with the highest value of Ergs inside
+/// from the wallet and serializes it
+pub fn get_serialized_highest_value_unspent_box() -> Option<String> {
+    let ergs_box_id: String = get_highest_value_unspent_box()?.box_id().into();
+    serialized_box_from_id(&ergs_box_id)
+}
+
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
 pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
     let endpoint = get_node_url().to_owned() + "/scan/unspentBoxes/" + scan_id;
