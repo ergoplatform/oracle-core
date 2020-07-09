@@ -44,9 +44,6 @@ impl OraclePool {
         req["inputsRaw"] = vec![datapoint_box_serialized, ergs_box_serialized].into();
         req["dataInputsRaw"] = vec![live_epoch_box_serialized].into();
 
-        println!("{:?}", json::stringify(req.clone()));
-
         send_transaction(&req)
-        // None
     }
 }
