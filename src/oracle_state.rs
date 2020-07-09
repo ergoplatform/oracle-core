@@ -62,16 +62,16 @@ pub struct PreparationState {
 /// The state of the local oracle's Datapoint box
 #[derive(Debug, Clone)]
 pub struct DatapointState {
-    datapoint: u64,
+    pub datapoint: u64,
     /// Box id of the epoch which the datapoint was posted in/originates from
-    origin_epoch_id: EpochID,
+    pub origin_epoch_id: EpochID,
 }
 
 /// The current UTXO-set state of all of the Pool Deposit boxes
 #[derive(Debug, Clone)]
 pub struct PoolDepositsState {
-    number_of_boxes: u64,
-    total_nanoergs: u64,
+    pub number_of_boxes: u64,
+    pub total_nanoergs: u64,
 }
 
 impl OraclePool {

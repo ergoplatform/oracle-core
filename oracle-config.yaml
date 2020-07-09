@@ -23,7 +23,7 @@ epoch_preparation_contract_address: "3sSMhchosMWKovoTFHsMgpoGoM5EXKZKTGGXqQM78y3
 # Address of the pool's "Datapoint" contract
 datapoint_contract_address: "3sSMhchmak6PHo5BXXavCiw1XkwZfsjox5N3sjVqbWVNyHojHJWBUL1JPswsEHttCiFfmVfwpFqaqjFF68D35vC9rkjCwwCFdKNR1GYdpTVbBdumH"
 # Address of the "Pool Deposit" contract
-pool_deposit_contract_address: ""
+pool_deposit_contract_address: "9Geu1yV9P92yG7YukxMNbX4FSjmBkgHGZ6dBSa91sbu9tEp3TQeSPvyK4Xm9Gj4Rr54GNCM1XQd8AdtwUmVPsRaD3wG9VgXYSneQEtB6LviBXfs6xSqBDdeMwhQDGE59qBrpMCijVhntf3kXLDX9zVdMCcpNnbFPKqGUs4"
 
 
 # Stake Slashing Config (Currently False as no support in initial version)
