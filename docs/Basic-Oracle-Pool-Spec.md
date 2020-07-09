@@ -113,7 +113,7 @@ If the oracle pool has insufficient funds and thus skips posting for a given epo
 
 ### Actions/Spending Paths
 - [Collect Funds](<#Action-Collect-Funds>)
-- [Start Next Epoch](<#Action-Start-New-Epoch>)
+- [Start Next Epoch](<#Action-Start-Next-Epoch>) 
 - [Create New Epoch](<#Action-Create-New-Epoch>)
 --- 
 
