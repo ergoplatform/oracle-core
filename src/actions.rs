@@ -1,7 +1,7 @@
 use crate::encoding::{serialize_integer, serialize_string};
 use crate::node_interface::{
-    address_to_bytes, get_serialized_highest_value_unspent_box, send_transaction,
-    serialized_box_from_id,
+    address_to_bytes, get_serialized_highest_value_unspent_box, send_transaction, serialize_box,
+    serialize_boxes,
 };
 /// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
@@ -10,6 +10,9 @@ use crate::oracle_state::OraclePool;
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
 use sigma_tree::chain::ErgoBox;
+
+/// The default fee used for actions
+pub static FEE: u64 = 1000000;
 
 impl OraclePool {
     /// Generates and submits the 'Commit Datapoint" action tx
@@ -42,6 +45,7 @@ impl OraclePool {
         ]
         .into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()].into();
+        req["fee"] = FEE.into();
 
         send_transaction(&req)
     }
@@ -51,10 +55,10 @@ impl OraclePool {
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
 
         // Defining the registers of the output box
-        let epoch_prep_box = self.get_preparation_state()?;
+        let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_integer(epoch_prep_box.latest_pool_datapoint as i64),
-            "R5": serialize_integer(epoch_prep_box.next_epoch_ends as i64),
+            "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
+            "R5": serialize_integer(epoch_prep_state.next_epoch_ends as i64),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -62,15 +66,23 @@ impl OraclePool {
             "amount": 1
         };
 
-        // Create Vec with serialized Epoch Preparation box
-        let mut serialized_inputs: Vec<String> =
-            vec![self.epoch_preparation_stage.get_serialized_box()?];
-        // Append serialized Pool Deposit boxes
-        serialized_inputs.append(&mut self.pool_deposit_stage.get_serialized_boxes()?);
+        // Create input boxes Vec with serialized Epoch Preparation box inside
+        let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
+        // Acquire all Pool Deposit boxes
+        let mut initial_deposit_boxes = self.pool_deposit_stage.get_boxes()?;
+        // Only append up to 10 boxes. This is to prevent exceeding execution limit for txs.
+        if initial_deposit_boxes.len() > 20 {
+            unserialized_input_boxes.append(&mut initial_deposit_boxes[..18].to_vec());
+        } else {
+            unserialized_input_boxes.append(&mut initial_deposit_boxes);
+        }
+        let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes);
 
         // Sum up the new total minus tx fee
-        let nano_ergs_sum =
-            epoch_prep_box.funds + self.get_pool_deposits_state()?.total_nanoergs - 1000000;
+        let total_input_ergs = unserialized_input_boxes
+            .iter()
+            .fold(0, |acc, b| acc + b.value.value());
+        let nano_ergs_sum = total_input_ergs - FEE;
 
         // Filling out the json tx request template
         req["requests"][0]["value"] = nano_ergs_sum.into();
@@ -78,7 +90,8 @@ impl OraclePool {
             self.epoch_preparation_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = serialized_inputs.into();
+        req["inputsRaw"] = serialized_input_boxes.into();
+        req["fee"] = (FEE * 9).into();
 
         send_transaction(&req)
     }
