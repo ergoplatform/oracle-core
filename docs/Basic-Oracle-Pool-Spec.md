@@ -73,8 +73,8 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
-- Live epoch duration 
-- Epoch preparation duration 
+- Live epoch duration
+- Epoch preparation duration
 - Margin of error(%) that oracles are allowed to be off by.
 - The price for each oracle pool datapoint posting
 - The oracle pool NFT/singleton token id
@@ -91,11 +91,9 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 ## Stage: Epoch Preparation
 This is the alternative stage that the oracle pool box can be in after a previous epoch has finished. The pool is awaiting for the next epoch to begin.
 
-Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is allowed if:
-- The box has sufficient funds to payout oracles
-- At least 4 blocks have passed since the [Epoch Preparation](<#Stage-Epoch-Preparation>) has started
+Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is possible via the [Start Next Epoch](<#Action-Start-Next-Epoch>) action.
 
-During this epoch preparation period collecting [Pool Deposit](<#Stage-Pool-Deposit>) boxes can be done. 
+During this epoch preparation period collecting [Pool Deposit](<#Stage-Pool-Deposit>) boxes can be done.
 
 If the oracle pool has insufficient funds and thus skips posting for a given epoch, then a new epoch must be created afterwards via [Create New Epoch](<#Action-Create-New-Epoch>) once the pool box has been funded.
 
@@ -105,17 +103,17 @@ If the oracle pool has insufficient funds and thus skips posting for a given epo
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
-- Live epoch duration 
-- Epoch preparation duration 
+- Live epoch duration
+- Epoch preparation duration
 - The price for each oracle pool datapoint posting
 - The oracle pool NFT/singleton token id
 
 
 ### Actions/Spending Paths
 - [Collect Funds](<#Action-Collect-Funds>)
-- [Start Next Epoch](<#Action-Start-Next-Epoch>) 
+- [Start Next Epoch](<#Action-Start-Next-Epoch>)
 - [Create New Epoch](<#Action-Create-New-Epoch>)
---- 
+---
 
 
 
@@ -132,7 +130,7 @@ A box at this stage means that the oracle at hand has posted data on-chain in th
 
 ### Actions/Spending Paths
 - [Commit Datapoint](<#Action-Commit-Datapoint>)
---- 
+---
 
 
 
@@ -147,7 +145,7 @@ Anyone on the Ergo Blockchain can fund the given oracle pool by creating a box w
 
 ### Actions/Spending Paths
 - [Collect Funds](<#Action-Collect-Funds>)
---- 
+---
 
 
 
@@ -164,10 +162,8 @@ Before creation, the oracle pool must decide on the:
 - Post price (Hardcoded)
 - The block height that the first epoch ends (Stored in R5 of bootstrapped [Epoch Preparation](<#Stage-Epoch-Preparation>))
 
-The epoch can only be started on block heights after `[Finish Block Height Of Upcoming Epoch (R5)] - [Epoch Length] + 4` and so it will bootstrap cleanly.
-
 ### Inputs
-1. A box with an NFT/singleton token which will be used to identify the pool. 
+1. A box with an NFT/singleton token which will be used to identify the pool.
 2. One or more boxes with Ergs to be used for initial oracle pool payments.
 
 ### Outputs
@@ -190,7 +186,7 @@ Prior to bootstrapping oracles, a new "oracle pool participant" token must be cr
 
 Thus the bootstrapper creates boxes which are each owned by a predefined single oracle who will use their given box to commit datapoints to the oracle pool. This box will always hold the oracle pool token, hold the given oracle's address in R4, and always be in the [Datapoint](<#Stage-Datapoint>) stage.
 
-Once bootstrapped, the oracle must wait until the block height gets close enough to begin the first epoch via [Start Next Epoch](<#Action-Start-Next-Epoch>). 
+Once bootstrapped, the oracle must wait until the block height gets close enough to begin the first epoch via [Start Next Epoch](<#Action-Start-Next-Epoch>).
 
 ### Inputs
 1. A box with a single oracle pool participant token.
@@ -355,7 +351,7 @@ If the finish block height of an epoch has passed without the live epoch being s
 
 ## Action: Create New Epoch
 
-If the oracle pool is in the [Epoch Preparation](<#Stage-Epoch-Preparation>) stage and is underfunded, it can miss starting it's next Live Epoch (because [Start Next Epoch](<#Action-Start-Next-Epoch>) requires sufficient funds). 
+If the oracle pool is in the [Epoch Preparation](<#Stage-Epoch-Preparation>) stage and is underfunded, it can miss starting it's next Live Epoch (because [Start Next Epoch](<#Action-Start-Next-Epoch>) requires sufficient funds).
 
 Therefore, this action allows creating a brand new upcoming epoch after funds have been collected and a previous epoch has been missed. This is done by checking R5 of the [Epoch Preparation](<#Stage-Epoch-Preparation>) box and seeing if the block height has passed. If so, it means that none of the oracles started said epoch (which they have a game theoretic incentive to do so because they get paid) due to the pool not having sufficient funds to payout the oracles for the next epoch.
 
@@ -366,10 +362,10 @@ Minimum:
 [Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length]
 
 Maximum:
-[Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length] + 4
+[Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length] + [Buffer]
 ```
 
-This is to allow a bit of leeway for the tx to be accepted on-chain while also setting an upper limit for when the next [Live Epoch](<#Stage-Live-Epoch>) begins.
+This buffer allows a bit of leeway for the tx to be accepted on-chain while also setting an upper limit for when the next [Live Epoch](<#Stage-Live-Epoch>) begins. A reasonable value for this buffer can be 4 blocks for example.
 
 Here in [Create New Epoch](<#Action-Create-New-Epoch>) we set the next Live Epoch's finish block height based off of when the action is submitted on-chain. [Start Next Epoch](<#Action-Start-Next-Epoch>) merely increments the previous epoch's finish height, thereby keeping to the old posting schedule. This is the biggest difference between the two actions.
 

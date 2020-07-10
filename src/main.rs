@@ -28,5 +28,5 @@ fn main() {
     println!("{:?}", op.get_preparation_state());
 
     // op.action_commit_datapoint(0429);
-    op.action_collect_funds();
+    // op.action_collect_funds();
 }

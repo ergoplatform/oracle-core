@@ -98,9 +98,7 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 ## Stage: Epoch Preparation
 This is the alternative stage that the oracle pool box can be in after a previous epoch has finished. The pool is awaiting for the next epoch to begin.
 
-Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is allowed if:
-- The box has sufficient funds to payout oracles
-- At least 4 blocks have passed since the [Epoch Preparation](<#Stage-Epoch-Preparation>) has started
+Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is possible via the [Start Next Epoch](<#Action-Start-Next-Epoch>) action.
 
 During this epoch preparation period collateral slashing can be initiated and collecting [Pool Deposit](<#Stage-Pool-Deposit>) boxes can be done. This provides a period of establishing equilibrium after every datapoint collection for both the individual oracles who may have been wronged, and for the funds of the oracle pool to be collected in order to allow for the protocol to continue.
 
@@ -178,8 +176,6 @@ Before creation, the oracle pool must decide on the:
 - Post price (Hardcoded)
 - Oracle collateral minimum (Hardcoded)
 - The block height that the first epoch ends (Stored in R5 of bootstrapped [Epoch Preparation](<#Stage-Epoch-Preparation>))
-
-The epoch can only be started on block heights after `[Finish Block Height Of Upcoming Epoch (R5)] - [Epoch Length] + 4` and so it will bootstrap cleanly.
 
 ### Inputs
 1. A box with an NFT/singleton token which will be used to identify the pool. 
@@ -463,10 +459,10 @@ Minimum:
 [Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length]
 
 Maximum:
-[Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length] + 4
+[Current Block Height] + [Live Epoch Length] + [Epoch Preparation Length] + [Buffer]
 ```
 
-This is to allow a bit of leeway for the tx to be accepted on-chain while also setting an upper limit for when the next [Live Epoch](<#Stage-Live-Epoch>) begins.
+This buffer allows a bit of leeway for the tx to be accepted on-chain while also setting an upper limit for when the next [Live Epoch](<#Stage-Live-Epoch>) begins. A reasonable value for this buffer can be 4 blocks for example.
 
 Here in [Create New Epoch](<#Action-Create-New-Epoch>) we set the next Live Epoch's finish block height based off of when the action is submitted on-chain. [Start Next Epoch](<#Action-Start-Next-Epoch>) merely increments the previous epoch's finish height, thereby keeping to the old posting schedule. This is the biggest difference between the two actions.
 
