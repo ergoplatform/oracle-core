@@ -187,6 +187,22 @@ pub fn address_to_bytes(address: &String) -> Option<String> {
     Some(res_json["bytes"].to_string().clone())
 }
 
+/// Given a `Vec<ErgoBox>` return the given boxes (which must be part of the UTXO-set) as
+/// a vec of serialized strings in Base16 encoding
+pub fn serialize_boxes(b: &Vec<ErgoBox>) -> Option<Vec<String>> {
+    Some(
+        b.iter()
+            .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or("".to_string()))
+            .collect(),
+    )
+}
+
+/// Given an `ErgoBox` return the given box (which must be part of the UTXO-set) as
+/// a serialized string in Base16 encoding
+pub fn serialize_box(b: &ErgoBox) -> Option<String> {
+    serialized_box_from_id(&b.box_id().into())
+}
+
 /// Given a box id return the given box (which must be part of the UTXO-set) as
 /// a serialized string in Base16 encoding
 pub fn serialized_box_from_id(box_id: &String) -> Option<String> {

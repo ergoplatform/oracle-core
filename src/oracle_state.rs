@@ -1,6 +1,6 @@
 use crate::encoding::{deserialize_integer, deserialize_string};
 /// This files relates to the state of the oracle/oracle pool.
-use crate::node_interface::{get_scan_boxes, serialized_box_from_id};
+use crate::node_interface::{get_scan_boxes, serialize_box, serialize_boxes};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
@@ -265,17 +265,12 @@ impl Stage {
     /// Returns all boxes held at the given stage based on the registered scan
     /// serialized and ready to be used as rawInputs
     pub fn get_serialized_boxes(&self) -> Option<Vec<String>> {
-        Some(
-            self.get_boxes()?
-                .iter()
-                .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or("".to_string()))
-                .collect(),
-        )
+        serialize_boxes(&self.get_boxes()?)
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     /// serialized and ready to be used as a rawInput
     pub fn get_serialized_box(&self) -> Option<String> {
-        serialized_box_from_id(&self.get_box()?.box_id().into())
+        serialize_box(&self.get_box()?)
     }
 }
