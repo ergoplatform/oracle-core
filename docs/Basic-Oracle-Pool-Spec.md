@@ -63,9 +63,11 @@ Do note, this only displays the state transitions (actions), which map onto spen
 
 
 ## Stage: Live Epoch
-This stage signifies that the oracle pool is currently in an active epoch. While the oracle pool box is in this stage oracles are allowed to post new datapoints which will then be collected at the end of the epoch.
+This stage signifies that the oracle pool is currently in an active/live epoch.
 
-This oracle pool box also has an NFT/singleton token which can be used to identify it and differentiate it from another instance of the contract posted by an unknown bad actor.
+While the oracle pool box is in this stage oracles are allowed to post new datapoints via [Commit Datapoint](<#Action-Commit-Datapoint>). At the end of the epoch all of said datapoints can be collected via [Collect Datapoints](<#Action-Collect-Datapoints>).
+
+The oracle pool box at this stage must also hold the pool's NFT/singleton token. This NFT is required in order to guarantee the identity of the pool thereby differentiating it from another instance of the same contract posted by an unknown bad actor.
 
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
@@ -89,13 +91,16 @@ This oracle pool box also has an NFT/singleton token which can be used to identi
 
 
 ## Stage: Epoch Preparation
-This is the alternative stage that the oracle pool box can be in after a previous epoch has finished. The pool is awaiting for the next epoch to begin.
+This is the alternative stage that the oracle pool box can be in which occurs after [Collect Datapoints](<#Action-Collect-Datapoints>) has been called during the previous [Live Epoch](<#Stage-Live-Epoch>). This stage provides an intermediate period between epochs where many of the "house-keeping" duties of the oracle pool can take place.
 
-Progression into the proceeding epoch (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is possible via the [Start Next Epoch](<#Action-Start-Next-Epoch>) action.
+Progression into the proceeding epoch from this stage (and thus into the [Live Epoch](<#Stage-Live-Epoch>) stage once again) is possible via the [Start Next Epoch](<#Action-Start-Next-Epoch>) action.
 
-During this epoch preparation period collecting [Pool Deposit](<#Stage-Pool-Deposit>) boxes can be done.
+During this epoch preparation period collecting [Pool Deposit](<#Stage-Pool-Deposit>) boxes can be done in order to replenish the funds available to pay out the oracles.
+However, if the oracle pool has insufficient funds and no [Pool Deposit](<#Stage-Pool-Deposit>) boxes are available to collect, the pool may skip an epoch due to it being underfunded.
 
-If the oracle pool has insufficient funds and thus skips posting for a given epoch, then a new epoch must be created afterwards via [Create New Epoch](<#Action-Create-New-Epoch>) once the pool box has been funded.
+If an epoch is skipped then a new epoch (following a new posting schedule) must be created via [Create New Epoch](<#Action-Create-New-Epoch>). This is only possible once the pool box has had it's funds replenished and it can pay out oracle once more.
+
+The oracle pool box at this stage must also hold the pool's NFT/singleton token. This NFT is required in order to guarantee the identity of the pool thereby differentiating it from another instance of the same contract posted by an unknown bad actor.
 
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
@@ -120,8 +125,9 @@ If the oracle pool has insufficient funds and thus skips posting for a given epo
 
 
 ## Stage: Datapoint
-A box at this stage means that the oracle at hand has posted data on-chain in the given epoch and is waiting for the epoch to end and for it to be collected.
+Each oracle owns a box which is always in the [Datapoint](<#Stage-Datapoint>) stage. This box holds the latest datapoint that the oracle has posted.
 
+This box also holds information about which epoch the datapoint was posted, so that the protocol can keep track of whether or not the oracle has posted their datapoint in the latest epoch.
 
 ### Registers
 - R4: The address of the oracle (never allowed to change after bootstrap).
