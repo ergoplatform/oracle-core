@@ -70,19 +70,22 @@ impl OraclePool {
         let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
         // Acquire all Pool Deposit boxes
         let mut initial_deposit_boxes = self.pool_deposit_stage.get_boxes()?;
-        // Only append up to 10 boxes. This is to prevent exceeding execution limit for txs.
-        if initial_deposit_boxes.len() > 20 {
-            unserialized_input_boxes.append(&mut initial_deposit_boxes[..18].to_vec());
+        // Only append up to 47 boxes. This is to prevent exceeding execution limit for txs.
+        if initial_deposit_boxes.len() > 47 {
+            unserialized_input_boxes.append(&mut initial_deposit_boxes[..47].to_vec());
         } else {
             unserialized_input_boxes.append(&mut initial_deposit_boxes);
         }
         let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes);
 
+        // Define the fee for the current action
+        let action_fee = 8000000;
+
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
             .iter()
             .fold(0, |acc, b| acc + b.value.value());
-        let nano_ergs_sum = total_input_ergs - FEE;
+        let nano_ergs_sum = total_input_ergs - action_fee;
 
         // Filling out the json tx request template
         req["requests"][0]["value"] = nano_ergs_sum.into();
@@ -91,7 +94,7 @@ impl OraclePool {
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = serialized_input_boxes.into();
-        req["fee"] = (FEE * 9).into();
+        req["fee"] = action_fee.into();
 
         send_transaction(&req)
     }
