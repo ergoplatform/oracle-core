@@ -225,7 +225,6 @@ pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
 }
 
 /// Get the current block height of the chain
-/// To Be Implemented
 pub fn current_block_height() -> Option<BlockHeight> {
     let endpoint = get_node_url().to_owned() + "/info";
     let client = reqwest::blocking::Client::new();

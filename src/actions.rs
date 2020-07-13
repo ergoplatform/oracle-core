@@ -1,11 +1,12 @@
-use crate::encoding::{serialize_integer, serialize_string};
-use crate::node_interface::{
-    address_to_bytes, get_serialized_highest_value_unspent_box, send_transaction, serialize_box,
-    serialize_boxes,
-};
 /// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
+use crate::encoding::{serialize_integer, serialize_string};
+use crate::node_interface::{
+    address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
+    send_transaction, serialize_box, serialize_boxes,
+};
+use crate::oracle_config::PoolParameters;
 use crate::oracle_state::OraclePool;
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
@@ -105,6 +106,46 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_integer(epoch_prep_state.next_epoch_ends as i64),
+        };
+        // Defining the tokens to be spent
+        let token_json = object! {
+            "tokenId": self.oracle_pool_nft.to_string(),
+            "amount": 1
+        };
+
+        // Filling out the json tx request template
+        req["requests"][0]["value"] = epoch_prep_state.funds.into();
+        req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
+        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["assets"] = vec![token_json].into();
+        req["inputsRaw"] = vec![
+            self.epoch_preparation_stage.get_serialized_box()?,
+            get_serialized_highest_value_unspent_box()?,
+        ]
+        .into();
+        req["fee"] = FEE.into();
+
+        send_transaction(&req)
+    }
+
+    /// Generates and submits the "Create New Epoch" action tx
+    pub fn action_create_new_epoch(&self) -> Option<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+        let parameters = PoolParameters::new();
+
+        // Define the new epoch finish height based off of current height
+        let new_finish_height = current_block_height()?
+            + parameters.epoch_preparation_length
+            + parameters.live_epoch_length
+            + parameters.buffer_length;
+
+        println!("New height: {}", &new_finish_height);
+
+        // Defining the registers of the output box
+        let epoch_prep_state = self.get_preparation_state()?;
+        let registers = object! {
+            "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
+            "R5": serialize_integer(new_finish_height as i64),
         };
         // Defining the tokens to be spent
         let token_json = object! {
