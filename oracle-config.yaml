@@ -1,3 +1,4 @@
+#### Node Information ####
 # IP Address of the node (default is local)
 node_ip: "0.0.0.0"
 # Port that the node is on (default is 9053)
@@ -5,17 +6,18 @@ node_port: "9053"
 # API key for the node
 node_api_key: "hello"
 
-
+#### Local Oracle Data ####
 # Your oracle address
 oracle_address: "3sSMhchmak6PHo5BXXavCiw1XkwZfsjox5N3sjVqbWVNyHojHJWBUL1JPswsEHttCiFfmVfwpFqaqjFF68D35vC9rkjCwwCFdKNR1GYdpTVbBdumH"
 
-
+#### Oracle Pool Token Data ####
 # ID of the oracle pool NFT
 oracle_pool_nft: "081f0164b31e4d21f30efbc7030eb7acd7b6546af05b30f34f25c4d910682f52"
 # ID of the oracle pool participant token
 oracle_pool_participant_token: "3ff9fdfcda75531d1b5933d016a128bacf92e33817ba9441a4838ba3f247da31"
 
 
+#### Oracle Pool Contract Addresses ####
 # Address of the pool's "Live Epoch" contract
 # live_epoch_contract_address: "9Geu1yV9P92yG7YukxMNbX4FSjmBkgHGZ6dBSa91sbu9tEp3TQeSPvyK4Xm9Gj4Rr54GNCM1XQd8AdtwUmVPsRaD3wG9VgXYSneQEtBjEZL6GUyUogi2ZjmJiiSioXFdAgiAF6v4Uf3HUdkiXsP4N5NdyK9HrG3QjP1cGb"
 live_epoch_contract_address: "3sSMhchosMWKovoTFHsMgpoGoM5EXKZKTGGXqQM78y3Cw47h6BGN6xsD1r4snaotbWWn6qFGqVYwefjoGXbWDkDrCeTdgpGMYnKR4DiS3g9FJ9MLg"
@@ -26,7 +28,12 @@ datapoint_contract_address: "3sSMhchmak6PHo5BXXavCiw1XkwZfsjox5N3sjVqbWVNyHojHJW
 # Address of the "Pool Deposit" contract
 pool_deposit_contract_address: "9Geu1yV9P92yG7YukxMNbX4FSjmBkgHGZ6dBSa91sbu9tEp3TQeSPvyK4Xm9Gj4Rr54GNCM1XQd8AdtwUmVPsRaD3wG9VgXYSneQEtB6LviBXfs6xSqBDdeMwhQDGE59qBrpMCijVhntf3kXLDX9zVdMCcpNnbFPKqGUs4"
 
+#### Oracle Pool Parameters ####
+live_epoch_length = 20
+epoch_preparation_length = 10
 
+
+#### Oracle Pool Features ####
 # Stake Slashing Config (Currently False as no support in initial version)
 stake_slashing: False
 # Governance (Currently False as no support in initial version)

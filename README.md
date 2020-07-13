@@ -55,6 +55,8 @@ Each operator must set up their `oracle-config.yaml` with information about thei
 - *Oracle Pool Epoch* Stage Contract Address
 - *Datapoint* Stage Contract Address
 - *Pool Deposit* Stage Contract Address
+- Live Epoch Length
+- Epoch Preparation Length
 - Stake Slashing (Boolean for now, set to false as no support in initial version)
 - Governance Voting (Boolean for now, set to false as no support in initial version)
 
