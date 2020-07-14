@@ -7,16 +7,16 @@ use json;
 pub fn save_scan_ids_locally(
     epoch_preparation_id: String,
     live_epoch_id: String,
-    datapoint_id: String,
+    local_oracle_datapoint_scan_id: String,
     pool_deposit_id: String,
-    collection_scan_id: String,
+    all_datapoints_scan_id: String,
 ) {
     let id_json = object! {
         epoch_preparation_scan_id: epoch_preparation_id,
         live_epoch_scan_id: live_epoch_id,
-        datapoint_scan_id: datapoint_id,
+        local_oracle_datapoint_scan_id: local_oracle_datapoint_scan_id,
         pool_deposit_scan_id: pool_deposit_id,
-        collection_scan_id: collection_scan_id,
+        all_datapoints_scan_id: all_datapoints_scan_id,
     };
     std::fs::write("scanIDs.json", json::stringify_pretty(id_json, 4))
         .expect("Unable to save UTXO-set scan ids to scanIDs.json");
@@ -137,7 +137,7 @@ pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> String {
 }
 
 /// This function registers scanning for all of the pools oracles' Datapoint boxes for datapoint collection
-pub fn register_collection_scan(
+pub fn register_all_datapoints_scan(
     oracle_pool_participant_token: &String,
     datapoint_address: &String,
 ) -> String {

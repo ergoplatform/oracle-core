@@ -3,7 +3,7 @@ use crate::encoding::{deserialize_integer, deserialize_string};
 use crate::node_interface::{get_scan_boxes, serialize_box, serialize_boxes};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
-    register_collection_scan, register_datapoint_scan, register_epoch_preparation_scan,
+    register_all_datapoints_scan, register_datapoint_scan, register_epoch_preparation_scan,
     register_live_epoch_scan, register_pool_deposit_scan, save_scan_ids_locally,
 };
 use crate::{BlockHeight, EpochID, NanoErg};
@@ -37,7 +37,8 @@ pub struct OraclePool {
     /// Stages
     pub epoch_preparation_stage: Stage,
     pub live_epoch_stage: Stage,
-    pub datapoint_stage: Stage,
+    pub all_datapoints_stage: Stage,
+    pub local_oracle_datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
 }
 
@@ -122,7 +123,7 @@ impl OraclePool {
                 &local_oracle_address,
             );
             let id4 = register_pool_deposit_scan(&pool_deposit_contract_address);
-            let id5 = register_collection_scan(
+            let id5 = register_all_datapoints_scan(
                 &oracle_pool_participant_token,
                 &datapoint_contract_address,
             );
@@ -137,8 +138,9 @@ impl OraclePool {
         .expect("Failed to parse scanIDs.json");
         let epoch_preparation_scan_id = scan_ids["epoch_preparation_scan_id"].to_string();
         let live_epoch_scan_id = scan_ids["live_epoch_scan_id"].to_string();
-        let datapoint_scan_id = scan_ids["datapoint_scan_id"].to_string();
+        let all_datapoints_scan_id = scan_ids["all_datapoints_scan_id"].to_string();
         let pool_deposit_scan_id = scan_ids["pool_deposit_scan_id"].to_string();
+        let local_oracle_datapoint_scan_id = scan_ids["local_oracle_datapoint_scan_id"].to_string();
 
         OraclePool {
             local_oracle_address: local_oracle_address,
@@ -152,9 +154,13 @@ impl OraclePool {
                 contract_address: live_epoch_contract_address,
                 scan_id: live_epoch_scan_id,
             },
-            datapoint_stage: Stage {
+            all_datapoints_stage: Stage {
+                contract_address: datapoint_contract_address.clone(),
+                scan_id: all_datapoints_scan_id,
+            },
+            local_oracle_datapoint_stage: Stage {
                 contract_address: datapoint_contract_address,
-                scan_id: datapoint_scan_id,
+                scan_id: local_oracle_datapoint_scan_id,
             },
             pool_deposit_stage: Stage {
                 contract_address: pool_deposit_contract_address,
@@ -220,7 +226,7 @@ impl OraclePool {
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
-        let datapoint_box = self.datapoint_stage.get_box()?;
+        let datapoint_box = self.local_oracle_datapoint_stage.get_box()?;
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
