@@ -9,12 +9,14 @@ pub fn save_scan_ids_locally(
     live_epoch_id: String,
     datapoint_id: String,
     pool_deposit_id: String,
+    collection_scan_id: String,
 ) {
     let id_json = object! {
         epoch_preparation_scan_id: epoch_preparation_id,
         live_epoch_scan_id: live_epoch_id,
         datapoint_scan_id: datapoint_id,
         pool_deposit_scan_id: pool_deposit_id,
+        collection_scan_id: collection_scan_id,
     };
     std::fs::write("scanIDs.json", json::stringify_pretty(id_json, 4))
         .expect("Unable to save UTXO-set scan ids to scanIDs.json");
@@ -132,4 +134,33 @@ pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> String {
 
     println!("{:?}", scan_json.dump());
     register_scan(&scan_json).expect("Failed to register pool deposit scan.")
+}
+
+/// This function registers scanning for all of the pools oracles' Datapoint boxes for datapoint collection
+pub fn register_collection_scan(
+    oracle_pool_participant_token: &String,
+    datapoint_address: &String,
+) -> String {
+    // ErgoTree bytes of the datapoint P2S address/script
+    let datapoint_add_bytes =
+        address_to_bytes(datapoint_address).expect("Failed to access node to use addressToBytes.");
+
+    // Scan for pool participant token id + datapoint contract address + oracle_address in R4
+    let scan_json = object! {
+    scanName: "Personal Oracle Datapoint Scan",
+    trackingRule: {
+        "predicate": "and",
+        "args": [
+            {
+            "predicate": "containsAsset",
+            "assetId": oracle_pool_participant_token.clone(),
+            },
+            {
+            "predicate": "equals",
+            "value": datapoint_add_bytes.clone(),
+            }
+        ]}
+    };
+
+    register_scan(&scan_json).expect("Failed to register oracle datapoint scan.")
 }

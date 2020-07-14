@@ -167,4 +167,9 @@ impl OraclePool {
 
         send_transaction(&req)
     }
+
+    /// Generates and submits the "Collect Datapoints" action tx
+    pub fn action_collect_datapoints(&self) -> Option<String> {
+        None
+    }
 }

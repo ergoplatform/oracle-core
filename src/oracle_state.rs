@@ -3,8 +3,8 @@ use crate::encoding::{deserialize_integer, deserialize_string};
 use crate::node_interface::{get_scan_boxes, serialize_box, serialize_boxes};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
-    register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
-    register_pool_deposit_scan, save_scan_ids_locally,
+    register_collection_scan, register_datapoint_scan, register_epoch_preparation_scan,
+    register_live_epoch_scan, register_pool_deposit_scan, save_scan_ids_locally,
 };
 use crate::{BlockHeight, EpochID, NanoErg};
 use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
@@ -122,8 +122,12 @@ impl OraclePool {
                 &local_oracle_address,
             );
             let id4 = register_pool_deposit_scan(&pool_deposit_contract_address);
+            let id5 = register_collection_scan(
+                &oracle_pool_participant_token,
+                &datapoint_contract_address,
+            );
 
-            save_scan_ids_locally(id1, id2, id3, id4);
+            save_scan_ids_locally(id1, id2, id3, id4, id5);
         }
 
         // Read scanIDs.json for scan ids

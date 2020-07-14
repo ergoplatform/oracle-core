@@ -81,9 +81,6 @@ The oracle core will have to build transactions for the following actions which 
 
 1. Commit Datapoint
 2. Collect Datapoints
-3. Fund Oracle Pool
-4. Collect Funds
-5. Start Next Epoch
-6. Create New Epoch
-
-Reference the informal specification for details on building said transactions.
+3. Collect Funds
+4. Start Next Epoch
+5. Create New Epoch
