@@ -74,6 +74,7 @@ The oracle pool box at this stage must also hold the pool's NFT/singleton token.
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
 - R5: Block height that the current epoch will finish on
+- R6: Address of the "Epoch Preparation" stage contract.
 
 ### Hard-coded Values
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
@@ -284,6 +285,8 @@ The equation for the amount of Ergs inside each payment box can be found in *Suc
 6. A payment box output is generated for all of the successful oracles who provided a datapoint within the hardcoded margin of error (compared to finalized datapoint in R4 of Output #1). The addresses are acquired from the data-input [Datapoint](<#Stage-Datapoint>) box's R4.
 7. Each payment box has a total amount of Ergs inside equal to the result of the `Successful Oracle Epoch Payout Function`.
 8. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
+9. At least 1 valid data-input box is provided.
+10. Output #1 address is equal to the address held in R6 of Input #1.
 ---
 
 
