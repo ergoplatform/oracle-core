@@ -34,15 +34,11 @@ impl OraclePool {
         };
 
         // Filling out the json tx request template
-        req["requests"][0]["address"] = self
-            .local_oracle_datapoint_stage
-            .contract_address
-            .clone()
-            .into();
+        req["requests"][0]["address"] = self.datapoint_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
-            self.local_oracle_datapoint_stage.get_serialized_box()?,
+            self.local_oracle_datapoint_scan.get_serialized_box()?,
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();

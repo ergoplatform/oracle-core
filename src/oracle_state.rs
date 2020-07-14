@@ -3,12 +3,11 @@ use crate::encoding::{deserialize_integer, deserialize_string};
 use crate::node_interface::{get_scan_boxes, serialize_box, serialize_boxes};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
-    register_all_datapoints_scan, register_datapoint_scan, register_epoch_preparation_scan,
-    register_live_epoch_scan, register_pool_deposit_scan, save_scan_ids_locally,
+    register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
+    register_local_oracle_datapoint_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan,
 };
 use crate::{BlockHeight, EpochID, NanoErg};
-use sigma_tree::ast::{CollPrim, Constant, ConstantVal};
-use sigma_tree::chain::{Base16EncodedBytes, ErgoBox, ErgoBoxCandidate};
+use sigma_tree::chain::ErgoBox;
 use std::path::Path;
 use yaml_rust::YamlLoader;
 
@@ -23,7 +22,7 @@ pub enum PoolBoxState {
 #[derive(Debug, Clone)]
 pub struct Stage {
     pub contract_address: String,
-    pub scan_id: String,
+    pub scan: Scan,
 }
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
@@ -37,9 +36,10 @@ pub struct OraclePool {
     /// Stages
     pub epoch_preparation_stage: Stage,
     pub live_epoch_stage: Stage,
-    pub all_datapoints_stage: Stage,
-    pub local_oracle_datapoint_stage: Stage,
+    pub datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
+    // Local Oracle Datapoint Scan
+    pub local_oracle_datapoint_scan: Scan,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -112,60 +112,76 @@ impl OraclePool {
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
-            let id1 = register_epoch_preparation_scan(
-                &oracle_pool_nft,
-                &epoch_preparation_contract_address,
-            );
-            let id2 = register_live_epoch_scan(&oracle_pool_nft, &live_epoch_contract_address);
-            let id3 = register_datapoint_scan(
-                &oracle_pool_participant_token,
-                &datapoint_contract_address,
-                &local_oracle_address,
-            );
-            let id4 = register_pool_deposit_scan(&pool_deposit_contract_address);
-            let id5 = register_all_datapoints_scan(
-                &oracle_pool_participant_token,
-                &datapoint_contract_address,
-            );
-
-            save_scan_ids_locally(id1, id2, id3, id4, id5);
+            let scans = vec![
+                register_epoch_preparation_scan(
+                    &oracle_pool_nft,
+                    &epoch_preparation_contract_address,
+                ),
+                register_live_epoch_scan(&oracle_pool_nft, &live_epoch_contract_address),
+                register_local_oracle_datapoint_scan(
+                    &oracle_pool_participant_token,
+                    &datapoint_contract_address,
+                    &local_oracle_address,
+                ),
+                register_datapoint_scan(
+                    &oracle_pool_participant_token,
+                    &datapoint_contract_address,
+                ),
+                register_pool_deposit_scan(&pool_deposit_contract_address),
+            ];
+            save_scan_ids_locally(scans);
         }
 
         // Read scanIDs.json for scan ids
-        let scan_ids = json::parse(
+        let scan_json = json::parse(
             &std::fs::read_to_string("scanIDs.json").expect("Unable to read scanIDs.json"),
         )
         .expect("Failed to parse scanIDs.json");
-        let epoch_preparation_scan_id = scan_ids["epoch_preparation_scan_id"].to_string();
-        let live_epoch_scan_id = scan_ids["live_epoch_scan_id"].to_string();
-        let all_datapoints_scan_id = scan_ids["all_datapoints_scan_id"].to_string();
-        let pool_deposit_scan_id = scan_ids["pool_deposit_scan_id"].to_string();
-        let local_oracle_datapoint_scan_id = scan_ids["local_oracle_datapoint_scan_id"].to_string();
 
+        // Create all `Scan` structs for protocol
+        let epoch_preparation_scan = Scan::new(
+            &"Epoch Preparation Scan".to_string(),
+            &scan_json["Epoch Preparation Scan"].to_string(),
+        );
+        let live_epoch_scan = Scan::new(
+            &"Live Epoch Scan".to_string(),
+            &scan_json["Live Epoch Scan"].to_string(),
+        );
+        let datapoint_scan = Scan::new(
+            &"All Oracle Datapoints Scan".to_string(),
+            &scan_json["All Datapoints Scan"].to_string(),
+        );
+        let local_oracle_datapoint_scan = Scan::new(
+            &"Local Oracle Datapoint Scan".to_string(),
+            &scan_json["Local Oracle Datapoint Scan"].to_string(),
+        );
+        let pool_deposit_scan = Scan::new(
+            &"Pool Deposits Scan".to_string(),
+            &scan_json["Pool Deposits Scan"].to_string(),
+        );
+
+        // Create `OraclePool` struct
         OraclePool {
             local_oracle_address: local_oracle_address,
             oracle_pool_nft: oracle_pool_nft,
             oracle_pool_participant_token: oracle_pool_participant_token,
             epoch_preparation_stage: Stage {
                 contract_address: epoch_preparation_contract_address,
-                scan_id: epoch_preparation_scan_id,
+                scan: epoch_preparation_scan,
             },
             live_epoch_stage: Stage {
                 contract_address: live_epoch_contract_address,
-                scan_id: live_epoch_scan_id,
+                scan: live_epoch_scan,
             },
-            all_datapoints_stage: Stage {
+            datapoint_stage: Stage {
                 contract_address: datapoint_contract_address.clone(),
-                scan_id: all_datapoints_scan_id,
-            },
-            local_oracle_datapoint_stage: Stage {
-                contract_address: datapoint_contract_address,
-                scan_id: local_oracle_datapoint_scan_id,
+                scan: datapoint_scan,
             },
             pool_deposit_stage: Stage {
                 contract_address: pool_deposit_contract_address,
-                scan_id: pool_deposit_scan_id,
+                scan: pool_deposit_scan,
             },
+            local_oracle_datapoint_scan: local_oracle_datapoint_scan,
         }
     }
 
@@ -226,7 +242,7 @@ impl OraclePool {
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Option<DatapointState> {
-        let datapoint_box = self.local_oracle_datapoint_stage.get_box()?;
+        let datapoint_box = self.local_oracle_datapoint_scan.get_box()?;
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
@@ -264,23 +280,23 @@ impl OraclePool {
 impl Stage {
     /// Returns all boxes held at the given stage based on the registered scan
     pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
-        get_scan_boxes(&self.scan_id)
+        self.scan.get_boxes()
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     pub fn get_box(&self) -> Option<ErgoBox> {
-        self.get_boxes()?.into_iter().nth(0)
+        self.scan.get_box()
     }
 
     /// Returns all boxes held at the given stage based on the registered scan
     /// serialized and ready to be used as rawInputs
     pub fn get_serialized_boxes(&self) -> Option<Vec<String>> {
-        serialize_boxes(&self.get_boxes()?)
+        self.scan.get_serialized_boxes()
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     /// serialized and ready to be used as a rawInput
     pub fn get_serialized_box(&self) -> Option<String> {
-        serialize_box(&self.get_box()?)
+        self.scan.get_serialized_box()
     }
 }
