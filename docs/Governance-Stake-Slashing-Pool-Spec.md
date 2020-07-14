@@ -1,5 +1,7 @@
 # Governance Stake Slashing Oracle Pool Spec
-This is an informal specification which defines an oracle pool implementation which allows entry by predefined/whitelisted trusted oracles. It includes stake slashing as well as governance for changing the pool posting price.
+This is an informal specification which defines an oracle pool implementation which allows entry by predefined/whitelisted trusted oracles. It includes stake slashing as well as governance for changing the pool posting price. 
+
+This spec follows [Ergo Improvement Proposal 6: Informal Smart Contract Protocol Specification Format](https://github.com/ergoplatform/eips/blob/master/eip-0006.md).
 
 This implementation of oracle pools splits the state of the pool into two distinct stages:
 1. Epoch Preparation

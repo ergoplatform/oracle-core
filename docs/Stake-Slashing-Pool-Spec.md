@@ -1,6 +1,8 @@
 # Stake Slashing Oracle Pool Spec
 This is an informal specification which defines an oracle pool implementation which allows entry by predefined/whitelisted trusted oracles and includes stake slashing.
 
+This spec follows [Ergo Improvement Proposal 6: Informal Smart Contract Protocol Specification Format](https://github.com/ergoplatform/eips/blob/master/eip-0006.md).
+
 This implementation of oracle pools splits the state of the pool into two distinct stages:
 1. Epoch Preparation
 2. Live Epoch
