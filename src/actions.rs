@@ -169,7 +169,6 @@ impl OraclePool {
     /// Generates and submits the "Collect Datapoints" action tx
     pub fn action_collect_datapoints(&self) -> Option<String> {
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
-        let parameters = PoolParameters::new();
 
         // Defining the tokens to be spent
         let token_json = object! {
@@ -184,6 +183,10 @@ impl OraclePool {
 
         // Get all oracle Datapoint boxes
         let datapoint_boxes = self.datapoint_stage.get_boxes()?;
+
+        let finalized_datapoint = finalize_datapoint(&datapoint_boxes);
+
+        let filtered_datapoint_boxes = margin_of_error_filter(finalized_datapoint, datapoint_boxes);
 
         //
         //
@@ -229,10 +232,36 @@ impl OraclePool {
 /// provided oracle Datapoint boxes.
 /// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 /// Currently just takes the average (to be updated).
-pub fn finalize_datapoint(boxes: Vec<ErgoBox>) -> Option<u64> {
+pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<u64> {
     let datapoints_sum = boxes.iter().fold(Some(0), |acc, b| {
         Some(acc? + deserialize_integer(&b.additional_registers.get_ordered_values()[2])?)
     })?;
     let average = datapoints_sum / boxes.len() as i64;
     Some(average as u64)
+}
+
+/// Filters out all boxes with datapoints that are greater than the margin of error
+/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
+pub fn margin_of_error_filter(
+    finalized_datapoint: u64,
+    boxes: &Vec<ErgoBox>,
+) -> Option<Vec<ErgoBox>> {
+    // Get parameters for margin of error
+    let parameters = PoolParameters::new();
+
+    // Specifying min/max acceptable value
+    let delta = (finalized_datapoint as f64 * parameters.margin_of_error) as u64;
+    let min = finalized_datapoint - delta;
+    let max = finalized_datapoint + delta;
+
+    // Find the successful boxes which are within the margin of error
+    let mut successful_boxes = vec![];
+    for b in boxes.clone() {
+        let datapoint =
+            deserialize_integer(&b.additional_registers.get_ordered_values()[2])? as u64;
+        if datapoint > min && datapoint < max {
+            successful_boxes.push(b);
+        }
+    }
+    Some(successful_boxes)
 }
