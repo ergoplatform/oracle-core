@@ -1,6 +1,5 @@
 use crate::encoding::{deserialize_integer, deserialize_string};
 /// This files relates to the state of the oracle/oracle pool.
-use crate::node_interface::{get_scan_boxes, serialize_box, serialize_boxes};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,

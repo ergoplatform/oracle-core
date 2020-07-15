@@ -4,13 +4,12 @@
 use crate::encoding::{serialize_integer, serialize_string};
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
-    send_transaction, serialize_box, serialize_boxes,
+    send_transaction, serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::OraclePool;
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
-use sigma_tree::chain::ErgoBox;
 
 /// The default fee used for actions
 pub static FEE: u64 = 1000000;
