@@ -262,7 +262,7 @@ This is the amount of Ergs which a successful oracle (one that has provided a da
 ```
 
 ### Data-Inputs
-1. Every oracle's [Datapoint](<#Stage-Datapoint>) box.
+1. Every [Datapoint](<#Stage-Datapoint>) box which has a datapoint that is within the margin of error.
 
 ### Inputs
 1. The [Live Epoch](<#Stage-Live-Epoch>) box.
@@ -279,7 +279,7 @@ The equation for the amount of Ergs inside each payment box can be found in *Suc
 ### Action Conditions
 1. Collecting datapoints can only be performed by one of the hard-coded oracles.
 2. Output #1 has the oracle pool NFT.
-3. Output #1 has Ergs equivilant to: `[Input #1 Ergs] - [Hardcoded Pool Payout]`
+3. Output #1 has Ergs equivalent to: `[Input #1 Ergs] - [Hardcoded Pool Payout]`
 4. Output #1 R4 is the result of the `Finalize Datapoint Function`
 5. Output #1 R5 is equal to: `[Input #1 R5] + [Hardcoded Epoch Length]`
 6. A payment box output is generated for all of the successful oracles who provided a datapoint within the hardcoded margin of error (compared to finalized datapoint in R4 of Output #1). The addresses are acquired from the data-input [Datapoint](<#Stage-Datapoint>) box's R4.
@@ -287,6 +287,7 @@ The equation for the amount of Ergs inside each payment box can be found in *Suc
 8. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
 9. At least 1 valid data-input box is provided.
 10. Output #1 address is equal to the address held in R6 of Input #1.
+11. Every data-input [Datapoint](<#Stage-Datapoint>) box has a datapoint within the margin of error.
 ---
 
 
