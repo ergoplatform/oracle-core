@@ -267,7 +267,7 @@ This action can only be initiated if the current height is greater than the bloc
 
 An oracle is rewarded for the epoch if they posted a datapoint that is within the margin of error (which is a % hardcoded in the [Live Epoch](<#Stage-Live-Epoch>) contract) of the finalized datapoint.
 
-Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) are allowed to be collected.
+Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) and which are within the margin of error are allowed to be collected.
 
 
 ###### Finalize Datapoint Function

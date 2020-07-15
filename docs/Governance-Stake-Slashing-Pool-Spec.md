@@ -272,7 +272,7 @@ This action can only be initiated if the current height is greater than the bloc
 
 An oracle is rewarded for the epoch if they posted a datapoint that is within the margin of error (which is a % hardcoded in the [Live Epoch](<#Stage-Live-Epoch>) contract) of the finalized datapoint.
 
-Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) are allowed to be collected.
+Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) and which are within the margin of error are allowed to be collected.
 
 Lastly if 75% of oracles submit a "vote" to change the oracle pool posting price (by placing an integer value in R7 of their [Datapoint](<#Stage-Datapoint>) box) then the pool posting price in R9 of the [Epoch Preparation](<#Stage-Epoch-Preparation>) output box will be updated.
 
