@@ -253,7 +253,7 @@ This is the function which produces the finalized datapoint by folding down the 
 ```haskell
 [Summed Total Of Oracle Input Datapoints] / [Number Of Oracle Input Datapoints]
 ```
-Using a more complex equation is likely a good idea and/or filtering major outliers before averaging. (To be done in future draft)
+Using a more complex equation and/or filtering major outliers before averaging is a good idea and will be implemented in the future.
 
 ###### Successful Oracle Epoch Payout Function
 This is the amount of Ergs which a successful oracle (one that has provided a datapoint within the margin of error) is awarded at the end of an epoch. The plus one is to pay out the collector an extra portion for performing the collection.
