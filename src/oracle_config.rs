@@ -5,6 +5,7 @@ pub struct PoolParameters {
     pub live_epoch_length: u64,
     pub epoch_preparation_length: u64,
     pub buffer_length: u64,
+    pub margin_of_error: f64,
 }
 
 impl PoolParameters {
@@ -23,10 +24,14 @@ impl PoolParameters {
         let buf = config["buffer_length"]
             .as_i64()
             .expect("No buffer_length specified in config file.");
+        let moe = config["margin_of_error"]
+            .as_f64()
+            .expect("No margin_of_error specified in config file.");
         PoolParameters {
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,
             buffer_length: buf as u64,
+            margin_of_error: moe,
         }
     }
 }
