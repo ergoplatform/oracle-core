@@ -27,8 +27,9 @@ fn main() {
     println!("{:?}", op.get_live_epoch_state());
     println!("{:?}", op.get_preparation_state());
 
-    // op.action_commit_datapoint(332);
+    // op.action_commit_datapoint(123459);
     // op.action_collect_funds();
     // op.action_start_next_epoch();
     // op.action_create_new_epoch();
+    op.action_collect_datapoints();
 }

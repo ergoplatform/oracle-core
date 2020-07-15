@@ -168,6 +168,7 @@ impl OraclePool {
 
     /// Generates and submits the "Collect Datapoints" action tx
     pub fn action_collect_datapoints(&self) -> Option<String> {
+        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
 
         // Defining the tokens to be spent
@@ -181,12 +182,15 @@ impl OraclePool {
             + parameters.epoch_preparation_length
             + parameters.live_epoch_length;
 
-        // Get all oracle Datapoint boxes
-        let datapoint_boxes = self.datapoint_stage.get_boxes()?;
+        // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
+        let (finalized_datapoint, successful_boxes) =
+            finalize_datapoint(&self.datapoint_stage.get_boxes()?)?;
 
-        let finalized_datapoint = finalize_datapoint(&datapoint_boxes);
-
-        let filtered_datapoint_boxes = margin_of_error_filter(finalized_datapoint, datapoint_boxes);
+        println!(
+            "Finalized Datapoint: {}\nSuccessful Boxes {:?}",
+            finalized_datapoint,
+            successful_boxes.len()
+        );
 
         //
         //
@@ -221,21 +225,22 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["dataInputsRaw"] = serialize_boxes(&datapoint_boxes)?.into();
+        req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
         req["fee"] = 3000000.into();
 
         None
     }
 }
 
-/// Function for creating the finalized datapoint based off of
-/// provided oracle Datapoint boxes.
+/// Function for averaging datapoints from a list of Datapoint boxes.
 /// Returns `None` if boxes provided do not have a valid integer datapoint in R6
-/// Currently just takes the average (to be updated).
-pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<u64> {
+pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Option<u64> {
     let datapoints_sum = boxes.iter().fold(Some(0), |acc, b| {
         Some(acc? + deserialize_integer(&b.additional_registers.get_ordered_values()[2])?)
     })?;
+    if boxes.len() == 0 {
+        return None;
+    }
     let average = datapoints_sum / boxes.len() as i64;
     Some(average as u64)
 }
@@ -243,16 +248,16 @@ pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<u64> {
 /// Filters out all boxes with datapoints that are greater than the margin of error
 /// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 pub fn margin_of_error_filter(
-    finalized_datapoint: u64,
+    averaged_datapoint: u64,
     boxes: &Vec<ErgoBox>,
 ) -> Option<Vec<ErgoBox>> {
     // Get parameters for margin of error
     let parameters = PoolParameters::new();
 
     // Specifying min/max acceptable value
-    let delta = (finalized_datapoint as f64 * parameters.margin_of_error) as u64;
-    let min = finalized_datapoint - delta;
-    let max = finalized_datapoint + delta;
+    let delta = (averaged_datapoint as f64 * parameters.margin_of_error) as u64;
+    let min = averaged_datapoint - delta;
+    let max = averaged_datapoint + delta;
 
     // Find the successful boxes which are within the margin of error
     let mut successful_boxes = vec![];
@@ -264,4 +269,20 @@ pub fn margin_of_error_filter(
         }
     }
     Some(successful_boxes)
+}
+
+/// Function which produced the finalized datapoint based on a list of `ErgoBox`es.
+/// Repeatedly acquires the average and filters out any boxes outside the margin of error.
+/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
+pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<(u64, Vec<ErgoBox>)> {
+    let mut successful_boxes = boxes.clone();
+    loop {
+        let av = average_datapoints(&successful_boxes)?;
+        let filtered_boxes = margin_of_error_filter(av, &successful_boxes)?;
+        if successful_boxes == filtered_boxes {
+            return Some((av, filtered_boxes));
+        }
+        successful_boxes = filtered_boxes;
+    }
+    None
 }
