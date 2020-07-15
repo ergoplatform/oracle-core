@@ -1,7 +1,7 @@
 /// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
-use crate::encoding::{serialize_integer, serialize_string};
+use crate::encoding::{deserialize_integer, serialize_integer, serialize_string};
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
     send_transaction, serialize_boxes,
@@ -10,6 +10,7 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::OraclePool;
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
+use sigma_tree::chain::ErgoBox;
 
 /// The default fee used for actions
 pub static FEE: u64 = 1000000;
@@ -222,4 +223,16 @@ impl OraclePool {
 
         None
     }
+}
+
+/// Function for creating the finalized datapoint based off of
+/// provided oracle Datapoint boxes.
+/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
+/// Currently just takes the average (to be updated).
+pub fn finalize_datapoint(boxes: Vec<ErgoBox>) -> Option<u64> {
+    let datapoints_sum = boxes.iter().fold(Some(0), |acc, b| {
+        Some(acc? + deserialize_integer(&b.additional_registers.get_ordered_values()[2])?)
+    })?;
+    let average = datapoints_sum / boxes.len() as i64;
+    Some(average as u64)
 }
