@@ -322,7 +322,7 @@ If a pool is ever underfunded, then this action must be performed to increase th
 1. Input #1 holds the oracle pool NFT (the NFT id is hardcoded in the [Pool Deposit](<#Stage-Pool-Deposit>) contract)
 2. Output #1 holds the oracle pool NFT.
 3. Output #1 has exactly the same registers as Input #1.
-4. Output #1 holds equivilant to it's previous total plus the summed value of all input [Pool Deposit](<#Stage-Pool-Deposit>) boxes.
+4. Output #1 holds equivalent to it's previous total plus the summed value of all input [Pool Deposit](<#Stage-Pool-Deposit>) boxes.
 ---
 
 

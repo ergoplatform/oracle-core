@@ -138,8 +138,6 @@ impl OraclePool {
             + parameters.live_epoch_length
             + parameters.buffer_length;
 
-        println!("New height: {}", &new_finish_height);
-
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
@@ -169,6 +167,59 @@ impl OraclePool {
 
     /// Generates and submits the "Collect Datapoints" action tx
     pub fn action_collect_datapoints(&self) -> Option<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+        let parameters = PoolParameters::new();
+
+        // Defining the tokens to be spent
+        let token_json = object! {
+            "tokenId": self.oracle_pool_participant_token.to_string(),
+            "amount": 1
+        };
+
+        // Define the finish height of the following epoch
+        let new_finish_height = self.get_live_epoch_state()?.epoch_ends
+            + parameters.epoch_preparation_length
+            + parameters.live_epoch_length;
+
+        // Get all oracle Datapoint boxes
+        let datapoint_boxes = self.datapoint_stage.get_boxes()?;
+
+        //
+        //
+        //
+        //
+
+        let registers = object! {
+            // "R4": ,
+            // "R5": ,
+            // "R6": ,
+        };
+
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        // Filling out the json tx request template
+        req["requests"][0]["address"] =
+            self.epoch_preparation_stage.contract_address.clone().into();
+        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["assets"] = vec![token_json].into();
+        req["inputsRaw"] = vec![
+            self.live_epoch_stage.get_serialized_box()?,
+            get_serialized_highest_value_unspent_box()?,
+        ]
+        .into();
+        req["dataInputsRaw"] = serialize_boxes(&datapoint_boxes)?.into();
+        req["fee"] = 3000000.into();
+
         None
     }
 }
