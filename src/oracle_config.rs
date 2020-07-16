@@ -29,7 +29,7 @@ impl PoolParameters {
         let moe = config["margin_of_error"]
             .as_f64()
             .expect("No margin_of_error specified in config file.");
-        let price = config["margin_of_error"]
+        let price = config["posting_price"]
             .as_i64()
             .expect("No margin_of_error specified in config file.");
         PoolParameters {
