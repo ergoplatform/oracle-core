@@ -5,6 +5,9 @@ node_port: "9053"
 # API key for the node
 node_api_key: "hello"
 
+# Port which you wish the API server to run on
+api_port: "9090"
+
 # Your oracle address
 oracle_address: "3sSMhchmak6PHo5BXXavCiw1XkwZfsjox5N3sjVqbWVNyHojHJWBUL1JPswsEHttCiFfmVfwpFqaqjFF68D35vC9rkjCwwCFdKNR1GYdpTVbBdumH"
 

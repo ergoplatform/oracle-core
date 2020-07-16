@@ -42,6 +42,15 @@ impl PoolParameters {
     }
 }
 
+/// Returns "api_port" from the config file
+pub fn get_api_port() -> String {
+    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
+    config["api_port"]
+        .as_str()
+        .expect("No api_port specified in config file.")
+        .to_string()
+}
+
 /// Reads the `oracle_config.yaml` file
 pub fn get_config_yaml() -> String {
     std::fs::read_to_string("oracle-config.yaml").expect("Failed to open oracle_config.yaml")
