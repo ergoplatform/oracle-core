@@ -171,20 +171,18 @@ impl OraclePool {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
 
-        // Defining the tokens to be spent
-        let token_json = object! {
-            "tokenId": self.oracle_pool_participant_token.to_string(),
-            "amount": 1
-        };
-
-        // Define the finish height of the following epoch
-        let new_finish_height = self.get_live_epoch_state()?.epoch_ends
-            + parameters.epoch_preparation_length
-            + parameters.live_epoch_length;
+        // Write a filter check to remove datapoint boxes from old epochs
+        //
+        let current_epoch_datapoint_boxes = &self.datapoint_stage.get_boxes()?;
+        //
 
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
         let (finalized_datapoint, successful_boxes) =
-            finalize_datapoint(&self.datapoint_stage.get_boxes()?)?;
+            finalize_datapoint(current_epoch_datapoint_boxes)?;
+        // Number of successful oracles plus 1 for the collector payout
+        let number_of_payouts = (successful_boxes.len() as u64) + 1;
+        // Amount to pay out each successful oracle in nanoergs
+        let oracle_payout = parameters.posting_price / number_of_payouts;
 
         println!(
             "Finalized Datapoint: {}\nSuccessful Boxes {:?}",
@@ -192,43 +190,59 @@ impl OraclePool {
             successful_boxes.len()
         );
 
-        //
-        //
-        //
-        //
+        // Tx fee for the transaction
+        let tx_fee = 5000000;
+        // Define the new value of the oracle pool box after payout/tx fee
+        let new_box_value = self.get_live_epoch_state()?.funds - parameters.posting_price - tx_fee;
+        // Define the finish height of the following epoch
+        let new_finish_height = self.get_live_epoch_state()?.epoch_ends
+            + parameters.epoch_preparation_length
+            + parameters.live_epoch_length;
 
-        let registers = object! {
-            // "R4": ,
-            // "R5": ,
-            // "R6": ,
+        // Defining json request for the oracle pool box
+        let token_json = object! {
+            "tokenId": self.oracle_pool_nft.to_string(),
+            "amount": 1
         };
 
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        // Filling out the json tx request template
+        let registers = object! {
+            "R4": serialize_integer(finalized_datapoint as i64),
+            "R5": serialize_integer(new_finish_height as i64),
+        };
+
+        req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
             self.epoch_preparation_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = vec![
-            self.live_epoch_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
-        ]
-        .into();
-        req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
-        req["fee"] = 3000000.into();
 
-        None
+        // Filling out requests for the oracle payout outputs
+        //
+        // Still need to acquire addresses from the datapoint boxes R4
+        // in order to pay out the actual owners of each
+        //
+        // let oracle_addresses = ;
+        for b in &successful_boxes {
+            req["requests"].push(object! {
+                "address": self.local_oracle_address.clone(),
+                "value": oracle_payout,
+            });
+        }
+
+        // Filling out request for collector payout
+        req["requests"].push(object! {
+            "address": self.local_oracle_address.clone(),
+            "value": oracle_payout,
+        });
+
+        // Filling out the rest of the json request
+        req["inputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
+        req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
+        req["fee"] = tx_fee.into();
+
+        println!("{:?}", req.to_string());
+        // None
+        send_transaction(&req)
     }
 }
 
