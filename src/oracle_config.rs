@@ -1,7 +1,9 @@
+use crate::NanoErg;
 /// Basic functions for acquiring oracle config/node data
 use yaml_rust::{Yaml, YamlLoader};
 
 pub struct PoolParameters {
+    pub posting_price: NanoErg,
     pub live_epoch_length: u64,
     pub epoch_preparation_length: u64,
     pub buffer_length: u64,
@@ -27,7 +29,11 @@ impl PoolParameters {
         let moe = config["margin_of_error"]
             .as_f64()
             .expect("No margin_of_error specified in config file.");
+        let price = config["margin_of_error"]
+            .as_i64()
+            .expect("No margin_of_error specified in config file.");
         PoolParameters {
+            posting_price: price as u64,
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,
             buffer_length: buf as u64,
