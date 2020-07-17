@@ -227,7 +227,6 @@ impl OraclePool {
         for b in &successful_boxes {
             let oracle_address =
                 deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]);
-            println!("DS: {:?}", &oracle_address);
             req["requests"].push(object! {
                 "address": oracle_address,
                 "value": oracle_payout,
@@ -246,8 +245,7 @@ impl OraclePool {
         req["fee"] = tx_fee.into();
 
         // println!("{:?}", req.to_string());
-        None
-        // send_transaction(&req)
+        send_transaction(&req)
     }
 }
 
@@ -290,13 +288,16 @@ pub fn margin_of_error_filter(
     Some(successful_boxes)
 }
 
-/// Removes boxes which do not have a valid integer in R6.
-/// This is to prevent returning `None` while finalizing the datapoint.
+/// Removes boxes which do not have a valid address in R4 and datapoint integer in R6.
+/// This is to prevent returning `None` while finalizing the datapoint and thereby
+/// actually build a tx that validates.
 pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut valid_boxes = vec![];
     for b in boxes {
-        if let Some(_) = deserialize_integer(&b.additional_registers.get_ordered_values()[2]) {
-            valid_boxes.push(b.clone());
+        if let Some(_) = deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]) {
+            if let Some(_) = deserialize_integer(&b.additional_registers.get_ordered_values()[2]) {
+                valid_boxes.push(b.clone());
+            }
         }
     }
     valid_boxes
