@@ -1,7 +1,9 @@
 /// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
-use crate::encoding::{deserialize_integer, serialize_integer, serialize_string};
+use crate::encoding::{
+    deserialize_integer, deserialize_string, serialize_integer, serialize_string,
+};
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
     send_transaction, serialize_boxes,
@@ -68,9 +70,9 @@ impl OraclePool {
         let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
         // Acquire all Pool Deposit boxes
         let mut initial_deposit_boxes = self.pool_deposit_stage.get_boxes()?;
-        // Only append up to 47 boxes. This is to prevent exceeding execution limit for txs.
-        if initial_deposit_boxes.len() > 47 {
-            unserialized_input_boxes.append(&mut initial_deposit_boxes[..47].to_vec());
+        // Only append up to 27 boxes for now. This is to prevent exceeding execution limit for txs.
+        if initial_deposit_boxes.len() > 27 {
+            unserialized_input_boxes.append(&mut initial_deposit_boxes[..27].to_vec());
         } else {
             unserialized_input_boxes.append(&mut initial_deposit_boxes);
         }
@@ -223,6 +225,10 @@ impl OraclePool {
         //
         // let oracle_addresses = ;
         for b in &successful_boxes {
+            let oracle_address = println!(
+                "DS: {:?}",
+                deserialize_string(&b.additional_registers.get_ordered_values()[0])
+            );
             req["requests"].push(object! {
                 "address": self.local_oracle_address.clone(),
                 "value": oracle_payout,
@@ -285,18 +291,36 @@ pub fn margin_of_error_filter(
     Some(successful_boxes)
 }
 
+/// Removes boxes which do not have a valid integer in R6.
+/// This is to prevent returning `None` while finalizing the datapoint.
+pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
+    let mut valid_boxes = vec![];
+    for b in boxes {
+        if let Some(_) = deserialize_integer(&b.additional_registers.get_ordered_values()[2]) {
+            valid_boxes.push(b.clone());
+        }
+    }
+    valid_boxes
+}
+
 /// Function which produced the finalized datapoint based on a list of `ErgoBox`es.
 /// Repeatedly acquires the average and filters out any boxes outside the margin of error.
 /// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<(u64, Vec<ErgoBox>)> {
-    let mut successful_boxes = boxes.clone();
-    loop {
-        let av = average_datapoints(&successful_boxes)?;
-        let filtered_boxes = margin_of_error_filter(av, &successful_boxes)?;
-        if successful_boxes == filtered_boxes {
-            return Some((av, filtered_boxes));
-        }
-        successful_boxes = filtered_boxes;
-    }
-    None
+    // Filter out Datapoint boxes without a valid integer in R6
+    let mut successful_boxes = valid_boxes_filter(boxes);
+    Some((average_datapoints(&successful_boxes)?, successful_boxes))
+
+    // Logic for outlier checking to be integrated later on.
+    // For now just take straight average of datapoints, no outlier checking so commented out.
+    //
+    // loop {
+    //     let av = average_datapoints(&successful_boxes)?;
+    //     let filtered_boxes = margin_of_error_filter(av, &successful_boxes)?;
+    //     if successful_boxes == filtered_boxes {
+    //         return Some((av, filtered_boxes));
+    //     }
+    //     successful_boxes = filtered_boxes;
+    // }
+    // None
 }
