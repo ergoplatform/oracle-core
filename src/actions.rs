@@ -2,14 +2,15 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
-    deserialize_ergo_tree, deserialize_integer, serialize_integer, serialize_string,
+    deserialize_ergo_tree, deserialize_integer, deserialize_string, serialize_integer,
+    serialize_string,
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
     send_transaction, serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
-use crate::oracle_state::OraclePool;
+use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
 use sigma_tree::chain::ErgoBox;
@@ -173,29 +174,24 @@ impl OraclePool {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
 
-        // Write a filter check to remove datapoint boxes from old epochs
-        //
-        let current_epoch_datapoint_boxes = &self.datapoint_stage.get_boxes()?;
-        //
+        let live_epoch_state = self.get_live_epoch_state()?;
+
+        // Filter out Datapoint boxes not from the latest epoch.
+        let current_epoch_datapoint_boxes =
+            current_epoch_boxes_filter(&self.datapoint_stage.get_boxes()?, &live_epoch_state);
 
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
         let (finalized_datapoint, successful_boxes) =
-            finalize_datapoint(current_epoch_datapoint_boxes)?;
+            finalize_datapoint(&current_epoch_datapoint_boxes)?;
         // Number of successful oracles plus 1 for the collector payout
         let number_of_payouts = (successful_boxes.len() as u64) + 1;
         // Amount to pay out each successful oracle in nanoergs
         let oracle_payout = parameters.posting_price / number_of_payouts;
 
-        println!(
-            "Finalized Datapoint: {}\nSuccessful Boxes {:?}",
-            finalized_datapoint,
-            successful_boxes.len()
-        );
-
         // Tx fee for the transaction
         let tx_fee = 5000000;
         // Define the new value of the oracle pool box after payout/tx fee
-        let new_box_value = self.get_live_epoch_state()?.funds - parameters.posting_price - tx_fee;
+        let new_box_value = live_epoch_state.funds - parameters.posting_price - tx_fee;
         // Define the finish height of the following epoch
         let new_finish_height = self.get_live_epoch_state()?.epoch_ends
             + parameters.epoch_preparation_length
@@ -219,11 +215,6 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
 
         // Filling out requests for the oracle payout outputs
-        //
-        // Still need to acquire addresses from the datapoint boxes R4
-        // in order to pay out the actual owners of each
-        //
-        // let oracle_addresses = ;
         for b in &successful_boxes {
             let oracle_address =
                 deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]);
@@ -244,9 +235,24 @@ impl OraclePool {
         req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
         req["fee"] = tx_fee.into();
 
-        // println!("{:?}", req.to_string());
         send_transaction(&req)
     }
+}
+
+/// Filters out Datapoint boxes that are not from the current epoch
+pub fn current_epoch_boxes_filter(
+    datapoint_boxes: &Vec<ErgoBox>,
+    live_epoch_state: &LiveEpochState,
+) -> Vec<ErgoBox> {
+    let mut filtered_boxes = vec![];
+    for b in datapoint_boxes {
+        if let Some(s) = deserialize_string(&b.additional_registers.get_ordered_values()[1]) {
+            if s == live_epoch_state.epoch_id {
+                filtered_boxes.push(b.clone());
+            }
+        }
+    }
+    filtered_boxes
 }
 
 /// Function for averaging datapoints from a list of Datapoint boxes.
@@ -255,6 +261,7 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Option<u64> {
     let datapoints_sum = boxes.iter().fold(Some(0), |acc, b| {
         Some(acc? + deserialize_integer(&b.additional_registers.get_ordered_values()[2])?)
     })?;
+    // Also prevents "Collect Datapoints" tx being issued if no datapoints in current epoch.
     if boxes.len() == 0 {
         return None;
     }
