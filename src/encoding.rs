@@ -1,6 +1,7 @@
 /// This file holds various functions related to encoding/serialization of values that are relevant
 /// to the oracle core.
 use sigma_tree::ast::{CollPrim, Constant, ConstantColl, ConstantVal};
+use sigma_tree::chain::{Address, AddressEncoder, NetworkPrefix};
 use std::str;
 
 /// Serialize a `i64` value into a hex-encoded string to be used inside of a register for a box
@@ -36,6 +37,21 @@ pub fn deserialize_string(c: &Constant) -> Option<String> {
         _ => vec![],
     };
     Some(str::from_utf8(&byte_array).ok()?.to_string())
+}
+
+/// Deserialize ErgoTree inside of a `Constant` acquired from a register of a box into a P2S Base58 String.
+pub fn deserialize_ergo_tree(c: &Constant) -> Option<String> {
+    let byte_array = match &c.v {
+        ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
+            ba.iter().map(|x| x.clone() as u8).collect()
+        }
+        _ => vec![],
+    };
+
+    let address = Address::P2S(byte_array);
+    let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
+
+    Some(encoder.address_to_str(&address))
 }
 
 /// Convert from Erg to nanoErg
