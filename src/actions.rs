@@ -2,7 +2,7 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
-    deserialize_integer, deserialize_string, serialize_integer, serialize_string,
+    deserialize_ergo_tree, deserialize_integer, serialize_integer, serialize_string,
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
@@ -225,12 +225,11 @@ impl OraclePool {
         //
         // let oracle_addresses = ;
         for b in &successful_boxes {
-            let oracle_address = println!(
-                "DS: {:?}",
-                deserialize_string(&b.additional_registers.get_ordered_values()[0])
-            );
+            let oracle_address =
+                deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]);
+            println!("DS: {:?}", &oracle_address);
             req["requests"].push(object! {
-                "address": self.local_oracle_address.clone(),
+                "address": oracle_address,
                 "value": oracle_payout,
             });
         }
@@ -246,9 +245,9 @@ impl OraclePool {
         req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
         req["fee"] = tx_fee.into();
 
-        println!("{:?}", req.to_string());
-        // None
-        send_transaction(&req)
+        // println!("{:?}", req.to_string());
+        None
+        // send_transaction(&req)
     }
 }
 
