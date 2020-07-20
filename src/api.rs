@@ -1,6 +1,6 @@
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_api_port, get_node_url, PoolParameters};
-use crate::oracle_state::OraclePool;
+use crate::oracle_state::{OraclePool, PoolBoxState};
 use crossbeam::channel;
 use sincere;
 use std::panic::catch_unwind;
@@ -95,8 +95,27 @@ pub fn start_api() {
 
     // Status of the oracle pool
     app.get("/poolStatus", move |context| {
+        let op = OraclePool::new();
+        let parameters = PoolParameters::new();
+
+        // Current state of the oracle pool box
+        let current_state = match op.check_oracle_pool_stage() {
+            PoolBoxState::LiveEpoch => "Live Epoch",
+            PoolBoxState::Preparation => "Epoch Preparation",
+        };
+
+        // The amount percentage that the pool is funded
+        let funded_percentage = if let Some(l) = op.get_live_epoch_state() {
+            (l.funds / parameters.posting_price) * 100
+        } else if let Some(ep) = op.get_preparation_state() {
+            (ep.funds / parameters.posting_price) * 100
+        } else {
+            0
+        };
+
         let response_json = object! {
-            node_url: get_node_url(),
+            funded_percentage: funded_percentage,
+            current_pool_state: current_state,
         };
 
         context.response.from_json(response_json.dump()).unwrap();

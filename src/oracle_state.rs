@@ -73,7 +73,7 @@ pub struct DatapointState {
 #[derive(Debug, Clone)]
 pub struct PoolDepositsState {
     pub number_of_boxes: u64,
-    pub total_nanoergs: u64,
+    pub total_nanoergs: NanoErg,
 }
 
 impl OraclePool {

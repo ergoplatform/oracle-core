@@ -42,8 +42,7 @@ Returns json with information about the node that the oracle is using:
 #### poolStatus
 Returns the current status of the oracle pool.
 - Funded Percentage (Total Funds/Pool Price * 100)
-- Current Pool State (Preparing For Epoch Vs. Active Epoch)
-- Latest Epoch Box ID
+- Current Pool State (Epoch Preparation Vs. Live Epoch)
 
 
 #### oracleStatus
