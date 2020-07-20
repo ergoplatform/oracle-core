@@ -355,6 +355,7 @@ If the finish block height of an epoch has passed without the live epoch being s
 3. R4 of both the input and output are equivalent.
 4. R5 of both the input and output are equivalent.
 5. The oracle pool NFT and all held Ergs from the input are in the output.
+6. R6 of the output must hold the address/ErgoTree of the input.
 ---
 
 
@@ -396,4 +397,5 @@ Here in [Create New Epoch](<#Action-Create-New-Epoch>) we set the next Live Epoc
 3. The oracle pool NFT and all held Ergs from the input are in the output.
 4. R4 of both the input and output are equivalent.
 5. R5 of the output must be within the valid range described within the preamble.
+6. R6 of the output must hold the address/ErgoTree of the input.
 ---
