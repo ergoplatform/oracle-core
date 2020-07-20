@@ -1,5 +1,5 @@
 # Oracle Core
-The oracle core is the off-chain component that oracles who are part of an oracle pool must run. This oracle core provides a HTTP interface for submitting datapoints and will automatically generate/post transactions thereby participating in the oracle pool protocol without any extra work by the oracle operator.
+The oracle core is the off-chain component that oracles who are part of an oracle pool must run. This oracle core provides a HTTP api interface for submitting datapoints and will automatically generate/post transactions. This thereby allows the oracle to participate in the oracle pool protocol without any extra work by the oracle operator.
 
 The current design does not include bootstrapping of the oracle pool. This must be done separately.
 
@@ -24,6 +24,16 @@ Returns the current block height of the Ergo blockchain.
 ##### oracleInfo
 Returns json with information about the local oracle:
 - Oracle address
+
+##### poolInfo
+Returns json with information about the oracle pool:
+- Contract addresses
+- Posting Price
+- Live Epoch Length
+- Epoch Preparation Length
+- Margin Of Error
+- Oracle Pool NFT
+- Oracle Pool Participant Token
 
 ##### nodeInfo
 Returns json with information about the node that the oracle is using:
