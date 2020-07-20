@@ -65,6 +65,8 @@ pub struct DatapointState {
     pub datapoint: u64,
     /// Box id of the epoch which the datapoint was posted in/originates from
     pub origin_epoch_id: EpochID,
+    /// Height that the datapoint was declared as being created
+    pub creation_height: BlockHeight,
 }
 
 /// The current UTXO-set state of all of the Pool Deposit boxes
@@ -253,6 +255,7 @@ impl OraclePool {
         let datapoint_state = DatapointState {
             datapoint: datapoint as u64,
             origin_epoch_id: origin_epoch_id,
+            creation_height: datapoint_box.creation_height as u64,
         };
 
         Some(datapoint_state)
