@@ -14,12 +14,20 @@ Do note, that the oracle core requires the user to have access to a full node wa
 5. Build the HTTP API which operators can use to submit data & check the status of their oracle core.
 
 
-## Initial Design Notes
-
-
-### Potential HTTP API Endpoints
+### HTTP API Endpoints
 
 #### GET
+
+##### blockHeight
+Returns the current block height of the Ergo blockchain.
+
+##### oracleInfo
+Returns json with information about the local oracle:
+- Oracle address
+
+##### nodeInfo
+Returns json with information about the node that the oracle is using:
+- Node url
 
 ##### poolStatus
 Returns the current status of the oracle pool.
@@ -59,25 +67,26 @@ Each operator must set up their `oracle-config.yaml` with information about thei
 - Epoch Preparation Length
 - Stake Slashing (Boolean for now, set to false as no support in initial version)
 - Governance Voting (Boolean for now, set to false as no support in initial version)
+- Etc.
 
 
 
 ### Oracle Core <-> Node Interaction
 Using the new [EIP-1](https://github.com/ergoplatform/eips/blob/master/eip-0001.md), the oracle core will register scans to find all relevant boxes.
 
-For the initial implementation these scans include:
+The initial implementation includes scans for:
 
-1. A box in the `Datapoint` contract address which also contains the oracle's address in R4.
-2. Any boxes at the `Pool Deposit` contract address.
-3. A box in the "Epoch Preparation" contract address which holds the oracle pool NFT.
-4. A box in the "Oracle Pool Epoch" contract address which holds the oracle pool NFT.
+1. A box at the `Datapoint` contract address which also contains the oracle's address in R4 and the oracle pool participant token.
+2. Boxes at the `Datapoint` contract address and the oracle pool participant token.
+3. Any boxes at the `Pool Deposit` contract address.
+4. A box at the "Epoch Preparation" contract address which holds the oracle pool NFT.
+5. A box at the "Oracle Pool Epoch" contract address which holds the oracle pool NFT.
 
-The oracle core saves each of the `scanId`s locally into `scanIDs.json` after registering them with the full node. At any time the oracle core wishes to check the current state of the protocol, it simply reads the `scanId`s from the file and acquire all of the relevant unspent boxes from the node.
+The oracle core saves each of the `scanId`s locally into `scanIDs.json` after registering them with the full node. At any time the oracle core wishes to check the current state of the protocol, it simply reads the `scanId`s and acquires all of the relevant unspent boxes from the node.
 
 
 ### Transaction Building
-
-The oracle core will have to build transactions for the following actions which are possible in the basic oracle pool protocol.
+The oracle core creates the following action transactions within the basic oracle pool protocol:
 
 1. Commit Datapoint
 2. Collect Datapoints

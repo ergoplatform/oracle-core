@@ -27,12 +27,12 @@ fn main() {
         })
         .ok();
 
-    // loop {
-    println!("{:?}", op.get_pool_deposits_state());
-    println!("{:?}", op.get_datapoint_state());
-    println!("{:?}", op.get_live_epoch_state());
-    println!("{:?}", op.get_preparation_state());
-    // }
+    loop {
+        println!("{:?}", op.get_pool_deposits_state());
+        println!("{:?}", op.get_datapoint_state());
+        println!("{:?}", op.get_live_epoch_state());
+        println!("{:?}", op.get_preparation_state());
+    }
 
     // op.action_commit_datapoint(2389);
     // op.action_collect_funds();

@@ -1,5 +1,5 @@
 use crate::node_interface::current_block_height;
-use crate::oracle_config::{get_api_port, PoolParameters};
+use crate::oracle_config::{get_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::OraclePool;
 use crossbeam::channel;
 use sincere;
@@ -9,7 +9,6 @@ use std::panic::catch_unwind;
 pub fn start_api() {
     let mut app = sincere::App::new();
     let parameters = PoolParameters::new();
-    let op = OraclePool::new();
 
     app.get("/", move |context| {
         let response_text = format!(
@@ -18,16 +17,24 @@ pub fn start_api() {
         context.response.from_text(response_text).unwrap();
     });
 
-    app.get("/info", move |context| {
-        let response_text = format!(
-            "Local Oracle Address: {}\n
-            ",
-            op.local_oracle_address
-        );
-        context.response.from_text(response_text).unwrap();
+    app.get("/oracleInfo", move |context| {
+        let op = OraclePool::new();
+        let response_json = object! {
+            oracle_address: op.local_oracle_address,
+        };
+
+        context.response.from_json(response_json.dump()).unwrap();
     });
 
-    app.get("/blockheight", move |context| {
+    app.get("/nodeInfo", move |context| {
+        let response_json = object! {
+            node_url: get_node_url(),
+        };
+
+        context.response.from_json(response_json.dump()).unwrap();
+    });
+
+    app.get("/blockHeight", move |context| {
         let current_height =
             current_block_height().expect("Please ensure that the Ergo node is running.");
         let response_text = format!("{}", current_height);
