@@ -109,6 +109,7 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_integer(epoch_prep_state.next_epoch_ends as i64),
+            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -147,6 +148,7 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_integer(new_finish_height as i64),
+            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address),
         };
         // Defining the tokens to be spent
         let token_json = object! {
