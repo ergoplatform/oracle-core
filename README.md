@@ -14,18 +14,18 @@ Do note, that the oracle core requires the user to have access to a full node wa
 5. Build the HTTP API which operators can use to submit data & check the status of their oracle core.
 
 
-### HTTP API Endpoints
+## HTTP API Endpoints
 
-#### GET
+### GET
 
-##### blockHeight
+#### blockHeight
 Returns the current block height of the Ergo blockchain.
 
-##### oracleInfo
+#### oracleInfo
 Returns json with information about the local oracle:
 - Oracle address
 
-##### poolInfo
+#### poolInfo
 Returns json with information about the oracle pool:
 - Contract addresses
 - Posting Price
@@ -35,32 +35,33 @@ Returns json with information about the oracle pool:
 - Oracle Pool NFT
 - Oracle Pool Participant Token
 
-##### nodeInfo
+#### nodeInfo
 Returns json with information about the node that the oracle is using:
 - Node url
 
-##### poolStatus
+#### poolStatus
 Returns the current status of the oracle pool.
 - Funded Percentage (Total Funds/Pool Price * 100)
 - Current Pool State (Preparing For Epoch Vs. Active Epoch)
 - Latest Epoch Box ID
 
 
-##### oracleStatus
+#### oracleStatus
 Returns the current status of one's own oracle.
-- Has Commit Datapoint In Latest Epoch (True/False)
-- Latest Datapoint (a tuple of `(Epoch Box ID, Block Height Submitted, Datapoint Value)`)
-- (Collateral info when that is implemented)
+- Waiting For Datapoint To Be Submitted To The Core For The Current Epoch (True/False)
+- Latest Datapoint
+- Epoch ID That the Datapoint Was Submit In
+- Creation Height Of The Datapoint Tx
 
 
-#### POST
+### POST
 
-##### submitDatapoint
+#### submitDatapoint
 Allows the owner of an oracle to commit a datapoint for the current running epoch. If the pool is in the epoch preparation stage, the datapoint will be rejected. The provided datapoint must be parsable into the type expected which is set in the oracle pool config.
 
 
 
-### Oracle Pool Config
+## Oracle Pool Config
 Each operator must set up their `oracle-config.yaml` with information about their address, the node they are using, and the oracle pool they are taking part in.
 
 - IP Address of the node (default is local)

@@ -58,6 +58,50 @@ pub fn start_api() {
         context.response.from_json(response_json.dump()).unwrap();
     });
 
+    // Status of the oracle
+    app.get("/oracleStatus", move |context| {
+        let op = OraclePool::new();
+
+        // Check whether waiting for datapoint to be submit to oracle core
+        let waiting_for_submit = match op.get_live_epoch_state() {
+            Some(l) => !l.commit_datapoint_in_epoch,
+            None => false,
+        };
+        // Get latest datapoint the local oracle produced/submit
+        let self_datapoint = match op.get_datapoint_state() {
+            Some(d) => d.datapoint,
+            None => 0,
+        };
+        // Get latest datapoint submit epoch
+        let datapoint_epoch = match op.get_datapoint_state() {
+            Some(d) => d.origin_epoch_id,
+            None => "None".to_string(),
+        };
+        // Get latest datapoint submit epoch
+        let datapoint_creation = match op.get_datapoint_state() {
+            Some(d) => d.creation_height,
+            None => 0,
+        };
+
+        let response_json = object! {
+            waiting_for_datapoint_submit: waiting_for_submit,
+            latest_datapoint: self_datapoint,
+            latest_datapoint_epoch: datapoint_epoch,
+            latest_datapoint_creation_height: datapoint_creation,
+        };
+
+        context.response.from_json(response_json.dump()).unwrap();
+    });
+
+    // Status of the oracle pool
+    app.get("/poolStatus", move |context| {
+        let response_json = object! {
+            node_url: get_node_url(),
+        };
+
+        context.response.from_json(response_json.dump()).unwrap();
+    });
+
     // Block height of the Ergo blockchain
     app.get("/blockHeight", move |context| {
         let current_height =
