@@ -37,7 +37,7 @@ pub fn start_api() {
             epoch_prep_address: op.epoch_preparation_stage.contract_address,
             pool_deposits_address: op.pool_deposit_stage.contract_address,
             datapoint_address: op.datapoint_stage.contract_address,
-            posting_price: parameters.posting_price,
+            oracle_payout_price: parameters.oracle_payout_price,
             live_epoch_length: parameters.live_epoch_length,
             epoch_prep_length: parameters.epoch_preparation_length,
             margin_of_error: parameters.margin_of_error,
@@ -106,9 +106,9 @@ pub fn start_api() {
 
         // The amount percentage that the pool is funded
         let funded_percentage = if let Some(l) = op.get_live_epoch_state() {
-            (l.funds / parameters.posting_price) * 100
+            (l.funds / parameters.oracle_payout_price) * 100
         } else if let Some(ep) = op.get_preparation_state() {
-            (ep.funds / parameters.posting_price) * 100
+            (ep.funds / parameters.oracle_payout_price) * 100
         } else {
             0
         };

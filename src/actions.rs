@@ -185,15 +185,11 @@ impl OraclePool {
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
         let (finalized_datapoint, successful_boxes) =
             finalize_datapoint(&current_epoch_datapoint_boxes)?;
-        // Number of successful oracles plus 1 for the collector payout
-        let number_of_payouts = (successful_boxes.len() as u64) + 1;
-        // Amount to pay out each successful oracle in nanoergs
-        let oracle_payout = parameters.posting_price / number_of_payouts;
 
         // Tx fee for the transaction
         let tx_fee = 5000000;
         // Define the new value of the oracle pool box after payout/tx fee
-        let new_box_value = live_epoch_state.funds - parameters.posting_price - tx_fee;
+        let new_box_value = live_epoch_state.funds - parameters.oracle_payout_price - tx_fee;
         // Define the finish height of the following epoch
         let new_finish_height = self.get_live_epoch_state()?.epoch_ends
             + parameters.epoch_preparation_length
@@ -222,14 +218,14 @@ impl OraclePool {
                 deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]);
             req["requests"].push(object! {
                 "address": oracle_address,
-                "value": oracle_payout,
+                "value": parameters.oracle_payout_price,
             });
         }
 
         // Filling out request for collector payout
         req["requests"].push(object! {
             "address": self.local_oracle_address.clone(),
-            "value": oracle_payout,
+            "value": parameters.oracle_payout_price,
         });
 
         // Filling out the rest of the json request
