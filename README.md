@@ -56,7 +56,15 @@ Returns the current status of one's own oracle.
 ### POST
 
 #### submitDatapoint
-Allows the owner of an oracle to commit a datapoint for the current running epoch. If the pool is in the epoch preparation stage, the datapoint will be rejected. The provided datapoint must be parsable into the type expected which is set in the oracle pool config.
+Example Json Body:
+```json
+{
+    datapoint: 123456
+}
+```
+
+
+Allows the owner of an oracle to commit a datapoint for the current running epoch. If the pool is in the epoch preparation stage, the datapoint will be rejected. The provided datapoint must be a valid integer.
 
 
 

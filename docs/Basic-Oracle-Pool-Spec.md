@@ -81,7 +81,7 @@ The oracle pool box at this stage must also hold the pool's NFT/singleton token.
 - Live epoch duration
 - Epoch preparation duration
 - Margin of error(%) that oracles are allowed to be off by.
-- The price for each oracle pool datapoint posting
+- The payout price for each successful oracle datapoint posting
 - The oracle pool NFT/singleton token id
 
 
@@ -113,7 +113,7 @@ The oracle pool box at this stage must also hold the pool's NFT/singleton token.
 - Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
 - Live epoch duration
 - Epoch preparation duration
-- The price for each oracle pool datapoint posting
+- The payout price for each successful oracle datapoint posting
 - The oracle pool NFT/singleton token id
 
 
@@ -255,11 +255,6 @@ This is the function which produces the finalized datapoint by folding down the 
 ```
 Using a more complex equation and/or filtering major outliers before averaging is a good idea and will be implemented in the future.
 
-###### Successful Oracle Epoch Payout Function
-This is the amount of Ergs which a successful oracle (one that has provided a datapoint within the margin of error) is awarded at the end of an epoch. The plus one is to pay out the collector an extra portion for performing the collection.
-```haskell
-[Oracle Pool Posting Price] / ([Num Successful Oracles] + 1)
-```
 
 ### Data-Inputs
 1. Every [Datapoint](<#Stage-Datapoint>) box which has a datapoint that is within the margin of error.
@@ -274,20 +269,22 @@ The [Epoch Preparation](<#Stage-Epoch-Preparation>) box with the new datapoint
 #### Output #2+
 Payment boxes which are holding Ergs that are sent to each oracle who successfully provided a datapoint within the margin of error, plus an extra payment box to the collector (meaning the collector can get 1 or 2 payment boxes depending if they provide accurate data).
 
-The equation for the amount of Ergs inside each payment box can be found in *Successful Oracle Epoch Payout Function* in the preamble.
+The amount of Ergs inside each payment box is equal to `[Oracle Payout Price]` which is hardcoded into the contracts.
+
 
 ### Action Conditions
 1. Collecting datapoints can only be performed by one of the hard-coded oracles.
 2. Output #1 has the oracle pool NFT.
-3. Output #1 has Ergs equivalent to: `[Input #1 Ergs] - [Hardcoded Pool Payout]`
+3. Output #1 has Ergs equivalent to: `[Input #1 Ergs] - [Pool Payout]`
 4. Output #1 R4 is the result of the `Finalize Datapoint Function`
-5. Output #1 R5 is equal to: `[Input #1 R5] + [Hardcoded Epoch Length]`
+5. Output #1 R5 is equal to: `[Input #1 R5] + [Epoch Prep Length] + [Live Epoch Length]`
 6. A payment box output is generated for all of the successful oracles who provided a datapoint within the hardcoded margin of error (compared to finalized datapoint in R4 of Output #1). The addresses are acquired from the data-input [Datapoint](<#Stage-Datapoint>) box's R4.
-7. Each payment box has a total amount of Ergs inside equal to the result of the `Successful Oracle Epoch Payout Function`.
-8. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
-9. At least 1 valid data-input box is provided.
-10. Output #1 address is equal to the address held in R6 of Input #1.
-11. Every data-input [Datapoint](<#Stage-Datapoint>) box has a datapoint within the margin of error.
+7. A (potentially second) payment box output is generated for the collector who's address is in R6 of Output #1.
+8. Each payment box has a total amount of Ergs inside equal to the `[Oracle Payout Price]`.
+9. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
+10. At least 1 valid data-input box is provided.
+11. Output #1 address is equal to the address held in R6 of Input #1.
+12. Every data-input [Datapoint](<#Stage-Datapoint>) box has a datapoint within the margin of error.
 ---
 
 
