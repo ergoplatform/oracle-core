@@ -3,6 +3,7 @@ use crate::NanoErg;
 use yaml_rust::{Yaml, YamlLoader};
 
 pub struct PoolParameters {
+    pub number_of_oracles: u64,
     pub oracle_payout_price: NanoErg,
     pub live_epoch_length: u64,
     pub epoch_preparation_length: u64,
@@ -31,8 +32,12 @@ impl PoolParameters {
             .expect("No margin_of_error specified in config file.");
         let price = config["oracle_payout_price"]
             .as_i64()
-            .expect("No margin_of_error specified in config file.");
+            .expect("No oracle_payout_price specified in config file.");
+        let num = config["number_of_oracles"]
+            .as_i64()
+            .expect("No number_of_oracles specified in config file.");
         PoolParameters {
+            number_of_oracles: num as u64,
             oracle_payout_price: price as u64,
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,

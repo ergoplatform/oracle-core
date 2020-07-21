@@ -41,6 +41,7 @@ pub fn start_api() {
             live_epoch_length: parameters.live_epoch_length,
             epoch_prep_length: parameters.epoch_preparation_length,
             margin_of_error: parameters.margin_of_error,
+            number_of_oracles: parameters.number_of_oracles,
             oracle_pool_nft_id: op.oracle_pool_nft,
             oracle_pool_participant_token_id: op.oracle_pool_participant_token,
 
@@ -106,9 +107,9 @@ pub fn start_api() {
 
         // The amount percentage that the pool is funded
         let funded_percentage = if let Some(l) = op.get_live_epoch_state() {
-            (l.funds / parameters.oracle_payout_price) * 100
+            (l.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100
         } else if let Some(ep) = op.get_preparation_state() {
-            (ep.funds / parameters.oracle_payout_price) * 100
+            (ep.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100
         } else {
             0
         };
