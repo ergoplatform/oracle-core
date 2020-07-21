@@ -17,6 +17,7 @@ impl PoolParameters {
         PoolParameters::new_from_yaml_string(config)
     }
 
+    /// Create a `PoolParameters` from a `&Yaml` string
     pub fn new_from_yaml_string(config: &Yaml) -> PoolParameters {
         let lel = config["live_epoch_length"]
             .as_i64()
@@ -44,6 +45,12 @@ impl PoolParameters {
             buffer_length: buf as u64,
             margin_of_error: moe,
         }
+    }
+
+    /// Calculates the maximum total payout that the oracle pool will require
+    /// in order to payout all of the oracles + the collector.
+    pub fn max_pool_payout(&self) -> NanoErg {
+        self.oracle_payout_price * (self.number_of_oracles + 1)
     }
 }
 
