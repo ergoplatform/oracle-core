@@ -1,7 +1,6 @@
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
-use crossbeam::channel;
 use sincere;
 use std::panic::catch_unwind;
 
