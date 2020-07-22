@@ -11,14 +11,18 @@ mod scans;
 mod templates;
 
 use std::thread;
+use std::time::Duration;
 
 pub type NanoErg = u64;
 pub type BlockHeight = u64;
 /// The id of the oracle pool epoch box
 pub type EpochID = String;
 
+use node_interface::current_block_height;
+
 fn main() {
     let op = oracle_state::OraclePool::new();
+    let parameters = oracle_config::PoolParameters::new();
 
     thread::Builder::new()
         .name("Oracle Core API Thread".to_string())
@@ -27,16 +31,61 @@ fn main() {
         })
         .ok();
 
-    loop {
-        println!("{:?}", op.get_pool_deposits_state());
-        println!("{:?}", op.get_datapoint_state());
-        println!("{:?}", op.get_live_epoch_state());
-        println!("{:?}", op.get_preparation_state());
-    }
-
-    // op.action_commit_datapoint(2389);
+    // op.action_commit_datapoint(8251251);
     // op.action_collect_funds();
     // op.action_start_next_epoch();
     // op.action_create_new_epoch();
     // op.action_collect_datapoints();
+    // thread::sleep(Duration::new(10, 0));
+
+    loop {
+        // Clear screen
+        print!("\x1B[2J\x1B[1;1H");
+
+        let height = current_block_height().unwrap_or(0);
+        println!("Blockheight: {}", height);
+
+        // If the pool is in the Epoch Preparation stage
+        if let Some(prep_state) = op.get_preparation_state() {
+            println!("{:?}", prep_state);
+
+            // Check state of pool deposit boxes
+            if let Some(deposits_state) = op.get_pool_deposits_state() {
+                // Collect funds if sufficient funds exist worth collecting
+                if deposits_state.total_nanoergs > 10000000 {
+                    op.action_collect_funds();
+                    println!("-----\nCollect Funds Transaction Has Been Posted.\n-----");
+                }
+
+                // Check epoch prep state
+                if let Some(prep_state) = op.get_preparation_state() {
+                    let is_funded = prep_state.funds > parameters.max_pool_payout();
+
+                    // Check if height is prior to next epoch expected end
+                    // height and that the pool is funded.
+                    if height < prep_state.next_epoch_ends && is_funded {
+                        op.action_start_next_epoch();
+                        println!("-----\nStart Next Epoch Transaction Has Been Posted.\n-----");
+                    }
+
+                    // Check if height is past the next epoch expected end
+                    // height and that the pool is funded.
+                    if height > prep_state.next_epoch_ends && is_funded {
+                        op.action_create_new_epoch();
+                        println!("-----\nCreate New Epoch Transaction Has Been Posted.\n-----");
+                    }
+                }
+            }
+        }
+        // If the pool is in the Live Epoch stage
+        if let Some(epoch_state) = op.get_live_epoch_state() {
+            println!("{:?}", epoch_state);
+        }
+
+        println!("{:?}", op.get_pool_deposits_state());
+        println!("{:?}", op.get_datapoint_state());
+
+        // Delay loop restart by 1 second
+        thread::sleep(Duration::new(30, 0));
+    }
 }
