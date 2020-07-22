@@ -32,9 +32,9 @@ number_of_oracles: 5
 # The payout in Ergs that a single oracle earns on successful datapoint posting
 oracle_payout_price: 1000000
 # Length of the oracle pool's live epoch in blocks
-live_epoch_length: 20
+live_epoch_length: 2
 # Length of the oracle pool's epoch preparation stage in blocks
-epoch_preparation_length: 10
+epoch_preparation_length: 2
 # Buffer length in blocks that is the upper limit for an oracle pool to create a new epoch
 buffer_length: 4
 # The percentage margin of error that an oracle can be off by. Range: 0.01 - 1.00

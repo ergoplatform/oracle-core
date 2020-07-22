@@ -99,6 +99,26 @@ fn main() {
         // If the pool is in the Live Epoch stage
         if let Some(epoch_state) = op.get_live_epoch_state() {
             println!("{:?}", epoch_state);
+
+            // Auto posting datapoint for testing protocol.
+            // Delete later & replace with API datapoint submission.
+            if !epoch_state.commit_datapoint_in_epoch && height > epoch_state.epoch_ends - 2 {
+                if let Some(_) = op.action_commit_datapoint(572321) {
+                    println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
+                } else {
+                    println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\n-----");
+                }
+            }
+
+            // Check for opportunity to Collect Datapoints
+            if height >= epoch_state.epoch_ends {
+                // Attempt to collect datapoints
+                if let Some(_) = op.action_collect_datapoints() {
+                    println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
+                } else {
+                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");
+                }
+            }
         }
 
         println!("{:?}", op.get_pool_deposits_state());
