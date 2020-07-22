@@ -53,8 +53,11 @@ fn main() {
             if let Some(deposits_state) = op.get_pool_deposits_state() {
                 // Collect funds if sufficient funds exist worth collecting
                 if deposits_state.total_nanoergs > 10000000 {
-                    op.action_collect_funds();
-                    println!("-----\nCollect Funds Transaction Has Been Posted.\n-----");
+                    if let Some(_) = op.action_collect_funds() {
+                        println!("-----\n`Collect Funds` Transaction Has Been Posted.\n-----");
+                    } else {
+                        println!("-----\nFailed To Issue `Collect Funds` Transaction.\n-----");
+                    }
                 }
 
                 // Check epoch prep state
@@ -64,15 +67,31 @@ fn main() {
                     // Check if height is prior to next epoch expected end
                     // height and that the pool is funded.
                     if height < prep_state.next_epoch_ends && is_funded {
-                        op.action_start_next_epoch();
-                        println!("-----\nStart Next Epoch Transaction Has Been Posted.\n-----");
+                        // Attempt to issue tx
+                        if let Some(_) = op.action_start_next_epoch() {
+                            println!(
+                                "-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----"
+                            );
+                        } else {
+                            println!(
+                                "-----\nFailed To Issue `Start Next Epoch` Transaction.\n-----"
+                            );
+                        }
                     }
 
                     // Check if height is past the next epoch expected end
                     // height and that the pool is funded.
                     if height > prep_state.next_epoch_ends && is_funded {
-                        op.action_create_new_epoch();
-                        println!("-----\nCreate New Epoch Transaction Has Been Posted.\n-----");
+                        // Attempt to issue tx
+                        if let Some(_) = op.action_create_new_epoch() {
+                            println!(
+                                "-----\n`Create New Epoch` Transaction Has Been Posted.\n-----"
+                            );
+                        } else {
+                            println!(
+                                "-----\nFailed To Issue `Create New Epoch` Transaction.\n-----"
+                            );
+                        }
                     }
                 }
             }
