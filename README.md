@@ -111,3 +111,16 @@ The oracle core creates the following action transactions within the basic oracl
 3. Collect Funds
 4. Start Next Epoch
 5. Create New Epoch
+
+
+
+### Oracle Pool Bootstrap Flow
+
+1. Generate Pool NFT
+2. Generate Participant Tokens
+3. Get list of oracle addresses.
+4. Set parameters in contracts.
+5. Compile Contracts.
+6. Register scans in node via oracle-cores for each oracle using compiled contract addresses.
+7. Bootstrap "Epoch Prep" pool box.
+8. Bootstrap oracle "Datapoint" boxes.
