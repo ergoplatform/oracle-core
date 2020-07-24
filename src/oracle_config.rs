@@ -104,21 +104,22 @@ mod tests {
         assert_eq!(get_node_url(), "http://0.0.0.0:9053".to_string())
     }
     #[test]
-    fn valid_api_key_from_config() {
-        assert_eq!(get_node_api_key(), "hello".to_string())
-    }
-
-    #[test]
     fn pool_parameter_parsing_works() {
         let yaml_string = "
+            number_of_oracles: 4
             live_epoch_length: 20
             epoch_preparation_length: 10
             buffer_length: 4
+            margin_of_error: 0.01
+            oracle_payout_price: 1000000
             ";
         let config = &YamlLoader::load_from_str(yaml_string).unwrap()[0];
         let pool_params = PoolParameters::new_from_yaml_string(&config);
         assert_eq!(pool_params.live_epoch_length, 20);
         assert_eq!(pool_params.epoch_preparation_length, 10);
         assert_eq!(pool_params.buffer_length, 4);
+        assert_eq!(pool_params.number_of_oracles, 4);
+        assert_eq!(pool_params.margin_of_error, 0.01);
+        assert_eq!(pool_params.oracle_payout_price, 1000000);
     }
 }
