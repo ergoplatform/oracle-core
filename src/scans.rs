@@ -2,6 +2,8 @@
 use crate::node_interface::{
     address_to_bytes, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
 };
+use crate::Result;
+use anyhow::anyhow;
 use json;
 use json::JsonValue;
 use sigma_tree::chain::ErgoBox;
@@ -37,25 +39,31 @@ impl Scan {
     }
 
     /// Returns all boxes found by the scan
-    pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
-        get_scan_boxes(&self.id).ok()
+    pub fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
+        let boxes = get_scan_boxes(&self.id)?;
+        Ok(boxes)
     }
 
     /// Returns the first box found by the scan
-    pub fn get_box(&self) -> Option<ErgoBox> {
-        self.get_boxes()?.into_iter().nth(0)
+    pub fn get_box(&self) -> Result<ErgoBox> {
+        self.get_boxes()?
+            .into_iter()
+            .nth(0)
+            .ok_or(anyhow!("No Boxes Found."))
     }
 
     /// Returns all boxes found by the scan
     /// serialized and ready to be used as rawInputs
-    pub fn get_serialized_boxes(&self) -> Option<Vec<String>> {
-        serialize_boxes(&self.get_boxes()?).ok()
+    pub fn get_serialized_boxes(&self) -> Result<Vec<String>> {
+        let boxes = serialize_boxes(&self.get_boxes()?)?;
+        Ok(boxes)
     }
 
     /// Returns the first box found by the registered scan
     /// serialized and ready to be used as a rawInput
-    pub fn get_serialized_box(&self) -> Option<String> {
-        serialize_box(&self.get_box()?).ok()
+    pub fn get_serialized_box(&self) -> Result<String> {
+        let ser_box = serialize_box(&self.get_box()?)?;
+        Ok(ser_box)
     }
 }
 
