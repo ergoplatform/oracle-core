@@ -2,8 +2,7 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
-    deserialize_ergo_tree, deserialize_integer, deserialize_string, serialize_integer,
-    serialize_string,
+    deserialize_ergo_tree, deserialize_long, deserialize_string, serialize_long, serialize_string,
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
@@ -12,41 +11,25 @@ use crate::node_interface::{
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
+use crate::Result;
+use anyhow::anyhow;
 use json;
 use sigma_tree::chain::ErgoBox;
-use std::fmt::{Display, Formatter};
-
-pub type Result<T> = std::result::Result<T, OracleCoreError>;
-
-#[derive(Debug)]
-pub enum OracleCoreError {
-    NodeError(NodeError),
-    JsonParsingError(json::Error),
-}
-
-impl Display for OracleCoreError {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self {
-            OracleCoreError::NodeError(ne) => ne.fmt(f),
-            OracleCoreError::JsonParsingError(e) => e.fmt(f),
-        }
-    }
-}
 
 /// The default fee used for actions
 pub static FEE: u64 = 1000000;
 
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
-    pub fn action_commit_datapoint(&self, datapoint: u64) -> Option<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+    pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
-            "R4": address_to_bytes(&self.local_oracle_address).ok()?,
+            "R4": address_to_bytes(&self.local_oracle_address)?,
             "R5": serialize_string(&live_epoch_id),
-            "R6": serialize_integer(datapoint as i64),
+            "R6": serialize_long(datapoint as i64),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -60,24 +43,25 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
             self.local_oracle_datapoint_scan.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box().ok()?,
+            get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()].into();
+        req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
         req["fee"] = FEE.into();
 
-        send_transaction(&req).ok()
+        let result = send_transaction(&req)?;
+        Ok(result)
     }
 
     /// Generates and submits the "Collect Funds" action tx
-    pub fn action_collect_funds(&self) -> Option<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+    pub fn action_collect_funds(&self) -> Result<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_integer(epoch_prep_state.next_epoch_ends as i64),
+            "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
+            "R5": serialize_long(epoch_prep_state.next_epoch_ends as i64),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -95,7 +79,7 @@ impl OraclePool {
         } else {
             unserialized_input_boxes.append(&mut initial_deposit_boxes);
         }
-        let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes).ok()?;
+        let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
 
         // Define the fee for the current action
         let action_fee = 8000000;
@@ -115,19 +99,20 @@ impl OraclePool {
         req["inputsRaw"] = serialized_input_boxes.into();
         req["fee"] = action_fee.into();
 
-        send_transaction(&req).ok()
+        let result = send_transaction(&req)?;
+        Ok(result)
     }
 
     /// Generates and submits the "Start Next Epoch" action tx
-    pub fn action_start_next_epoch(&self) -> Option<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+    pub fn action_start_next_epoch(&self) -> Result<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_integer(epoch_prep_state.next_epoch_ends as i64),
-            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address).ok()?,
+            "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
+            "R5": serialize_long(epoch_prep_state.next_epoch_ends as i64),
+            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address)?,
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -142,21 +127,22 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
             self.epoch_preparation_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box().ok()?,
+            get_serialized_highest_value_unspent_box()?,
         ]
         .into();
         req["fee"] = FEE.into();
 
-        send_transaction(&req).ok()
+        let result = send_transaction(&req)?;
+        Ok(result)
     }
 
     /// Generates and submits the "Create New Epoch" action tx
-    pub fn action_create_new_epoch(&self) -> Option<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+    pub fn action_create_new_epoch(&self) -> Result<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
         let parameters = PoolParameters::new();
 
         // Define the new epoch finish height based off of current height
-        let new_finish_height = current_block_height().ok()?
+        let new_finish_height = current_block_height()?
             + parameters.epoch_preparation_length
             + parameters.live_epoch_length
             + parameters.buffer_length;
@@ -164,9 +150,9 @@ impl OraclePool {
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_integer(new_finish_height as i64),
-            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address).ok()?,
+            "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
+            "R5": serialize_long(new_finish_height as i64),
+            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address)?,
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -181,18 +167,19 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
             self.epoch_preparation_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box().ok()?,
+            get_serialized_highest_value_unspent_box()?,
         ]
         .into();
         req["fee"] = FEE.into();
 
-        send_transaction(&req).ok()
+        let result = send_transaction(&req)?;
+        Ok(result)
     }
 
     /// Generates and submits the "Collect Datapoints" action tx
-    pub fn action_collect_datapoints(&self) -> Option<String> {
+    pub fn action_collect_datapoints(&self) -> Result<String> {
         let parameters = PoolParameters::new();
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         let live_epoch_state = self.get_live_epoch_state()?;
 
@@ -222,8 +209,8 @@ impl OraclePool {
         };
 
         let registers = object! {
-            "R4": serialize_integer(finalized_datapoint as i64),
-            "R5": serialize_integer(new_finish_height as i64),
+            "R4": serialize_long(finalized_datapoint as i64),
+            "R5": serialize_long(new_finish_height as i64),
         };
 
         req["requests"][0]["value"] = new_box_value.into();
@@ -235,25 +222,30 @@ impl OraclePool {
         // Filling out requests for the oracle payout outputs
         for b in &successful_boxes {
             let oracle_address =
-                deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]);
-            req["requests"].push(object! {
-                "address": oracle_address,
-                "value": parameters.oracle_payout_price,
-            });
+                deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0])?;
+            req["requests"]
+                .push(object! {
+                    "address": oracle_address,
+                    "value": parameters.oracle_payout_price,
+                })
+                .ok();
         }
 
         // Filling out request for collector payout
-        req["requests"].push(object! {
-            "address": self.local_oracle_address.clone(),
-            "value": parameters.oracle_payout_price,
-        });
+        req["requests"]
+            .push(object! {
+                "address": self.local_oracle_address.clone(),
+                "value": parameters.oracle_payout_price,
+            })
+            .ok();
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["dataInputsRaw"] = serialize_boxes(&successful_boxes).ok()?.into();
+        req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
         req["fee"] = tx_fee.into();
 
-        send_transaction(&req).ok()
+        let result = send_transaction(&req)?;
+        Ok(result)
     }
 }
 
@@ -264,7 +256,7 @@ pub fn current_epoch_boxes_filter(
 ) -> Vec<ErgoBox> {
     let mut filtered_boxes = vec![];
     for b in datapoint_boxes {
-        if let Some(s) = deserialize_string(&b.additional_registers.get_ordered_values()[1]) {
+        if let Ok(s) = deserialize_string(&b.additional_registers.get_ordered_values()[1]) {
             if s == live_epoch_state.epoch_id {
                 filtered_boxes.push(b.clone());
             }
@@ -275,16 +267,15 @@ pub fn current_epoch_boxes_filter(
 
 /// Function for averaging datapoints from a list of Datapoint boxes.
 /// Returns `None` if boxes provided do not have a valid integer datapoint in R6
-pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Option<u64> {
-    let datapoints_sum = boxes.iter().fold(Some(0), |acc, b| {
-        Some(acc? + deserialize_integer(&b.additional_registers.get_ordered_values()[2])?)
+pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
+    let datapoints_sum = boxes.iter().fold(Ok(0), |acc: Result<i64>, b| {
+        Ok(acc? + deserialize_long(&b.additional_registers.get_ordered_values()[2])?)
     })?;
-    // Also prevents "Collect Datapoints" tx being issued if no datapoints in current epoch.
     if boxes.len() == 0 {
-        return None;
+        return Err(anyhow!("No datapoints posted in current epoch."));
     }
     let average = datapoints_sum / boxes.len() as i64;
-    Some(average as u64)
+    Ok(average as u64)
 }
 
 /// Filters out all boxes with datapoints that are greater than the margin of error
@@ -292,7 +283,7 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Option<u64> {
 pub fn margin_of_error_filter(
     averaged_datapoint: u64,
     boxes: &Vec<ErgoBox>,
-) -> Option<Vec<ErgoBox>> {
+) -> Result<Vec<ErgoBox>> {
     // Get parameters for margin of error
     let parameters = PoolParameters::new();
 
@@ -304,13 +295,12 @@ pub fn margin_of_error_filter(
     // Find the successful boxes which are within the margin of error
     let mut successful_boxes = vec![];
     for b in boxes.clone() {
-        let datapoint =
-            deserialize_integer(&b.additional_registers.get_ordered_values()[2])? as u64;
+        let datapoint = deserialize_long(&b.additional_registers.get_ordered_values()[2])? as u64;
         if datapoint > min && datapoint < max {
             successful_boxes.push(b);
         }
     }
-    Some(successful_boxes)
+    Ok(successful_boxes)
 }
 
 /// Removes boxes which do not have a valid address in R4 and datapoint integer in R6.
@@ -319,8 +309,8 @@ pub fn margin_of_error_filter(
 pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut valid_boxes = vec![];
     for b in boxes {
-        if let Some(_) = deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]) {
-            if let Some(_) = deserialize_integer(&b.additional_registers.get_ordered_values()[2]) {
+        if let Ok(_) = deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]) {
+            if let Ok(_) = deserialize_long(&b.additional_registers.get_ordered_values()[2]) {
                 valid_boxes.push(b.clone());
             }
         }
@@ -331,10 +321,10 @@ pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
 /// Function which produced the finalized datapoint based on a list of `ErgoBox`es.
 /// Repeatedly acquires the average and filters out any boxes outside the margin of error.
 /// Returns `None` if boxes provided do not have a valid integer datapoint in R6
-pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<(u64, Vec<ErgoBox>)> {
+pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Result<(u64, Vec<ErgoBox>)> {
     // Filter out Datapoint boxes without a valid integer in R6
     let mut successful_boxes = valid_boxes_filter(boxes);
-    Some((average_datapoints(&successful_boxes)?, successful_boxes))
+    Ok((average_datapoints(&successful_boxes)?, successful_boxes))
 
     // Logic for outlier checking to be integrated later on.
     // For now just take straight average of datapoints, no outlier checking so commented out.
@@ -343,7 +333,7 @@ pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Option<(u64, Vec<ErgoBox>)> {
     //     let av = average_datapoints(&successful_boxes)?;
     //     let filtered_boxes = margin_of_error_filter(av, &successful_boxes)?;
     //     if successful_boxes == filtered_boxes {
-    //         return Some((av, filtered_boxes));
+    //         return Ok((av, filtered_boxes));
     //     }
     //     successful_boxes = filtered_boxes;
     // }

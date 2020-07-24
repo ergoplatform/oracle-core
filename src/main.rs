@@ -2,7 +2,7 @@
 extern crate json;
 
 mod actions;
-mod api;
+// mod api;
 mod encoding;
 mod node_interface;
 mod oracle_config;
@@ -28,17 +28,19 @@ pub type BlockDuration = u64;
 pub type EpochID = String;
 /// A Base58 encoded String of a Token ID.
 pub type TokenID = String;
+// Anyhow Error used for the base Result return type.
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 fn main() {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
 
-    thread::Builder::new()
-        .name("Oracle Core API Thread".to_string())
-        .spawn(|| {
-            api::start_api();
-        })
-        .ok();
+    // thread::Builder::new()
+    //     .name("Oracle Core API Thread".to_string())
+    //     .spawn(|| {
+    //         api::start_api();
+    //     })
+    //     .ok();
 
     loop {
         // Clear screen
@@ -48,14 +50,14 @@ fn main() {
         println!("Blockheight: {}", height);
 
         // If the pool is in the Epoch Preparation stage
-        if let Some(prep_state) = op.get_preparation_state() {
+        if let Ok(prep_state) = op.get_preparation_state() {
             println!("{:?}", prep_state);
 
             // Check state of pool deposit boxes
-            if let Some(deposits_state) = op.get_pool_deposits_state() {
+            if let Ok(deposits_state) = op.get_pool_deposits_state() {
                 // Collect funds if sufficient funds exist worth collecting
                 if deposits_state.total_nanoergs > 10000000 {
-                    if let Some(_) = op.action_collect_funds() {
+                    if let Ok(_) = op.action_collect_funds() {
                         println!("-----\n`Collect Funds` Transaction Has Been Posted.\n-----");
                     } else {
                         println!("-----\nFailed To Issue `Collect Funds` Transaction.\n-----");
@@ -63,14 +65,14 @@ fn main() {
                 }
 
                 // Check epoch prep state
-                if let Some(prep_state) = op.get_preparation_state() {
+                if let Ok(prep_state) = op.get_preparation_state() {
                     let is_funded = prep_state.funds > parameters.max_pool_payout();
 
                     // Check if height is prior to next epoch expected end
                     // height and that the pool is funded.
                     if height < prep_state.next_epoch_ends && is_funded {
                         // Attempt to issue tx
-                        if let Some(_) = op.action_start_next_epoch() {
+                        if let Ok(_) = op.action_start_next_epoch() {
                             println!(
                                 "-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----"
                             );
@@ -85,7 +87,7 @@ fn main() {
                     // height and that the pool is funded.
                     if height > prep_state.next_epoch_ends && is_funded {
                         // Attempt to issue tx
-                        if let Some(_) = op.action_create_new_epoch() {
+                        if let Ok(_) = op.action_create_new_epoch() {
                             println!(
                                 "-----\n`Create New Epoch` Transaction Has Been Posted.\n-----"
                             );
@@ -99,13 +101,13 @@ fn main() {
             }
         }
         // If the pool is in the Live Epoch stage
-        if let Some(epoch_state) = op.get_live_epoch_state() {
+        if let Ok(epoch_state) = op.get_live_epoch_state() {
             println!("{:?}", epoch_state);
 
             // Auto posting datapoint for testing protocol.
             // Delete later & replace with API datapoint submission.
             if !epoch_state.commit_datapoint_in_epoch && height > epoch_state.epoch_ends - 2 {
-                if let Some(_) = op.action_commit_datapoint(572321) {
+                if let Ok(_) = op.action_commit_datapoint(572321) {
                     println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
                 } else {
                     println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\n-----");
@@ -115,7 +117,7 @@ fn main() {
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
                 // Attempt to collect datapoints
-                if let Some(_) = op.action_collect_datapoints() {
+                if let Ok(_) = op.action_collect_datapoints() {
                     println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
                 } else {
                     println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");

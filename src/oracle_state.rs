@@ -1,10 +1,11 @@
-use crate::encoding::{deserialize_integer, deserialize_string};
+use crate::encoding::{deserialize_long, deserialize_string};
 /// This files relates to the state of the oracle/oracle pool.
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
     register_local_oracle_datapoint_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan,
 };
+use crate::Result;
 use crate::{BlockDuration, BlockHeight, EpochID, NanoErg, P2PKAddress, P2SAddress, TokenID};
 use sigma_tree::chain::ErgoBox;
 use std::path::Path;
@@ -189,13 +190,13 @@ impl OraclePool {
     /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
     pub fn check_oracle_pool_stage(&self) -> PoolBoxState {
         match self.get_live_epoch_state() {
-            Some(_) => PoolBoxState::LiveEpoch,
-            None => PoolBoxState::Preparation,
+            Ok(_) => PoolBoxState::LiveEpoch,
+            Err(_) => PoolBoxState::Preparation,
         }
     }
 
     /// Get the state of the current oracle pool epoch
-    pub fn get_live_epoch_state(&self) -> Option<LiveEpochState> {
+    pub fn get_live_epoch_state(&self) -> Result<LiveEpochState> {
         let epoch_box = self.live_epoch_stage.get_box()?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
         let epoch_box_id: String = epoch_box.box_id().into();
@@ -205,10 +206,10 @@ impl OraclePool {
         let commit_datapoint_in_epoch: bool = epoch_box_id == datapoint_state.origin_epoch_id;
 
         // Latest pool datapoint is held in R4 of the epoch box
-        let latest_pool_datapoint = deserialize_integer(&epoch_box_regs[0])?;
+        let latest_pool_datapoint = deserialize_long(&epoch_box_regs[0])?;
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = deserialize_integer(&epoch_box_regs[1])?;
+        let epoch_ends = deserialize_long(&epoch_box_regs[1])?;
 
         let epoch_state = LiveEpochState {
             funds: epoch_box.value.value(),
@@ -218,19 +219,19 @@ impl OraclePool {
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
 
-        Some(epoch_state)
+        Ok(epoch_state)
     }
 
     /// Get the state of the current epoch preparation box
-    pub fn get_preparation_state(&self) -> Option<PreparationState> {
+    pub fn get_preparation_state(&self) -> Result<PreparationState> {
         let epoch_prep_box = self.epoch_preparation_stage.get_box()?;
         let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
         // Latest pool datapoint is held in R4
-        let latest_pool_datapoint = deserialize_integer(&epoch_prep_box_regs[0])?;
+        let latest_pool_datapoint = deserialize_long(&epoch_prep_box_regs[0])?;
 
         // Next epoch ends height held in R5
-        let next_epoch_ends = deserialize_integer(&epoch_prep_box_regs[1])?;
+        let next_epoch_ends = deserialize_long(&epoch_prep_box_regs[1])?;
 
         let prep_state = PreparationState {
             funds: epoch_prep_box.value.value(),
@@ -238,11 +239,11 @@ impl OraclePool {
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
 
-        Some(prep_state)
+        Ok(prep_state)
     }
 
     /// Get the current state of the local oracle's datapoint
-    pub fn get_datapoint_state(&self) -> Option<DatapointState> {
+    pub fn get_datapoint_state(&self) -> Result<DatapointState> {
         let datapoint_box = self.local_oracle_datapoint_scan.get_box()?;
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
@@ -250,7 +251,7 @@ impl OraclePool {
         let origin_epoch_id = deserialize_string(&datapoint_box_regs[1])?;
 
         // Oracle datapoint held in R6
-        let datapoint = deserialize_integer(&datapoint_box_regs[2])?;
+        let datapoint = deserialize_long(&datapoint_box_regs[2])?;
 
         let datapoint_state = DatapointState {
             datapoint: datapoint as u64,
@@ -258,11 +259,11 @@ impl OraclePool {
             creation_height: datapoint_box.creation_height as u64,
         };
 
-        Some(datapoint_state)
+        Ok(datapoint_state)
     }
 
     /// Get the current state of all of the pool deposit boxes
-    pub fn get_pool_deposits_state(&self) -> Option<PoolDepositsState> {
+    pub fn get_pool_deposits_state(&self) -> Result<PoolDepositsState> {
         let deposits_box_list = self.pool_deposit_stage.get_boxes()?;
 
         // Sum up all Ergs held in pool deposit boxes
@@ -275,30 +276,30 @@ impl OraclePool {
             total_nanoergs: sum_ergs,
         };
 
-        Some(deposits_state)
+        Ok(deposits_state)
     }
 }
 
 impl Stage {
     /// Returns all boxes held at the given stage based on the registered scan
-    pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
+    pub fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
         self.scan.get_boxes()
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
-    pub fn get_box(&self) -> Option<ErgoBox> {
+    pub fn get_box(&self) -> Result<ErgoBox> {
         self.scan.get_box()
     }
 
     /// Returns all boxes held at the given stage based on the registered scan
     /// serialized and ready to be used as rawInputs
-    pub fn get_serialized_boxes(&self) -> Option<Vec<String>> {
+    pub fn get_serialized_boxes(&self) -> Result<Vec<String>> {
         self.scan.get_serialized_boxes()
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     /// serialized and ready to be used as a rawInput
-    pub fn get_serialized_box(&self) -> Option<String> {
+    pub fn get_serialized_box(&self) -> Result<String> {
         self.scan.get_serialized_box()
     }
 }

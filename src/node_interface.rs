@@ -10,7 +10,7 @@ use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde_json::from_str;
 use sigma_tree::chain::ErgoBox;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
@@ -23,7 +23,7 @@ pub enum NodeError {
     FailedParsingNodeResponse,
     #[error("Failed reading response from node.")]
     NoBoxesFound,
-    #[error("The node rejected the request you provided: {0}")]
+    #[error("The node rejected the request you provided")]
     InvalidRequest(String),
 }
 
