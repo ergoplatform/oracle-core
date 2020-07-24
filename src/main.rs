@@ -10,15 +10,24 @@ mod oracle_state;
 mod scans;
 mod templates;
 
+use node_interface::current_block_height;
 use std::thread;
 use std::time::Duration;
 
+/// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
+pub type P2PKAddress = String;
+/// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
+pub type P2SAddress = String;
+/// The smallest unit of the Erg currency.
 pub type NanoErg = u64;
+/// A block height of the chain.
 pub type BlockHeight = u64;
+/// Duration in number of blocks.
+pub type BlockDuration = u64;
 /// The id of the oracle pool epoch box
 pub type EpochID = String;
-
-use node_interface::current_block_height;
+/// A Base58 encoded String of a Token ID.
+pub type TokenID = String;
 
 fn main() {
     let op = oracle_state::OraclePool::new();

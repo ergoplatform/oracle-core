@@ -5,7 +5,7 @@ use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
     register_local_oracle_datapoint_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan,
 };
-use crate::{BlockHeight, EpochID, NanoErg};
+use crate::{BlockDuration, BlockHeight, EpochID, NanoErg, P2PKAddress, P2SAddress, TokenID};
 use sigma_tree::chain::ErgoBox;
 use std::path::Path;
 use yaml_rust::YamlLoader;
@@ -17,7 +17,7 @@ pub enum PoolBoxState {
     LiveEpoch,
 }
 
-/// A `Stage` is defined here by it's contract address & it's scan_id
+/// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
 #[derive(Debug, Clone)]
 pub struct Stage {
     pub contract_address: String,
@@ -28,10 +28,10 @@ pub struct Stage {
 #[derive(Debug, Clone)]
 pub struct OraclePool {
     /// Address of the local oracle running the oracle core
-    pub local_oracle_address: String,
+    pub local_oracle_address: P2PKAddress,
     /// Token IDs
-    pub oracle_pool_nft: String,
-    pub oracle_pool_participant_token: String,
+    pub oracle_pool_nft: TokenID,
+    pub oracle_pool_participant_token: TokenID,
     /// Stages
     pub epoch_preparation_stage: Stage,
     pub live_epoch_stage: Stage,

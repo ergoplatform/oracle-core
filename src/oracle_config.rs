@@ -1,13 +1,13 @@
-use crate::NanoErg;
+use crate::{BlockDuration, NanoErg};
 /// Basic functions for acquiring oracle config/node data
 use yaml_rust::{Yaml, YamlLoader};
 
 pub struct PoolParameters {
     pub number_of_oracles: u64,
     pub oracle_payout_price: NanoErg,
-    pub live_epoch_length: u64,
-    pub epoch_preparation_length: u64,
-    pub buffer_length: u64,
+    pub live_epoch_length: BlockDuration,
+    pub epoch_preparation_length: BlockDuration,
+    pub buffer_length: BlockDuration,
     pub margin_of_error: f64,
 }
 
