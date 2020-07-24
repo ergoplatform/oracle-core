@@ -7,10 +7,9 @@ use crate::scans::ScanID;
 use crate::BlockHeight;
 use json::JsonValue;
 use reqwest::blocking::{RequestBuilder, Response};
-use reqwest::header::{HeaderValue, CONTENT_TYPE};
+use reqwest::header::CONTENT_TYPE;
 use serde_json::from_str;
 use sigma_tree::chain::ErgoBox;
-use std::fmt::Display;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, NodeError>;

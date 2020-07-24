@@ -2,7 +2,7 @@
 extern crate json;
 
 mod actions;
-// mod api;
+mod api;
 mod encoding;
 mod node_interface;
 mod oracle_config;
@@ -35,12 +35,12 @@ fn main() {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
 
-    // thread::Builder::new()
-    //     .name("Oracle Core API Thread".to_string())
-    //     .spawn(|| {
-    //         api::start_api();
-    //     })
-    //     .ok();
+    thread::Builder::new()
+        .name("Oracle Core API Thread".to_string())
+        .spawn(|| {
+            api::start_api();
+        })
+        .ok();
 
     loop {
         // Clear screen
@@ -128,7 +128,7 @@ fn main() {
         println!("{:?}", op.get_pool_deposits_state());
         println!("{:?}", op.get_datapoint_state());
 
-        // Delay loop restart by 1 second
+        // Delay loop restart
         thread::sleep(Duration::new(30, 0));
     }
 }

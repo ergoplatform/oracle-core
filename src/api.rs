@@ -2,7 +2,6 @@ use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
 use sincere;
-use std::panic::catch_unwind;
 
 /// Starts the API server
 pub fn start_api() {
@@ -64,23 +63,23 @@ pub fn start_api() {
 
         // Check whether waiting for datapoint to be submit to oracle core
         let waiting_for_submit = match op.get_live_epoch_state() {
-            Some(l) => !l.commit_datapoint_in_epoch,
-            None => false,
+            Ok(l) => !l.commit_datapoint_in_epoch,
+            Err(_) => false,
         };
         // Get latest datapoint the local oracle produced/submit
         let self_datapoint = match op.get_datapoint_state() {
-            Some(d) => d.datapoint,
-            None => 0,
+            Ok(d) => d.datapoint,
+            Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_epoch = match op.get_datapoint_state() {
-            Some(d) => d.origin_epoch_id,
-            None => "None".to_string(),
+            Ok(d) => d.origin_epoch_id,
+            Err(_) => "Null".to_string(),
         };
         // Get latest datapoint submit epoch
         let datapoint_creation = match op.get_datapoint_state() {
-            Some(d) => d.creation_height,
-            None => 0,
+            Ok(d) => d.creation_height,
+            Err(_) => 0,
         };
 
         let response_json = object! {
@@ -105,9 +104,9 @@ pub fn start_api() {
         };
 
         // The amount percentage that the pool is funded
-        let funded_percentage = if let Some(l) = op.get_live_epoch_state() {
+        let funded_percentage = if let Ok(l) = op.get_live_epoch_state() {
             (l.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100
-        } else if let Some(ep) = op.get_preparation_state() {
+        } else if let Ok(ep) = op.get_preparation_state() {
             (ep.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100
         } else {
             0
