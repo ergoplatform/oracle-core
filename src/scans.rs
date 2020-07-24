@@ -1,6 +1,7 @@
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
-    address_to_bytes, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
+    address_to_bytes, address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box,
+    serialize_boxes,
 };
 use crate::Result;
 use anyhow::anyhow;
@@ -138,9 +139,9 @@ pub fn register_local_oracle_datapoint_scan(
     let datapoint_add_bytes =
         address_to_bytes(datapoint_address).expect("Failed to access node to use addressToBytes.");
 
-    // ErgoTree bytes of the datapoint P2S address/script
-    let oracle_add_bytes =
-        address_to_bytes(&oracle_address).expect("Failed to access node to use addressToBytes.");
+    // Raw EC bytes + type identifier
+    let oracle_add_bytes = address_to_raw_for_register(&oracle_address)
+        .expect("Failed to access node to use addressToBytes.");
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object! {

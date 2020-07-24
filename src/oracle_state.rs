@@ -1,4 +1,4 @@
-use crate::encoding::{deserialize_long, deserialize_string};
+use crate::encoding::{deserialize_int, deserialize_long, deserialize_string};
 /// This files relates to the state of the oracle/oracle pool.
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
@@ -209,7 +209,7 @@ impl OraclePool {
         let latest_pool_datapoint = deserialize_long(&epoch_box_regs[0])?;
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = deserialize_long(&epoch_box_regs[1])?;
+        let epoch_ends = deserialize_int(&epoch_box_regs[1])?;
 
         let epoch_state = LiveEpochState {
             funds: epoch_box.value.value(),
@@ -231,7 +231,7 @@ impl OraclePool {
         let latest_pool_datapoint = deserialize_long(&epoch_prep_box_regs[0])?;
 
         // Next epoch ends height held in R5
-        let next_epoch_ends = deserialize_long(&epoch_prep_box_regs[1])?;
+        let next_epoch_ends = deserialize_int(&epoch_prep_box_regs[1])?;
 
         let prep_state = PreparationState {
             funds: epoch_prep_box.value.value(),

@@ -144,6 +144,23 @@ pub fn address_to_bytes(address: &String) -> Result<String> {
     Ok(res_json["bytes"].to_string().clone())
 }
 
+/// Given an Ergo Address, convert it to a hex-encoded EC point
+pub fn address_to_raw(address: &String) -> Result<String> {
+    let endpoint = "/utils/addressToRaw/".to_string() + address;
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
+
+    Ok(res_json["raw"].to_string().clone())
+}
+
+/// Given an Ergo Address, convert it to a hex-encoded EC point
+/// and prepend the type bytes so it is encoded and ready
+/// to be used in a register.
+pub fn address_to_raw_for_register(address: &String) -> Result<String> {
+    let add = address_to_raw(address)?;
+    Ok("07".to_string() + &add)
+}
+
 /// Given a `Vec<ErgoBox>` return the given boxes (which must be part of the UTXO-set) as
 /// a vec of serialized strings in Base16 encoding
 pub fn serialize_boxes(b: &Vec<ErgoBox>) -> Result<Vec<String>> {

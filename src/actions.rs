@@ -2,7 +2,8 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
-    deserialize_ergo_tree, deserialize_long, deserialize_string, serialize_long, serialize_string,
+    deserialize_ergo_tree, deserialize_long, deserialize_string, serialize_int, serialize_long,
+    serialize_string,
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
@@ -111,7 +112,7 @@ impl OraclePool {
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
             "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_long(epoch_prep_state.next_epoch_ends as i64),
+            "R5": serialize_int(epoch_prep_state.next_epoch_ends as i32),
             "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address)?,
         };
         // Defining the tokens to be spent
@@ -151,7 +152,7 @@ impl OraclePool {
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
             "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_long(new_finish_height as i64),
+            "R5": serialize_int(new_finish_height as i32),
             "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address)?,
         };
         // Defining the tokens to be spent
@@ -210,7 +211,7 @@ impl OraclePool {
 
         let registers = object! {
             "R4": serialize_long(finalized_datapoint as i64),
-            "R5": serialize_long(new_finish_height as i64),
+            "R5": serialize_int(new_finish_height as i32),
         };
 
         req["requests"][0]["value"] = new_box_value.into();
