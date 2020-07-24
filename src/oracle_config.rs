@@ -1,4 +1,5 @@
 use crate::{BlockDuration, NanoErg};
+use reqwest::header::HeaderValue;
 /// Basic functions for acquiring oracle config/node data
 use yaml_rust::{Yaml, YamlLoader};
 
@@ -80,13 +81,18 @@ pub fn get_node_url() -> String {
     "http://".to_string() + ip + ":" + &port
 }
 
-/// Returns `node_api_key` from the config file
-pub fn get_node_api_key() -> String {
+/// Acquires the `node_api_key` and builds a `HeaderValue`
+pub fn get_node_api_header() -> HeaderValue {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["node_api_key"]
+    let api_key = config["node_api_key"]
         .as_str()
         .expect("No node_api_key specified in config file.")
-        .to_string()
+        .to_string();
+
+    match HeaderValue::from_str(&api_key) {
+        Ok(k) => k,
+        _ => HeaderValue::from_static("None"),
+    }
 }
 
 #[cfg(test)]

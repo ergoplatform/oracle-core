@@ -1,13 +1,35 @@
-/// v2 of the node interface is planned which will clean it up considerably.
-/// Will make node_interface it's own struct which instantiates a single
-/// client & obtains the api key a single time.
-/// Furthermore custom errors will be created and returned with a Result<> type.
-use crate::oracle_config::{get_node_api_key, get_node_url};
+/// v2 of the node interface is planned for the future and/or will be abstracted
+/// out into it's own crate.
+/// Primary improvements focused on building out proper error
+// return types & cleaning up code.
+use crate::oracle_config::{get_node_api_header, get_node_url};
 use crate::BlockHeight;
 use json::JsonValue;
+use reqwest::blocking::RequestBuilder;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde_json::from_str;
 use sigma_tree::chain::ErgoBox;
+
+/// Prepares a GET request to the Ergo node
+fn prepare_get_req(endpoint: &String) -> RequestBuilder {
+    let url = get_node_url().to_owned() + endpoint;
+    let client = reqwest::blocking::Client::new();
+    client
+        .get(&url)
+        .header("accept", "application/json")
+        .header("api_key", get_node_api_header())
+        .header(CONTENT_TYPE, "application/json")
+}
+
+/// Prepares a POST request to the Ergo node
+fn prepare_post_req(endpoint: &String) -> RequestBuilder {
+    let url = get_node_url().to_owned() + endpoint;
+    reqwest::blocking::Client::new()
+        .post(&url)
+        .header("accept", "application/json")
+        .header("api_key", get_node_api_header())
+        .header(CONTENT_TYPE, "application/json")
+}
 
 /// Registers a scan with the node and returns the `scan_id`
 pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
