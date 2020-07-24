@@ -31,13 +31,6 @@ fn main() {
         })
         .ok();
 
-    // op.action_commit_datapoint(8251251);
-    // op.action_collect_funds();
-    // op.action_start_next_epoch();
-    // op.action_create_new_epoch();
-    // op.action_collect_datapoints();
-    // thread::sleep(Duration::new(10, 0));
-
     loop {
         // Clear screen
         print!("\x1B[2J\x1B[1;1H");

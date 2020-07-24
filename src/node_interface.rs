@@ -1,3 +1,7 @@
+/// v2 of the node interface is planned which will clean it up considerably.
+/// Will make node_interface it's own struct which instantiates a single
+/// client & obtains the api key a single time.
+/// Furthermore custom errors will be created and returned with a Result<> type.
 use crate::oracle_config::{get_node_api_key, get_node_url};
 use crate::BlockHeight;
 use json::JsonValue;
