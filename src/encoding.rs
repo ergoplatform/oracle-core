@@ -16,6 +16,12 @@ pub enum EncodingError<T: Debug + Display> {
     FailedToDeserialize(T),
 }
 
+/// Serialize a `i32` Int value into a hex-encoded string to be used inside of a register for a box
+pub fn serialize_int(i: i32) -> String {
+    let constant: Constant = i.into();
+    constant.base16_str()
+}
+
 /// Serialize a `i64` Long value into a hex-encoded string to be used inside of a register for a box
 pub fn serialize_long(i: i64) -> String {
     let constant: Constant = i.into();
@@ -28,6 +34,14 @@ pub fn serialize_string(s: &String) -> String {
     let b: Vec<i8> = a.iter().map(|c| c.clone() as i8).collect();
     let constant: Constant = b.into();
     constant.base16_str()
+}
+
+/// Deserialize a hex-encoded `i32` Long inside of a `Constant` acquired from a register of a box
+pub fn deserialize_int(c: &Constant) -> Result<i32> {
+    match &c.v {
+        ConstantVal::Int(i) => return Ok(i.clone()),
+        _ => return Err(EncodingError::FailedToDeserialize(c.base16_str())),
+    };
 }
 
 /// Deserialize a hex-encoded `i64` Long inside of a `Constant` acquired from a register of a box

@@ -35,12 +35,12 @@ fn main() {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
 
-    thread::Builder::new()
-        .name("Oracle Core API Thread".to_string())
-        .spawn(|| {
-            api::start_api();
-        })
-        .ok();
+    // thread::Builder::new()
+    //     .name("Oracle Core API Thread".to_string())
+    //     .spawn(|| {
+    //         api::start_api();
+    //     })
+    //     .ok();
 
     loop {
         // Clear screen
@@ -100,8 +100,10 @@ fn main() {
                 }
             }
         }
+
+        let les = op.get_live_epoch_state();
         // If the pool is in the Live Epoch stage
-        if let Ok(epoch_state) = op.get_live_epoch_state() {
+        if let Ok(epoch_state) = les {
             println!("{:?}", epoch_state);
 
             // Auto posting datapoint for testing protocol.
