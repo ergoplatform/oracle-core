@@ -19,8 +19,7 @@ pub enum EncodingError<T: Debug + Display> {
 /// Serialize a `i64` Long value into a hex-encoded string to be used inside of a register for a box
 pub fn serialize_long(i: i64) -> String {
     let constant: Constant = i.into();
-    let c = serde_json::to_string_pretty(&constant).unwrap();
-    (c[1..(c.len() - 1)]).to_string()
+    constant.base16_str()
 }
 
 /// Serialize a `String` value into a hex-encoded string to be used inside of a register for a box
@@ -28,8 +27,7 @@ pub fn serialize_string(s: &String) -> String {
     let a = s.clone().into_bytes();
     let b: Vec<i8> = a.iter().map(|c| c.clone() as i8).collect();
     let constant: Constant = b.into();
-    let c = serde_json::to_string(&constant).unwrap(); // Remove unwraps
-    (c[1..(c.len() - 1)]).to_string()
+    constant.base16_str()
 }
 
 /// Deserialize a hex-encoded `i64` Long inside of a `Constant` acquired from a register of a box
@@ -86,6 +84,35 @@ pub fn nanoerg_to_erg(nanoerg_amount: u64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_serialization_test() {
+        let l: i64 = 255;
+        let ser_l: String = serialize_long(l);
+        let constant_l: Constant = l.into();
+        assert_eq!(ser_l, "05fe03".to_string());
+        assert_eq!(l, deserialize_long(&constant_l).unwrap());
+
+        assert_eq!(
+            serialize_string(&"Oracle Pools".to_string()),
+            "0e0c4f7261636c6520506f6f6c73".to_string()
+        );
+    }
+
+    #[test]
+    fn string_serialization_test() {
+        let s: String = "Oracle Pools".to_string();
+        let ser_s: String = serialize_string(&s);
+        let a = s.clone().into_bytes();
+        let b: Vec<i8> = a.iter().map(|c| c.clone() as i8).collect();
+        let constant: Constant = b.into();
+
+        assert_eq!(s, deserialize_string(&constant).unwrap());
+        assert_eq!(
+            serialize_string(&s),
+            "0e0c4f7261636c6520506f6f6c73".to_string()
+        );
+    }
 
     #[test]
     fn erg_conv_is_valid() {
