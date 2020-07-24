@@ -11,26 +11,20 @@ use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde_json::from_str;
 use sigma_tree::chain::ErgoBox;
 use std::fmt::{Display, Formatter};
+use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum NodeError {
+    #[error("The configured node is unreachable. Please ensure your config is correctly filled out and the node is running.")]
     NodeUnreachable,
+    #[error("Failed reading response from node.")]
     FailedParsingNodeResponse,
+    #[error("Failed reading response from node.")]
     NoBoxesFound,
+    #[error("The node rejected the request you provided: {0}")]
     InvalidRequest(String),
-}
-
-impl Display for NodeError {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self {
-            NodeError::NodeUnreachable => write!(f, "The configured node is unreachable. Please ensure your config is correctly filled out and the node is running."),
-            NodeError::FailedParsingNodeResponse => write!(f, "Failed reading response from node."),
-            NodeError::NoBoxesFound => write!(f, "Failed reading response from node."),
-            NodeError::InvalidRequest(s) => write!(f, "The node rejected the request you provided: {}", s)
-        }
-    }
 }
 
 /// Registers a scan with the node and returns the `scan_id`
