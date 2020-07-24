@@ -6,11 +6,14 @@ use json;
 use json::JsonValue;
 use sigma_tree::chain::ErgoBox;
 
+/// Integer which is provided by the Ergo node to reference a given scan.
+pub type ScanID = String;
+
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
 #[derive(Debug, Clone)]
 pub struct Scan {
     name: String,
-    id: String,
+    id: ScanID,
 }
 
 impl Scan {
