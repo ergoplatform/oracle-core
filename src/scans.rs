@@ -38,7 +38,7 @@ impl Scan {
 
     /// Returns all boxes found by the scan
     pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
-        get_scan_boxes(&self.id)
+        get_scan_boxes(&self.id).ok()
     }
 
     /// Returns the first box found by the scan
@@ -49,13 +49,13 @@ impl Scan {
     /// Returns all boxes found by the scan
     /// serialized and ready to be used as rawInputs
     pub fn get_serialized_boxes(&self) -> Option<Vec<String>> {
-        serialize_boxes(&self.get_boxes()?)
+        serialize_boxes(&self.get_boxes()?).ok()
     }
 
     /// Returns the first box found by the registered scan
     /// serialized and ready to be used as a rawInput
     pub fn get_serialized_box(&self) -> Option<String> {
-        serialize_box(&self.get_box()?)
+        serialize_box(&self.get_box()?).ok()
     }
 }
 
