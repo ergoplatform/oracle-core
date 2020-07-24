@@ -7,13 +7,31 @@ use crate::encoding::{
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
-    send_transaction, serialize_boxes,
+    send_transaction, serialize_boxes, NodeError,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
 use sigma_tree::chain::ErgoBox;
+use std::fmt::{Display, Formatter};
+
+pub type Result<T> = std::result::Result<T, OracleCoreError>;
+
+#[derive(Debug)]
+pub enum OracleCoreError {
+    NodeError(NodeError),
+    JsonParsingError(json::Error),
+}
+
+impl Display for OracleCoreError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            OracleCoreError::NodeError(ne) => ne.fmt(f),
+            OracleCoreError::JsonParsingError(e) => e.fmt(f),
+        }
+    }
+}
 
 /// The default fee used for actions
 pub static FEE: u64 = 1000000;
@@ -26,9 +44,9 @@ impl OraclePool {
         // Defining the registers of the output box
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
-            "R4": address_to_bytes(&self.local_oracle_address),
+            "R4": address_to_bytes(&self.local_oracle_address).ok()?,
             "R5": serialize_string(&live_epoch_id),
-            "R6": serialize_integer(datapoint as i64)
+            "R6": serialize_integer(datapoint as i64),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -42,13 +60,13 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
             self.local_oracle_datapoint_scan.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
+            get_serialized_highest_value_unspent_box().ok()?,
         ]
         .into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()].into();
         req["fee"] = FEE.into();
 
-        send_transaction(&req)
+        send_transaction(&req).ok()
     }
 
     /// Generates and submits the "Collect Funds" action tx
@@ -77,7 +95,7 @@ impl OraclePool {
         } else {
             unserialized_input_boxes.append(&mut initial_deposit_boxes);
         }
-        let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes);
+        let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes).ok()?;
 
         // Define the fee for the current action
         let action_fee = 8000000;
@@ -97,7 +115,7 @@ impl OraclePool {
         req["inputsRaw"] = serialized_input_boxes.into();
         req["fee"] = action_fee.into();
 
-        send_transaction(&req)
+        send_transaction(&req).ok()
     }
 
     /// Generates and submits the "Start Next Epoch" action tx
@@ -109,7 +127,7 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_integer(epoch_prep_state.next_epoch_ends as i64),
-            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address),
+            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address).ok()?,
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -124,12 +142,12 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
             self.epoch_preparation_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
+            get_serialized_highest_value_unspent_box().ok()?,
         ]
         .into();
         req["fee"] = FEE.into();
 
-        send_transaction(&req)
+        send_transaction(&req).ok()
     }
 
     /// Generates and submits the "Create New Epoch" action tx
@@ -138,7 +156,7 @@ impl OraclePool {
         let parameters = PoolParameters::new();
 
         // Define the new epoch finish height based off of current height
-        let new_finish_height = current_block_height()?
+        let new_finish_height = current_block_height().ok()?
             + parameters.epoch_preparation_length
             + parameters.live_epoch_length
             + parameters.buffer_length;
@@ -148,7 +166,7 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_integer(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_integer(new_finish_height as i64),
-            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address),
+            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address).ok()?,
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -163,12 +181,12 @@ impl OraclePool {
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = vec![
             self.epoch_preparation_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
+            get_serialized_highest_value_unspent_box().ok()?,
         ]
         .into();
         req["fee"] = FEE.into();
 
-        send_transaction(&req)
+        send_transaction(&req).ok()
     }
 
     /// Generates and submits the "Collect Datapoints" action tx
@@ -232,10 +250,10 @@ impl OraclePool {
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
+        req["dataInputsRaw"] = serialize_boxes(&successful_boxes).ok()?.into();
         req["fee"] = tx_fee.into();
 
-        send_transaction(&req)
+        send_transaction(&req).ok()
     }
 }
 

@@ -6,11 +6,14 @@ use json;
 use json::JsonValue;
 use sigma_tree::chain::ErgoBox;
 
+/// Integer which is provided by the Ergo node to reference a given scan.
+pub type ScanID = String;
+
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
 #[derive(Debug, Clone)]
 pub struct Scan {
     name: String,
-    id: String,
+    id: ScanID,
 }
 
 impl Scan {
@@ -35,7 +38,7 @@ impl Scan {
 
     /// Returns all boxes found by the scan
     pub fn get_boxes(&self) -> Option<Vec<ErgoBox>> {
-        get_scan_boxes(&self.id)
+        get_scan_boxes(&self.id).ok()
     }
 
     /// Returns the first box found by the scan
@@ -46,13 +49,13 @@ impl Scan {
     /// Returns all boxes found by the scan
     /// serialized and ready to be used as rawInputs
     pub fn get_serialized_boxes(&self) -> Option<Vec<String>> {
-        serialize_boxes(&self.get_boxes()?)
+        serialize_boxes(&self.get_boxes()?).ok()
     }
 
     /// Returns the first box found by the registered scan
     /// serialized and ready to be used as a rawInput
     pub fn get_serialized_box(&self) -> Option<String> {
-        serialize_box(&self.get_box()?)
+        serialize_box(&self.get_box()?).ok()
     }
 }
 

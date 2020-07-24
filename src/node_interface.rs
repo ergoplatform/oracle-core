@@ -3,37 +3,52 @@
 /// Primary improvements focused on building out proper error
 // return types & cleaning up code.
 use crate::oracle_config::{get_node_api_header, get_node_url};
+use crate::scans::ScanID;
 use crate::BlockHeight;
 use json::JsonValue;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
-use reqwest::Error;
-
 use serde_json::from_str;
 use sigma_tree::chain::ErgoBox;
+use std::fmt::{Display, Formatter};
+
+pub type Result<T> = std::result::Result<T, NodeError>;
+
+#[derive(Debug)]
+pub enum NodeError {
+    NodeUnreachable,
+    FailedParsingNodeResponse,
+    NoBoxesFound,
+    InvalidRequest(String),
+}
+
+impl Display for NodeError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            NodeError::NodeUnreachable => write!(f, "The configured node is unreachable. Please ensure your config is correctly filled out and the node is running."),
+            NodeError::FailedParsingNodeResponse => write!(f, "Failed reading response from node."),
+            NodeError::NoBoxesFound => write!(f, "Failed reading response from node."),
+            NodeError::InvalidRequest(s) => write!(f, "The node rejected the request you provided: {}", s)
+        }
+    }
+}
 
 /// Registers a scan with the node and returns the `scan_id`
-pub fn register_scan(scan_json: &JsonValue) -> Option<String> {
+pub fn register_scan(scan_json: &JsonValue) -> Result<ScanID> {
     let endpoint = "/scan/register";
     let body = scan_json.clone().to_string();
-    let res = send_post_req(endpoint, body).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_post_req(endpoint, body);
+    let res_json = parse_response_to_json(res)?;
 
-    let result = res.text().ok()?;
-    println!("{}", &result);
-    let res_json = json::parse(&result).ok()?;
-    Some(res_json["scanId"].to_string().clone())
+    Ok(res_json["scanId"].to_string().clone())
 }
 
 /// Acquires unspent boxes from the node wallet
-pub fn get_unspent_wallet_boxes() -> Option<Vec<ErgoBox>> {
+pub fn get_unspent_wallet_boxes() -> Result<Vec<ErgoBox>> {
     let endpoint = "/wallet/boxes/unspent?minConfirmations=0&minInclusionHeight=0";
-    let res = send_get_req(endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_get_req(endpoint);
+    let res_json = parse_response_to_json(res)?;
 
-    let res_json = json::parse(&res.text().ok()?).ok()?;
     let mut box_list = vec![];
 
     for i in 0.. {
@@ -46,12 +61,12 @@ pub fn get_unspent_wallet_boxes() -> Option<Vec<ErgoBox>> {
             }
         }
     }
-    Some(box_list)
+    Ok(box_list)
 }
 
 /// Acquires the unspent box with the highest value of Ergs inside
 /// from the wallet
-pub fn get_highest_value_unspent_box() -> Option<ErgoBox> {
+pub fn get_highest_value_unspent_box() -> Result<ErgoBox> {
     let boxes = get_unspent_wallet_boxes()?;
 
     // Find the highest value amount held in a single box in the wallet
@@ -65,29 +80,26 @@ pub fn get_highest_value_unspent_box() -> Option<ErgoBox> {
 
     for b in boxes {
         if b.value.value() == highest_value {
-            return Some(b);
+            return Ok(b);
         }
     }
-    None
+    Err(NodeError::NoBoxesFound)
 }
 
 /// Acquires the unspent box with the highest value of Ergs inside
 /// from the wallet and serializes it
-pub fn get_serialized_highest_value_unspent_box() -> Option<String> {
+pub fn get_serialized_highest_value_unspent_box() -> Result<String> {
     let ergs_box_id: String = get_highest_value_unspent_box()?.box_id().into();
     serialized_box_from_id(&ergs_box_id)
 }
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
-pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
+pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
     let endpoint = "/scan/unspentBoxes/".to_string() + scan_id;
-    let res = send_get_req(&endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
 
-    let res_json = json::parse(&res.text().ok()?).ok()?;
     let mut box_list = vec![];
-
     for i in 0.. {
         let box_json = &res_json[i]["box"];
         if box_json.is_null() {
@@ -98,110 +110,81 @@ pub fn get_scan_boxes(scan_id: &String) -> Option<Vec<ErgoBox>> {
             }
         }
     }
-    Some(box_list)
+    Ok(box_list)
 }
 
 /// Generates (and sends) a tx using the node endpoints.
 /// Input must be a json formatted request with rawInputs (and rawDataInputs)
 /// manually selected or will be automatically selected by wallet.
-pub fn send_transaction(tx_request_json: &JsonValue) -> Option<String> {
+pub fn send_transaction(tx_request_json: &JsonValue) -> Result<String> {
     let endpoint = "/wallet/transaction/send";
     let body = json::stringify(tx_request_json.clone());
-    let res = send_post_req(endpoint, body).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_post_req(endpoint, body)?;
 
-    let result = res.text().ok()?;
-    println!("Send Tx Result: {}", result);
-    Some(result)
+    let response_text = res
+        .text()
+        .map_err(|_| NodeError::FailedParsingNodeResponse)?;
+
+    // Add response checking & return errors if not submit tx
+
+    println!("Send Tx Result: {}", response_text);
+    Ok(response_text)
 }
 
 /// Given an Ergo address, extract the hex-encoded serialized ErgoTree (script)
-pub fn address_to_tree(address: &String) -> Option<String> {
+pub fn address_to_tree(address: &String) -> Result<String> {
     let endpoint = "/script/addressToTree/".to_string() + address;
-    let res = send_get_req(&endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
 
-    let result = res.text().ok()?;
-    let res_json = json::parse(&result).ok()?;
-    Some(res_json["tree"].to_string().clone())
+    Ok(res_json["tree"].to_string().clone())
 }
 
 /// Given an Ergo address, convert it to a hex-encoded Sigma byte array constant
 ///  which contains script bytes. Can then be utilized for many use cases
 /// (ie. comparing proposition bytes for scanning boxes)
-pub fn address_to_bytes(address: &String) -> Option<String> {
+pub fn address_to_bytes(address: &String) -> Result<String> {
     let endpoint = "/script/addressToBytes/".to_string() + address;
-    let res = send_get_req(&endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
 
-    let result = res.text().ok()?;
-    let res_json = json::parse(&result).ok()?;
-    Some(res_json["bytes"].to_string().clone())
+    Ok(res_json["bytes"].to_string().clone())
 }
 
 /// Given a `Vec<ErgoBox>` return the given boxes (which must be part of the UTXO-set) as
 /// a vec of serialized strings in Base16 encoding
-pub fn serialize_boxes(b: &Vec<ErgoBox>) -> Option<Vec<String>> {
-    Some(
-        b.iter()
-            .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or("".to_string()))
-            .collect(),
-    )
+pub fn serialize_boxes(b: &Vec<ErgoBox>) -> Result<Vec<String>> {
+    Ok(b.iter()
+        .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or("".to_string()))
+        .collect())
 }
 
 /// Given an `ErgoBox` return the given box (which must be part of the UTXO-set) as
 /// a serialized string in Base16 encoding
-pub fn serialize_box(b: &ErgoBox) -> Option<String> {
+pub fn serialize_box(b: &ErgoBox) -> Result<String> {
     serialized_box_from_id(&b.box_id().into())
 }
 
 /// Given a box id return the given box (which must be part of the UTXO-set) as
 /// a serialized string in Base16 encoding
-pub fn serialized_box_from_id(box_id: &String) -> Option<String> {
+pub fn serialized_box_from_id(box_id: &String) -> Result<String> {
     let endpoint = "/utxo/byIdBinary/".to_string() + box_id;
-    let res = send_get_req(&endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
 
-    let result = res.text().ok()?;
-    let res_json = json::parse(&result).ok()?;
-    Some(res_json["bytes"].to_string().clone())
+    Ok(res_json["bytes"].to_string().clone())
 }
 
 /// Get the current block height of the chain
-pub fn current_block_height() -> Option<BlockHeight> {
+pub fn current_block_height() -> Result<BlockHeight> {
     let endpoint = "/info";
-    let res = send_get_req(endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
 
-    let result = res.text().ok()?;
-    let res_json = json::parse(&result).ok()?;
-    let blockheight = res_json["fullHeight"].to_string().parse().ok()?;
-    Some(blockheight)
-}
-
-/// Gets a list of all addresses from the local unlocked node wallet
-pub fn get_wallet_addresses() -> Option<Vec<String>> {
-    let endpoint = "/wallet/addresses";
-    let res = send_get_req(endpoint).expect(
-        "Ensure that your node is running, configured properly, and the wallet is unlocked.",
-    );
-
-    let mut addresses: Vec<String> = vec![];
-    for segment in res.text().ok()?.split("\"") {
-        let seg = segment.trim();
-        if seg.chars().next().unwrap() == '9' {
-            addresses.push(seg.to_string());
-        }
-    }
-    if addresses.len() == 0 {
-        panic!("No addresses were found. Please make sure the node is running on the node-ip & node-port specified in `oracle-config.yaml` file and that your wallet is unlocked.");
-    }
-    Some(addresses)
+    res_json["fullHeight"]
+        .to_string()
+        .parse()
+        .map_err(|_| NodeError::FailedParsingNodeResponse)
 }
 
 /// Sets required headers for a request
@@ -212,15 +195,30 @@ fn set_req_headers(rb: RequestBuilder) -> RequestBuilder {
 }
 
 /// Sends a GET request to the Ergo node
-fn send_get_req(endpoint: &str) -> Result<Response, Error> {
+fn send_get_req(endpoint: &str) -> Result<Response> {
     let url = get_node_url().to_owned() + endpoint;
     let client = reqwest::blocking::Client::new().get(&url);
-    set_req_headers(client).send()
+    set_req_headers(client)
+        .send()
+        .map_err(|_| NodeError::NodeUnreachable)
 }
 
 /// Sends a POST request to the Ergo node
-fn send_post_req(endpoint: &str, body: String) -> Result<Response, Error> {
+fn send_post_req(endpoint: &str, body: String) -> Result<Response> {
     let url = get_node_url().to_owned() + endpoint;
     let client = reqwest::blocking::Client::new().post(&url);
-    set_req_headers(client).body(body).send()
+    set_req_headers(client)
+        .body(body)
+        .send()
+        .map_err(|_| NodeError::NodeUnreachable)
+}
+
+/// Parses response from node into JSON
+fn parse_response_to_json(resp: Result<Response>) -> Result<JsonValue> {
+    let json = resp?
+        .text()
+        .map(|t| json::parse(&t))
+        .map_err(|_| NodeError::FailedParsingNodeResponse)?
+        .map_err(|_| NodeError::FailedParsingNodeResponse)?;
+    Ok(json)
 }
