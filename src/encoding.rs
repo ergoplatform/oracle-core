@@ -2,10 +2,22 @@
 /// to the oracle core.
 use sigma_tree::ast::{CollPrim, Constant, ConstantColl, ConstantVal};
 use sigma_tree::chain::{Address, AddressEncoder, NetworkPrefix};
+use std::fmt::{Debug, Display};
 use std::str;
+use thiserror::Error;
 
-/// Serialize a `i64` value into a hex-encoded string to be used inside of a register for a box
-pub fn serialize_integer(i: i64) -> String {
+pub type Result<T> = std::result::Result<T, EncodingError<String>>;
+
+#[derive(Error, Debug)]
+pub enum EncodingError<T: Debug + Display> {
+    #[error("Failed to serialize: {0}")]
+    FailedToSerialize(T),
+    #[error("Failed to deserialize: {0}")]
+    FailedToDeserialize(T),
+}
+
+/// Serialize a `i64` Long value into a hex-encoded string to be used inside of a register for a box
+pub fn serialize_long(i: i64) -> String {
     let constant: Constant = i.into();
     let c = serde_json::to_string_pretty(&constant).unwrap();
     (c[1..(c.len() - 1)]).to_string()
@@ -16,42 +28,49 @@ pub fn serialize_string(s: &String) -> String {
     let a = s.clone().into_bytes();
     let b: Vec<i8> = a.iter().map(|c| c.clone() as i8).collect();
     let constant: Constant = b.into();
-    let c = serde_json::to_string(&constant).unwrap();
+    let c = serde_json::to_string(&constant).unwrap(); // Remove unwraps
     (c[1..(c.len() - 1)]).to_string()
 }
 
-/// Deserialize a hex-encoded `i64` inside of a `Constant` acquired from a register of a box
-pub fn deserialize_integer(c: &Constant) -> Option<i64> {
+/// Deserialize a hex-encoded `i64` Long inside of a `Constant` acquired from a register of a box
+pub fn deserialize_long(c: &Constant) -> Result<i64> {
     match &c.v {
-        ConstantVal::Long(i) => return Some(i.clone()),
-        _ => return None,
+        ConstantVal::Long(i) => return Ok(i.clone()),
+        _ => return Err(EncodingError::FailedToDeserialize(c.base16_str())),
     };
 }
 
 /// Deserialize a hex-encoded string inside of a `Constant` acquired from a register of a box
-pub fn deserialize_string(c: &Constant) -> Option<String> {
-    let byte_array = match &c.v {
+pub fn deserialize_string(c: &Constant) -> Result<String> {
+    let byte_array: Result<Vec<u8>> = match &c.v {
         ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
-            ba.iter().map(|x| x.clone() as u8).collect()
+            Ok(convert_to_unsigned_bytes(ba))
         }
-        _ => vec![],
+        _ => Err(EncodingError::FailedToDeserialize(c.base16_str())),
     };
-    Some(str::from_utf8(&byte_array).ok()?.to_string())
+    Ok(str::from_utf8(&byte_array?)
+        .map_err(|_| EncodingError::FailedToDeserialize(c.base16_str()))?
+        .to_string())
 }
 
 /// Deserialize ErgoTree inside of a `Constant` acquired from a register of a box into a P2S Base58 String.
-pub fn deserialize_ergo_tree(c: &Constant) -> Option<String> {
-    let byte_array = match &c.v {
+pub fn deserialize_ergo_tree(c: &Constant) -> Result<String> {
+    let byte_array: Result<Vec<u8>> = match &c.v {
         ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
-            ba.iter().map(|x| x.clone() as u8).collect()
+            Ok(convert_to_unsigned_bytes(ba))
         }
-        _ => vec![],
+        _ => Err(EncodingError::FailedToDeserialize(c.base16_str())),
     };
 
-    let address = Address::P2S(byte_array);
+    let address = Address::P2S(byte_array?);
     let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
 
-    Some(encoder.address_to_str(&address))
+    Ok(encoder.address_to_str(&address))
+}
+
+/// Convert Vec<i8> to Vec<u8>
+fn convert_to_unsigned_bytes(bytes: &Vec<i8>) -> Vec<u8> {
+    bytes.iter().map(|x| x.clone() as u8).collect()
 }
 
 /// Convert from Erg to nanoErg
