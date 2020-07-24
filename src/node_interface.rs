@@ -8,12 +8,11 @@ use crate::BlockHeight;
 use json::JsonValue;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
-use reqwest::Error;
 use serde_json::from_str;
 use sigma_tree::chain::ErgoBox;
 use std::fmt::{Display, Formatter};
 
-type Result<T> = std::result::Result<T, NodeError>;
+pub type Result<T> = std::result::Result<T, NodeError>;
 
 #[derive(Debug)]
 pub enum NodeError {

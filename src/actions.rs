@@ -7,21 +7,39 @@ use crate::encoding::{
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
-    send_transaction, serialize_boxes,
+    send_transaction, serialize_boxes, NodeError,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use json;
 use sigma_tree::chain::ErgoBox;
+use std::fmt::{Display, Formatter};
+
+pub type Result<T> = std::result::Result<T, ActionError>;
+
+#[derive(Debug)]
+pub enum ActionError {
+    NodeError(NodeError),
+    JsonParsingError(json::Error),
+}
+
+impl Display for ActionError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            ActionError::NodeError(ne) => ne.fmt(f),
+            ActionError::JsonParsingError(e) => e.fmt(f)}
+        }
+    }
+}
 
 /// The default fee used for actions
 pub static FEE: u64 = 1000000;
 
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
-    pub fn action_commit_datapoint(&self, datapoint: u64) -> Option<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).ok()?;
+    pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST);
 
         // Defining the registers of the output box
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
