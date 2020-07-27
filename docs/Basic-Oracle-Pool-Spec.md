@@ -69,7 +69,7 @@ This stage signifies that the oracle pool is currently in an active/live epoch.
 
 While the oracle pool box is in this stage oracles are allowed to post new datapoints via [Commit Datapoint](<#Action-Commit-Datapoint>). At the end of the epoch all of said datapoints can be collected via [Collect Datapoints](<#Action-Collect-Datapoints>).
 
-The oracle pool box at this stage must also hold the pool's NFT/singleton token. This NFT is required in order to guarantee the identity of the pool thereby differentiating it from another instance of the same contract posted by an unknown bad actor.
+The oracle pool box at this stage must also hold the pool's NFT/singleton token. This NFT is required in order to guarantee the identity of the pool thereby differentiating it from another instance of the same contract posted by an unknown bad actor. [Read more about the NFT here.](<#Action-Bootstrap-Oracle>)
 
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
@@ -103,7 +103,7 @@ However, if the oracle pool has insufficient funds and no [Pool Deposit](<#Stage
 
 If an epoch is skipped then a new epoch (following a new posting schedule) must be created via [Create New Epoch](<#Action-Create-New-Epoch>). This is only possible once the pool box has had it's funds replenished and it can pay out oracle once more.
 
-The oracle pool box at this stage must also hold the pool's NFT/singleton token. This NFT is required in order to guarantee the identity of the pool thereby differentiating it from another instance of the same contract posted by an unknown bad actor.
+The oracle pool box at this stage must also hold the pool's NFT/singleton token. This NFT is required in order to guarantee the identity of the pool thereby differentiating it from another instance of the same contract posted by an unknown bad actor. [Read more about the NFT here.](<#Action-Bootstrap-Oracle>)
 
 ### Registers
 - R4: The latest finalized datapoint (from the previous epoch)
