@@ -95,11 +95,14 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
     let mut box_list = vec![];
     for i in 0.. {
         let box_json = &res_json[i]["box"];
+        println!("{:?}", box_json.dump());
         if box_json.is_null() {
             break;
         } else {
             if let Some(ergo_box) = from_str(&box_json.to_string()).ok() {
                 box_list.push(ergo_box);
+            } else {
+                return Err(NodeError::FailedParsingNodeResponse);
             }
         }
     }
@@ -230,5 +233,6 @@ fn parse_response_to_json(resp: Result<Response>) -> Result<JsonValue> {
         .map(|t| json::parse(&t))
         .map_err(|_| NodeError::FailedParsingNodeResponse)?
         .map_err(|_| NodeError::FailedParsingNodeResponse)?;
+    println!("JSON: {:?}", json);
     Ok(json)
 }
