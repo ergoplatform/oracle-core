@@ -171,7 +171,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = FEE.into();
+        req["fee"] = (FEE * 2).into();
 
         let result = send_transaction(&req)?;
         Ok(result)

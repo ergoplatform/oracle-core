@@ -49,12 +49,22 @@ fn main() {
         let height = current_block_height().unwrap_or(0);
         println!("Blockheight: {}", height);
 
+        let res_prep_state = op.get_preparation_state();
+        let res_live_state = op.get_live_epoch_state();
+        let res_deposits_state = op.get_pool_deposits_state();
+        let res_datapoint_state = op.get_datapoint_state();
+
+        println!("{:?}", res_prep_state);
+        println!("{:?}", res_live_state);
+        println!("{:?}", res_deposits_state);
+        println!("{:?}", res_datapoint_state);
+
         // If the pool is in the Epoch Preparation stage
-        if let Ok(prep_state) = op.get_preparation_state() {
+        if let Ok(prep_state) = res_prep_state {
             println!("{:?}", prep_state);
 
             // Check state of pool deposit boxes
-            if let Ok(deposits_state) = op.get_pool_deposits_state() {
+            if let Ok(deposits_state) = res_deposits_state {
                 // Collect funds if sufficient funds exist worth collecting
                 if deposits_state.total_nanoergs > 10000000 {
                     if let Ok(_) = op.action_collect_funds() {
@@ -65,45 +75,34 @@ fn main() {
                 }
 
                 // Check epoch prep state
-                if let Ok(prep_state) = op.get_preparation_state() {
-                    let is_funded = prep_state.funds > parameters.max_pool_payout();
+                let is_funded = prep_state.funds > parameters.max_pool_payout();
 
-                    // Check if height is prior to next epoch expected end
-                    // height and that the pool is funded.
-                    if height < prep_state.next_epoch_ends && is_funded {
-                        // Attempt to issue tx
-                        if let Ok(_) = op.action_start_next_epoch() {
-                            println!(
-                                "-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----"
-                            );
-                        } else {
-                            println!(
-                                "-----\nFailed To Issue `Start Next Epoch` Transaction.\n-----"
-                            );
-                        }
+                // Check if height is prior to next epoch expected end
+                // height and that the pool is funded.
+                if height < prep_state.next_epoch_ends && is_funded {
+                    // Attempt to issue tx
+                    if let Ok(_) = op.action_start_next_epoch() {
+                        println!("-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----");
+                    } else {
+                        println!("-----\nFailed To Issue `Start Next Epoch` Transaction.\n-----");
                     }
+                }
 
-                    // Check if height is past the next epoch expected end
-                    // height and that the pool is funded.
-                    if height > prep_state.next_epoch_ends && is_funded {
-                        // Attempt to issue tx
-                        if let Ok(_) = op.action_create_new_epoch() {
-                            println!(
-                                "-----\n`Create New Epoch` Transaction Has Been Posted.\n-----"
-                            );
-                        } else {
-                            println!(
-                                "-----\nFailed To Issue `Create New Epoch` Transaction.\n-----"
-                            );
-                        }
+                // Check if height is past the next epoch expected end
+                // height and that the pool is funded.
+                if height > prep_state.next_epoch_ends && is_funded {
+                    // Attempt to issue tx
+                    if let Ok(_) = op.action_create_new_epoch() {
+                        println!("-----\n`Create New Epoch` Transaction Has Been Posted.\n-----");
+                    } else {
+                        println!("-----\nFailed To Issue `Create New Epoch` Transaction.\n-----");
                     }
                 }
             }
         }
 
-        let les = op.get_live_epoch_state();
         // If the pool is in the Live Epoch stage
-        if let Ok(epoch_state) = les {
+        if let Ok(epoch_state) = res_live_state {
             println!("{:?}", epoch_state);
 
             // Auto posting datapoint for testing protocol.
@@ -126,9 +125,6 @@ fn main() {
                 }
             }
         }
-
-        println!("{:?}", op.get_pool_deposits_state());
-        println!("{:?}", op.get_datapoint_state());
 
         // Delay loop restart
         thread::sleep(Duration::new(30, 0));
