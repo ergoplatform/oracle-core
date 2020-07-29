@@ -123,7 +123,9 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<String> {
         .text()
         .map_err(|_| NodeError::FailedParsingNodeResponse)?;
 
-    // Add response checking & return errors if not submit tx
+    //
+    // Add response checking & return errors if tx has not been submit
+    //
     println!("Send Tx Result: {}", response_text);
 
     Ok(response_text)

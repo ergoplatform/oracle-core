@@ -64,7 +64,6 @@ pub fn deserialize_long(c: &Constant) -> Result<i64> {
 
 /// Deserialize a String which is inside of a `Constant` acquired from a register of a box
 pub fn deserialize_string(c: &Constant) -> Result<String> {
-    println!("De St Const: {:?}", &c.v);
     let byte_array: Result<Vec<u8>> = match &c.v {
         ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
             Ok(convert_to_unsigned_bytes(ba))
@@ -74,6 +73,17 @@ pub fn deserialize_string(c: &Constant) -> Result<String> {
     Ok(str::from_utf8(&byte_array?)
         .map_err(|_| EncodingError::FailedToDeserialize(c.base16_str()))?
         .to_string())
+}
+
+/// Deserialize a hex-encoded String which is inside of a `Constant` acquired from a register of a box. Used primarily for acquiring the box id.
+pub fn deserialize_hex_encoded_string(c: &Constant) -> Result<String> {
+    let byte_array: Result<Vec<u8>> = match &c.v {
+        ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
+            Ok(convert_to_unsigned_bytes(ba))
+        }
+        _ => Err(EncodingError::FailedToDeserialize(c.base16_str())),
+    };
+    Ok(base16::encode_lower(&byte_array?))
 }
 
 /// Deserialize ErgoTree inside of a `Constant` acquired from a register of a box into a P2S Base58 String.

@@ -54,15 +54,15 @@ fn main() {
         let res_live_state = op.get_live_epoch_state();
         let res_deposits_state = op.get_pool_deposits_state();
 
-        println!("{:?}", res_prep_state);
-        println!("{:?}", res_live_state);
-        println!("{:?}", res_deposits_state);
-        println!("{:?}", res_datapoint_state);
+        println!("================================");
+        println!("Deposits State: {:?}\n", res_deposits_state);
+        println!("Epoch Prep State: {:?}\n", res_prep_state);
+        println!("Live Epoch State: {:?}\n", res_live_state);
+        println!("Oracle Datapoint State: {:?}", res_datapoint_state);
+        println!("================================\n\n");
 
         // If the pool is in the Epoch Preparation stage
         if let Ok(prep_state) = res_prep_state {
-            println!("{:?}", prep_state);
-
             // Check state of pool deposit boxes
             if let Ok(deposits_state) = res_deposits_state {
                 // Collect funds if sufficient funds exist worth collecting
@@ -103,11 +103,9 @@ fn main() {
 
         // If the pool is in the Live Epoch stage
         if let Ok(epoch_state) = res_live_state {
-            println!("{:?}", epoch_state);
-
             // Auto posting datapoint for testing protocol.
             // Delete later & replace with API datapoint submission.
-            if !epoch_state.commit_datapoint_in_epoch && height > epoch_state.epoch_ends - 2 {
+            if !epoch_state.commit_datapoint_in_epoch {
                 if let Ok(_) = op.action_commit_datapoint(572321) {
                     println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
                 } else {
@@ -118,11 +116,11 @@ fn main() {
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
                 // Attempt to collect datapoints
-                // if let Ok(_) = op.action_collect_datapoints() {
-                //     println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
-                // } else {
-                //     println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");
-                // }
+                if let Ok(_) = op.action_collect_datapoints() {
+                    println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
+                } else {
+                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");
+                }
             }
         }
 

@@ -1,4 +1,4 @@
-use crate::encoding::{deserialize_int, deserialize_long, deserialize_string};
+use crate::encoding::{deserialize_hex_encoded_string, deserialize_int, deserialize_long};
 /// This files relates to the state of the oracle/oracle pool.
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
@@ -248,7 +248,7 @@ impl OraclePool {
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        let origin_epoch_id = &datapoint_box_regs[1].base16_str();
+        let origin_epoch_id = deserialize_hex_encoded_string(&datapoint_box_regs[1])?;
 
         // Oracle datapoint held in R6
         let datapoint = deserialize_long(&datapoint_box_regs[2])?;
