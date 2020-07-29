@@ -1,0 +1,7 @@
+{
+    "Epoch Preparation Scan": "83",
+    "Live Epoch Scan": "84",
+    "Local Oracle Datapoint Scan": "85",
+    "All Datapoints Scan": "86",
+    "Pool Deposits Scan": "87"
+}

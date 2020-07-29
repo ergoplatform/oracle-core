@@ -49,10 +49,10 @@ fn main() {
         let height = current_block_height().unwrap_or(0);
         println!("Blockheight: {}", height);
 
+        let res_datapoint_state = op.get_datapoint_state();
         let res_prep_state = op.get_preparation_state();
         let res_live_state = op.get_live_epoch_state();
         let res_deposits_state = op.get_pool_deposits_state();
-        let res_datapoint_state = op.get_datapoint_state();
 
         println!("{:?}", res_prep_state);
         println!("{:?}", res_live_state);
@@ -118,11 +118,11 @@ fn main() {
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
                 // Attempt to collect datapoints
-                if let Ok(_) = op.action_collect_datapoints() {
-                    println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
-                } else {
-                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");
-                }
+                // if let Ok(_) = op.action_collect_datapoints() {
+                //     println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
+                // } else {
+                //     println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");
+                // }
             }
         }
 

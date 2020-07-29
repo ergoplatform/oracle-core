@@ -6,8 +6,8 @@ use crate::encoding::{
     serialize_int, serialize_long,
 };
 use crate::node_interface::{
-    address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
-    send_transaction, serialize_boxes,
+    address_to_bytes, address_to_raw_for_register, current_block_height,
+    get_serialized_highest_value_unspent_box, send_transaction, serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
@@ -28,7 +28,7 @@ impl OraclePool {
         // Defining the registers of the output box
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
-            "R4": address_to_bytes(&self.local_oracle_address)?,
+            "R4": address_to_raw_for_register(&self.local_oracle_address)?,
             "R5": serialize_hex_encoded_string(&live_epoch_id)?,
             "R6": serialize_long(datapoint as i64),
         };
@@ -48,7 +48,7 @@ impl OraclePool {
         ]
         .into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["fee"] = FEE.into();
+        req["fee"] = (FEE * 2).into();
 
         let result = send_transaction(&req)?;
         Ok(result)

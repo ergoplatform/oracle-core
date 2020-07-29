@@ -95,11 +95,11 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
     let mut box_list = vec![];
     for i in 0.. {
         let box_json = &res_json[i]["box"];
-        println!("{:?}", box_json.dump());
         if box_json.is_null() {
             break;
         } else {
-            if let Some(ergo_box) = from_str(&box_json.to_string()).ok() {
+            let res_ergo_box = from_str(&box_json.to_string());
+            if let Ok(ergo_box) = res_ergo_box {
                 box_list.push(ergo_box);
             } else {
                 return Err(NodeError::FailedParsingNodeResponse);
@@ -117,13 +117,15 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<String> {
     let body = json::stringify(tx_request_json.clone());
     let res = send_post_req(endpoint, body)?;
 
+    println!("{:?}", tx_request_json.dump());
+
     let response_text = res
         .text()
         .map_err(|_| NodeError::FailedParsingNodeResponse)?;
 
     // Add response checking & return errors if not submit tx
-
     println!("Send Tx Result: {}", response_text);
+
     Ok(response_text)
 }
 
@@ -233,6 +235,5 @@ fn parse_response_to_json(resp: Result<Response>) -> Result<JsonValue> {
         .map(|t| json::parse(&t))
         .map_err(|_| NodeError::FailedParsingNodeResponse)?
         .map_err(|_| NodeError::FailedParsingNodeResponse)?;
-    println!("JSON: {:?}", json);
     Ok(json)
 }
