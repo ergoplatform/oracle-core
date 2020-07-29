@@ -18,6 +18,8 @@ use std::time::Duration;
 pub type P2PKAddress = String;
 /// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2SAddress = String;
+/// Transaction ID
+pub type TxId = String;
 /// The smallest unit of the Erg currency.
 pub type NanoErg = u64;
 /// A block height of the chain.
@@ -108,7 +110,7 @@ fn main() {
         if let Ok(epoch_state) = res_live_state {
             // Auto posting datapoint for testing protocol.
             // Delete later & replace with API datapoint submission.
-            if !epoch_state.commit_datapoint_in_epoch {
+            if epoch_state.commit_datapoint_in_epoch {
                 let action_res = op.action_commit_datapoint(572321);
                 if let Ok(_) = action_res {
                     println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
@@ -120,11 +122,11 @@ fn main() {
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
                 let action_res = op.action_collect_datapoints();
-                if let Ok(_) = action_res {
-                    println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
-                } else if let Err(e) = action_res {
-                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\nError: {:?}\n-----", e);
-                }
+                // if let Ok(_) = action_res {
+                //     println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
+                // } else if let Err(e) = action_res {
+                //     println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\nError: {:?}\n-----", e);
+                // }
             }
         }
 

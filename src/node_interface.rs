@@ -4,7 +4,7 @@
 // return types & cleaning up code.
 use crate::oracle_config::{get_node_api_header, get_node_url};
 use crate::scans::ScanID;
-use crate::BlockHeight;
+use crate::{BlockHeight, TxId};
 use json::JsonValue;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::CONTENT_TYPE;
@@ -22,8 +22,8 @@ pub enum NodeError {
     FailedParsingNodeResponse,
     #[error("Failed reading response from node.")]
     NoBoxesFound,
-    #[error("The node rejected the request you provided")]
-    InvalidRequest(String),
+    #[error("The node rejected the request you provided.\nNode Response: {0}")]
+    BadRequest(String),
 }
 
 /// Registers a scan with the node and returns the `scan_id`
@@ -112,30 +112,29 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
 /// Generates (and sends) a tx using the node endpoints.
 /// Input must be a json formatted request with rawInputs (and rawDataInputs)
 /// manually selected or will be automatically selected by wallet.
-pub fn send_transaction(tx_request_json: &JsonValue) -> Result<String> {
+/// Returns the resulting `TxId`.
+pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     let endpoint = "/wallet/transaction/send";
     let body = json::stringify(tx_request_json.clone());
-    let res = send_post_req(endpoint, body)?;
+    let res = send_post_req(endpoint, body);
 
     println!("{:?}", tx_request_json.dump());
 
-    let response_text = res
-        .text()
-        .map_err(|_| NodeError::FailedParsingNodeResponse)?;
+    let res_json = parse_response_to_json(res)?;
+    let error_details = res_json["detail"].to_string().clone();
 
-    //
-    // Add response checking & return errors if tx has not been submit
-    //
-    // Example error response to check for in json:
-    // {
-    //     "error" : 400,
-    //     "reason" : "bad.request",
-    //     "detail" : "Bad request List(Paym .."
-    // }
-    //
-    println!("Send Tx Result: {}", response_text);
+    // Check if send tx request failed and returned error json
+    if error_details != "null" {
+        return Err(NodeError::BadRequest(error_details));
+    }
+    // Otherwise if tx is valid and is posted, return just the tx id
+    else {
+        // Clean string to be only the tx_id value
+        let tx_id = res_json.dump()[2..(res_json.dump().len() - 2)].to_string();
+        println!("Send Tx Result: {:?}", tx_id);
 
-    Ok(response_text)
+        return Ok(tx_id);
+    }
 }
 
 /// Given an Ergo address, extract the hex-encoded serialized ErgoTree (script)
