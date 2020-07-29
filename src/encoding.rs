@@ -62,8 +62,9 @@ pub fn deserialize_long(c: &Constant) -> Result<i64> {
     };
 }
 
-/// Deserialize a hex-encoded string inside of a `Constant` acquired from a register of a box
+/// Deserialize a String which is inside of a `Constant` acquired from a register of a box
 pub fn deserialize_string(c: &Constant) -> Result<String> {
+    println!("De St Const: {:?}", &c.v);
     let byte_array: Result<Vec<u8>> = match &c.v {
         ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
             Ok(convert_to_unsigned_bytes(ba))

@@ -248,14 +248,14 @@ impl OraclePool {
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        let origin_epoch_id = deserialize_string(&datapoint_box_regs[1])?;
+        let origin_epoch_id = &datapoint_box_regs[1].base16_str();
 
         // Oracle datapoint held in R6
         let datapoint = deserialize_long(&datapoint_box_regs[2])?;
 
         let datapoint_state = DatapointState {
             datapoint: datapoint as u64,
-            origin_epoch_id: origin_epoch_id,
+            origin_epoch_id: origin_epoch_id.clone(),
             creation_height: datapoint_box.creation_height as u64,
         };
 
