@@ -67,10 +67,11 @@ fn main() {
             if let Ok(deposits_state) = res_deposits_state {
                 // Collect funds if sufficient funds exist worth collecting
                 if deposits_state.total_nanoergs > 10000000 {
-                    if let Ok(_) = op.action_collect_funds() {
+                    let action_res = op.action_collect_funds();
+                    if let Ok(_) = action_res {
                         println!("-----\n`Collect Funds` Transaction Has Been Posted.\n-----");
-                    } else {
-                        println!("-----\nFailed To Issue `Collect Funds` Transaction.\n-----");
+                    } else if let Err(e) = action_res {
+                        println!("-----\nFailed To Issue `Collect Funds` Transaction.\nError: {:?}\n-----", e);
                     }
                 }
 
@@ -81,10 +82,11 @@ fn main() {
                 // height and that the pool is funded.
                 if height < prep_state.next_epoch_ends && is_funded {
                     // Attempt to issue tx
-                    if let Ok(_) = op.action_start_next_epoch() {
+                    let action_res = op.action_start_next_epoch();
+                    if let Ok(_) = action_res {
                         println!("-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----");
-                    } else {
-                        println!("-----\nFailed To Issue `Start Next Epoch` Transaction.\n-----");
+                    } else if let Err(e) = action_res {
+                        println!("-----\nFailed To Issue `Start Next Epoch` Transaction.\nError: {:?}\n-----", e);
                     }
                 }
 
@@ -92,10 +94,11 @@ fn main() {
                 // height and that the pool is funded.
                 if height > prep_state.next_epoch_ends && is_funded {
                     // Attempt to issue tx
-                    if let Ok(_) = op.action_create_new_epoch() {
+                    let action_res = op.action_create_new_epoch();
+                    if let Ok(_) = action_res {
                         println!("-----\n`Create New Epoch` Transaction Has Been Posted.\n-----");
-                    } else {
-                        println!("-----\nFailed To Issue `Create New Epoch` Transaction.\n-----");
+                    } else if let Err(e) = action_res {
+                        println!("-----\nFailed To Issue `Create New Epoch` Transaction.\nError: {:?}\n-----", e);
                     }
                 }
             }
@@ -106,20 +109,21 @@ fn main() {
             // Auto posting datapoint for testing protocol.
             // Delete later & replace with API datapoint submission.
             if !epoch_state.commit_datapoint_in_epoch {
-                if let Ok(_) = op.action_commit_datapoint(572321) {
+                let action_res = op.action_commit_datapoint(572321);
+                if let Ok(_) = action_res {
                     println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
-                } else {
-                    println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\n-----");
+                } else if let Err(e) = action_res {
+                    println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\nError: {:?}\n-----", e);
                 }
             }
 
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
-                // Attempt to collect datapoints
-                if let Ok(_) = op.action_collect_datapoints() {
+                let action_res = op.action_collect_datapoints();
+                if let Ok(_) = action_res {
                     println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
-                } else {
-                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\n-----");
+                } else if let Err(e) = action_res {
+                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\nError: {:?}\n-----", e);
                 }
             }
         }
