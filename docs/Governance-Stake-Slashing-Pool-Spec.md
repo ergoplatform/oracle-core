@@ -224,7 +224,7 @@ Once bootstrapped, the oracle must wait until the block height gets close enough
 A box in [Datapoint](<#Stage-Datapoint>) stage which:
 - Holds a single oracle pool token.
 - R4: The address of the oracle who will be a participant in the pool
-- R5: Placeholder box id value
+- R5: Placeholder box id value.
 - R6: Placeholder datapoint value.
 - R7: Placeholder/no vote value.
 ---

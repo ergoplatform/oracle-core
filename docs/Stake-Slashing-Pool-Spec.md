@@ -221,6 +221,7 @@ A box in [Datapoint](<#Stage-Datapoint>) stage which:
 - Holds a single oracle participant pool token.
 - R4: The address of the oracle who will be a participant in the pool
 - R5: Placeholder box id value
+- R6: Placeholder datapoint value.
 ---
 
 

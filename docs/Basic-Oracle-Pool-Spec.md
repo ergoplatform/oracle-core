@@ -180,8 +180,8 @@ Before creation, the oracle pool must decide on the:
 An [Epoch Preparation](<#Stage-Epoch-Preparation>) box with:
 - The Input NFT
 - The Input Ergs
-- R4: A default/placeholder datapoint value (has no effect in bootstrap)
-- R5: The block height that the first epoch ends
+- R4: A default/placeholder datapoint value.
+- R5: The block height that the first epoch ends.
 ---
 
 
@@ -204,8 +204,9 @@ Once bootstrapped, the oracle must wait until the block height gets close enough
 #### Output #1
 A box in [Datapoint](<#Stage-Datapoint>) stage which:
 - Holds a single oracle pool token.
-- R4: The address of the oracle who will be a participant in the pool
-- R5: Placeholder box id value
+- R4: The address of the oracle who will be a participant in the pool.
+- R5: Placeholder box id value.
+- R6: Placeholder datapoint.
 ---
 
 
