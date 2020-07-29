@@ -1,10 +1,6 @@
-/// v2 of the node interface is planned for the future and/or will be abstracted
-/// out into it's own crate.
-/// Primary improvements focused on building out proper error
-// return types & cleaning up code.
 use crate::oracle_config::{get_node_api_header, get_node_url};
 use crate::scans::ScanID;
-use crate::{BlockHeight, TxId};
+use crate::{BlockHeight, P2PKAddress, P2SAddress, TxId};
 use json::JsonValue;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::CONTENT_TYPE;
@@ -137,8 +133,8 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     }
 }
 
-/// Given an Ergo address, extract the hex-encoded serialized ErgoTree (script)
-pub fn address_to_tree(address: &String) -> Result<String> {
+/// Given a P2S Ergo address, extract the hex-encoded serialized ErgoTree (script)
+pub fn address_to_tree(address: &P2SAddress) -> Result<String> {
     let endpoint = "/script/addressToTree/".to_string() + address;
     let res = send_get_req(&endpoint);
     let res_json = parse_response_to_json(res)?;
@@ -146,8 +142,8 @@ pub fn address_to_tree(address: &String) -> Result<String> {
     Ok(res_json["tree"].to_string().clone())
 }
 
-/// Given an Ergo address, convert it to a hex-encoded Sigma byte array constant
-pub fn address_to_bytes(address: &String) -> Result<String> {
+/// Given a P2S Ergo address, convert it to a hex-encoded Sigma byte array constant
+pub fn address_to_bytes(address: &P2SAddress) -> Result<String> {
     let endpoint = "/script/addressToBytes/".to_string() + address;
     let res = send_get_req(&endpoint);
     let res_json = parse_response_to_json(res)?;
@@ -155,8 +151,8 @@ pub fn address_to_bytes(address: &String) -> Result<String> {
     Ok(res_json["bytes"].to_string().clone())
 }
 
-/// Given an Ergo Address, convert it to a raw hex-encoded EC point
-pub fn address_to_raw(address: &String) -> Result<String> {
+/// Given an Ergo P2PK Address, convert it to a raw hex-encoded EC point
+pub fn address_to_raw(address: &P2PKAddress) -> Result<String> {
     let endpoint = "/utils/addressToRaw/".to_string() + address;
     let res = send_get_req(&endpoint);
     let res_json = parse_response_to_json(res)?;
@@ -164,16 +160,16 @@ pub fn address_to_raw(address: &String) -> Result<String> {
     Ok(res_json["raw"].to_string().clone())
 }
 
-/// Given an Ergo Address, convert it to a raw hex-encoded EC point
+/// Given an Ergo P2PK Address, convert it to a raw hex-encoded EC point
 /// and prepend the type bytes so it is encoded and ready
 /// to be used in a register.
-pub fn address_to_raw_for_register(address: &String) -> Result<String> {
+pub fn address_to_raw_for_register(address: &P2PKAddress) -> Result<String> {
     let add = address_to_raw(address)?;
     Ok("07".to_string() + &add)
 }
 
 /// Given a raw hex-encoded EC point, convert it to a P2PK address
-pub fn raw_to_address(raw: &String) -> Result<String> {
+pub fn raw_to_address(raw: &String) -> Result<P2PKAddress> {
     let endpoint = "/utils/rawToAddress/".to_string() + raw;
     let res = send_get_req(&endpoint);
     let res_json = parse_response_to_json(res)?;
@@ -183,7 +179,7 @@ pub fn raw_to_address(raw: &String) -> Result<String> {
 
 /// Given a raw hex-encoded EC point from a register (thus with type encoded characters in front),
 /// convert it to a P2PK address
-pub fn raw_from_register_to_address(typed_raw: &String) -> Result<String> {
+pub fn raw_from_register_to_address(typed_raw: &String) -> Result<P2PKAddress> {
     Ok(raw_to_address(&typed_raw[2..].to_string())?)
 }
 

@@ -1,6 +1,7 @@
-use base16;
 /// This file holds various functions related to encoding/serialization of values that are relevant
 /// to the oracle core.
+use crate::P2SAddress;
+use base16;
 use sigma_tree::ast::{CollPrim, Constant, ConstantColl, ConstantVal};
 use sigma_tree::chain::{Address, AddressEncoder, NetworkPrefix};
 use std::fmt::{Debug, Display};
@@ -87,7 +88,7 @@ pub fn deserialize_hex_encoded_string(c: &Constant) -> Result<String> {
 }
 
 /// Deserialize ErgoTree inside of a `Constant` acquired from a register of a box into a P2S Base58 String.
-pub fn deserialize_ergo_tree(c: &Constant) -> Result<String> {
+pub fn deserialize_ergo_tree(c: &Constant) -> Result<P2SAddress> {
     let byte_array: Result<Vec<u8>> = match &c.v {
         ConstantVal::Coll(ConstantColl::Primitive(CollPrim::CollByte(ba))) => {
             Ok(convert_to_unsigned_bytes(ba))
