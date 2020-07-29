@@ -2,12 +2,13 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
-    deserialize_ergo_tree, deserialize_long, deserialize_string, serialize_hex_encoded_string,
-    serialize_int, serialize_long,
+    deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
+    serialize_long,
 };
 use crate::node_interface::{
     address_to_bytes, address_to_raw_for_register, current_block_height,
-    get_serialized_highest_value_unspent_box, send_transaction, serialize_boxes,
+    get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
+    serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
@@ -222,8 +223,10 @@ impl OraclePool {
 
         // Filling out requests for the oracle payout outputs
         for b in &successful_boxes {
-            let oracle_address =
-                deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0])?;
+            // Get the P2PK from the hex encoded constant string minus the first two characters which are a register type descriptor
+            let oracle_address = raw_from_register_to_address(
+                &b.additional_registers.get_ordered_values()[0].base16_str(),
+            )?;
             req["requests"]
                 .push(object! {
                     "address": oracle_address,
@@ -257,7 +260,9 @@ pub fn current_epoch_boxes_filter(
 ) -> Vec<ErgoBox> {
     let mut filtered_boxes = vec![];
     for b in datapoint_boxes {
-        if let Ok(s) = deserialize_string(&b.additional_registers.get_ordered_values()[1]) {
+        if let Ok(s) =
+            deserialize_hex_encoded_string(&b.additional_registers.get_ordered_values()[1])
+        {
             if s == live_epoch_state.epoch_id {
                 filtered_boxes.push(b.clone());
             }
@@ -304,16 +309,12 @@ pub fn margin_of_error_filter(
     Ok(successful_boxes)
 }
 
-/// Removes boxes which do not have a valid address in R4 and datapoint integer in R6.
-/// This is to prevent returning `None` while finalizing the datapoint and thereby
-/// actually build a tx that validates.
+/// Removes boxes which do not have a valid datapoint Long in R6.
 pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut valid_boxes = vec![];
     for b in boxes {
-        if let Ok(_) = deserialize_ergo_tree(&b.additional_registers.get_ordered_values()[0]) {
-            if let Ok(_) = deserialize_long(&b.additional_registers.get_ordered_values()[2]) {
-                valid_boxes.push(b.clone());
-            }
+        if let Ok(_) = deserialize_long(&b.additional_registers.get_ordered_values()[2]) {
+            valid_boxes.push(b.clone());
         }
     }
     valid_boxes

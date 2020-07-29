@@ -126,6 +126,13 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<String> {
     //
     // Add response checking & return errors if tx has not been submit
     //
+    // Example error response to check for in json:
+    // {
+    //     "error" : 400,
+    //     "reason" : "bad.request",
+    //     "detail" : "Bad request List(Paym .."
+    // }
+    //
     println!("Send Tx Result: {}", response_text);
 
     Ok(response_text)
@@ -141,8 +148,6 @@ pub fn address_to_tree(address: &String) -> Result<String> {
 }
 
 /// Given an Ergo address, convert it to a hex-encoded Sigma byte array constant
-///  which contains script bytes. Can then be utilized for many use cases
-/// (ie. comparing proposition bytes for scanning boxes)
 pub fn address_to_bytes(address: &String) -> Result<String> {
     let endpoint = "/script/addressToBytes/".to_string() + address;
     let res = send_get_req(&endpoint);
@@ -151,7 +156,7 @@ pub fn address_to_bytes(address: &String) -> Result<String> {
     Ok(res_json["bytes"].to_string().clone())
 }
 
-/// Given an Ergo Address, convert it to a hex-encoded EC point
+/// Given an Ergo Address, convert it to a raw hex-encoded EC point
 pub fn address_to_raw(address: &String) -> Result<String> {
     let endpoint = "/utils/addressToRaw/".to_string() + address;
     let res = send_get_req(&endpoint);
@@ -160,12 +165,27 @@ pub fn address_to_raw(address: &String) -> Result<String> {
     Ok(res_json["raw"].to_string().clone())
 }
 
-/// Given an Ergo Address, convert it to a hex-encoded EC point
+/// Given an Ergo Address, convert it to a raw hex-encoded EC point
 /// and prepend the type bytes so it is encoded and ready
 /// to be used in a register.
 pub fn address_to_raw_for_register(address: &String) -> Result<String> {
     let add = address_to_raw(address)?;
     Ok("07".to_string() + &add)
+}
+
+/// Given a raw hex-encoded EC point, convert it to a P2PK address
+pub fn raw_to_address(raw: &String) -> Result<String> {
+    let endpoint = "/utils/rawToAddress/".to_string() + raw;
+    let res = send_get_req(&endpoint);
+    let res_json = parse_response_to_json(res)?;
+
+    Ok(res_json["address"].to_string().clone())
+}
+
+/// Given a raw hex-encoded EC point from a register (thus with type encoded characters in front),
+/// convert it to a P2PK address
+pub fn raw_from_register_to_address(typed_raw: &String) -> Result<String> {
+    Ok(raw_to_address(&typed_raw[2..].to_string())?)
 }
 
 /// Given a `Vec<ErgoBox>` return the given boxes (which must be part of the UTXO-set) as
