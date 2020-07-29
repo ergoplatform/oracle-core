@@ -197,8 +197,7 @@ impl OraclePool {
         let tx_fee = 5000000;
         // Define the new value of the oracle pool box after payouts/tx fee
         let new_box_value = live_epoch_state.funds
-            - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1))
-            - tx_fee;
+            - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1));
         // Define the finish height of the following epoch
         let new_finish_height = self.get_live_epoch_state()?.epoch_ends
             + parameters.epoch_preparation_length
@@ -244,7 +243,11 @@ impl OraclePool {
             .ok();
 
         // Filling out the rest of the json request
-        req["inputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
+        req["inputsRaw"] = vec![
+            get_serialized_highest_value_unspent_box()?,
+            self.live_epoch_stage.get_serialized_box()?,
+        ]
+        .into();
         req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
         req["fee"] = tx_fee.into();
 
