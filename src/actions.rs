@@ -2,12 +2,12 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
-    deserialize_ergo_tree, deserialize_long, deserialize_string, serialize_int, serialize_long,
-    serialize_string,
+    deserialize_ergo_tree, deserialize_long, deserialize_string, serialize_hex_encoded_string,
+    serialize_int, serialize_long,
 };
 use crate::node_interface::{
     address_to_bytes, current_block_height, get_serialized_highest_value_unspent_box,
-    send_transaction, serialize_boxes, NodeError,
+    send_transaction, serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
@@ -29,7 +29,7 @@ impl OraclePool {
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
             "R4": address_to_bytes(&self.local_oracle_address)?,
-            "R5": serialize_string(&live_epoch_id),
+            "R5": serialize_hex_encoded_string(&live_epoch_id)?,
             "R6": serialize_long(datapoint as i64),
         };
         // Defining the tokens to be spent

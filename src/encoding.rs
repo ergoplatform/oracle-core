@@ -31,8 +31,7 @@ pub fn serialize_long(i: i64) -> String {
 
 /// Serialize a `String` value into a hex-encoded string to be used inside of a register for a box
 pub fn serialize_string(s: &String) -> String {
-    let a = s.clone().into_bytes();
-    let b = convert_to_signed_bytes(&a);
+    let b = convert_to_signed_bytes(&s.clone().into_bytes());
     let constant: Constant = b.into();
     constant.base16_str()
 }
