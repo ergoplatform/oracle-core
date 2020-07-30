@@ -63,7 +63,7 @@ impl OraclePool {
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
             "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_long(epoch_prep_state.next_epoch_ends as i64),
+            "R5": serialize_int(epoch_prep_state.next_epoch_ends as i32),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -81,10 +81,12 @@ impl OraclePool {
         } else {
             unserialized_input_boxes.append(&mut initial_deposit_boxes);
         }
-        let serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
+        // Serialize boxes and add extra box for paying fee
+        let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
+        serialized_input_boxes.push(get_serialized_highest_value_unspent_box()?);
 
         // Define the fee for the current action
-        let action_fee = 8000000;
+        let action_fee = 2000000 * serialized_input_boxes.len() as u64;
 
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
