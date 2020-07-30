@@ -71,8 +71,6 @@ impl OraclePool {
             "amount": 1
         };
 
-        println!("regs: {:?}", registers);
-
         // Create input boxes Vec with serialized Epoch Preparation box inside
         let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
         // Acquire all Pool Deposit boxes
@@ -94,10 +92,9 @@ impl OraclePool {
         let total_input_ergs = unserialized_input_boxes
             .iter()
             .fold(0, |acc, b| acc + b.value.value());
-        let nano_ergs_sum = total_input_ergs - action_fee;
 
         // Filling out the json tx request template
-        req["requests"][0]["value"] = nano_ergs_sum.into();
+        req["requests"][0]["value"] = total_input_ergs.into();
         req["requests"][0]["address"] =
             self.epoch_preparation_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();

@@ -114,7 +114,7 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     let body = json::stringify(tx_request_json.clone());
     let res = send_post_req(endpoint, body);
 
-    // println!("{:?}", tx_request_json.dump());
+    println!("{:?}", tx_request_json.dump());
 
     let res_json = parse_response_to_json(res)?;
     let error_details = res_json["detail"].to_string().clone();
@@ -129,7 +129,7 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
         let tx_id = res_json
             .dump()
             .chars()
-            .filter(|&c| c == '\\' || c == '\"')
+            .filter(|&c| c != '\\' || c != '\"')
             .collect();
         println!("Send Tx Result: {:?}", tx_id);
 

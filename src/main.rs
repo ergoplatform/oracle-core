@@ -95,7 +95,7 @@ fn main() {
 
             // Check if height is past the next epoch expected end
             // height and that the pool is funded.
-            if height > prep_state.next_epoch_ends && is_funded {
+            if height >= prep_state.next_epoch_ends && is_funded {
                 // Attempt to issue tx
                 let action_res = op.action_create_new_epoch();
                 if let Ok(_) = action_res {
