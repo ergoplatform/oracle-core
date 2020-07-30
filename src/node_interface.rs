@@ -114,7 +114,7 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     let body = json::stringify(tx_request_json.clone());
     let res = send_post_req(endpoint, body);
 
-    println!("{:?}", tx_request_json.dump());
+    // println!("{:?}", tx_request_json.dump());
 
     let res_json = parse_response_to_json(res)?;
     let error_details = res_json["detail"].to_string().clone();
@@ -126,7 +126,11 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     // Otherwise if tx is valid and is posted, return just the tx id
     else {
         // Clean string to be only the tx_id value
-        let tx_id = res_json.dump()[2..(res_json.dump().len() - 2)].to_string();
+        let tx_id = res_json
+            .dump()
+            .chars()
+            .filter(|&c| c == '\\' || c == '\"')
+            .collect();
         println!("Send Tx Result: {:?}", tx_id);
 
         return Ok(tx_id);
