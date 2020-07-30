@@ -37,12 +37,12 @@ fn main() {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
 
-    // thread::Builder::new()
-    //     .name("Oracle Core API Thread".to_string())
-    //     .spawn(|| {
-    //         api::start_api();
-    //     })
-    //     .ok();
+    thread::Builder::new()
+        .name("Oracle Core API Thread".to_string())
+        .spawn(|| {
+            api::start_api();
+        })
+        .ok();
 
     loop {
         // Clear screen
@@ -76,32 +76,32 @@ fn main() {
                         println!("-----\nFailed To Issue `Collect Funds` Transaction.\nError: {:?}\n-----", e);
                     }
                 }
+            }
 
-                // Check epoch prep state
-                let is_funded = prep_state.funds > parameters.max_pool_payout();
+            // Check epoch prep state
+            let is_funded = prep_state.funds > parameters.max_pool_payout();
 
-                // Check if height is prior to next epoch expected end
-                // height and that the pool is funded.
-                if height < prep_state.next_epoch_ends && is_funded {
-                    // Attempt to issue tx
-                    let action_res = op.action_start_next_epoch();
-                    if let Ok(_) = action_res {
-                        println!("-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----");
-                    } else if let Err(e) = action_res {
-                        println!("-----\nFailed To Issue `Start Next Epoch` Transaction.\nError: {:?}\n-----", e);
-                    }
+            // Check if height is prior to next epoch expected end
+            // height and that the pool is funded.
+            if height < prep_state.next_epoch_ends && is_funded {
+                // Attempt to issue tx
+                let action_res = op.action_start_next_epoch();
+                if let Ok(_) = action_res {
+                    println!("-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----");
+                } else if let Err(e) = action_res {
+                    println!("-----\nFailed To Issue `Start Next Epoch` Transaction.\nError: {:?}\n-----", e);
                 }
+            }
 
-                // Check if height is past the next epoch expected end
-                // height and that the pool is funded.
-                if height > prep_state.next_epoch_ends && is_funded {
-                    // Attempt to issue tx
-                    let action_res = op.action_create_new_epoch();
-                    if let Ok(_) = action_res {
-                        println!("-----\n`Create New Epoch` Transaction Has Been Posted.\n-----");
-                    } else if let Err(e) = action_res {
-                        println!("-----\nFailed To Issue `Create New Epoch` Transaction.\nError: {:?}\n-----", e);
-                    }
+            // Check if height is past the next epoch expected end
+            // height and that the pool is funded.
+            if height > prep_state.next_epoch_ends && is_funded {
+                // Attempt to issue tx
+                let action_res = op.action_create_new_epoch();
+                if let Ok(_) = action_res {
+                    println!("-----\n`Create New Epoch` Transaction Has Been Posted.\n-----");
+                } else if let Err(e) = action_res {
+                    println!("-----\nFailed To Issue `Create New Epoch` Transaction.\nError: {:?}\n-----", e);
                 }
             }
         }

@@ -71,6 +71,8 @@ impl OraclePool {
             "amount": 1
         };
 
+        println!("regs: {:?}", registers);
+
         // Create input boxes Vec with serialized Epoch Preparation box inside
         let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
         // Acquire all Pool Deposit boxes

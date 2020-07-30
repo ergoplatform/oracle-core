@@ -1,7 +1,10 @@
+use crate::encoding::serialize_int;
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
+use json;
 use sincere;
+use std::str::from_utf8;
 
 /// Starts the API server
 pub fn start_api() {
@@ -126,6 +129,44 @@ pub fn start_api() {
             current_block_height().expect("Please ensure that the Ergo node is running.");
         let response_text = format!("{}", current_height);
         context.response.from_text(response_text).unwrap();
+    });
+
+    // Accept a datapoint to be posted within a "Commit Datapoint" action tx
+    app.post("/submitDatapoint", move |context| {
+        let op = OraclePool::new();
+        let res_post_json = from_utf8(context.request.body()).map(|t| json::parse(t));
+
+        // If the post request body is valid json
+        if let Ok(Ok(post_json)) = res_post_json {
+            // If the datapoint provided is a valid Integer
+            if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
+                // Check if in Live Epoch stage
+                if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
+                    let action_result = op.action_commit_datapoint(datapoint);
+                    // If transaction succeeded being posted
+                    if let Ok(res) = action_result{
+                        context.response.from_text(res).unwrap();
+                    }
+                    // If transaction failed being posted
+                    else {
+                        context.response.from_text("Failed to post 'Commit Datapoint' action transaction.").unwrap();
+                    }
+                }
+                // Else if in Epoch Prep stage
+                else {
+                    context.response.from_text("Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage.").unwrap();
+                }
+            }
+            // If the datapoint provided is not a valid i32 Integer
+            else {
+                context.response.from_text("Invalid Datapoint Provided.\nPlease ensure that your request includes a valid Integer i32 'datapoint' field.").unwrap();
+            }
+
+        }
+        // If the post request body is not valid json
+        else {
+            context.response.from_text("Invalid JSON Request Body.").unwrap();
+        }
     });
 
     // Start the API server with the port designated in the config.
