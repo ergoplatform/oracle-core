@@ -86,7 +86,7 @@ impl OraclePool {
         serialized_input_boxes.push(get_serialized_highest_value_unspent_box()?);
 
         // Define the fee for the current action
-        let action_fee = 2000000 * serialized_input_boxes.len() as u64;
+        let action_fee = 1500000 * unserialized_input_boxes.len() as u64;
 
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
