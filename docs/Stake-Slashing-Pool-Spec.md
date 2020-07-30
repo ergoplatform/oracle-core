@@ -417,7 +417,7 @@ If a pool is ever underfunded, then this action must be performed to increase th
 After the previous epoch has ended via [Collect Datapoints](<#Action-Collect-Datapoints>) the oracle pool box *must* stay in the [Epoch Preparation](<#Stage-Epoch-Preparation>) stage until the blockchain height has passed the following:
 
 ```haskell
-[Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration] + [Epoch Preparation Duration]
+[Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration]
 ```
 
 This provides a preparation period where [Start Next Epoch](<#Action-Start-Next-Epoch>) cannot be used. Thus the next Live Epoch cannot officially start and datapoints cannot be updated. The oracles can use this period to collect funds into the pool and additionally slash collateral from bad acting oracles from the previous epoch.
@@ -435,7 +435,7 @@ If the finish block height of an epoch has passed without the live epoch being s
 
 
 ### Action Conditions
-1. The current block height is greater than  `[Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration] + [Epoch Preparation Duration]`.
+1. The current block height is greater than  `[Finish Block Height Of Upcoming Epoch (R5)] - [Live Epoch Duration]`.
 2. The input box has more Ergs than the cost for one oracle pool posting payout.
 3. R4 of both the input and output are equivalent.
 4. R5 of both the input and output are equivalent.
