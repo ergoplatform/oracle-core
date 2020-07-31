@@ -49,7 +49,7 @@ impl OraclePool {
         ]
         .into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["fee"] = (FEE * 2).into();
+        req["fee"] = FEE.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -86,7 +86,7 @@ impl OraclePool {
         serialized_input_boxes.push(get_serialized_highest_value_unspent_box()?);
 
         // Define the fee for the current action
-        let action_fee = 1500000 * unserialized_input_boxes.len() as u64;
+        let action_fee = 500000 * unserialized_input_boxes.len() as u64;
 
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
@@ -133,7 +133,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = (FEE * 2).into();
+        req["fee"] = FEE.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -173,7 +173,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = (FEE * 2).into();
+        req["fee"] = FEE.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -195,7 +195,7 @@ impl OraclePool {
             finalize_datapoint(&current_epoch_datapoint_boxes)?;
 
         // Tx fee for the transaction
-        let tx_fee = (1500000 * current_epoch_datapoint_boxes.len()) as u64;
+        let tx_fee = (1200000 * current_epoch_datapoint_boxes.len()) as u64;
         // Define the new value of the oracle pool box after payouts/tx fee
         let new_box_value = live_epoch_state.funds
             - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1));
