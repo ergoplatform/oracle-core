@@ -3,10 +3,10 @@
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
     deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
-    serialize_long,
+    serialize_long, string_to_blake2b_hash,
 };
 use crate::node_interface::{
-    address_to_bytes, address_to_raw_for_register, current_block_height,
+    address_to_raw_for_register, address_to_tree, current_block_height,
     get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
     serialize_boxes,
 };
@@ -115,7 +115,7 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_int(epoch_prep_state.next_epoch_ends as i32),
-            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address)?,
+            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?,
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -155,7 +155,7 @@ impl OraclePool {
         let registers = object! {
             "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
             "R5": serialize_int(new_finish_height as i32),
-            "R6": address_to_bytes(&self.epoch_preparation_stage.contract_address)?,
+            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?,
         };
         // Defining the tokens to be spent
         let token_json = object! {

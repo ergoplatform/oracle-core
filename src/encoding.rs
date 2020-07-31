@@ -2,6 +2,7 @@
 /// to the oracle core.
 use crate::P2SAddress;
 use base16;
+use blake2b_simd::Params;
 use sigma_tree::ast::{CollPrim, Constant, ConstantColl, ConstantVal};
 use sigma_tree::chain::{Address, AddressEncoder, NetworkPrefix};
 use std::fmt::{Debug, Display};
@@ -16,6 +17,14 @@ pub enum EncodingError<T: Debug + Display> {
     FailedToSerialize(T),
     #[error("Failed to deserialize: {0}")]
     FailedToDeserialize(T),
+}
+
+/// Takes the blake2b hash of a String, represented in hex as a String
+pub fn string_to_blake2b_hash(b: String) -> Result<String> {
+    let mut params = Params::new();
+    params.hash_length(32);
+    let a = params.hash(&decode_hex(&b)?).to_hex().to_string();
+    Ok(a)
 }
 
 /// Serialize a `i32` Int value into a hex-encoded string to be used inside of a register for a box
@@ -39,12 +48,9 @@ pub fn serialize_string(s: &String) -> String {
 
 /// Decodes a hex-encoded string into bytes and then serializes it into a properly formatted hex-encoded string to be used inside of a register for a box
 pub fn serialize_hex_encoded_string(s: &String) -> Result<String> {
-    if let Ok(b) = base16::decode(s) {
-        let constant: Constant = convert_to_signed_bytes(&b).into();
-        return Ok(constant.base16_str());
-    } else {
-        return Err(EncodingError::FailedToSerialize(s.clone()));
-    }
+    let b = decode_hex(s)?;
+    let constant: Constant = convert_to_signed_bytes(&b).into();
+    Ok(constant.base16_str())
 }
 
 /// Deserialize a hex-encoded `i32` Long inside of a `Constant` acquired from a register of a box
@@ -110,6 +116,15 @@ fn convert_to_unsigned_bytes(bytes: &Vec<i8>) -> Vec<u8> {
 /// Convert Vec<u8> to Vec<i8>
 fn convert_to_signed_bytes(bytes: &Vec<u8>) -> Vec<i8> {
     bytes.iter().map(|x| x.clone() as i8).collect()
+}
+
+/// Decodes a hex-encoded string into bytes
+fn decode_hex(s: &String) -> Result<Vec<u8>> {
+    if let Ok(b) = base16::decode(s) {
+        return Ok(b);
+    } else {
+        return Err(EncodingError::FailedToSerialize(s.clone()));
+    }
 }
 
 /// Convert from Erg to nanoErg
