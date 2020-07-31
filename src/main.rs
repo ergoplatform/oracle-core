@@ -80,11 +80,13 @@ fn main() {
 
             // Check epoch prep state
             let is_funded = prep_state.funds > parameters.max_pool_payout();
-            let epoc_prep_over = height > prep_state.next_epoch_ends - parameters.live_epoch_length;
+            let epoch_prep_over =
+                height > prep_state.next_epoch_ends - parameters.live_epoch_length;
+            let live_epoch_over = height >= prep_state.next_epoch_ends;
 
             // Check if height is prior to next epoch expected end
             // height and that the pool is funded.
-            if epoc_prep_over && is_funded {
+            if epoch_prep_over && !live_epoch_over && is_funded {
                 // Attempt to issue tx
                 let action_res = op.action_start_next_epoch();
                 if let Ok(_) = action_res {
@@ -96,7 +98,7 @@ fn main() {
 
             // Check if height is past the next epoch expected end
             // height and that the pool is funded.
-            if height >= prep_state.next_epoch_ends && is_funded {
+            if live_epoch_over && is_funded {
                 // Attempt to issue tx
                 let action_res = op.action_create_new_epoch();
                 if let Ok(_) = action_res {
