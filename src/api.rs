@@ -145,27 +145,37 @@ pub fn start_api() {
                     let action_result = op.action_commit_datapoint(datapoint);
                     // If transaction succeeded being posted
                     if let Ok(res) = action_result{
-                        context.response.from_text(res).unwrap();
+                        let resp_json = object! { tx_id: res}.to_string();
+
+                        context.response.from_json(resp_json).unwrap();
                     }
                     // If transaction failed being posted
                     else {
-                        context.response.from_text("Failed to post 'Commit Datapoint' action transaction.").unwrap();
+                        let error_json = object! {error: "Failed to post 'Commit Datapoint' action transaction."}.to_string();
+
+                        context.response.from_json(error_json).unwrap();
                     }
                 }
                 // Else if in Epoch Prep stage
                 else {
-                    context.response.from_text("Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage.").unwrap();
+                    let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
+
+                    context.response.from_json(error_json).unwrap();
                 }
             }
             // If the datapoint provided is not a valid i32 Integer
             else {
-                context.response.from_text("Invalid Datapoint Provided.\nPlease ensure that your request includes a valid Integer i32 'datapoint' field.").unwrap();
+                let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
+
+                context.response.from_json(error_json).unwrap();
             }
 
         }
         // If the post request body is not valid json
         else {
-            context.response.from_text("Invalid JSON Request Body.").unwrap();
+            let error_json = object! {error: "Invalid JSON Request Body."}.to_string();
+
+            context.response.from_json(error_json).unwrap();
         }
     });
 

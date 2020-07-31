@@ -6,14 +6,6 @@ The current design does not include bootstrapping of the oracle pool. This must 
 Do note, that the oracle core requires the user to have access to a full node wallet in order to create txs & perform UTXO-set scanning. Furthermore each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools, a single full node can be used, but several instances of oracle cores must be run (and set with different api ports).
 
 
-## Roadmap
-1. Define basic requirements/structure of the oracle core.
-2. Implement functions for all core <-> full node interactions.
-3. Build tiny CLI which allows for manual testing of oracle pool protocol using the interaction functions.
-4. Build automated logic into the oracle core for interacting with the oracle pool on-chain/building txs. (Using placeholder data)
-5. Build the HTTP API which operators can use to submit data & check the status of their oracle core.
-
-
 ## HTTP API Endpoints
 
 ### GET
