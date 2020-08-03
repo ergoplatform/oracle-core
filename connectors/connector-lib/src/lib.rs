@@ -1,8 +1,10 @@
+#[macro_use]
+extern crate json;
 use reqwest::blocking::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
-use yaml_rust::{Yaml, YamlLoader};
 use thiserror::Error;
+use yaml_rust::{Yaml, YamlLoader};
 
 pub type Result<T> = std::result::Result<T, ConnectorError>;
 
@@ -83,12 +85,16 @@ impl OracleCore {
 
     /// Submit a u64 Datapoint to the Oracle Core
     pub fn submit_datapoint(&self, datapoint: u64) -> Result<String> {
-        Ok("Soon".to_string())
+        let datapoint_json = object! { datapoint: datapoint};
+        let resp_text = self.send_post_req("/submitDatapoint", datapoint_json.dump());
+        // Add error checking here by parsing the json.
+        // let json = resp?.text().map(|t| json::parse(&t))
+        //
+        resp_text
     }
     /// Get information about the local Oracle
     pub fn oracle_info(&self) -> Result<OracleInfo> {
         let resp_text = self.send_get_req("/oracleInfo")?;
-        println!("RT: {}", resp_text);
         from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
@@ -156,22 +162,21 @@ impl OracleCore {
 
 /// Reads the local `oracle_config.yaml` file
 fn get_config_yaml_string() -> Result<String> {
-    std::fs::read_to_string("oracle-config.yaml").map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)
+    std::fs::read_to_string("oracle-config.yaml")
+        .map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)
 }
 
 /// Returns "core_api_port" from the local config file
 pub fn get_core_api_port() -> Result<String> {
     let config_string = get_config_yaml_string()?;
-    let config = &YamlLoader::load_from_str(&config_string).map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)?[0];
-    if let Some(s) = config["core_api_port"].as_str(){
+    let config = &YamlLoader::load_from_str(&config_string)
+        .map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)?[0];
+    if let Some(s) = config["core_api_port"].as_str() {
         Ok(s.to_string())
-    }
-    else {
+    } else {
         Err(ConnectorError::FailedOpeningOracleConfigFile)
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
