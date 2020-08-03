@@ -13,6 +13,8 @@ pub enum ConnectorError {
     FailedParsingCoreResponse,
 }
 
+/// The base struct for interfacing with the Oracle Core.
+/// All methods are implemented on this struct.
 pub struct OracleCore {
     pub ip: String,
     pub port: String,
@@ -29,11 +31,11 @@ pub struct PoolInfo {
     pub epoch_prep_address: String,
     pub pool_deposits_address: String,
     pub datapoint_address: String,
-    pub oracle_payout_price: String,
-    pub live_epoch_length: String,
-    pub epoch_prep_length: String,
-    pub margin_of_error: String,
-    pub number_of_oracles: String,
+    pub oracle_payout_price: u64,
+    pub live_epoch_length: u64,
+    pub epoch_prep_length: u64,
+    pub margin_of_error: f64,
+    pub number_of_oracles: u64,
     pub oracle_pool_nft_id: String,
     pub oracle_pool_participant_token_id: String,
 }
@@ -45,10 +47,10 @@ pub struct NodeInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleStatus {
-    pub waiting_for_datapoint_submit: String,
-    pub latest_datapoint: String,
+    pub waiting_for_datapoint_submit: bool,
+    pub latest_datapoint: u64,
     pub latest_datapoint_epoch: String,
-    pub latest_datapoint_creation_height: String,
+    pub latest_datapoint_creation_height: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,12 +72,35 @@ impl OracleCore {
         "http://".to_string() + &self.ip + ":" + &self.port
     }
 
+    /// Get information about the local Oracle
+    pub fn get_oracle_info(&self) -> Result<OracleInfo> {
+        let resp_text = self.send_get_req("/oracleInfo")?;
+        println!("RT: {}", resp_text);
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+    }
+
+    /// Get information about the Oracle Pool
+    pub fn get_pool_info(&self) -> Result<PoolInfo> {
+        let resp_text = self.send_get_req("/poolInfo")?;
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+    }
+
+    /// Get node info
+    pub fn get_node_info(&self) -> Result<NodeInfo> {
+        let resp_text = self.send_get_req("/nodeInfo")?;
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+    }
+
+    /// Get the current local Oracle Status
+    pub fn get_oracle_status(&self) -> Result<OracleStatus> {
+        let resp_text = self.send_get_req("/oracleStatus")?;
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+    }
+
+    /// Get the current Oracle Pool Status
     pub fn get_pool_status(&self) -> Result<PoolStatus> {
         let resp_text = self.send_get_req("/poolStatus")?;
-        println!("{}", resp_text);
-        let fs = from_str(&resp_text);
-        println!("fs: {:?}", fs);
-        fs.map_err(|_| ConnectorError::FailedParsingCoreResponse)
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Get the current block height
@@ -123,17 +148,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_pool_status() {
+    fn test_oracle_info() {
         let oc = OracleCore::new("0.0.0.0", "9090");
-        if let Err(_) = oc.get_pool_status() {
-            panic!("Test Pool Status Failed.")
+        if let Err(e) = oc.get_oracle_info() {
+            println!("{:?}", e);
+            panic!("Test Oracle Info Failed.")
+        }
+    }
+
+    #[test]
+    fn test_pool_info() {
+        let oc = OracleCore::new("0.0.0.0", "9090");
+        if let Err(e) = oc.get_pool_info() {
+            println!("{:?}", e);
+            panic!("Test Pool Info Failed.")
+        }
+    }
+
+    #[test]
+    fn test_node_info() {
+        let oc = OracleCore::new("0.0.0.0", "9090");
+        if let Err(e) = oc.get_node_info() {
+            println!("{:?}", e);
+            panic!("Test Node Info Failed.")
+        }
+    }
+
+    #[test]
+    fn test_oracle_status() {
+        let oc = OracleCore::new("0.0.0.0", "9090");
+        if let Err(e) = oc.get_oracle_status() {
+            println!("{:?}", e);
+            panic!("Test Oracle Status Failed.")
         }
     }
 
     #[test]
     fn test_pool_status() {
         let oc = OracleCore::new("0.0.0.0", "9090");
-        if let Err(_) = oc.get_pool_status() {
+        if let Err(e) = oc.get_pool_status() {
+            println!("{:?}", e);
             panic!("Test Pool Status Failed.")
         }
     }
