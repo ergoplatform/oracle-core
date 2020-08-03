@@ -55,12 +55,12 @@ impl PoolParameters {
     }
 }
 
-/// Returns "api_port" from the config file
-pub fn get_api_port() -> String {
+/// Returns "core_api_port" from the config file
+pub fn get_core_api_port() -> String {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["api_port"]
+    config["core_api_port"]
         .as_str()
-        .expect("No api_port specified in config file.")
+        .expect("No core_api_port specified in config file.")
         .to_string()
 }
 

@@ -1,6 +1,6 @@
 use crate::encoding::serialize_int;
 use crate::node_interface::current_block_height;
-use crate::oracle_config::{get_api_port, get_node_url, PoolParameters};
+use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
 use json;
 use sincere;
@@ -180,5 +180,5 @@ pub fn start_api() {
     });
 
     // Start the API server with the port designated in the config.
-    app.run(&("0.0.0.0:".to_string() + &get_api_port()), 1).ok();
+    app.run(&("0.0.0.0:".to_string() + &get_core_api_port()), 1).ok();
 }

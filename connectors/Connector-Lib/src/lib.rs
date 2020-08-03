@@ -1,6 +1,7 @@
 use reqwest::blocking::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
+use yaml_rust::{Yaml, YamlLoader};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, ConnectorError>;
@@ -11,6 +12,8 @@ pub enum ConnectorError {
     CoreUnreachable,
     #[error("Failed reading response from core.")]
     FailedParsingCoreResponse,
+    #[error("Failed opening the local `oracle-config.yaml` file.")]
+    FailedOpeningOracleConfigFile,
 }
 
 /// The base struct for interfacing with the Oracle Core.
@@ -151,12 +154,39 @@ impl OracleCore {
     }
 }
 
+/// Reads the local `oracle_config.yaml` file
+fn get_config_yaml_string() -> Result<String> {
+    std::fs::read_to_string("oracle-config.yaml").map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)
+}
+
+/// Returns "core_api_port" from the local config file
+pub fn get_core_api_port() -> Result<String> {
+    let config_string = get_config_yaml_string()?;
+    let config = &YamlLoader::load_from_str(&config_string).map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)?[0];
+    if let Some(s) = config["core_api_port"].as_str(){
+        Ok(s.to_string())
+    }
+    else {
+        Err(ConnectorError::FailedOpeningOracleConfigFile)
+    }
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     static IP: &str = "0.0.0.0";
     static PORT: &str = "9090";
+
+    #[test]
+    fn test_core_api_get() {
+        if let Err(e) = get_core_api_port() {
+            println!("{:?}", e);
+            panic!("Test Oracle Info Failed.")
+        }
+    }
 
     #[test]
     fn test_current_block_height() {

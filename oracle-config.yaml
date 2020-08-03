@@ -6,7 +6,7 @@ node_port: "9053"
 node_api_key: "hello"
 
 # Port which you wish the Oracle Core API server to run on
-api_port: "9090"
+core_api_port: "9090"
 
 # Your oracle address
 oracle_address: "9fj9NJpzo13HfNyCdzyfNP8zAfjiTY3pys1JP5wCzez8MiP8QbF"
