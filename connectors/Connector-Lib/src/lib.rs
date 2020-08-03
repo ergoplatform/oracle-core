@@ -149,9 +149,13 @@ impl OracleCore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    static IP: &str = "0.0.0.0";
+    static PORT: &str = "9090";
+
     #[test]
     fn test_get_block_height() {
-        let oc = OracleCore::new("0.0.0.0", "9090");
+        let oc = OracleCore::new(IP, PORT);
         if let Err(e) = oc.get_block_height() {
             println!("{:?}", e);
             panic!("Test Oracle Info Failed.")
@@ -160,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_oracle_info() {
-        let oc = OracleCore::new("0.0.0.0", "9090");
+        let oc = OracleCore::new(IP, PORT);
         if let Err(e) = oc.get_oracle_info() {
             println!("{:?}", e);
             panic!("Test Oracle Info Failed.")
@@ -169,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_pool_info() {
-        let oc = OracleCore::new("0.0.0.0", "9090");
+        let oc = OracleCore::new(IP, PORT);
         if let Err(e) = oc.get_pool_info() {
             println!("{:?}", e);
             panic!("Test Pool Info Failed.")
@@ -178,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_node_info() {
-        let oc = OracleCore::new("0.0.0.0", "9090");
+        let oc = OracleCore::new(IP, PORT);
         if let Err(e) = oc.get_node_info() {
             println!("{:?}", e);
             panic!("Test Node Info Failed.")
@@ -187,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_oracle_status() {
-        let oc = OracleCore::new("0.0.0.0", "9090");
+        let oc = OracleCore::new(IP, PORT);
         if let Err(e) = oc.get_oracle_status() {
             println!("{:?}", e);
             panic!("Test Oracle Status Failed.")
@@ -196,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_pool_status() {
-        let oc = OracleCore::new("0.0.0.0", "9090");
+        let oc = OracleCore::new(IP, PORT);
         if let Err(e) = oc.get_pool_status() {
             println!("{:?}", e);
             panic!("Test Pool Status Failed.")
