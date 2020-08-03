@@ -7,6 +7,8 @@ node_api_key: "hello"
 
 # Port which you wish the API server to run on
 api_port: "9090"
+# A password required to submit datapoints to the oracle core. This prevents external applications from submitting datapoints without it.
+api_submit_datapoint_password: ""
 
 # Your oracle address
 oracle_address: "9fj9NJpzo13HfNyCdzyfNP8zAfjiTY3pys1JP5wCzez8MiP8QbF"
