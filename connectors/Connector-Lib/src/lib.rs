@@ -105,7 +105,10 @@ impl OracleCore {
 
     /// Get the current block height
     pub fn get_block_height(&self) -> Result<u64> {
-        Ok(1)
+        let resp_text = self.send_get_req("/blockHeight")?;
+        resp_text
+            .parse()
+            .map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Submit a u64 Datapoint to the Oracle Core
@@ -146,6 +149,14 @@ impl OracleCore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn test_get_block_height() {
+        let oc = OracleCore::new("0.0.0.0", "9090");
+        if let Err(e) = oc.get_block_height() {
+            println!("{:?}", e);
+            panic!("Test Oracle Info Failed.")
+        }
+    }
 
     #[test]
     fn test_oracle_info() {
