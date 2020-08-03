@@ -20,11 +20,13 @@ pub struct OracleCore {
     pub port: String,
 }
 
+/// Info about the local Oracle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleInfo {
     pub oracle_address: String,
 }
 
+/// Info about the Oracle Pool
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolInfo {
     pub live_epoch_address: String,
@@ -40,11 +42,13 @@ pub struct PoolInfo {
     pub oracle_pool_participant_token_id: String,
 }
 
+/// Info about the Node
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
     pub node_url: String,
 }
 
+/// Status of the local Oracle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleStatus {
     pub waiting_for_datapoint_submit: bool,
@@ -53,6 +57,7 @@ pub struct OracleStatus {
     pub latest_datapoint_creation_height: u64,
 }
 
+/// Status of the Oracle Pool
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolStatus {
     pub funded_percentage: u64,
@@ -60,6 +65,7 @@ pub struct PoolStatus {
 }
 
 impl OracleCore {
+    /// Create a new `OracleCore` struct for use with your Connector
     pub fn new(ip: &str, port: &str) -> OracleCore {
         OracleCore {
             ip: ip.to_string(),
@@ -72,48 +78,47 @@ impl OracleCore {
         "http://".to_string() + &self.ip + ":" + &self.port
     }
 
+    /// Submit a u64 Datapoint to the Oracle Core
+    pub fn submit_datapoint(&self, datapoint: u64) -> Result<String> {
+        Ok("Soon".to_string())
+    }
     /// Get information about the local Oracle
-    pub fn get_oracle_info(&self) -> Result<OracleInfo> {
+    pub fn oracle_info(&self) -> Result<OracleInfo> {
         let resp_text = self.send_get_req("/oracleInfo")?;
         println!("RT: {}", resp_text);
         from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Get information about the Oracle Pool
-    pub fn get_pool_info(&self) -> Result<PoolInfo> {
+    pub fn pool_info(&self) -> Result<PoolInfo> {
         let resp_text = self.send_get_req("/poolInfo")?;
         from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Get node info
-    pub fn get_node_info(&self) -> Result<NodeInfo> {
+    pub fn node_info(&self) -> Result<NodeInfo> {
         let resp_text = self.send_get_req("/nodeInfo")?;
         from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Get the current local Oracle Status
-    pub fn get_oracle_status(&self) -> Result<OracleStatus> {
+    pub fn oracle_status(&self) -> Result<OracleStatus> {
         let resp_text = self.send_get_req("/oracleStatus")?;
         from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Get the current Oracle Pool Status
-    pub fn get_pool_status(&self) -> Result<PoolStatus> {
+    pub fn pool_status(&self) -> Result<PoolStatus> {
         let resp_text = self.send_get_req("/poolStatus")?;
         from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
     /// Get the current block height
-    pub fn get_block_height(&self) -> Result<u64> {
+    pub fn current_block_height(&self) -> Result<u64> {
         let resp_text = self.send_get_req("/blockHeight")?;
         resp_text
             .parse()
             .map_err(|_| ConnectorError::FailedParsingCoreResponse)
-    }
-
-    /// Submit a u64 Datapoint to the Oracle Core
-    pub fn submit_datapoint(&self, datapoint: u64) -> Result<String> {
-        Ok("Soon".to_string())
     }
 
     /// Sends a GET request to the Oracle Core and converts response to text
@@ -154,9 +159,9 @@ mod tests {
     static PORT: &str = "9090";
 
     #[test]
-    fn test_get_block_height() {
+    fn test_current_block_height() {
         let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.get_block_height() {
+        if let Err(e) = oc.current_block_height() {
             println!("{:?}", e);
             panic!("Test Oracle Info Failed.")
         }
@@ -165,7 +170,7 @@ mod tests {
     #[test]
     fn test_oracle_info() {
         let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.get_oracle_info() {
+        if let Err(e) = oc.oracle_info() {
             println!("{:?}", e);
             panic!("Test Oracle Info Failed.")
         }
@@ -174,7 +179,7 @@ mod tests {
     #[test]
     fn test_pool_info() {
         let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.get_pool_info() {
+        if let Err(e) = oc.pool_info() {
             println!("{:?}", e);
             panic!("Test Pool Info Failed.")
         }
@@ -183,7 +188,7 @@ mod tests {
     #[test]
     fn test_node_info() {
         let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.get_node_info() {
+        if let Err(e) = oc.node_info() {
             println!("{:?}", e);
             panic!("Test Node Info Failed.")
         }
@@ -192,7 +197,7 @@ mod tests {
     #[test]
     fn test_oracle_status() {
         let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.get_oracle_status() {
+        if let Err(e) = oc.oracle_status() {
             println!("{:?}", e);
             panic!("Test Oracle Status Failed.")
         }
@@ -201,7 +206,7 @@ mod tests {
     #[test]
     fn test_pool_status() {
         let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.get_pool_status() {
+        if let Err(e) = oc.pool_status() {
             println!("{:?}", e);
             panic!("Test Pool Status Failed.")
         }
