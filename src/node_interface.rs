@@ -16,7 +16,7 @@ pub enum NodeError {
     NodeUnreachable,
     #[error("Failed reading response from node.")]
     FailedParsingNodeResponse,
-    #[error("Failed reading response from node.")]
+    #[error("No Boxes Were Found.")]
     NoBoxesFound,
     #[error("The node rejected the request you provided.\nNode Response: {0}")]
     BadRequest(String),

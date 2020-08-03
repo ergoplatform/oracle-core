@@ -100,8 +100,8 @@ pub fn start_api() {
         let op = OraclePool::new();
         let parameters = PoolParameters::new();
 
-        // Current state of the oracle pool box
-        let current_state = match op.check_oracle_pool_stage() {
+        // Current stage of the oracle pool box
+        let current_stage = match op.check_oracle_pool_stage() {
             PoolBoxState::LiveEpoch => "Live Epoch",
             PoolBoxState::Preparation => "Epoch Preparation",
         };
@@ -117,7 +117,7 @@ pub fn start_api() {
 
         let response_json = object! {
             funded_percentage: funded_percentage,
-            current_pool_state: current_state,
+            current_pool_stage: current_stage,
         };
 
         context.response.from_json(response_json.dump()).unwrap();
