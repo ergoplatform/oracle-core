@@ -70,8 +70,11 @@ fn main() {
 
         println!("========================================================");
         println!("Deposits State: {:?}\n", res_deposits_state);
-        println!("Epoch Prep State: {:?}\n", res_prep_state);
-        println!("Live Epoch State: {:?}\n", res_live_state);
+        if let Ok(_) = res_prep_state {
+            println!("Epoch Prep State: {:?}\n", res_prep_state);
+        } else {
+            println!("Live Epoch State: {:?}\n", res_live_state);
+        }
         println!("Oracle Datapoint State: {:?}", res_datapoint_state);
         println!("========================================================\n\n");
 
