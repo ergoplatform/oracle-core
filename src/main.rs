@@ -125,14 +125,14 @@ fn main() {
         if let Ok(epoch_state) = res_live_state {
             // Auto posting datapoint for testing protocol.
             // Delete later & replace with API datapoint submission.
-            if !epoch_state.commit_datapoint_in_epoch {
-                let action_res = op.action_commit_datapoint(572321);
-                if let Ok(_) = action_res {
-                    println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
-                } else if let Err(e) = action_res {
-                    println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\nError: {:?}\n-----", e);
-                }
-            }
+            // if !epoch_state.commit_datapoint_in_epoch {
+            //     let action_res = op.action_commit_datapoint(572321);
+            //     if let Ok(_) = action_res {
+            //         println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
+            //     } else if let Err(e) = action_res {
+            //         println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\nError: {:?}\n-----", e);
+            //     }
+            // }
 
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
