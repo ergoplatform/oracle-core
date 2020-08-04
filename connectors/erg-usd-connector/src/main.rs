@@ -9,13 +9,13 @@ use std::thread;
 use std::time::Duration;
 
 static CONNECTOR_ASCII: &str = r#"
-  ______ _____   _____        _    _  _____ _____     _____                            _
- |  ____|  __ \ / ____|      | |  | |/ ____|  __ \   / ____|                          | |
- | |__  | |__) | |  __ ______| |  | | (___ | |  | | | |     ___  _ __  _ __   ___  ___| |_ ___  _ __
- |  __| |  _  /| | |_ |______| |  | |\___ \| |  | | | |    / _ \| '_ \| '_ \ / _ \/ __| __/ _ \| '__|
- | |____| | \ \| |__| |      | |__| |____) | |__| | | |___| (_) | | | | | | |  __/ (__| || (_) | |
- |______|_|  \_\\_____|       \____/|_____/|_____/   \_____\___/|_| |_|_| |_|\___|\___|\__\___/|_|
- ==================================================================================================
+ ______ _____   _____        _    _  _____ _____     _____                            _
+|  ____|  __ \ / ____|      | |  | |/ ____|  __ \   / ____|                          | |
+| |__  | |__) | |  __ ______| |  | | (___ | |  | | | |     ___  _ __  _ __   ___  ___| |_ ___  _ __
+|  __| |  _  /| | |_ |______| |  | |\___ \| |  | | | |    / _ \| '_ \| '_ \ / _ \/ __| __/ _ \| '__|
+| |____| | \ \| |__| |      | |__| |____) | |__| | | |___| (_) | | | | | | |  __/ (__| || (_) | |
+|______|_|  \_\\_____|       \____/|_____/|_____/   \_____\___/|_| |_|_| |_|\___|\___|\__\___/|_|
+==================================================================================================
 "#;
 
 static CG_RATE_URL: &str =
@@ -25,21 +25,25 @@ fn main() {
     // Initialization
     let core_port = get_core_api_port().expect("Failed to read local `oracle-config.yaml`.");
     let oc = OracleCore::new("0.0.0.0", &core_port);
+    let pool_status = oc.pool_status().unwrap();
+    let oracle_status = oc.oracle_status().unwrap();
 
     // Main Loop
     loop {
         print_info(&oc).unwrap();
 
-        thread::sleep(Duration::new(30, 0))
-    }
+        if pool_status.current_pool_stage == "Live Epoch".to_string() {
+            let price_res = get_nanoerg_usd_price();
+            if let Ok(price) = price_res {
+                let submit_result = oc.submit_datapoint(price);
+                println!("nanoErgs Per 1 USD: {}", price);
+                println!("Submit Result: {:?}", submit_result);
+            } else {
+                println!("{:?}", price_res);
+            }
+        }
 
-    let price_res = get_nanoerg_usd_price();
-    if let Ok(price) = price_res {
-        let submit_result = oc.submit_datapoint(price);
-        println!("nanoErgs Per 1 USD: {}", price);
-        println!("Submit Result: {:?}", submit_result);
-    } else {
-        println!("{:?}", price_res);
+        thread::sleep(Duration::new(30, 0))
     }
 }
 
@@ -58,6 +62,7 @@ fn print_info(oc: &OracleCore) -> Result<bool> {
         "Submit Datapoint In Latest Epoch: {}",
         !oracle_status.waiting_for_datapoint_submit
     );
+    println!("===========================================");
     Ok(true)
 }
 
