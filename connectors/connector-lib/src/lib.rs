@@ -16,6 +16,8 @@ pub enum ConnectorError {
     FailedParsingCoreResponse,
     #[error("Failed opening the local `oracle-config.yaml` file.")]
     FailedOpeningOracleConfigFile,
+    #[error("Datapoint Error: {0}")]
+    FailedSubmittingDatapoint(String),
 }
 
 /// The base struct for interfacing with the Oracle Core.
@@ -86,11 +88,21 @@ impl OracleCore {
     /// Submit a u64 Datapoint to the Oracle Core
     pub fn submit_datapoint(&self, datapoint: u64) -> Result<String> {
         let datapoint_json = object! { datapoint: datapoint};
-        let resp_text = self.send_post_req("/submitDatapoint", datapoint_json.dump());
+        let resp_text = self.send_post_req("/submitDatapoint", datapoint_json.dump())?;
         // Add error checking here by parsing the json.
-        // let json = resp?.text().map(|t| json::parse(&t))
-        //
-        resp_text
+        if let Ok(resp_json) = json::parse(&resp_text) {
+            let tx_id = resp_json["tx_id"].clone();
+
+            // If there no tx_id/there is an error
+            if tx_id.is_empty() {
+                let error = resp_json["error"].clone();
+                return Err(ConnectorError::FailedSubmittingDatapoint(error.to_string()));
+            } else {
+                return Ok(tx_id.to_string());
+            }
+        } else {
+            return Err(ConnectorError::FailedParsingCoreResponse);
+        }
     }
     /// Get information about the local Oracle
     pub fn oracle_info(&self) -> Result<OracleInfo> {
