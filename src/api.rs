@@ -148,6 +148,8 @@ pub fn start_api() {
                         let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
                         let resp_json = object! {tx_id: tx_id}.to_string();
 
+                        println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
+
                         context.response.from_json(resp_json).unwrap();
                     }
                     // If transaction failed being posted
