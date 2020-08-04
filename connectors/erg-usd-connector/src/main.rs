@@ -32,7 +32,10 @@ fn main() {
     loop {
         print_info(&oc).unwrap();
 
-        if pool_status.current_pool_stage == "Live Epoch".to_string() {
+        let should_post = pool_status.current_pool_stage == "Live Epoch".to_string()
+            && oracle_status.waiting_for_datapoint_submit;
+
+        if should_post {
             let price_res = get_nanoerg_usd_price();
             if let Ok(price) = price_res {
                 let submit_result = oc.submit_datapoint(price);
@@ -62,6 +65,8 @@ fn print_info(oc: &OracleCore) -> Result<bool> {
         "Submit Datapoint In Latest Epoch: {}",
         !oracle_status.waiting_for_datapoint_submit
     );
+
+    println!("Latest Datapoint: {}", oracle_status.latest_datapoint);
     println!("===========================================");
     Ok(true)
 }
