@@ -145,7 +145,8 @@ pub fn start_api() {
                     let action_result = op.action_commit_datapoint(datapoint);
                     // If transaction succeeded being posted
                     if let Ok(res) = action_result{
-                        let resp_json = object! { tx_id: res}.to_string();
+                        let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
+                        let resp_json = object! {tx_id: tx_id}.to_string();
 
                         context.response.from_json(resp_json).unwrap();
                     }
@@ -180,5 +181,6 @@ pub fn start_api() {
     });
 
     // Start the API server with the port designated in the config.
-    app.run(&("0.0.0.0:".to_string() + &get_core_api_port()), 1).ok();
+    app.run(&("0.0.0.0:".to_string() + &get_core_api_port()), 1)
+        .ok();
 }
