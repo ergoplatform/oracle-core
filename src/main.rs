@@ -34,12 +34,12 @@ pub type TokenID = String;
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 static ORACLE_CORE_ASCII: &str = r#"
- _____                _        _____
-|  _  |              | |      /  __ \
-| | | |_ __ __ _  ___| | ___  | /  \/ ___  _ __ ___
-| | | | '__/ _` |/ __| |/ _ \ | |    / _ \| '__/ _ \
-\ \_/ / | | (_| | (__| |  __/ | \__/\ (_) | | |  __/
- \___/|_|  \__,_|\___|_|\___|  \____/\___/|_|  \___|
+   ____                 _         _____
+  / __ \               | |       / ____|
+ | |  | |_ __ __ _  ___| | ___  | |     ___  _ __ ___
+ | |  | | '__/ _` |/ __| |/ _ \ | |    / _ \| '__/ _ \
+ | |__| | | | (_| | (__| |  __/ | |___| (_) | | |  __/
+  \____/|_|  \__,_|\___|_|\___|  \_____\___/|_|  \___|
 "#;
 
 fn main() {
@@ -60,7 +60,7 @@ fn main() {
         print!("\x1B[2J\x1B[1;1H");
 
         println!("{}", ORACLE_CORE_ASCII);
-        println!("================================");
+        println!("========================================================");
         println!("Current Blockheight: {}", height);
 
         let res_datapoint_state = op.get_datapoint_state();
@@ -68,12 +68,12 @@ fn main() {
         let res_live_state = op.get_live_epoch_state();
         let res_deposits_state = op.get_pool_deposits_state();
 
-        println!("================================");
+        println!("========================================================");
         println!("Deposits State: {:?}\n", res_deposits_state);
         println!("Epoch Prep State: {:?}\n", res_prep_state);
         println!("Live Epoch State: {:?}\n", res_live_state);
         println!("Oracle Datapoint State: {:?}", res_datapoint_state);
-        println!("================================\n\n");
+        println!("========================================================\n\n");
 
         // If the pool is in the Epoch Preparation stage
         if let Ok(prep_state) = res_prep_state {
