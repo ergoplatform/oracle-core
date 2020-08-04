@@ -32,15 +32,22 @@ fn main() {
     loop {
         print_info(&oc).unwrap();
 
-        let should_post = pool_status.current_pool_stage == "Live Epoch".to_string()
+        // Check if Connector should post
+        let should_post = &pool_status.current_pool_stage == "Live Epoch"
             && oracle_status.waiting_for_datapoint_submit;
 
         if should_post {
             let price_res = get_nanoerg_usd_price();
+            // If acquiring price worked
             if let Ok(price) = price_res {
+                // If submitting Datapoint tx worked
                 let submit_result = oc.submit_datapoint(price);
-                println!("nanoErgs Per 1 USD: {}", price);
-                println!("Submit Result: {:?}", submit_result);
+                if let Ok(tx_id) = submit_result {
+                    println!("\nSubmit New Datapoint: {} nanoErg/USD", price);
+                    println!("Transaction ID: {}", tx_id);
+                } else {
+                    println!("Datapoint Tx Submit Error: {:?}", submit_result);
+                }
             } else {
                 println!("{:?}", price_res);
             }
