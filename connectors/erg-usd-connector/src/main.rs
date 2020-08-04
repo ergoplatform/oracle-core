@@ -25,11 +25,11 @@ fn main() {
     // Initialization
     let core_port = get_core_api_port().expect("Failed to read local `oracle-config.yaml`.");
     let oc = OracleCore::new("0.0.0.0", &core_port);
-    let pool_status = oc.pool_status().unwrap();
-    let oracle_status = oc.oracle_status().unwrap();
 
     // Main Loop
     loop {
+        let pool_status = oc.pool_status().unwrap();
+        let oracle_status = oc.oracle_status().unwrap();
         print_info(&oc).unwrap();
 
         // Check if Connector should post
