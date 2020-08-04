@@ -89,6 +89,7 @@ impl OracleCore {
     pub fn submit_datapoint(&self, datapoint: u64) -> Result<String> {
         let datapoint_json = object! { datapoint: datapoint};
         let resp_text = self.send_post_req("/submitDatapoint", datapoint_json.dump())?;
+        println!("{}", resp_text);
         // Add error checking here by parsing the json.
         if let Ok(resp_json) = json::parse(&resp_text) {
             let tx_id = resp_json["tx_id"].clone();

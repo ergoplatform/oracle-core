@@ -33,6 +33,15 @@ pub type TokenID = String;
 // Anyhow Error used for the base Result return type.
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
+static ORACLE_CORE_ASCII: &str = r#"
+ _____                _        _____
+|  _  |              | |      /  __ \
+| | | |_ __ __ _  ___| | ___  | /  \/ ___  _ __ ___
+| | | | '__/ _` |/ __| |/ _ \ | |    / _ \| '__/ _ \
+\ \_/ / | | (_| | (__| |  __/ | \__/\ (_) | | |  __/
+ \___/|_|  \__,_|\___|_|\___|  \____/\___/|_|  \___|
+"#;
+
 fn main() {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
@@ -45,11 +54,14 @@ fn main() {
         .ok();
 
     loop {
+        let height = current_block_height().unwrap_or(0);
+
         // Clear screen
         print!("\x1B[2J\x1B[1;1H");
 
-        let height = current_block_height().unwrap_or(0);
-        println!("Blockheight: {}", height);
+        println!("{}", ORACLE_CORE_ASCII);
+        println!("================================");
+        println!("Current Blockheight: {}", height);
 
         let res_datapoint_state = op.get_datapoint_state();
         let res_prep_state = op.get_preparation_state();
