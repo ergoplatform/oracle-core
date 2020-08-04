@@ -89,7 +89,6 @@ impl OracleCore {
     pub fn submit_datapoint(&self, datapoint: u64) -> Result<String> {
         let datapoint_json = object! { datapoint: datapoint};
         let resp_text = self.send_post_req("/submitDatapoint", datapoint_json.dump())?;
-        println!("{}", resp_text);
         // Add error checking here by parsing the json.
         if let Ok(resp_json) = json::parse(&resp_text) {
             let tx_id = resp_json["tx_id"].clone();
@@ -143,7 +142,7 @@ impl OracleCore {
             .map_err(|_| ConnectorError::FailedParsingCoreResponse)
     }
 
-    /// Sends a GET request to the Oracle Core and converts response to text
+    /// Sends a GET request to the Oracle Core and converts response to text with extra quotes removed
     fn send_get_req(&self, endpoint: &str) -> Result<String> {
         let url = self.oracle_core_url().to_owned() + endpoint;
         let resp = reqwest::blocking::Client::new()
@@ -154,7 +153,13 @@ impl OracleCore {
             .text()
             .map(|s| s.chars().filter(|&c| c != '\\').collect())
             .map_err(|_| ConnectorError::FailedParsingCoreResponse)?;
-        Ok(text[1..(text.len() - 1)].to_string())
+
+        // Check if returned response has quotes around it which need to be removed
+        if &text[0..1] == "\"" {
+            // Remove quotes before returning
+            return Ok(text[1..(text.len() - 1)].to_string());
+        }
+        Ok(text)
     }
 
     /// Sends a POST request to the Oracle Core and converts response to text
