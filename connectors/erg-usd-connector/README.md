@@ -1,3 +1,10 @@
 # ERG-USD Connector
 
-This is a connector which fetches the values of ERG/USD and submits it to the oracle core.
+![](images/erg-usd-connector.png)
+
+
+This is a connector which fetches the values of nanoErg/USD and submits it to the oracle core.
+
+Do note, the value submitted on-chain is the number of nanoErgs per US Dollar. This is to prevent using division/floats, and as such is not the price of 1 Erg in USD, but the number of nanoErgs per 1 USD.
+
+This makes little difference in practice, but the developer must understand before using said data.
