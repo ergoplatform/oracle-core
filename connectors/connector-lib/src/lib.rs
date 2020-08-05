@@ -1,10 +1,9 @@
 #[macro_use]
 extern crate json;
-use reqwest::blocking::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use thiserror::Error;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::YamlLoader;
 
 pub type Result<T> = std::result::Result<T, ConnectorError>;
 
