@@ -10,6 +10,7 @@ mod oracle_state;
 mod scans;
 mod templates;
 
+use anyhow::Error;
 use node_interface::current_block_height;
 use std::thread;
 use std::time::Duration;
@@ -124,7 +125,7 @@ fn main() {
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
                 let action_res = op.action_collect_datapoints();
-                if let Ok(_) = action_res {
+                if let Ok(tx_id) = action_res {
                     println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
                 } else if let Err(e) = action_res {
                     println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\nError: {:?}\n-----", e);
@@ -135,6 +136,29 @@ fn main() {
         // Delay loop restart
         thread::sleep(Duration::new(30, 0));
     }
+}
+
+/// Prints A Failed Action Message
+fn print_failed_action(action_name: &String, error: &Error) {
+    let message = format!(
+        "Failed To Issue `{}` Transaction.\nError: {:?}",
+        action_name, error
+    );
+    print_action_response(&message);
+}
+
+/// Prints A Successful Action Message
+fn print_successful_action(action_name: &String, tx_id: &String) {
+    let message = format!(
+        "`{}` Transaction Has Been Posted.\nTransaction Id: {}",
+        action_name, tx_id
+    );
+    print_action_response(&message);
+}
+
+/// Prints A Message With `---`s added
+fn print_action_response(message: &String) {
+    println!("-----\n{}\n-----", message);
 }
 
 /// Prints Information About The State Of The Protocol
@@ -152,13 +176,19 @@ fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool>
     let res_live_state = op.get_live_epoch_state();
 
     println!("========================================================");
-    println!("Deposits State: {:?}\n", deposits_state);
+    println!("Pool Deposits State\n--------------------\nNumber Of Deposit Boxes: {}\nTotal nanoErgs In Deposit Boxes: {}\n", deposits_state.number_of_boxes, deposits_state.total_nanoergs);
     if let Ok(prep_state) = res_prep_state {
-        println!("Epoch Prep State: {:?}\n", prep_state);
+        println!(
+            "Epoch Preparation State\n------------------------\nTotal Pool Funds: {}\nNext Epoch Ends: {}\nLatest Pool Datapoint: {}\n",
+            prep_state.funds, prep_state.next_epoch_ends, prep_state.latest_pool_datapoint
+        );
     } else if let Ok(live_state) = res_live_state {
-        println!("Live Epoch State: {:?}\n", live_state);
+        println!(
+            "Live Epoch State\n-----------------\nTotal Pool Funds: {}\nLive Epoch Ends: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\n",
+            live_state.funds, live_state.epoch_ends, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch
+        );
     }
-    println!("Oracle Datapoint State: {:?}", datapoint_state);
+    println!("Oracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height);
     println!("========================================================\n\n");
     Ok(true)
 }
