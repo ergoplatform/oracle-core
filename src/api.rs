@@ -2,6 +2,7 @@ use crate::encoding::serialize_int;
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
+use crate::print_action_results;
 use json;
 use sincere;
 use std::str::from_utf8;
@@ -143,12 +144,12 @@ pub fn start_api() {
                 // Check if in Live Epoch stage
                 if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
                     let action_result = op.action_commit_datapoint(datapoint);
+                    let action_name = "Collect Datapoints";
+                    print_action_results(&action_result, action_name);
                     // If transaction succeeded being posted
                     if let Ok(res) = action_result{
                         let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
                         let resp_json = object! {tx_id: tx_id}.to_string();
-
-                        println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
 
                         context.response.from_json(resp_json).unwrap();
                     }

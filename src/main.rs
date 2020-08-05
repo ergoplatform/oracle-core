@@ -70,11 +70,8 @@ fn main() {
                 // Collect funds if sufficient funds exist worth collecting
                 if deposits_state.total_nanoergs > 10000000 {
                     let action_res = op.action_collect_funds();
-                    if let Ok(_) = action_res {
-                        println!("-----\n`Collect Funds` Transaction Has Been Posted.\n-----");
-                    } else if let Err(e) = action_res {
-                        println!("-----\nFailed To Issue `Collect Funds` Transaction.\nError: {:?}\n-----", e);
-                    }
+                    let action_name = "Collect Funds";
+                    print_action_results(&action_res, action_name);
                 }
             }
 
@@ -89,11 +86,8 @@ fn main() {
             if epoch_prep_over && !live_epoch_over && is_funded {
                 // Attempt to issue tx
                 let action_res = op.action_start_next_epoch();
-                if let Ok(_) = action_res {
-                    println!("-----\n`Start Next Epoch` Transaction Has Been Posted.\n-----");
-                } else if let Err(e) = action_res {
-                    println!("-----\nFailed To Issue `Start Next Epoch` Transaction.\nError: {:?}\n-----", e);
-                }
+                let action_name = "Start Next Epoch";
+                print_action_results(&action_res, action_name);
             }
 
             // Check if height is past the next epoch expected end
@@ -101,35 +95,18 @@ fn main() {
             if live_epoch_over && is_funded {
                 // Attempt to issue tx
                 let action_res = op.action_create_new_epoch();
-                if let Ok(_) = action_res {
-                    println!("-----\n`Create New Epoch` Transaction Has Been Posted.\n-----");
-                } else if let Err(e) = action_res {
-                    println!("-----\nFailed To Issue `Create New Epoch` Transaction.\nError: {:?}\n-----", e);
-                }
+                let action_name = "Create New Epoch";
+                print_action_results(&action_res, action_name);
             }
         }
 
         // If the pool is in the Live Epoch stage
         if let Ok(epoch_state) = res_live_state {
-            // Auto posting datapoint for testing protocol.
-            // Delete later & replace with API datapoint submission.
-            // if !epoch_state.commit_datapoint_in_epoch {
-            //     let action_res = op.action_commit_datapoint(572321);
-            //     if let Ok(_) = action_res {
-            //         println!("-----\n`Commit Datapoint` Transaction Has Been Posted.\n-----");
-            //     } else if let Err(e) = action_res {
-            //         println!("-----\nFailed To Issue `Commit Datapoint` Transaction.\nError: {:?}\n-----", e);
-            //     }
-            // }
-
             // Check for opportunity to Collect Datapoints
             if height >= epoch_state.epoch_ends {
                 let action_res = op.action_collect_datapoints();
-                if let Ok(tx_id) = action_res {
-                    println!("-----\n`Collect Datapoints` Transaction Has Been Posted.\n-----");
-                } else if let Err(e) = action_res {
-                    println!("-----\nFailed To Issue `Collect Datapoints` Transaction.\nError: {:?}\n-----", e);
-                }
+                let action_name = "Collect Datapoints";
+                print_action_results(&action_res, action_name);
             }
         }
 
@@ -138,8 +115,17 @@ fn main() {
     }
 }
 
+/// Prints The Results Of An Action, Whether It Failed/Succeeded
+pub fn print_action_results(action_res: &Result<String>, action_name: &str) {
+    if let Ok(tx_id) = action_res {
+        print_successful_action(&action_name, &tx_id);
+    } else if let Err(e) = action_res {
+        print_failed_action(&action_name, &e);
+    }
+}
+
 /// Prints A Failed Action Message
-fn print_failed_action(action_name: &String, error: &Error) {
+fn print_failed_action(action_name: &str, error: &Error) {
     let message = format!(
         "Failed To Issue `{}` Transaction.\nError: {:?}",
         action_name, error
@@ -148,7 +134,7 @@ fn print_failed_action(action_name: &String, error: &Error) {
 }
 
 /// Prints A Successful Action Message
-fn print_successful_action(action_name: &String, tx_id: &String) {
+fn print_successful_action(action_name: &str, tx_id: &str) {
     let message = format!(
         "`{}` Transaction Has Been Posted.\nTransaction Id: {}",
         action_name, tx_id
@@ -157,7 +143,7 @@ fn print_successful_action(action_name: &String, tx_id: &String) {
 }
 
 /// Prints A Message With `---`s added
-fn print_action_response(message: &String) {
+fn print_action_response(message: &str) {
     println!("-----\n{}\n-----", message);
 }
 
