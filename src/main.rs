@@ -55,28 +55,12 @@ fn main() {
 
     loop {
         let height = current_block_height().unwrap_or(0);
-
-        // Clear screen
-        print!("\x1B[2J\x1B[1;1H");
-
-        println!("{}", ORACLE_CORE_ASCII);
-        println!("========================================================");
-        println!("Current Blockheight: {}", height);
+        print_info(op.clone(), height);
 
         let res_datapoint_state = op.get_datapoint_state();
         let res_prep_state = op.get_preparation_state();
         let res_live_state = op.get_live_epoch_state();
         let res_deposits_state = op.get_pool_deposits_state();
-
-        println!("========================================================");
-        println!("Deposits State: {:?}\n", res_deposits_state);
-        if let Ok(_) = res_prep_state {
-            println!("Epoch Prep State: {:?}\n", res_prep_state);
-        } else {
-            println!("Live Epoch State: {:?}\n", res_live_state);
-        }
-        println!("Oracle Datapoint State: {:?}", res_datapoint_state);
-        println!("========================================================\n\n");
 
         // If the pool is in the Epoch Preparation stage
         if let Ok(prep_state) = res_prep_state {
@@ -151,4 +135,30 @@ fn main() {
         // Delay loop restart
         thread::sleep(Duration::new(30, 0));
     }
+}
+
+/// Prints Information About The State Of The Protocol
+fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool> {
+    // Clear screen
+    print!("\x1B[2J\x1B[1;1H");
+
+    println!("{}", ORACLE_CORE_ASCII);
+    println!("========================================================");
+    println!("Current Blockheight: {}", height);
+
+    let datapoint_state = op.get_datapoint_state()?;
+    let deposits_state = op.get_pool_deposits_state()?;
+    let res_prep_state = op.get_preparation_state();
+    let res_live_state = op.get_live_epoch_state();
+
+    println!("========================================================");
+    println!("Deposits State: {:?}\n", deposits_state);
+    if let Ok(prep_state) = res_prep_state {
+        println!("Epoch Prep State: {:?}\n", prep_state);
+    } else if let Ok(live_state) = res_live_state {
+        println!("Live Epoch State: {:?}\n", live_state);
+    }
+    println!("Oracle Datapoint State: {:?}", datapoint_state);
+    println!("========================================================\n\n");
+    Ok(true)
 }
