@@ -5,7 +5,9 @@ node_port: "9053"
 # API key for the node
 node_api_key: "hello"
 
-# Port which you wish the Oracle Core API server to run on
+# Port which you wish the Oracle Core GET API server to run on.
+# Note, the Oracle Core POST API server (to submit datapoints) will be on
+# `core_api_port` + 1.
 core_api_port: "9090"
 
 # Your oracle address

@@ -24,7 +24,8 @@ pub enum ConnectorError {
 /// All methods are implemented on this struct.
 pub struct OracleCore {
     pub ip: String,
-    pub port: String,
+    pub api_port: String,
+    pub post_api_port: String,
 }
 
 /// Info about the local Oracle
@@ -73,16 +74,27 @@ pub struct PoolStatus {
 
 impl OracleCore {
     /// Create a new `OracleCore` struct for use with your Connector
-    pub fn new(ip: &str, port: &str) -> OracleCore {
+    pub fn new(ip: &str, api_port: &str) -> OracleCore {
+        let post_api_port = ((api_port
+            .parse::<u16>()
+            .expect("Failed to parse oracle core port from config to u16."))
+            + 1)
+        .to_string();
         OracleCore {
             ip: ip.to_string(),
-            port: port.to_string(),
+            api_port: api_port.to_string(),
+            post_api_port: post_api_port,
         }
     }
 
-    /// Returns the url of the Oracle Core
+    /// Returns the url of the Oracle Core GET API
     pub fn oracle_core_url(&self) -> String {
-        "http://".to_string() + &self.ip + ":" + &self.port
+        "http://".to_string() + &self.ip + ":" + &self.api_port
+    }
+
+    /// Returns the url of the Oracle Core POST API
+    pub fn oracle_core_post_url(&self) -> String {
+        "http://".to_string() + &self.ip + ":" + &self.post_api_port
     }
 
     /// Submit a u64 Datapoint to the Oracle Core
@@ -164,7 +176,7 @@ impl OracleCore {
 
     /// Sends a POST request to the Oracle Core and converts response to text
     fn send_post_req(&self, endpoint: &str, body: String) -> Result<String> {
-        let url = self.oracle_core_url().to_owned() + endpoint;
+        let url = self.oracle_core_post_url().to_owned() + endpoint;
         let resp = reqwest::blocking::Client::new()
             .post(&url)
             .body(body)

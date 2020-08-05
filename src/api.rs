@@ -7,8 +7,73 @@ use json;
 use sincere;
 use std::str::from_utf8;
 
-/// Starts the API server
-pub fn start_api() {
+/// Starts the POST API server which can be made publicly available without security risk
+pub fn start_post_api() {
+    let mut app = sincere::App::new();
+
+    // Accept a datapoint to be posted within a "Commit Datapoint" action tx
+    app.post("/submitDatapoint", move |context| {
+        let op = OraclePool::new();
+        let res_post_json = from_utf8(context.request.body()).map(|t| json::parse(t));
+
+        // If the post request body is valid json
+        if let Ok(Ok(post_json)) = res_post_json {
+            // If the datapoint provided is a valid Integer
+            if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
+                // Check if in Live Epoch stage
+                if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
+                    let action_result = op.action_commit_datapoint(datapoint);
+                    let action_name = "Submit Datapoint";
+                    print_action_results(&action_result, action_name);
+                    // If transaction succeeded being posted
+                    if let Ok(res) = action_result{
+                        let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
+                        let resp_json = object! {tx_id: tx_id}.to_string();
+
+                        context.response.from_json(resp_json).unwrap();
+                    }
+                    // If transaction failed being posted
+                    else {
+                        let error_json = object! {error: "Failed to post 'Commit Datapoint' action transaction."}.to_string();
+
+                        context.response.from_json(error_json).unwrap();
+                    }
+                }
+                // Else if in Epoch Prep stage
+                else {
+                    let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
+
+                    context.response.from_json(error_json).unwrap();
+                }
+            }
+            // If the datapoint provided is not a valid i32 Integer
+            else {
+                let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
+
+                context.response.from_json(error_json).unwrap();
+            }
+
+        }
+        // If the post request body is not valid json
+        else {
+            let error_json = object! {error: "Invalid JSON Request Body."}.to_string();
+
+            context.response.from_json(error_json).unwrap();
+        }
+    });
+
+    // Start the POST API server with the port designated in the config + 1.
+    let port = ((get_core_api_port()
+        .parse::<u16>()
+        .expect("Failed to parse oracle core port from config to u16."))
+        + 1)
+    .to_string();
+    let address = "0.0.0.0:".to_string() + &port;
+    app.run(&address, 1).ok();
+}
+
+/// Starts the GET API server which can be made publicly available without security risk
+pub fn start_get_api() {
     let mut app = sincere::App::new();
 
     // Basic welcome endpoint
@@ -130,57 +195,6 @@ pub fn start_api() {
             current_block_height().expect("Please ensure that the Ergo node is running.");
         let response_text = format!("{}", current_height);
         context.response.from_text(response_text).unwrap();
-    });
-
-    // Accept a datapoint to be posted within a "Commit Datapoint" action tx
-    app.post("/submitDatapoint", move |context| {
-        let op = OraclePool::new();
-        let res_post_json = from_utf8(context.request.body()).map(|t| json::parse(t));
-
-        // If the post request body is valid json
-        if let Ok(Ok(post_json)) = res_post_json {
-            // If the datapoint provided is a valid Integer
-            if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
-                // Check if in Live Epoch stage
-                if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
-                    let action_result = op.action_commit_datapoint(datapoint);
-                    let action_name = "Submit Datapoint";
-                    print_action_results(&action_result, action_name);
-                    // If transaction succeeded being posted
-                    if let Ok(res) = action_result{
-                        let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
-                        let resp_json = object! {tx_id: tx_id}.to_string();
-
-                        context.response.from_json(resp_json).unwrap();
-                    }
-                    // If transaction failed being posted
-                    else {
-                        let error_json = object! {error: "Failed to post 'Commit Datapoint' action transaction."}.to_string();
-
-                        context.response.from_json(error_json).unwrap();
-                    }
-                }
-                // Else if in Epoch Prep stage
-                else {
-                    let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
-
-                    context.response.from_json(error_json).unwrap();
-                }
-            }
-            // If the datapoint provided is not a valid i32 Integer
-            else {
-                let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
-
-                context.response.from_json(error_json).unwrap();
-            }
-
-        }
-        // If the post request body is not valid json
-        else {
-            let error_json = object! {error: "Invalid JSON Request Body."}.to_string();
-
-            context.response.from_json(error_json).unwrap();
-        }
     });
 
     // Start the API server with the port designated in the config.

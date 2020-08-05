@@ -50,7 +50,14 @@ fn main() {
     thread::Builder::new()
         .name("Oracle Core API Thread".to_string())
         .spawn(|| {
-            api::start_api();
+            api::start_get_api();
+        })
+        .ok();
+
+    thread::Builder::new()
+        .name("Oracle Core API Thread".to_string())
+        .spawn(|| {
+            api::start_post_api();
         })
         .ok();
 
