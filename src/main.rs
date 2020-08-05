@@ -144,7 +144,10 @@ fn print_successful_action(action_name: &str, tx_id: &str) {
 
 /// Prints A Message With `---`s added
 fn print_action_response(message: &str) {
-    println!("-----\n{}\n-----", message);
+    println!(
+        "--------------------------------------------------\n{}\n--------------------------------------------------",
+        message
+    );
 }
 
 /// Prints Information About The State Of The Protocol

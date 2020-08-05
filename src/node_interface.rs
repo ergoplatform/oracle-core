@@ -127,7 +127,6 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     else {
         // Clean string to be only the tx_id value
         let tx_id = res_json.dump();
-        println!("Send Tx Result: {}", tx_id);
 
         return Ok(tx_id);
     }
