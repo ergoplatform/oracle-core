@@ -77,7 +77,6 @@ The oracle pool box at this stage must also hold the pool's NFT/singleton token.
 - R6: Blake2b256 Hash of the "Epoch Preparation" stage contract(ErgoTree).
 
 ### Hard-coded Values
-- Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
 - Live epoch duration
 - Epoch preparation duration
 - Margin of error(%) that oracles are allowed to be off by.
@@ -110,7 +109,7 @@ The oracle pool box at this stage must also hold the pool's NFT/singleton token.
 - R5: Block height the upcoming Live Epoch will finish on
 
 ### Hard-coded Values
-- Addresses of all trusted oracles (this is used for an extra safety measure to prevent others who aren't oracles from collecting)
+
 - Live epoch duration
 - Epoch preparation duration
 - The payout price for each successful oracle datapoint posting
@@ -274,7 +273,7 @@ The amount of Ergs inside each payment box is equal to `[Oracle Payout Price]` w
 
 
 ### Action Conditions
-1. Collecting datapoints can only be performed by one of the hard-coded oracles.
+1. The transaction must be signed by the address held in R4 of Data-Input #1. (This only allows the oracles to issue this action.)
 2. Output #1 has the oracle pool NFT.
 3. Output #1 has Ergs equivalent to: `[Input #1 Ergs] - [Pool Payout]`
 4. Output #1 R4 is the result of the `Finalize Datapoint Function`
