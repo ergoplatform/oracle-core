@@ -144,7 +144,7 @@ pub fn start_api() {
                 // Check if in Live Epoch stage
                 if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
                     let action_result = op.action_commit_datapoint(datapoint);
-                    let action_name = "Collect Datapoints";
+                    let action_name = "Submit Datapoint";
                     print_action_results(&action_result, action_name);
                     // If transaction succeeded being posted
                     if let Ok(res) = action_result{

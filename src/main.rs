@@ -170,8 +170,8 @@ fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool>
         );
     } else if let Ok(live_state) = res_live_state {
         println!(
-            "Live Epoch State\n-----------------\nTotal Pool Funds: {}\nLive Epoch Ends: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\n",
-            live_state.funds, live_state.epoch_ends, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch
+            "Live Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
+            live_state.funds, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch, live_state.epoch_ends
         );
     }
     println!("Oracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height);
