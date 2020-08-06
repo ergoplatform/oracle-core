@@ -14,12 +14,12 @@ Many other documents can also be found explaining how various parts of the oracl
 
 
 # Building & Running An Oracle
-The majority of oracle operators will only need to focus on setting up their own oracle core to work with an already bootstrapped oracle pool. This section will explain how to do so for an ERG-USD oracle. The steps are exactly the same for other adapters, but simply require using that adapter's prepare script.
+The majority of oracle operators will only need to focus on setting up their own oracle core to work with an already bootstrapped oracle pool. This section will explain how to do so for oracle using the ERG-USD adapter. The steps are exactly the same for other adapters, but simply require using that adapter's prepare script.
 
 It is assumed that you are running this oracle on Linux, and have the following prerequisites:
 - Access to an [Ergo Node](https://github.com/ergoplatform/ergo) v3.3.0+ with an unlocked wallet.
 - A recent stable version of the [Rust Compiler](https://www.rust-lang.org/tools/install) installed.
-- The Linux CLI tool `screen` and the `libssl-dev` package (on Ubuntu, aka `openssl-devel` on Fedora) installed.
+- The Linux CLI tool `screen` and the `libssl-dev` package on Ubuntu (aka `openssl-devel` on Fedora, and potentially slightly different on other distros) installed.
 
 1. Clone this repository via:
 ```sh
@@ -38,7 +38,7 @@ sh prepare-erg-usd-oracle.sh
 cd ../../oracle-core-deployed & ls
 ```
 5. Edit your `oracle-config.yaml` with your Ergo Node information, your oracle address (address that was used for bootstrapping the pool & is inside of your Ergo Node wallet), and other relevant pool information. Read more about the [config file here](docs/Oracle-Config.md). (Optionally acquire a pre-configured `oracle-config.yaml` from the user who bootstrapped the oracle pool and simply fill in your node info/oracle address)
-6. Ensure your Ergo Node is running (and matches the info you input in the config) and has it's wallet unlocked.
+6. Ensure your Ergo Node is running (and matches the info you input in the config) and has it's wallet unlocked (with some Ergs in the wallet to pay for tx fees).
 7. Launch your oracle by running `run-oracle.sh`:
 ```sh
 sh run-oracle.sh
@@ -48,7 +48,7 @@ sh run-oracle.sh
 ```sh
 To Do...
 ```
-10. Press enter to confirm that the scans have been registered. Your oracle core is now properly set up and waiting for the UTXO-set scans to be triggered in order to read the state of the oracle pool on-chain, and then to perform actions.
+10. Press enter to confirm that the scans have been registered. Your oracle core is now properly set up and waiting for the UTXO-set scans to be triggered in order to read the state of the oracle pool on-chain to then perform actions/txs.
 11. Rescan the blockchain history by deleting `.ergo/wallet/registry` in your Ergo Node folder.
 12. Once the node has finished rescanning, the oracle core & adapter will automatically issue transactions and move the protocol forward.
 13. Congrats, you can now detach from the screen instance if you wish via `Ctrl+a d`. (And reattach via `screen -r`)
