@@ -63,7 +63,10 @@ fn main() {
 
     loop {
         let height = current_block_height().unwrap_or(0);
-        print_info(op.clone(), height);
+        if let Err(e) = print_info(op.clone(), height) {
+            println!("\nThe UTXO-Set Scans Have Not Found All Of The Oracle Pool Boxes Yet.\n\nPlease make sure that you have resynced your Ergo node so that the scans can find all of the boxes.");
+            // println!("Error: {:?}", e);
+        }
 
         let res_datapoint_state = op.get_datapoint_state();
         let res_prep_state = op.get_preparation_state();

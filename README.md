@@ -13,6 +13,7 @@ The current oracle core is built to run the protocol specified in the [Basic Ora
 Many other documents can also be found explaining how various parts of the oracle core work in the [docs folder](docs).
 
 
+
 # Building & Running An Oracle
 The majority of oracle operators will only need to focus on setting up their own oracle core to work with an already bootstrapped oracle pool. This section will explain how to do so for oracle using the ERG-USD adapter. The steps are exactly the same for other adapters, but simply require using that adapter's prepare script.
 
@@ -46,7 +47,7 @@ sh run-oracle.sh
 8. A `screen` instance will be created which launches both the oracle core and the adapter. (Press `Ctrl+a - n` to go between the core & the adapter screens).
 9. If your node is running and properly configured, the oracle core will inform you that it has successfully registered the required UTXO-set scans:
 ```sh
-To Do...
+UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 ```
 10. Press enter to confirm that the scans have been registered. Your oracle core is now properly set up and waiting for the UTXO-set scans to be triggered in order to read the state of the oracle pool on-chain to then perform actions/txs.
 11. Rescan the blockchain history by deleting `.ergo/wallet/registry` in your Ergo Node folder.
@@ -67,3 +68,4 @@ In order for an oracle pool to run, it must be first created/bootstrapped on-cha
 8. Bootstrap the oracle pool box at the "Epoch Preparation" stage/contract, and holding the "Oracle Pool NFT".
 9. Acquire the addresses of all of the oracles.
 10. Bootstrap a "Datapoint" box for every single one of the oracles with their corresponding addresses held in R4, and with a single "Oracle Pool Participant Token".
+

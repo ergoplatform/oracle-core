@@ -69,13 +69,17 @@ impl Scan {
 }
 
 /// Saves UTXO-set scans (specifically id) to scanIDs.json
-pub fn save_scan_ids_locally(scans: Vec<Scan>) {
+pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
     let mut id_json = object! {};
     for scan in scans {
+        if &scan.id == "null" {
+            let mess = format!("Failed to register {}", scan.name);
+            return Err(anyhow!(mess));
+        }
         id_json[scan.name] = scan.id.into();
     }
-    std::fs::write("scanIDs.json", json::stringify_pretty(id_json, 4))
-        .expect("Unable to save UTXO-set scan ids to scanIDs.json");
+    std::fs::write("scanIDs.json", json::stringify_pretty(id_json, 4))?;
+    Ok(true)
 }
 
 /// This function registers scanning for the Live Epoch stage box

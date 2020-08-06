@@ -131,7 +131,20 @@ impl OraclePool {
                 ),
                 register_pool_deposit_scan(&pool_deposit_contract_address),
             ];
-            save_scan_ids_locally(scans);
+            let res = save_scan_ids_locally(scans);
+            if let Ok(_) = res {
+                // Congrats scans registered screen here
+                print!("\x1B[2J\x1B[1;1H");
+                println!("====================================================================");
+                println!("UTXO-Set Scans Have Been Successfully Registered With The Ergo Node");
+                println!("====================================================================");
+                println!("Press Enter To Continue...");
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line).ok();
+            } else if let Err(e) = res {
+                // Failed, post error
+                panic!("{:?}", e);
+            }
         }
 
         // Read scanIDs.json for scan ids
