@@ -13,3 +13,4 @@ Cargo.lock
 # Custom Ignores #
 scanIDs.json
 *.kra*
+oracle-core-deployed
