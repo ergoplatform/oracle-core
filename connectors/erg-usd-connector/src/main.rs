@@ -30,28 +30,36 @@ fn main() {
 
     // Main Loop
     loop {
-        let pool_status = oc.pool_status().unwrap();
-        let oracle_status = oc.oracle_status().unwrap();
-        print_info(&oc).unwrap();
+        // If printing isn't successful (which involves fetching state from core)
+        if let Err(e) = print_info(&oc) {
+            print!("\x1B[2J\x1B[1;1H");
+            println!("{}", CONNECTOR_ASCII);
+            println!("Error: {:?}", e);
+        }
+        // Otherwise if state is accessible
+        else {
+            let pool_status = oc.pool_status().unwrap();
+            let oracle_status = oc.oracle_status().unwrap();
 
-        // Check if Connector should post
-        let should_post = &pool_status.current_pool_stage == "Live Epoch"
-            && oracle_status.waiting_for_datapoint_submit;
+            // Check if Connector should post
+            let should_post = &pool_status.current_pool_stage == "Live Epoch"
+                && oracle_status.waiting_for_datapoint_submit;
 
-        if should_post {
-            let price_res = get_nanoerg_usd_price();
-            // If acquiring price worked
-            if let Ok(price) = price_res {
-                // If submitting Datapoint tx worked
-                let submit_result = oc.submit_datapoint(price);
-                if let Ok(tx_id) = submit_result {
-                    println!("\nSubmit New Datapoint: {} nanoErg/USD", price);
-                    println!("Transaction ID: {}", tx_id);
+            if should_post {
+                let price_res = get_nanoerg_usd_price();
+                // If acquiring price worked
+                if let Ok(price) = price_res {
+                    // If submitting Datapoint tx worked
+                    let submit_result = oc.submit_datapoint(price);
+                    if let Ok(tx_id) = submit_result {
+                        println!("\nSubmit New Datapoint: {} nanoErg/USD", price);
+                        println!("Transaction ID: {}", tx_id);
+                    } else {
+                        println!("Datapoint Tx Submit Error: {:?}", submit_result);
+                    }
                 } else {
-                    println!("Datapoint Tx Submit Error: {:?}", submit_result);
+                    println!("{:?}", price_res);
                 }
-            } else {
-                println!("{:?}", price_res);
             }
         }
 
