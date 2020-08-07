@@ -20,6 +20,8 @@ pub enum NodeError {
     NoBoxesFound,
     #[error("The node rejected the request you provided.\nNode Response: {0}")]
     BadRequest(String),
+    #[error("The node is still syncing.")]
+    NodeSyncing,
 }
 
 /// Registers a scan with the node and returns the `scan_id`
@@ -213,12 +215,16 @@ pub fn current_block_height() -> Result<BlockHeight> {
     let res_json = parse_response_to_json(res)?;
 
     // Switched from fullHeight to height to prevent errors when node is syncing headers. Need to ensure this still works as expected.
-    // let height = res_json["fullHeight"]
-    let height = res_json["parameters"]["height"]
-        .to_string()
-        .parse()
-        .map_err(|_| NodeError::FailedParsingNodeResponse(res_json.to_string()));
-    height
+    let height_json = res_json["fullHeight"].clone();
+
+    if height_json.is_null() {
+        return Err(NodeError::NodeSyncing);
+    } else {
+        return height_json
+            .to_string()
+            .parse()
+            .map_err(|_| NodeError::FailedParsingNodeResponse(res_json.to_string()));
+    }
 }
 
 /// Sets required headers for a request
