@@ -7,8 +7,8 @@ use crate::encoding::{
 };
 use crate::node_interface::{
     address_to_raw_for_register, address_to_tree, current_block_height,
-    get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
-    serialize_boxes,
+    get_serialized_highest_value_unspent_box, raw_from_register_to_address, raw_to_address,
+    send_transaction, serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
@@ -186,16 +186,21 @@ impl OraclePool {
 
         let live_epoch_state = self.get_live_epoch_state()?;
 
-        // Filter out Datapoint boxes not from the latest epoch.
+        // Filter out Datapoint boxes not from the latest epoch
         let current_epoch_datapoint_boxes =
             current_epoch_boxes_filter(&self.datapoint_stage.get_boxes()?, &live_epoch_state);
 
+        // Sort Datapoint boxes so that local oracle box is first
+        let sorted_datapoint_boxes = sort_datapoint_boxes(
+            &current_epoch_datapoint_boxes,
+            self.local_oracle_datapoint_scan.get_box()?,
+        );
+
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
-        let (finalized_datapoint, successful_boxes) =
-            finalize_datapoint(&current_epoch_datapoint_boxes)?;
+        let (finalized_datapoint, successful_boxes) = finalize_datapoint(&sorted_datapoint_boxes)?;
 
         // Tx fee for the transaction
-        let tx_fee = (1200000 * current_epoch_datapoint_boxes.len()) as u64;
+        let tx_fee = (1200000 * sorted_datapoint_boxes.len()) as u64;
         // Define the new value of the oracle pool box after payouts/tx fee
         let new_box_value = live_epoch_state.funds
             - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1));
@@ -273,6 +278,21 @@ pub fn current_epoch_boxes_filter(
         }
     }
     filtered_boxes
+}
+
+/// Sorts Datapoint boxes so that the local oracle Datapoint box is first
+pub fn sort_datapoint_boxes(
+    all_datapoint_boxes: &Vec<ErgoBox>,
+    local_oracle_datapoint_box: ErgoBox,
+) -> Vec<ErgoBox> {
+    let mut filtered_boxes: Vec<ErgoBox> = all_datapoint_boxes
+        .clone()
+        .into_iter()
+        .filter(|b| b.clone() != local_oracle_datapoint_box)
+        .collect();
+    let mut datapoint_boxes = vec![local_oracle_datapoint_box];
+    datapoint_boxes.append(&mut filtered_boxes);
+    datapoint_boxes
 }
 
 /// Function for averaging datapoints from a list of Datapoint boxes.
