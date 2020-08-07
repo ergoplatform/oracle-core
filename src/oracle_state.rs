@@ -6,7 +6,7 @@ use crate::scans::{
     register_local_oracle_datapoint_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan,
 };
 use crate::Result;
-use crate::{BlockDuration, BlockHeight, EpochID, NanoErg, P2PKAddress, P2SAddress, TokenID};
+use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use sigma_tree::chain::ErgoBox;
 use std::path::Path;
 use yaml_rust::YamlLoader;
