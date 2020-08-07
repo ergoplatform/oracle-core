@@ -14,8 +14,8 @@ pub type Result<T> = std::result::Result<T, NodeError>;
 pub enum NodeError {
     #[error("The configured node is unreachable. Please ensure your config is correctly filled out and the node is running.")]
     NodeUnreachable,
-    #[error("Failed reading response from node.")]
-    FailedParsingNodeResponse,
+    #[error("Failed reading response from node: {0}")]
+    FailedParsingNodeResponse(String),
     #[error("No Boxes Were Found.")]
     NoBoxesFound,
     #[error("The node rejected the request you provided.\nNode Response: {0}")]
@@ -98,7 +98,7 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
             if let Ok(ergo_box) = res_ergo_box {
                 box_list.push(ergo_box);
             } else {
-                return Err(NodeError::FailedParsingNodeResponse);
+                return Err(NodeError::FailedParsingNodeResponse(res_json.to_string()));
             }
         }
     }
@@ -212,10 +212,13 @@ pub fn current_block_height() -> Result<BlockHeight> {
     let res = send_get_req(&endpoint);
     let res_json = parse_response_to_json(res)?;
 
-    res_json["fullHeight"]
+    // Switched from fullHeight to height to prevent errors when node is syncing headers. Need to ensure this still works as expected.
+    // let height = res_json["fullHeight"]
+    let height = res_json["parameters"]["height"]
         .to_string()
         .parse()
-        .map_err(|_| NodeError::FailedParsingNodeResponse)
+        .map_err(|_| NodeError::FailedParsingNodeResponse(res_json.to_string()));
+    height
 }
 
 /// Sets required headers for a request
@@ -246,10 +249,9 @@ fn send_post_req(endpoint: &str, body: String) -> Result<Response> {
 
 /// Parses response from node into JSON
 fn parse_response_to_json(resp: Result<Response>) -> Result<JsonValue> {
-    let json = resp?
-        .text()
-        .map(|t| json::parse(&t))
-        .map_err(|_| NodeError::FailedParsingNodeResponse)?
-        .map_err(|_| NodeError::FailedParsingNodeResponse)?;
+    let text = resp?.text().map_err(|_| {
+        NodeError::FailedParsingNodeResponse("Node Response Not Parseable into Text.".to_string())
+    })?;
+    let json = json::parse(&text).map_err(|_| NodeError::FailedParsingNodeResponse(text))?;
     Ok(json)
 }
