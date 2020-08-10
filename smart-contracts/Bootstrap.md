@@ -71,8 +71,6 @@ For the purpose of demonstration, we will use the following token IDs
 * pool token ID = `b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc`
 * oracle token ID = `12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed`
 
-[TODO describe token generation]
-
 ## 3. Compile the contracts
 
 This step explains how to compile the contracts and obtain the corresponding addresses for each contract. 
