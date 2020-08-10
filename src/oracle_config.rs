@@ -51,7 +51,7 @@ impl PoolParameters {
     /// Calculates the maximum total payout that the oracle pool will require
     /// in order to payout all of the oracles + the collector.
     pub fn max_pool_payout(&self) -> NanoErg {
-        self.oracle_payout_price * (self.number_of_oracles + 1) + 2000000
+        self.oracle_payout_price * (self.number_of_oracles + 1)
     }
 }
 
