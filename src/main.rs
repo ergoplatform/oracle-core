@@ -86,9 +86,9 @@ fn main() {
             }
 
             // Check epoch prep state
-            let is_funded = prep_state.funds > parameters.max_pool_payout();
+            let is_funded = prep_state.funds >= parameters.max_pool_payout();
             let epoch_prep_over =
-                height > prep_state.next_epoch_ends - parameters.live_epoch_length;
+                height >= prep_state.next_epoch_ends - parameters.live_epoch_length;
             let live_epoch_over = height >= prep_state.next_epoch_ends;
 
             // The Pool is underfunded
