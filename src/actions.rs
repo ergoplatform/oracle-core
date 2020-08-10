@@ -189,7 +189,6 @@ impl OraclePool {
         // Filter out Datapoint boxes not from the latest epoch
         let current_epoch_datapoint_boxes =
             current_epoch_boxes_filter(&self.datapoint_stage.get_boxes()?, &live_epoch_state);
-
         // Sort Datapoint boxes so that local oracle box is first
         let sorted_datapoint_boxes = sort_datapoint_boxes(
             &current_epoch_datapoint_boxes,
