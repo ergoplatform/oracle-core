@@ -13,7 +13,7 @@
 
   if (OUTPUTS(0).R6[Coll[Byte]].isDefined) {
     val isliveEpochOutput = OUTPUTS(0).R6[Coll[Byte]].get == blake2b256(SELF.propositionBytes) &&
-			    blake2b256(OUTPUTS(0).propositionBytes) == liveEpochScriptHash
+			                blake2b256(OUTPUTS(0).propositionBytes) == liveEpochScriptHash
     sigmaProp( // start next epoch
       epochNotOver && canStartEpoch && enoughFunds &&
       OUTPUTS(0).R4[Long].get == SELF.R4[Long].get &&

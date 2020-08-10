@@ -1,5 +1,5 @@
 oracleReward = 2000000
-epochPeriod = 10
+prepPeriod = 5
 livePeriod = 5
 minPoolBoxValue = 10000000
 buffer = 4
