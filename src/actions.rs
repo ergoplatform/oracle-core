@@ -218,6 +218,10 @@ impl OraclePool {
             "R4": serialize_long(finalized_datapoint as i64),
             "R5": serialize_int(new_finish_height as i32),
         };
+        println!(
+            "Regs:\nr4:{}\nr5:{}",
+            finalized_datapoint, new_finish_height
+        );
 
         req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
@@ -249,8 +253,8 @@ impl OraclePool {
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![
-            get_serialized_highest_value_unspent_box()?,
             self.live_epoch_stage.get_serialized_box()?,
+            get_serialized_highest_value_unspent_box()?,
         ]
         .into();
         req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
@@ -295,7 +299,6 @@ pub fn sort_datapoint_boxes(
 }
 
 /// Function for averaging datapoints from a list of Datapoint boxes.
-/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     let datapoints_sum = boxes.iter().fold(Ok(0), |acc: Result<i64>, b| {
         Ok(acc? + deserialize_long(&b.additional_registers.get_ordered_values()[2])?)
@@ -308,7 +311,6 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
 }
 
 /// Filters out all boxes with datapoints that are greater than the margin of error
-/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 pub fn margin_of_error_filter(
     averaged_datapoint: u64,
     boxes: &Vec<ErgoBox>,
@@ -345,7 +347,6 @@ pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
 
 /// Function which produced the finalized datapoint based on a list of `ErgoBox`es.
 /// Repeatedly acquires the average and filters out any boxes outside the margin of error.
-/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Result<(u64, Vec<ErgoBox>)> {
     // Filter out Datapoint boxes without a valid integer in R6
     let mut successful_boxes = valid_boxes_filter(boxes);
