@@ -70,7 +70,7 @@ Returns the current status of the oracle pool.
 - Current Pool Stage (Epoch Preparation Vs. Live Epoch)
 - Latest Pool Datapoint
 - Latest Pool Epoch ID
-- Height The Next Epoch Ends
+- Height The Current/Upcoming Epoch Ends
 
 Example Response:
 ```json
@@ -78,8 +78,8 @@ Example Response:
     "funded_percentage": 1600,
     "current_pool_stage": "Epoch Preparation",
     "latest_pool_datapoint": 251821000,
-    "latest_pool_epoch": "14e10314b0b33f13667871c62b0e86904cb6aee854630af4296b567b18875185",
-    "next_epoch_ends": 288699
+    "current_epoch_id": "14e10314b0b33f13667871c62b0e86904cb6aee854630af4296b567b18875185",
+    "epoch_ends": 288699
 }
 ```
 

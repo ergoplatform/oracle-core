@@ -173,22 +173,30 @@ pub fn start_get_api() {
 
         let mut funded_percentage = 0;
         let mut latest_datapoint = 0;
+        let mut current_epoch_id = "".to_string();
+        let mut epoch_ends = 0;
         if let Ok(l) = op.get_live_epoch_state() {
             // The percentage that the pool is funded
             funded_percentage =
                 (l.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100;
             latest_datapoint = l.latest_pool_datapoint;
+            current_epoch_id = l.epoch_id;
+            epoch_ends = l.epoch_ends;
         } else if let Ok(ep) = op.get_preparation_state() {
             // The percentage that the pool is funded
             funded_percentage =
                 (ep.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100;
             latest_datapoint = ep.latest_pool_datapoint;
+            current_epoch_id = "Preparing Epoch Currently".to_string();
+            epoch_ends = ep.next_epoch_ends;
         }
 
         let response_json = object! {
             funded_percentage: funded_percentage,
             current_pool_stage: current_stage,
             latest_datapoint: latest_datapoint,
+            current_epoch_id : current_epoch_id,
+            epoch_ends: epoch_ends,
         };
 
         context.response.from_json(response_json.dump()).unwrap();
