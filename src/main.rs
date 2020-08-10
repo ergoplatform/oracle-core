@@ -91,6 +91,11 @@ fn main() {
                 height > prep_state.next_epoch_ends - parameters.live_epoch_length;
             let live_epoch_over = height >= prep_state.next_epoch_ends;
 
+            // The Pool is underfunded
+            if !is_funded {
+                println!("The Oracle Pool is underfunded.\nPlease submit funds to the pool to continue operation.");
+            }
+
             // Check if height is prior to next epoch expected end
             // height and that the pool is funded.
             if epoch_prep_over && !live_epoch_over && is_funded {

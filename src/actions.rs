@@ -218,10 +218,6 @@ impl OraclePool {
             "R4": serialize_long(finalized_datapoint as i64),
             "R5": serialize_int(new_finish_height as i32),
         };
-        println!(
-            "Regs:\nr4:{}\nr5:{}",
-            finalized_datapoint, new_finish_height
-        );
 
         req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
