@@ -15,7 +15,7 @@ Many other documents can also be found explaining how various parts of the oracl
 
 
 # Building & Running An Oracle
-The majority of oracle operators will only need to focus on setting up their own oracle core to work with an already bootstrapped oracle pool. This section will explain how to do so for oracle using the ERG-USD adapter. The steps are exactly the same for other adapters, but simply require using that adapter's prepare script.
+The majority of oracle operators will only need to focus on setting up their own oracle core to work with an [already bootstrapped oracle pool](#Bootstrapping-An-Oracle-Pool). This section will explain how to do so for oracle using the ERG-USD adapter. The steps are exactly the same for other adapters, but simply require using that adapter's prepare script.
 
 It is assumed that you are running this oracle on Linux, and have the following prerequisites:
 - Access to an [Ergo Node](https://github.com/ergoplatform/ergo) v3.3.0+ with an unlocked wallet.
@@ -58,14 +58,4 @@ UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 # Bootstrapping An Oracle Pool
 In order for an oracle pool to run, it must be first created/bootstrapped on-chain. This is the bootstrap process that is required before oracle operators can run their oracle core and have the pool function on-chain.
 
-1. Generate a new NFT for your new Oracle Pool.
-2. Generate a new "Oracle Pool Participant Token" of total count equal to the number of oracles who will be a part of the pool.
-3. Decide on and set the key parameters of the pool which will be hard-coded into the contracts. (ie. Epoch Prep Length, Live Epoch Length, Payout Amount, etc.)
-4. Compile the smart contracts using the parameters/token ids to acquire the smart contract/stage addresses.
-5. Fill out a `oracle-config.yaml` with all of the parameters of the oracle pool which were set, as well as with the newly generated smart contract addresses.
-6. Send the `oracle-config.yaml` to all of the oracles part of the pool.
-7. Wait until all of the oracles launch the oracle core so that their nodes can register the proper UTXO-set scans.
-8. Bootstrap the oracle pool box at the "Epoch Preparation" stage/contract, and holding the "Oracle Pool NFT".
-9. Acquire the addresses of all of the oracles.
-10. Bootstrap a "Datapoint" box for every single one of the oracles with their corresponding addresses held in R4, and with a single "Oracle Pool Participant Token".
-
+Check out the [Bootstrap doc](docs/Bootstrap.md) for detailed instructions about how to bootstrap an oracle pool and each of the oracles within it.
