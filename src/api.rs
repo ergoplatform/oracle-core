@@ -29,27 +29,35 @@ pub fn start_post_api() {
                         let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
                         let resp_json = object! {tx_id: tx_id}.to_string();
 
-                        context.response.from_json(resp_json).unwrap();
+                        context
+            .response
+           .header(("Access-Control-Allow-Origin", "*")).from_json(resp_json).unwrap();
                     }
                     // If transaction failed being posted
                     else {
                         let error_json = object! {error: "Failed to post 'Commit Datapoint' action transaction."}.to_string();
 
-                        context.response.from_json(error_json).unwrap();
+                        context
+            .response
+           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                     }
                 }
                 // Else if in Epoch Prep stage
                 else {
                     let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
 
-                    context.response.from_json(error_json).unwrap();
+                    context
+            .response
+           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                 }
             }
             // If the datapoint provided is not a valid i32 Integer
             else {
                 let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
 
-                context.response.from_json(error_json).unwrap();
+                context
+            .response
+           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
             }
 
         }
@@ -57,7 +65,9 @@ pub fn start_post_api() {
         else {
             let error_json = object! {error: "Invalid JSON Request Body."}.to_string();
 
-            context.response.from_json(error_json).unwrap();
+            context
+            .response
+           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
         }
     });
 
@@ -80,7 +90,11 @@ pub fn start_get_api() {
         let response_text = format!(
             "This is an Oracle Core. Please use one of the endpoints to interact with it.\n"
         );
-        context.response.from_text(response_text).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_text(response_text)
+            .unwrap();
     });
 
     // Basic oracle information
@@ -90,7 +104,11 @@ pub fn start_get_api() {
             oracle_address: op.local_oracle_address,
         };
 
-        context.response.from_json(response_json.dump()).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_json(response_json.dump())
+            .unwrap();
     });
 
     // Basic information about the oracle pool
@@ -113,7 +131,11 @@ pub fn start_get_api() {
 
         };
 
-        context.response.from_json(response_json.dump()).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_json(response_json.dump())
+            .unwrap();
     });
 
     // Basic information about node the oracle core is using
@@ -122,7 +144,11 @@ pub fn start_get_api() {
             node_url: get_node_url(),
         };
 
-        context.response.from_json(response_json.dump()).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_json(response_json.dump())
+            .unwrap();
     });
 
     // Status of the oracle
@@ -157,7 +183,11 @@ pub fn start_get_api() {
             latest_datapoint_creation_height: datapoint_creation,
         };
 
-        context.response.from_json(response_json.dump()).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_json(response_json.dump())
+            .unwrap();
     });
 
     // Status of the oracle pool
@@ -199,7 +229,11 @@ pub fn start_get_api() {
             epoch_ends: epoch_ends,
         };
 
-        context.response.from_json(response_json.dump()).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_json(response_json.dump())
+            .unwrap();
     });
 
     // Block height of the Ergo blockchain
@@ -207,7 +241,11 @@ pub fn start_get_api() {
         let current_height =
             current_block_height().expect("Please ensure that the Ergo node is running.");
         let response_text = format!("{}", current_height);
-        context.response.from_text(response_text).unwrap();
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_text(response_text)
+            .unwrap();
     });
 
     // Start the API server with the port designated in the config.
