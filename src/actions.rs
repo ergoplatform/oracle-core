@@ -199,7 +199,7 @@ impl OraclePool {
         let (finalized_datapoint, successful_boxes) = finalize_datapoint(&sorted_datapoint_boxes)?;
 
         // Tx fee for the transaction
-        let tx_fee = (1200000 * sorted_datapoint_boxes.len()) as u64;
+        let tx_fee = (FEE) * sorted_datapoint_boxes.len() as u64;
         // Define the new value of the oracle pool box after payouts/tx fee
         let new_box_value = live_epoch_state.funds
             - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1));
