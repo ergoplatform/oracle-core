@@ -50,7 +50,7 @@ impl Scan {
         self.get_boxes()?
             .into_iter()
             .nth(0)
-            .ok_or(anyhow!("No Boxes Found."))
+            .ok_or(anyhow!("No Boxes Found For {}", self.name))
     }
 
     /// Returns all boxes found by the scan
@@ -73,8 +73,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
     let mut id_json = object! {};
     for scan in scans {
         if &scan.id == "null" {
-            let mess = format!("Failed to register {}", scan.name);
-            return Err(anyhow!(mess));
+            return Err(anyhow!("Failed to register {}", scan.name));
         }
         id_json[scan.name] = scan.id.into();
     }

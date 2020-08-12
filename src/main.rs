@@ -64,8 +64,8 @@ fn main() {
     loop {
         let height = current_block_height().unwrap_or(0);
         if let Err(e) = print_info(op.clone(), height) {
-            println!("\nThe UTXO-Set Scans Have Not Found All Of The Oracle Pool Boxes Yet.\n\nPlease make sure that you have resynced your Ergo node so that the scans can find all of the boxes.");
-            // println!("Error: {:?}", e);
+            println!("\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\n");
+            println!("Error: {:?}", e);
         }
 
         let res_datapoint_state = op.get_datapoint_state();
@@ -191,6 +191,10 @@ fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool>
             "Live Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
             live_state.funds, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch, live_state.epoch_ends
         );
+    } else {
+        println!("========================================================");
+        println!("Failed to find Epoch Preparation Box or Live Epoch Box.");
+        println!("========================================================");
     }
     println!("Oracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height);
     println!("========================================================\n\n");
