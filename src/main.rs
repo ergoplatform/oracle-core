@@ -118,7 +118,7 @@ fn main() {
         // If the pool is in the Live Epoch stage
         if let Ok(epoch_state) = res_live_state {
             // Check for opportunity to Collect Datapoints
-            if height >= epoch_state.epoch_ends {
+            if height >= epoch_state.epoch_ends && epoch_state.commit_datapoint_in_epoch {
                 let action_res = op.action_collect_datapoints();
                 let action_name = "Collect Datapoints";
                 print_action_results(&action_res, action_name);
