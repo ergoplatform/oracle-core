@@ -196,7 +196,10 @@ impl OraclePool {
         );
 
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
-        let (finalized_datapoint, successful_boxes) = finalize_datapoint(&sorted_datapoint_boxes)?;
+        let (finalized_datapoint, successful_boxes) = finalize_datapoint(
+            &sorted_datapoint_boxes,
+            live_epoch_state.latest_pool_datapoint,
+        )?;
 
         // Tx fee for the transaction
         let tx_fee = (FEE) * sorted_datapoint_boxes.len() as u64;
@@ -306,18 +309,18 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     Ok(average as u64)
 }
 
-/// Filters out all boxes with datapoints that are greater than the margin of error
+/// Filters out all boxes with datapoints that are outside of the margin of error compared to the latest Oracle Pool finalized datapoint
 pub fn margin_of_error_filter(
-    averaged_datapoint: u64,
     boxes: &Vec<ErgoBox>,
+    latest_finalized_datapoint: u64,
 ) -> Result<Vec<ErgoBox>> {
     // Get parameters for margin of error
     let parameters = PoolParameters::new();
 
     // Specifying min/max acceptable value
-    let delta = (averaged_datapoint as f64 * parameters.margin_of_error) as u64;
-    let min = averaged_datapoint - delta;
-    let max = averaged_datapoint + delta;
+    let delta = (latest_finalized_datapoint as f64 * parameters.margin_of_error) as u64;
+    let min = latest_finalized_datapoint - delta;
+    let max = latest_finalized_datapoint + delta;
 
     // Find the successful boxes which are within the margin of error
     let mut successful_boxes = vec![];
@@ -341,23 +344,17 @@ pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     valid_boxes
 }
 
-/// Function which produced the finalized datapoint based on a list of `ErgoBox`es.
-/// Repeatedly acquires the average and filters out any boxes outside the margin of error.
-pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Result<(u64, Vec<ErgoBox>)> {
+/// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
+/// Filters out any invalid boxes or boxes outside the margin of error.
+/// Returns the averaged datapoint and the filtered list of successful boxes.
+pub fn finalize_datapoint(
+    boxes: &Vec<ErgoBox>,
+    latest_finalized_datapoint: u64,
+) -> Result<(u64, Vec<ErgoBox>)> {
     // Filter out Datapoint boxes without a valid integer in R6
-    let mut successful_boxes = valid_boxes_filter(boxes);
+    let valid_boxes = valid_boxes_filter(boxes);
+    // Filter out Datapoint boxes outside of the margin of error
+    let successful_boxes = margin_of_error_filter(&valid_boxes, latest_finalized_datapoint)?;
+    // Return average
     Ok((average_datapoints(&successful_boxes)?, successful_boxes))
-
-    // Logic for outlier checking to be integrated later on.
-    // For now just take straight average of datapoints, no outlier checking so commented out.
-    //
-    // loop {
-    //     let av = average_datapoints(&successful_boxes)?;
-    //     let filtered_boxes = margin_of_error_filter(av, &successful_boxes)?;
-    //     if successful_boxes == filtered_boxes {
-    //         return Ok((av, filtered_boxes));
-    //     }
-    //     successful_boxes = filtered_boxes;
-    // }
-    // None
 }

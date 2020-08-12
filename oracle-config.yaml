@@ -39,8 +39,8 @@ live_epoch_length: 5
 epoch_preparation_length: 5
 # Buffer length in blocks that is the upper limit for an oracle pool to create a new epoch
 buffer_length: 4
-# The percentage margin of error that an oracle can be off by. Range: 0.01 - 1.00
-margin_of_error: 0.01
+# The percentage margin of error that an oracle can deviate from the previous latest datapoint. Range: 0.01 - 1.00 (1-100%)
+margin_of_error: 0.10
 
 
 #### Oracle Pool Features ####
