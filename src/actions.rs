@@ -318,7 +318,7 @@ pub fn margin_of_error_filter(
     let parameters = PoolParameters::new();
 
     // Specifying min/max acceptable value
-    let delta = (latest_finalized_datapoint as f64 * parameters.margin_of_error) as u64;
+    let delta = (latest_finalized_datapoint / 100) * parameters.margin_of_error;
     let min = latest_finalized_datapoint - delta;
     let max = latest_finalized_datapoint + delta;
 

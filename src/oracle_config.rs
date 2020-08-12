@@ -9,7 +9,7 @@ pub struct PoolParameters {
     pub live_epoch_length: BlockDuration,
     pub epoch_preparation_length: BlockDuration,
     pub buffer_length: BlockDuration,
-    pub margin_of_error: f64,
+    pub margin_of_error: u64,
 }
 
 impl PoolParameters {
@@ -30,7 +30,7 @@ impl PoolParameters {
             .as_i64()
             .expect("No buffer_length specified in config file.");
         let moe = config["margin_of_error"]
-            .as_f64()
+            .as_i64()
             .expect("No margin_of_error specified in config file.");
         let price = config["oracle_payout_price"]
             .as_i64()
@@ -44,7 +44,7 @@ impl PoolParameters {
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,
             buffer_length: buf as u64,
-            margin_of_error: moe,
+            margin_of_error: moe as u64,
         }
     }
 
@@ -119,7 +119,7 @@ mod tests {
         assert_eq!(pool_params.epoch_preparation_length, 10);
         assert_eq!(pool_params.buffer_length, 4);
         assert_eq!(pool_params.number_of_oracles, 4);
-        assert_eq!(pool_params.margin_of_error, 0.01);
+        assert_eq!(pool_params.margin_of_error, 10);
         assert_eq!(pool_params.oracle_payout_price, 1000000);
     }
 }
