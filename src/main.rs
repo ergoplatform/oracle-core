@@ -11,6 +11,7 @@ mod scans;
 mod templates;
 
 use anyhow::Error;
+use log::info;
 use node_interface::current_block_height;
 use std::thread;
 use std::time::Duration;
@@ -44,6 +45,9 @@ static ORACLE_CORE_ASCII: &str = r#"
 "#;
 
 fn main() {
+    simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
+    log_panics::init();
+
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
 
@@ -64,8 +68,9 @@ fn main() {
     loop {
         let height = current_block_height().unwrap_or(0);
         if let Err(e) = print_info(op.clone(), height) {
-            println!("\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\n");
-            println!("Error: {:?}", e);
+            let mess = format!("\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\nError: {:?}", e);
+            println!("{}", mess);
+            info!("{}", mess);
         }
 
         let res_datapoint_state = op.get_datapoint_state();
@@ -170,6 +175,7 @@ fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool>
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
 
+    info!("{}", ORACLE_CORE_ASCII);
     println!("{}", ORACLE_CORE_ASCII);
     println!("========================================================");
     println!("Current Blockheight: {}", height);

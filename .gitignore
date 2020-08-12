@@ -14,3 +14,4 @@ Cargo.lock
 scanIDs.json
 *.kra*
 oracle-core-deployed
+oracle-core.log
