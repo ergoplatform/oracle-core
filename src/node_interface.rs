@@ -96,7 +96,6 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
     let mut box_list = vec![];
     for i in 0.. {
         let box_json = &res_json[i]["box"];
-        info!("Parsing Box Json: {}", box_json.to_string());
         if box_json.is_null() {
             break;
         } else {

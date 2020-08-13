@@ -189,11 +189,11 @@ fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool>
     info_string.push_str(&format!("Pool Deposits State\n--------------------\nNumber Of Deposit Boxes: {}\nTotal nanoErgs In Deposit Boxes: {}\n", deposits_state.number_of_boxes, deposits_state.total_nanoergs));
 
     if let Ok(prep_state) = res_prep_state {
-        info_string.push_str(&format!("Epoch Preparation State\n------------------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nNext Epoch Ends: {}\n",
+        info_string.push_str(&format!("\nEpoch Preparation State\n------------------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nNext Epoch Ends: {}\n",
             prep_state.funds, prep_state.latest_pool_datapoint, prep_state.next_epoch_ends
         ));
     } else if let Ok(live_state) = res_live_state {
-        info_string.push_str(&format!("Live Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
+        info_string.push_str(&format!("\nLive Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
             live_state.funds, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch, live_state.epoch_ends
         ));
     } else {
@@ -201,7 +201,7 @@ fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool>
         info_string.push_str("\n========================================================\n");
     }
 
-    info_string.push_str(&format!("Oracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
+    info_string.push_str(&format!("\nOracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
         ));
     info_string.push_str("\n========================================================\n");
 
