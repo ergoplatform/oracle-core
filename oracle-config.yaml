@@ -28,7 +28,7 @@ datapoint_contract_address: "jL2aaqw6XU61SZznxeykLpREPzSmZv8bwbjEsJD6DMfXQLgBc12
 # Address of the "Pool Deposit" contract
 pool_deposit_contract_address: "zLSQDVBaFJVVPWsvzN8begiciWsjdiFyJn9NwnLbJxMrGehDXPJnEuWm2x8gQtCutoK7crMSP9sKQBPyaPVRQXpiSr7ZoKrz4arYiJXKX1MDAfJFm9tjkY379ZiskLYHC3mmf4CQxATbY9P3mTjYw3f3Hkoxnu4yxvMCVBtRTuuRK1qh4E6aGpG8cJcpJ5qBtEsx7SrJoMZP34exMNxD1dPoaDFbuKHnoXAZmDLHnLqG3HgdPy"
 
-#### Oracle Paramaters ####
+#### Oracle Parameters ####
 # The base fee constant that all action txs use to calculate fee.
 # Adjust if blockchain is congested/higher tx fees are required.
 base_fee: 1000000

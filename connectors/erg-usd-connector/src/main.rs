@@ -94,7 +94,7 @@ fn get_nanoerg_usd_price() -> Result<u64> {
     let price_json = json::parse(&resp.text()?)?;
     let price = price_json["ergo"]["usd"].as_f64();
     if let Some(p) = price {
-        let nanoerg_price = p * 1000000000.0;
+        let nanoerg_price = (1.0 / p as f64) * 1000000000.0;
         return Ok(nanoerg_price as u64);
     } else {
         Err(anyhow!("Failed to parse price."))
