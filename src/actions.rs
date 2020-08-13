@@ -327,7 +327,7 @@ pub fn margin_of_error_filter(
     let mut successful_boxes = vec![];
     for b in boxes.clone() {
         let datapoint = deserialize_long(&b.additional_registers.get_ordered_values()[2])? as u64;
-        if datapoint > min && datapoint < max {
+        if datapoint >= min && datapoint <= max {
             successful_boxes.push(b);
         }
     }
