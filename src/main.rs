@@ -13,6 +13,7 @@ mod templates;
 use anyhow::Error;
 use log::info;
 use node_interface::current_block_height;
+use oracle_config::PoolParameters;
 use std::thread;
 use std::time::Duration;
 
@@ -49,31 +50,32 @@ fn main() {
     log_panics::init();
 
     let op = oracle_state::OraclePool::new();
-    let parameters = oracle_config::PoolParameters::new();
 
+    // Start Oracle Core GET API Server
     thread::Builder::new()
-        .name("Oracle Core API Thread".to_string())
+        .name("Oracle Core GET API Thread".to_string())
         .spawn(|| {
             api::start_get_api();
         })
         .ok();
 
+    // Start Oracle Core POST API Server
     thread::Builder::new()
-        .name("Oracle Core API Thread".to_string())
+        .name("Oracle Core POST API Thread".to_string())
         .spawn(|| {
             api::start_post_api();
         })
         .ok();
 
     loop {
+        let parameters = oracle_config::PoolParameters::new();
         let height = current_block_height().unwrap_or(0);
-        if let Err(e) = print_info(op.clone(), height) {
+        // Check if properly synced.
+        if let Err(e) = print_info(op.clone(), height, &parameters) {
             let mess = format!("\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\nError: {:?}", e);
-            println!("{}", mess);
-            info!("{}", mess);
+            print_and_log(&mess);
         }
 
-        let res_datapoint_state = op.get_datapoint_state();
         let res_prep_state = op.get_preparation_state();
         let res_live_state = op.get_live_epoch_state();
         let res_deposits_state = op.get_pool_deposits_state();
@@ -171,14 +173,19 @@ fn print_action_response(message: &str) {
 }
 
 /// Prints And Logs Information About The State Of The Protocol
-fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool> {
+fn print_info(
+    op: oracle_state::OraclePool,
+    height: BlockHeight,
+    parameters: &PoolParameters,
+) -> Result<bool> {
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
 
     let mut info_string = format!("{}", ORACLE_CORE_ASCII);
 
     info_string.push_str("========================================================\n");
-    info_string.push_str(&format!("Current Blockheight: {}", height));
+    info_string.push_str(&format!("Current Blockheight: {}\n", height));
+    info_string.push_str(&format!("Current Tx Base Fee: {}", parameters.base_fee));
 
     let datapoint_state = op.get_datapoint_state()?;
     let deposits_state = op.get_pool_deposits_state()?;

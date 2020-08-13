@@ -10,6 +10,7 @@ pub struct PoolParameters {
     pub epoch_preparation_length: BlockDuration,
     pub buffer_length: BlockDuration,
     pub margin_of_error: u64,
+    pub base_fee: u64,
 }
 
 impl PoolParameters {
@@ -38,6 +39,9 @@ impl PoolParameters {
         let num = config["number_of_oracles"]
             .as_i64()
             .expect("No number_of_oracles specified in config file.");
+        let base_fee = config["base_fee"]
+            .as_i64()
+            .expect("No base_fee specified in config file.");
         PoolParameters {
             number_of_oracles: num as u64,
             oracle_payout_price: price as u64,
@@ -45,6 +49,7 @@ impl PoolParameters {
             epoch_preparation_length: epl as u64,
             buffer_length: buf as u64,
             margin_of_error: moe as u64,
+            base_fee: base_fee as u64,
         }
     }
 
@@ -112,6 +117,7 @@ mod tests {
             buffer_length: 4
             margin_of_error: 0.01
             oracle_payout_price: 1000000
+            base_fee: 1000000
             ";
         let config = &YamlLoader::load_from_str(yaml_string).unwrap()[0];
         let pool_params = PoolParameters::new_from_yaml_string(&config);
@@ -121,5 +127,6 @@ mod tests {
         assert_eq!(pool_params.number_of_oracles, 4);
         assert_eq!(pool_params.margin_of_error, 10);
         assert_eq!(pool_params.oracle_payout_price, 1000000);
+        assert_eq!(pool_params.base_fee, 1000000);
     }
 }

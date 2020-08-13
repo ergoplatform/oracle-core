@@ -18,12 +18,10 @@ use anyhow::anyhow;
 use json;
 use sigma_tree::chain::ErgoBox;
 
-/// The default fee used for actions
-pub static FEE: u64 = 1000000;
-
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
     pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String> {
+        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
@@ -49,7 +47,8 @@ impl OraclePool {
         ]
         .into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["fee"] = FEE.into();
+        req["fee"] = parameters.base_fee.into();
+        req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -57,6 +56,7 @@ impl OraclePool {
 
     /// Generates and submits the "Collect Funds" action tx
     pub fn action_collect_funds(&self) -> Result<String> {
+        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
@@ -108,6 +108,7 @@ impl OraclePool {
 
     /// Generates and submits the "Start Next Epoch" action tx
     pub fn action_start_next_epoch(&self) -> Result<String> {
+        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
@@ -133,7 +134,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = FEE.into();
+        req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -141,8 +142,8 @@ impl OraclePool {
 
     /// Generates and submits the "Create New Epoch" action tx
     pub fn action_create_new_epoch(&self) -> Result<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
         let parameters = PoolParameters::new();
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Define the new epoch finish height based off of current height
         let new_finish_height = current_block_height()?
@@ -173,7 +174,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = FEE.into();
+        req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -202,7 +203,7 @@ impl OraclePool {
         )?;
 
         // Tx fee for the transaction
-        let tx_fee = (FEE) * sorted_datapoint_boxes.len() as u64;
+        let tx_fee = (parameters.base_fee) * sorted_datapoint_boxes.len() as u64;
         // Define the new value of the oracle pool box after payouts/tx fee
         let new_box_value = live_epoch_state.funds
             - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1));
