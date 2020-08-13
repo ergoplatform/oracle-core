@@ -1,4 +1,4 @@
-/// This Connector obtains the nanoErg/USD rate and submits it
+/// This Connector obtains the nanoErg per 1 USD rate and submits it
 /// to an oracle core. It reads the `oracle-config.yaml` to find the port
 /// of the oracle core (via Connector-Lib) and submits it to the POST API
 /// server on the core.
@@ -7,6 +7,7 @@
 use anyhow::{anyhow, Result};
 use connector_lib::{get_core_api_port, OracleCore};
 use json;
+use std::env;
 use std::thread;
 use std::time::Duration;
 
@@ -24,6 +25,17 @@ static CG_RATE_URL: &str =
     "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
 
 fn main() {
+    // Check if asked for bootstrap value from connector
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 && &args[1] == "--bootstrap-value" {
+        if let Ok(price) = get_nanoerg_usd_price() {
+            println!("Bootstrap Erg-USD Value: {}", price);
+            std::process::exit(0);
+        } else {
+            panic!("Failed to fetch Erg/USD from CoinGecko");
+        }
+    }
+
     // Initialization
     let core_port = get_core_api_port().expect("Failed to read local `oracle-config.yaml`.");
     let oc = OracleCore::new("0.0.0.0", &core_port);
