@@ -7,6 +7,7 @@
 mod api;
 
 use anyhow::{anyhow, Result};
+use connector_lib::Connector;
 use connector_lib::{get_core_api_port, OracleCore};
 use json;
 use std::thread;
@@ -25,79 +26,6 @@ static CONNECTOR_ASCII: &str = r#"
 static CG_RATE_URL: &str =
     "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
 
-fn main() {
-    // Initialization
-    let core_port = get_core_api_port().expect("Failed to read local `oracle-config.yaml`.");
-    let oc = OracleCore::new("0.0.0.0", &core_port.clone());
-
-    // Start Connector GET API Server
-    thread::Builder::new()
-        .name("Erg-USD Connector GET API Thread".to_string())
-        .spawn(move || {
-            api::start_get_api(&core_port);
-        })
-        .ok();
-
-    // Main Loop
-    loop {
-        // If printing isn't successful (which involves fetching state from core)
-        if let Err(e) = print_info(&oc) {
-            print!("\x1B[2J\x1B[1;1H");
-            println!("{}", CONNECTOR_ASCII);
-            println!("Error: {:?}", e);
-        }
-        // Otherwise if state is accessible
-        else {
-            let pool_status = oc.pool_status().unwrap();
-            let oracle_status = oc.oracle_status().unwrap();
-
-            // Check if Connector should post
-            let should_post = &pool_status.current_pool_stage == "Live Epoch"
-                && oracle_status.waiting_for_datapoint_submit;
-
-            if should_post {
-                let price_res = get_nanoerg_usd_price();
-                // If acquiring price worked
-                if let Ok(price) = price_res {
-                    // If submitting Datapoint tx worked
-                    let submit_result = oc.submit_datapoint(price);
-                    if let Ok(tx_id) = submit_result {
-                        println!("\nSubmit New Datapoint: {} nanoErg/USD", price);
-                        println!("Transaction ID: {}", tx_id);
-                    } else {
-                        println!("Datapoint Tx Submit Error: {:?}", submit_result);
-                    }
-                } else {
-                    println!("{:?}", price_res);
-                }
-            }
-        }
-
-        thread::sleep(Duration::new(30, 0))
-    }
-}
-
-/// Prints Connector ASCII/info
-fn print_info(oc: &OracleCore) -> Result<bool> {
-    let pool_status = oc.pool_status()?;
-    let oracle_status = oc.oracle_status()?;
-    print!("\x1B[2J\x1B[1;1H");
-    println!("{}", CONNECTOR_ASCII);
-    println!("Current Blockheight: {}", oc.current_block_height()?);
-    println!(
-        "Current Oracle Pool Stage: {}",
-        pool_status.current_pool_stage
-    );
-    println!(
-        "Submit Datapoint In Latest Epoch: {}",
-        !oracle_status.waiting_for_datapoint_submit
-    );
-
-    println!("Latest Datapoint: {}", oracle_status.latest_datapoint);
-    println!("===========================================");
-    Ok(true)
-}
-
 /// Acquires the nanoErg/USD price from CoinGecko
 fn get_nanoerg_usd_price() -> Result<u64> {
     let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
@@ -109,4 +37,13 @@ fn get_nanoerg_usd_price() -> Result<u64> {
     } else {
         Err(anyhow!("Failed to parse price."))
     }
+}
+
+fn main() {
+    let connector = Connector::new_basic_connector(
+        "ERG-USD",
+        "Connector which fetches the number of nanoErgs per 1 USD.",
+        get_nanoerg_usd_price,
+    );
+    connector.run();
 }
