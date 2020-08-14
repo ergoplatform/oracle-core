@@ -1,5 +1,4 @@
 use anyhow::Result;
-use json;
 use sincere;
 
 use connector_lib::{get_core_api_port, OracleCore};
@@ -113,13 +112,3 @@ pub fn prepare_frontend_data_json(oc: &OracleCore) -> Result<String> {
 
     Ok(data_json.dump())
 }
-
-// - Latest Pool Datapoint [Datapoint in nanoErgs per 1 USD]
-// - Epoch ID
-// - Contract addresses
-// - Oracle Payout Price
-// - Live Epoch Length
-// - Epoch Prep Length
-// - Margin Of Error
-// - Oracle Pool NFT ID
-// - Oracle Pool Participant Token Id
