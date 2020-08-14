@@ -6,7 +6,7 @@ The oracle core is the off-chain component that oracles who are part of an oracl
 
 The oracle core requires that the user has access to a full node wallet in order to create txs & perform UTXO-set scanning. Furthermore each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools then a single full node can be used, but several instances of oracle cores must be run (and set with different api ports).
 
-A `connector` must also be used with the oracle core in order to acquire data to submit to the pool. Each connector sources data from the expected sources, potentially applies functions to said data, and then submits the data to the oracle core via HTTP API during the `Live Epoch` stage in the oracle pool protocol. All oracles for a given pool are expected to use the exact same connector, thereby making it simple to onboard and get started.
+A `Connector` must also be used with the oracle core in order to acquire data to submit to the pool. Each connector sources data from the expected sources, potentially applies functions to said data, and then submits the data to the oracle core via HTTP API during the `Live Epoch` stage in the oracle pool protocol. All oracles for a given pool are expected to use the exact same connector, thereby making it simple to onboard and get started.
 
 The current oracle core is built to run the protocol specified in the [Basic Oracle Pool Spec](https://github.com/ergoplatform/oracle-core/blob/master/docs/specs/Basic-Oracle-Pool-Spec.md). Future versions will also support stake slashing and governance, with the specs already available for reading in the [specs folder](docs/specs).
 
@@ -59,3 +59,9 @@ UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 In order for an oracle pool to run, it must be first created/bootstrapped on-chain. This is the bootstrap process that is required before oracle operators can run their oracle core and have the pool function on-chain.
 
 Check out the [Bootstrap doc](docs/Bootstrap.md) for detailed instructions about how to bootstrap an oracle pool and each of the oracles within it.
+
+
+# Writing A New Connector
+If you are looking to create a new Oracle Pool for a new datapoint, you need to write a new Connector. This process has been greatly simplified thanks to [`Connector-lib`](connectors/connector-lib).
+
+Now within 15-20 lines of Rust code, you can easily create your own Connector that plugs right in to the Oracle Core.
