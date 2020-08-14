@@ -26,7 +26,8 @@ static CONNECTOR_ASCII: &str = r#"
 static CG_RATE_URL: &str =
     "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
 
-/// Acquires the nanoErg/USD price from CoinGecko
+/// Acquires the price of Ergs in USD from CoinGecko and convert it
+/// into nanoErgs per 1 USD.
 fn get_nanoerg_usd_price() -> Result<u64> {
     let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
     let price_json = json::parse(&resp.text()?)?;
@@ -34,7 +35,7 @@ fn get_nanoerg_usd_price() -> Result<u64> {
         let nanoerg_price = (1.0 / p as f64) * 1000000000.0;
         return Ok(nanoerg_price as u64);
     } else {
-        Err(anyhow!("Failed to parse price."))
+        Err(anyhow!("Failed to parse price from json."))
     }
 }
 

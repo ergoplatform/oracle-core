@@ -10,14 +10,15 @@ In short, when building a basic Connector you only need to define three things:
 2. A description of the Connector (which explains in greater detail how the data is sourced/processed)
 3. A function which fetches & processes the datapoint from an external service and returns it as a Result<u64>.
 
-Basic example for creating a Erg-USD Connector which submits a nanoErg per 1 USD value to the Oracle Core:
+Basic example for creating a Erg-USD Connector which submits a nanoErg per 1 USD datapoint to the Oracle Core:
 
 ```rust
 use anyhow::{anyhow, Result};
 use connector_lib::Connector;
 use json;
 
-/// Acquires the nanoErg/USD price from CoinGecko
+/// Acquires the price of Ergs in USD from CoinGecko and convert it
+/// into nanoErgs per 1 USD.
 fn get_datapoint() -> Result<u64> {
     let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
     let price_json = json::parse(&resp.text()?)?;
@@ -25,7 +26,7 @@ fn get_datapoint() -> Result<u64> {
         let nanoerg_price = (1.0 / p as f64) * 1000000000.0;
         return Ok(nanoerg_price as u64);
     } else {
-        Err(anyhow!("Failed to parse price."))
+        Err(anyhow!("Failed to parse price from json."))
     }
 }
 
