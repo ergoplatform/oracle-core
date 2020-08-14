@@ -37,7 +37,7 @@ impl Connector {
         let args: Vec<String> = env::args().collect();
         if args.len() > 1 && &args[1] == "--bootstrap-value" {
             if let Ok(price) = (self.get_datapoint)() {
-                println!("Bootstrap Erg-USD Value: {}", price);
+                println!("Bootstrap {} Value: {}", self.title, price);
                 std::process::exit(0);
             } else {
                 panic!("Failed to fetch Erg/USD from CoinGecko");
