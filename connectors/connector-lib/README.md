@@ -1,6 +1,6 @@
 # Connector Lib
 
-This is a small framework for creating `Connector`s for an Oracle Pool. These connectors act as a middleman which interface between the outside world and the Oracle Core.
+This is a small framework for creating `Connector`s for an Oracle Pool. These connectors act as a middleware which interface between the outside world and the Oracle Core.
 
 
 Building A Basic Connector
@@ -43,18 +43,7 @@ This is all the code that is required for setting up a basic Connector. Simply d
 
 The Connector runs a main loop which checks the state of the protocol from the Oracle Core every 30 seconds, and acquires/posts a datapoint if the protocol is in a valid state to accept it (meaning in `Live Epoch` stage and no datapoint accepted yet in current epoch).
 
-Furthermore the basic Connector also runs a GET API server locally on the port:
-```haskell
-[Oracle Core Port] + 2
-```
-
-Thus if your Oracle Core is configured to run it's GET API server on `9090`, then the connector will run it's GET API server on `9092`.
-
-This API server has the following endpoints:
-
-
-
-(To be added...)
+The `Connector` struct also provides a `--bootstrap-value` flag automatically for you to use while bootstrapping your Oracle Pool.
 
 
 Building Custom Connectors
@@ -67,7 +56,6 @@ You must define:
 2. A description of the Connector (which explains in greater detail how the data is sourced/processed)
 3. A function which fetches & processes the datapoint from an external service and returns it as a Result<u64>.
 4. A function which prints information you deem important for your given connector.
-5. A function that creates & starts an API sever.
 
 Once you have defined all of the above data, simply call the `new()` method:
 
@@ -77,7 +65,6 @@ Once you have defined all of the above data, simply call the `new()` method:
         description,
         get_datapoint,
         my_print_info_function,
-        my_start_api_server_function,
     );
     connector.run();
 ```

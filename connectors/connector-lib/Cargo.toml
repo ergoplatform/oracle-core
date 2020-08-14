@@ -15,4 +15,3 @@ reqwest         = { version = "0.10.7", features = ["blocking"] }
 thiserror       = "1.0.20"
 openssl = { version = "0.10", features = ["vendored"] }
 anyhow          = "1.0.32"
-sincere         = "0.6.6"

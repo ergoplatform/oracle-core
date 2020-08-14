@@ -8,8 +8,8 @@ mod api;
 
 use anyhow::{anyhow, Result};
 use connector_lib::Connector;
+use connector_lib::{get_core_api_port, OracleCore};
 use json;
-use std::env;
 
 static CONNECTOR_ASCII: &str = r#"
  ______ _____   _____        _    _  _____ _____     _____                            _
@@ -37,17 +37,6 @@ fn get_nanoerg_usd_price() -> Result<u64> {
 }
 
 fn main() {
-    // Check if asked for bootstrap value from connector
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 && &args[1] == "--bootstrap-value" {
-        if let Ok(price) = get_nanoerg_usd_price() {
-            println!("Bootstrap Erg-USD Value: {}", price);
-            std::process::exit(0);
-        } else {
-            panic!("Failed to fetch Erg/USD from CoinGecko");
-        }
-    }
-
     let connector = Connector::new_basic_connector(
         "ERG-USD",
         "Connector which fetches the number of nanoErgs per 1 USD.",

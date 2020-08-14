@@ -18,7 +18,8 @@ pub fn start_get_api(core_port: &str) {
             .unwrap();
     });
 
-    // Start the API server with the port designated in the config.
+    // Start the API server with the port designated in the oracle config
+    // plus two.
     let port = ((core_port
         .parse::<u16>()
         .expect("Failed to parse oracle core port from config to u16."))

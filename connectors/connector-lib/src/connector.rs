@@ -1,18 +1,16 @@
 use crate::oracle_core::{get_core_api_port, OracleCore};
 use anyhow::Result;
-use sincere;
 use std::thread;
 use std::time::Duration;
 
-type OracleCorePort = String;
 type Datapoint = u64;
 
+#[derive(Clone)]
 pub struct Connector {
     pub title: String,
     pub description: String,
     pub get_datapoint: fn() -> Result<Datapoint>,
     pub print_info: fn(&Connector, &OracleCore) -> Result<bool>,
-    pub start_api_server: fn(OracleCorePort),
     pub oracle_core_port: String,
 }
 
@@ -24,7 +22,6 @@ impl Connector {
         description: &str,
         get_datapoint: fn() -> Result<u64>,
         print_info: fn(&Connector, &OracleCore) -> Result<bool>,
-        start_api_server: fn(String),
     ) -> Connector {
         let core_port =
             get_core_api_port().expect("Failed to read port from local `oracle-config.yaml`.");
@@ -33,7 +30,6 @@ impl Connector {
             description: description.to_string(),
             get_datapoint: get_datapoint,
             print_info: print_info,
-            start_api_server: start_api_server,
             oracle_core_port: core_port,
         }
     }
@@ -94,7 +90,6 @@ impl Connector {
             description,
             get_datapoint,
             Connector::basic_print_info,
-            Connector::basic_start_api_server,
         )
     }
 
@@ -118,32 +113,5 @@ impl Connector {
         println!("Latest Datapoint: {}", oracle_status.latest_datapoint);
         println!("===========================================");
         Ok(true)
-    }
-
-    // Default Basic Connector api server
-    fn basic_start_api_server(core_port: String) {
-        let mut app = sincere::App::new();
-
-        // Basic welcome endpoint
-        app.get("/", move |context| {
-        let response_text = format!(
-            "This is an Oracle Core Connector. Please use one of the endpoints to interact with it.\n"
-        );
-        context
-            .response
-            .header(("Access-Control-Allow-Origin", "*"))
-            .from_text(response_text)
-            .unwrap();
-    });
-
-        // Start the API server with the port designated in the oracle config
-        // plus two.
-        let port = ((core_port
-            .parse::<u16>()
-            .expect("Failed to parse oracle core port from config to u16."))
-            + 2)
-        .to_string();
-        let address = "0.0.0.0:".to_string() + &port;
-        app.run(&address, 1).ok();
     }
 }
