@@ -4,12 +4,13 @@
 /// server on the core.
 /// Note: The value that is posted on-chain is the number
 /// of nanoErgs per 1 USD, not the rate per nanoErg.
+#[macro_use]
+extern crate json;
+
 mod api;
 
 use anyhow::{anyhow, Result};
 use connector_lib::Connector;
-use connector_lib::{get_core_api_port, OracleCore};
-use json;
 use std::thread;
 
 static CONNECTOR_ASCII: &str = r#"
