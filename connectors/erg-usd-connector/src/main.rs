@@ -8,10 +8,7 @@ mod api;
 
 use anyhow::{anyhow, Result};
 use connector_lib::Connector;
-use connector_lib::{get_core_api_port, OracleCore};
 use json;
-use std::thread;
-use std::time::Duration;
 
 static CONNECTOR_ASCII: &str = r#"
  ______ _____   _____        _    _  _____ _____     _____                            _
@@ -30,8 +27,7 @@ static CG_RATE_URL: &str =
 fn get_nanoerg_usd_price() -> Result<u64> {
     let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
     let price_json = json::parse(&resp.text()?)?;
-    let price = price_json["ergo"]["usd"].as_f64();
-    if let Some(p) = price {
+    if let Some(p) = price_json["ergo"]["usd"].as_f64() {
         let nanoerg_price = (1.0 / p as f64) * 1000000000.0;
         return Ok(nanoerg_price as u64);
     } else {
