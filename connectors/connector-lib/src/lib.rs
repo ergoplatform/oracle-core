@@ -1,5 +1,8 @@
 #[macro_use]
 extern crate json;
+
+mod connector;
+
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use thiserror::Error;
