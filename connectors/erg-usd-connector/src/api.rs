@@ -60,8 +60,8 @@ pub fn start_get_api() {
 }
 
 /// Get the Erg/USD price from the nanoErgs per 1 USD price
-pub fn get_usd_price(datapoint: u64) -> u64 {
-    ((1.0 / 100000000.0) * datapoint as f64) as u64
+pub fn get_usd_price(datapoint: u64) -> f64 {
+    (1.0 / datapoint as f64) * 1000000000.0
 }
 
 /// Prepares the json
