@@ -50,7 +50,7 @@ The `Connector` struct also provides a `--bootstrap-value` flag automatically fo
 Building Connectors Manually
 ==========================
 
-If you wish to have more control over what the Connector prints, or what data is available via the API server, then you can build a Connector manually.
+If you wish to have more control over what the Connector prints then you can build a Connector manually.
 
 You must define:
 1. The title of the Connector (which explains what the datapoint is).
