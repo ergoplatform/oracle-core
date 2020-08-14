@@ -40,11 +40,7 @@ fn get_nanoerg_usd_price() -> Result<u64> {
 }
 
 fn main() {
-    let connector = Connector::new_basic_connector(
-        "Erg-USD",
-        "Connector which fetches the number of nanoErgs per 1 USD.",
-        get_nanoerg_usd_price,
-    );
+    let connector = Connector::new_basic_connector("Erg-USD", get_nanoerg_usd_price);
 
     // Check if asked for bootstrap value
     connector.check_bootstrap();

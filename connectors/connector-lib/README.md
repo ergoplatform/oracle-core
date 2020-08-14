@@ -7,7 +7,6 @@ Building A Basic Connector
 ==========================
 In short, when building a basic Connector you only need to define three things:
 1. The title of the Connector (which explains what the datapoint is).
-2. A description of the Connector (which explains in greater detail how the data is sourced/processed)
 3. A function which fetches & processes the datapoint from an external service and returns it as a Result<u64>.
 
 Basic example for creating a Erg-USD Connector which submits a nanoErg per 1 USD datapoint to the Oracle Core:
@@ -33,7 +32,6 @@ fn get_datapoint() -> Result<u64> {
 fn main() {
     let connector = Connector::new_basic_connector(
         "ERG-USD",
-        "Connector which fetches the number of nanoErgs per 1 USD.",
         get_datapoint,
     );
     connector.run();
@@ -54,16 +52,14 @@ If you wish to have more control over what the Connector prints then you can bui
 
 You must define:
 1. The title of the Connector (which explains what the datapoint is).
-2. A description of the Connector (which explains in greater detail how the data is sourced/processed)
-3. A function which fetches & processes the datapoint from an external service and returns it as a Result<u64>.
-4. A function which prints information you deem important for your given connector.
+2. A function which fetches & processes the datapoint from an external service and returns it as a Result<u64>.
+3. A function which prints information you deem important for your given connector.
 
 Once you have defined all of the above data, simply call the `new()` method:
 
 ```rust
     let connector = Connector::new(
         title,
-        description,
         get_datapoint,
         my_print_info_function,
     );

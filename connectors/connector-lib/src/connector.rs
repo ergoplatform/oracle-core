@@ -9,7 +9,6 @@ type Datapoint = u64;
 #[derive(Clone)]
 pub struct Connector {
     pub title: String,
-    pub description: String,
     pub get_datapoint: fn() -> Result<Datapoint>,
     pub print_info: fn(&Connector, &OracleCore) -> Result<bool>,
 }
@@ -19,13 +18,11 @@ impl Connector {
     /// Create a new custom Connector
     pub fn new(
         title: &str,
-        description: &str,
         get_datapoint: fn() -> Result<u64>,
         print_info: fn(&Connector, &OracleCore) -> Result<bool>,
     ) -> Connector {
         Connector {
             title: title.to_string(),
-            description: description.to_string(),
             get_datapoint: get_datapoint,
             print_info: print_info,
         }
@@ -94,17 +91,8 @@ impl Connector {
 // Methods for setting up a default Basic Connector
 impl Connector {
     /// Create a new basic Connector with a number of predefined defaults
-    pub fn new_basic_connector(
-        title: &str,
-        description: &str,
-        get_datapoint: fn() -> Result<u64>,
-    ) -> Connector {
-        Connector::new(
-            title,
-            description,
-            get_datapoint,
-            Connector::basic_print_info,
-        )
+    pub fn new_basic_connector(title: &str, get_datapoint: fn() -> Result<u64>) -> Connector {
+        Connector::new(title, get_datapoint, Connector::basic_print_info)
     }
 
     // Default Basic Connector print info
