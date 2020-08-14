@@ -1,5 +1,6 @@
 use crate::oracle_core::{get_core_api_port, OracleCore};
 use anyhow::Result;
+use std::env;
 use std::thread;
 use std::time::Duration;
 
@@ -11,7 +12,6 @@ pub struct Connector {
     pub description: String,
     pub get_datapoint: fn() -> Result<Datapoint>,
     pub print_info: fn(&Connector, &OracleCore) -> Result<bool>,
-    pub oracle_core_port: String,
 }
 
 // Key Connector methods
@@ -23,20 +23,30 @@ impl Connector {
         get_datapoint: fn() -> Result<u64>,
         print_info: fn(&Connector, &OracleCore) -> Result<bool>,
     ) -> Connector {
-        let core_port =
-            get_core_api_port().expect("Failed to read port from local `oracle-config.yaml`.");
         Connector {
             title: title.to_string(),
             description: description.to_string(),
             get_datapoint: get_datapoint,
             print_info: print_info,
-            oracle_core_port: core_port,
         }
     }
 
     // Run the Connector using a local Oracle Core
     pub fn run(&self) {
-        let oc = OracleCore::new("0.0.0.0", &self.oracle_core_port);
+        // Check if asked for bootstrap value from connector
+        let args: Vec<String> = env::args().collect();
+        if args.len() > 1 && &args[1] == "--bootstrap-value" {
+            if let Ok(price) = (self.get_datapoint)() {
+                println!("Bootstrap Erg-USD Value: {}", price);
+                std::process::exit(0);
+            } else {
+                panic!("Failed to fetch Erg/USD from CoinGecko");
+            }
+        }
+
+        let core_port =
+            get_core_api_port().expect("Failed to read port from local `oracle-config.yaml`.");
+        let oc = OracleCore::new("0.0.0.0", &core_port);
 
         // Main Loop
         loop {
