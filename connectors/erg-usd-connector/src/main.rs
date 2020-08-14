@@ -4,6 +4,8 @@
 /// server on the core.
 /// Note: The value that is posted on-chain is the number
 /// of nanoErgs per 1 USD, not the rate per nanoErg.
+mod api;
+
 use anyhow::{anyhow, Result};
 use connector_lib::{get_core_api_port, OracleCore};
 use json;
@@ -26,7 +28,15 @@ static CG_RATE_URL: &str =
 fn main() {
     // Initialization
     let core_port = get_core_api_port().expect("Failed to read local `oracle-config.yaml`.");
-    let oc = OracleCore::new("0.0.0.0", &core_port);
+    let oc = OracleCore::new("0.0.0.0", &core_port.clone());
+
+    // Start Connector GET API Server
+    thread::Builder::new()
+        .name("Erg-USD Connector GET API Thread".to_string())
+        .spawn(move || {
+            api::start_get_api(&core_port);
+        })
+        .ok();
 
     // Main Loop
     loop {
