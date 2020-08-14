@@ -4,12 +4,20 @@
 /// server on the core.
 /// Note: The value that is posted on-chain is the number
 /// of nanoErgs per 1 USD, not the rate per nanoErg.
+#[macro_use]
+extern crate json;
+
+mod api;
+
 use anyhow::{anyhow, Result};
+<<<<<<< HEAD
 use connector_lib::{get_core_api_port, OracleCore};
 use json;
 use std::env;
+=======
+use connector_lib::Connector;
+>>>>>>> connectors-upgrade
 use std::thread;
-use std::time::Duration;
 
 static CONNECTOR_ASCII: &str = r#"
  ______ _____   _____        _    _  _____ _____     _____                            _
@@ -24,6 +32,7 @@ static CONNECTOR_ASCII: &str = r#"
 static CG_RATE_URL: &str =
     "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
 
+<<<<<<< HEAD
 fn main() {
     // Check if asked for bootstrap value from connector
     let args: Vec<String> = env::args().collect();
@@ -100,15 +109,38 @@ fn print_info(oc: &OracleCore) -> Result<bool> {
     Ok(true)
 }
 
+=======
+>>>>>>> connectors-upgrade
 /// Acquires the nanoErg/USD price from CoinGecko
 fn get_nanoerg_usd_price() -> Result<u64> {
     let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
     let price_json = json::parse(&resp.text()?)?;
-    let price = price_json["ergo"]["usd"].as_f64();
-    if let Some(p) = price {
+    if let Some(p) = price_json["ergo"]["usd"].as_f64() {
         let nanoerg_price = (1.0 / p as f64) * 1000000000.0;
         return Ok(nanoerg_price as u64);
     } else {
         Err(anyhow!("Failed to parse price."))
     }
+}
+
+fn main() {
+    let connector = Connector::new_basic_connector(
+        "Erg-USD",
+        "Connector which fetches the number of nanoErgs per 1 USD.",
+        get_nanoerg_usd_price,
+    );
+
+    // Check if asked for bootstrap value
+    connector.check_bootstrap();
+
+    // Start Oracle Core GET API Server
+    thread::Builder::new()
+        .name("Erg-USD Connector API Thread".to_string())
+        .spawn(move || {
+            api::start_get_api();
+        })
+        .ok();
+
+    // Start the Connector
+    connector.run();
 }

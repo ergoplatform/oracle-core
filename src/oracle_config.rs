@@ -9,7 +9,7 @@ pub struct PoolParameters {
     pub live_epoch_length: BlockDuration,
     pub epoch_preparation_length: BlockDuration,
     pub buffer_length: BlockDuration,
-    pub margin_of_error: u64,
+    pub outlier_range: u64,
     pub base_fee: u64,
 }
 
@@ -30,9 +30,9 @@ impl PoolParameters {
         let buf = config["buffer_length"]
             .as_i64()
             .expect("No buffer_length specified in config file.");
-        let moe = config["margin_of_error"]
+        let outlier_range = config["outlier_range"]
             .as_i64()
-            .expect("No margin_of_error specified in config file.");
+            .expect("No outlier_range specified in config file.");
         let price = config["oracle_payout_price"]
             .as_i64()
             .expect("No oracle_payout_price specified in config file.");
@@ -48,7 +48,7 @@ impl PoolParameters {
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,
             buffer_length: buf as u64,
-            margin_of_error: moe as u64,
+            outlier_range: outlier_range as u64,
             base_fee: base_fee as u64,
         }
     }
@@ -115,7 +115,7 @@ mod tests {
             live_epoch_length: 20
             epoch_preparation_length: 10
             buffer_length: 4
-            margin_of_error: 0.01
+            outlier_range: 0.01
             oracle_payout_price: 1000000
             base_fee: 1000000
             ";
@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(pool_params.epoch_preparation_length, 10);
         assert_eq!(pool_params.buffer_length, 4);
         assert_eq!(pool_params.number_of_oracles, 4);
-        assert_eq!(pool_params.margin_of_error, 10);
+        assert_eq!(pool_params.outlier_range, 10);
         assert_eq!(pool_params.oracle_payout_price, 1000000);
         assert_eq!(pool_params.base_fee, 1000000);
     }
