@@ -2,8 +2,10 @@ use json;
 use sincere;
 use std::str::from_utf8;
 
+use connector_lib::{get_core_api_port, OracleCore};
+
 /// Starts the ERG-USD GET API server which can be made publicly available without security risk
-pub fn start_get_api(core_port: &str) {
+pub fn start_get_api() {
     let mut app = sincere::App::new();
 
     // Basic welcome endpoint
@@ -20,6 +22,7 @@ pub fn start_get_api(core_port: &str) {
 
     // Start the API server with the port designated in the oracle config
     // plus two.
+    let core_port = get_core_api_port().unwrap();
     let port = ((core_port
         .parse::<u16>()
         .expect("Failed to parse oracle core port from config to u16."))

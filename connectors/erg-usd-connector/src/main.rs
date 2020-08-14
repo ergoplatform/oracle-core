@@ -10,6 +10,7 @@ use anyhow::{anyhow, Result};
 use connector_lib::Connector;
 use connector_lib::{get_core_api_port, OracleCore};
 use json;
+use std::thread;
 
 static CONNECTOR_ASCII: &str = r#"
  ______ _____   _____        _    _  _____ _____     _____                            _
@@ -38,9 +39,22 @@ fn get_nanoerg_usd_price() -> Result<u64> {
 
 fn main() {
     let connector = Connector::new_basic_connector(
-        "ERG-USD",
+        "Erg-USD",
         "Connector which fetches the number of nanoErgs per 1 USD.",
         get_nanoerg_usd_price,
     );
+
+    // Check if asked for bootstrap value
+    connector.check_bootstrap();
+
+    // Start Oracle Core GET API Server
+    thread::Builder::new()
+        .name("Erg-USD Connector API Thread".to_string())
+        .spawn(move || {
+            api::start_get_api();
+        })
+        .ok();
+
+    // Start the Connector
     connector.run();
 }

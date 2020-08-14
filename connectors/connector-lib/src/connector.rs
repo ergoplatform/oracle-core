@@ -31,9 +31,8 @@ impl Connector {
         }
     }
 
-    // Run the Connector using a local Oracle Core
-    pub fn run(&self) {
-        // Check if asked for bootstrap value from connector
+    /// Checks if asked for bootstrap value via CLI flag
+    pub fn check_bootstrap(&self) {
         let args: Vec<String> = env::args().collect();
         if args.len() > 1 && &args[1] == "--bootstrap-value" {
             if let Ok(price) = (self.get_datapoint)() {
@@ -43,6 +42,11 @@ impl Connector {
                 panic!("Failed to fetch Erg/USD from CoinGecko");
             }
         }
+    }
+
+    /// Run the Connector using a local Oracle Core
+    pub fn run(&self) {
+        self.check_bootstrap();
 
         let core_port =
             get_core_api_port().expect("Failed to read port from local `oracle-config.yaml`.");
