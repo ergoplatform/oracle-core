@@ -32,7 +32,7 @@ Returns json with information about the oracle pool:
 - Oracle Payout Price
 - Live Epoch Length
 - Epoch Preparation Length
-- Margin Of Error
+- Outlier Range
 - Oracle Pool NFT ID
 - Oracle Pool Participant Token ID
 
@@ -46,7 +46,7 @@ Example Response:
     "oracle_payout_price": 2000000,
     "live_epoch_length": 5,
     "epoch_prep_length": 5,
-    "margin_of_error": 0.01,
+    "outlier_range": 0.01,
     "number_of_oracles": 4,
     "oracle_pool_nft_id": "b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc",
     "oracle_pool_participant_token_id": "12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed"

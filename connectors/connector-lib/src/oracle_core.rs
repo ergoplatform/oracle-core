@@ -41,7 +41,7 @@ pub struct PoolInfo {
     pub oracle_payout_price: u64,
     pub live_epoch_length: u64,
     pub epoch_prep_length: u64,
-    pub margin_of_error: f64,
+    pub outlier_range: f64,
     pub number_of_oracles: u64,
     pub oracle_pool_nft_id: String,
     pub oracle_pool_participant_token_id: String,

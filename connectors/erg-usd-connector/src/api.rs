@@ -66,7 +66,6 @@ pub fn get_usd_price(datapoint: u64) -> u64 {
 
 /// Prepares the json
 pub fn prepare_frontend_data_json(oc: &OracleCore) -> Result<String> {
-    let oinfo = oc.oracle_info()?;
     let pinfo = oc.pool_info()?;
     let pstatus = oc.pool_status()?;
     let block_height = oc.current_block_height()?;
@@ -103,7 +102,7 @@ pub fn prepare_frontend_data_json(oc: &OracleCore) -> Result<String> {
         oracle_payout_price: pinfo.oracle_payout_price,
         live_epoch_length: pinfo.live_epoch_length,
         epoch_prep_length: pinfo.epoch_prep_length,
-        margin_of_error: pinfo.margin_of_error,
+        outlier_range: pinfo.outlier_range,
         number_of_oracles: pinfo.number_of_oracles,
         oracle_pool_nft_id: pinfo.oracle_pool_nft_id,
         oracle_pool_participant_token_id: pinfo.oracle_pool_participant_token_id,
