@@ -61,24 +61,65 @@ pub fn start_get_api() {
 }
 
 /// Get the Erg/USD price from the nanoErgs per 1 USD price
-// pub fn get_usd_price() -> u64 {}
+pub fn get_usd_price(datapoint: u64) -> u64 {
+    ((1.0 / 100000000.0) * datapoint as f64) as u64
+}
 
 /// Prepares the json
 pub fn prepare_frontend_data_json(oc: &OracleCore) -> Result<String> {
-    let oinfo = oc.oracle_info();
-    let pinfo = oc.pool_info();
-    let pstatus = oc.pool_status();
-    let block_height = oc.current_block_height();
-    Ok(".".to_string())
+    let oinfo = oc.oracle_info()?;
+    let pinfo = oc.pool_info()?;
+    let pstatus = oc.pool_status()?;
+    let block_height = oc.current_block_height()?;
+
+    // Posting Schedule
+    let posting_sched_blocks = pinfo.live_epoch_length + pinfo.epoch_prep_length;
+    let posting_sched_minutes = posting_sched_blocks * 2;
+
+    // How Long Until Epoch Ends
+    let mut epoch_ends_in_minutes = 0;
+    if pstatus.epoch_ends > block_height {
+        epoch_ends_in_minutes = (pstatus.epoch_ends - block_height) * 2;
+    }
+
+    let data_json = object! {
+        // Tile information
+        latest_price: get_usd_price(pstatus.latest_datapoint),
+        posting_schedule_minutes: posting_sched_minutes,
+        epoch_ends_in_minutes: epoch_ends_in_minutes,
+        current_pool_stage: pstatus.current_pool_stage,
+        pool_funded_percentage: pstatus.funded_percentage,
+
+        // Summary Table
+        number_of_oracles: pinfo.number_of_oracles,
+        posting_schedule_blocks: posting_sched_blocks,
+
+
+        // Technical
+        latest_datapoint: pstatus.latest_datapoint,
+        live_epoch_address : pinfo.live_epoch_address,
+        epoch_prep_address: pinfo.epoch_prep_address,
+        pool_deposits_address: pinfo.pool_deposits_address,
+        datapoint_address: pinfo.datapoint_address,
+        oracle_payout_price: pinfo.oracle_payout_price,
+        live_epoch_length: pinfo.live_epoch_length,
+        epoch_prep_length: pinfo.epoch_prep_length,
+        margin_of_error: pinfo.margin_of_error,
+        number_of_oracles: pinfo.number_of_oracles,
+        oracle_pool_nft_id: pinfo.oracle_pool_nft_id,
+        oracle_pool_participant_token_id: pinfo.oracle_pool_participant_token_id,
+        epoch_end_height: pstatus.epoch_ends,
+    };
+
+    Ok(data_json.dump())
 }
 
-//1. Latest Price
-//[Show the Erg/USD price]
-//2. Posting Schedule
-//[Posting schedule in minutes]
-//3. Epoch Ends
-//[Number Of Minutes]
-//4. Current Pool Stage
-//[Pool Stage]
-//5. Pool Funded Percentage
-//[Pecentage]
+// - Latest Pool Datapoint [Datapoint in nanoErgs per 1 USD]
+// - Epoch ID
+// - Contract addresses
+// - Oracle Payout Price
+// - Live Epoch Length
+// - Epoch Prep Length
+// - Margin Of Error
+// - Oracle Pool NFT ID
+// - Oracle Pool Participant Token Id

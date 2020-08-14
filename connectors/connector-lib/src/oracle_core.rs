@@ -67,6 +67,9 @@ pub struct OracleStatus {
 pub struct PoolStatus {
     pub funded_percentage: u64,
     pub current_pool_stage: String,
+    pub latest_datapoint: u64,
+    pub current_epoch_id: String,
+    pub epoch_ends: u64,
 }
 
 impl OracleCore {
