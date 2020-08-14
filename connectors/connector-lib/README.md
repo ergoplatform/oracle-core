@@ -10,7 +10,7 @@ In short, when building a basic Connector you only need to define three things:
 2. A description of the Connector (which explains in greater detail how the data is sourced/processed)
 3. A function which fetches & processes the datapoint from an external service and returns it as a Result<u64>.
 
-Basic example for fetching nanoErg per 1 USD:
+Basic example for creating a Erg-USD Connector which submits a nanoErg per 1 USD value to the Oracle Core:
 
 ```rust
 use anyhow::{anyhow, Result};
@@ -46,10 +46,10 @@ The Connector runs a main loop which checks the state of the protocol from the O
 The `Connector` struct also provides a `--bootstrap-value` flag automatically for you to use while bootstrapping your Oracle Pool.
 
 
-Building Custom Connectors
+Building Connectors Manually
 ==========================
 
-If you wish to have more control over what the Connector prints, or what data is available via the API server, then you can create a custom Connector.
+If you wish to have more control over what the Connector prints, or what data is available via the API server, then you can build a Connector manually.
 
 You must define:
 1. The title of the Connector (which explains what the datapoint is).
@@ -71,12 +71,9 @@ Once you have defined all of the above data, simply call the `new()` method:
 
 This will then initiate and run the main loop of the Connector, and everything will run automatically for you.
 
-Custom Connectors provide more freedom for how you display data externally from your Connector.
-
-
 Advanced Usage
 =================
-Past custom Connectors, you can also directly interact with the locally running Oracle Core if you have an advanced use case.
+You also have the ability to directly interact with the locally running Oracle Core if you have an advanced use case.
 
 In short, simply create a `OracleCore` struct and use the methods on it in order to acquire the state of the Oracle/Pool, block height, and to submit datapoints.
 ```rust
@@ -89,3 +86,5 @@ In short, simply create a `OracleCore` struct and use the methods on it in order
     oc.current_block_height();
     oc.submit_datapoint(259900000);
 ```
+
+This can be useful if for example you are expanding your Connector to include a publicly exposed API server.
