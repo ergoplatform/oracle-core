@@ -21,11 +21,13 @@ impl Connector {
         get_datapoint: fn() -> Result<u64>,
         print_info: fn(&Connector, &OracleCore) -> Result<bool>,
     ) -> Connector {
-        Connector {
+        let connector = Connector {
             title: title.to_string(),
             get_datapoint: get_datapoint,
             print_info: print_info,
-        }
+        };
+        connector.check_bootstrap();
+        connector
     }
 
     /// Checks if asked for bootstrap value via CLI flag
@@ -43,8 +45,6 @@ impl Connector {
 
     /// Run the Connector using a local Oracle Core
     pub fn run(&self) {
-        self.check_bootstrap();
-
         let core_port =
             get_core_api_port().expect("Failed to read port from local `oracle-config.yaml`.");
         let oc = OracleCore::new("0.0.0.0", &core_port);
