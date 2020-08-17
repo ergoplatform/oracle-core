@@ -8,6 +8,7 @@ mod api;
 use anyhow::Result;
 use api::start_get_api;
 use connector_lib::{get_core_api_port, Connector, Datapoint, OracleCore};
+use std::thread;
 
 type Price = f64;
 
@@ -37,6 +38,33 @@ impl FrontendConnector {
         };
         start_get_api(frontend_connector.clone());
         frontend_connector
+    }
+
+    /// Create a new FrontendConnector with basic predefined printing
+    pub fn new_basic_connector(
+        title: &str,
+        get_datapoint: fn() -> Result<u64>,
+        generate_current_price: fn(Datapoint) -> Price,
+    ) -> FrontendConnector {
+        let connector = Connector::new_basic_connector(title, get_datapoint);
+        FrontendConnector {
+            connector: connector,
+            generate_current_price: generate_current_price,
+        }
+    }
+
+    /// Run the `FrontendConnector` using a local Oracle Core + start the GET
+    /// API Server
+    pub fn run(&self) {
+        let frontend_connector = self.clone();
+        // Starts the FrontendConnector GET API Server
+        thread::Builder::new()
+            .name("Frontend Connector API Thread".to_string())
+            .spawn(move || {
+                start_get_api(frontend_connector);
+            })
+            .ok();
+        self.connector.run()
     }
 
     /// Generates the json for the frontend data

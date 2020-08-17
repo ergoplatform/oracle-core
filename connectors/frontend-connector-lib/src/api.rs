@@ -9,7 +9,7 @@ pub fn start_get_api(frontend_connector: FrontendConnector) {
     // Basic welcome endpoint
     app.get("/", move |context| {
         let response_text = format!(
-            "This is an Oracle Core Connector. Please use one of the endpoints to interact with it.\n"
+            "This is an Oracle Core FrontendConnector. Please use the `/frontendData` endpoint to fetch relevant data.\n"
         );
         context
             .response
