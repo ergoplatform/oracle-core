@@ -42,7 +42,7 @@ pub struct PoolInfo {
     pub live_epoch_length: u64,
     pub epoch_prep_length: u64,
     pub outlier_range: f64,
-    pub number_of_oracles: u64,
+    pub minimum_pool_box_value: u64,
     pub oracle_pool_nft_id: String,
     pub oracle_pool_participant_token_id: String,
 }

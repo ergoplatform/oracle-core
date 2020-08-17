@@ -34,8 +34,8 @@ pool_deposit_contract_address: "zLSQDVBaGXZTutz9snE4UBbRzmx7Juaj4R2KCsSVKhQqaupC
 base_fee: 1000000
 
 #### Oracle Pool Parameters ####
-# Number of oracles in pool
-number_of_oracles: 4
+# The minimum amount of Ergs required for the oracle pool to be considered funded.
+minimum_pool_box_value: 100000000
 # The payout in Ergs that a single oracle earns on successful datapoint posting
 oracle_payout_price: 2000000
 # Length of the oracle pool's live epoch in blocks

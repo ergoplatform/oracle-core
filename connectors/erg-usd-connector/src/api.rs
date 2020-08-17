@@ -89,11 +89,11 @@ pub fn prepare_frontend_data_json(oc: &OracleCore) -> Result<String> {
         pool_funded_percentage: pstatus.funded_percentage,
 
         // Summary Table
-        number_of_oracles: pinfo.number_of_oracles,
         posting_schedule_blocks: posting_sched_blocks,
 
 
         // Technical
+        minimum_pool_box_value: pinfo.minimum_pool_box_value,
         latest_datapoint: pstatus.latest_datapoint,
         live_epoch_address : pinfo.live_epoch_address,
         epoch_prep_address: pinfo.epoch_prep_address,

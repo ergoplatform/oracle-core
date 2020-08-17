@@ -4,7 +4,7 @@ use reqwest::header::HeaderValue;
 use yaml_rust::{Yaml, YamlLoader};
 
 pub struct PoolParameters {
-    pub number_of_oracles: u64,
+    pub minimum_pool_box_value: u64,
     pub oracle_payout_price: NanoErg,
     pub live_epoch_length: BlockDuration,
     pub epoch_preparation_length: BlockDuration,
@@ -36,14 +36,14 @@ impl PoolParameters {
         let price = config["oracle_payout_price"]
             .as_i64()
             .expect("No oracle_payout_price specified in config file.");
-        let num = config["number_of_oracles"]
+        let num = config["minimum_pool_box_value"]
             .as_i64()
-            .expect("No number_of_oracles specified in config file.");
+            .expect("No minimum_pool_box_value specified in config file.");
         let base_fee = config["base_fee"]
             .as_i64()
             .expect("No base_fee specified in config file.");
         PoolParameters {
-            number_of_oracles: num as u64,
+            minimum_pool_box_value: num as u64,
             oracle_payout_price: price as u64,
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,
@@ -51,12 +51,6 @@ impl PoolParameters {
             outlier_range: outlier_range as u64,
             base_fee: base_fee as u64,
         }
-    }
-
-    /// Calculates the maximum total payout that the oracle pool will require
-    /// in order to payout all of the oracles + the collector.
-    pub fn max_pool_payout(&self) -> NanoErg {
-        self.oracle_payout_price * (self.number_of_oracles + 1)
     }
 }
 
@@ -111,7 +105,7 @@ mod tests {
     #[test]
     fn pool_parameter_parsing_works() {
         let yaml_string = "
-            number_of_oracles: 4
+            minimum_pool_box_value: 10000000
             live_epoch_length: 20
             epoch_preparation_length: 10
             buffer_length: 4
@@ -124,7 +118,7 @@ mod tests {
         assert_eq!(pool_params.live_epoch_length, 20);
         assert_eq!(pool_params.epoch_preparation_length, 10);
         assert_eq!(pool_params.buffer_length, 4);
-        assert_eq!(pool_params.number_of_oracles, 4);
+        assert_eq!(pool_params.minimum_pool_box_value, 10000000);
         assert_eq!(pool_params.outlier_range, 10);
         assert_eq!(pool_params.oracle_payout_price, 1000000);
         assert_eq!(pool_params.base_fee, 1000000);

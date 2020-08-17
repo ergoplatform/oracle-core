@@ -125,7 +125,7 @@ pub fn start_get_api() {
             live_epoch_length: parameters.live_epoch_length,
             epoch_prep_length: parameters.epoch_preparation_length,
             outlier_range: parameters.outlier_range,
-            number_of_oracles: parameters.number_of_oracles,
+            minimum_pool_box_value: parameters.minimum_pool_box_value,
             oracle_pool_nft_id: op.oracle_pool_nft,
             oracle_pool_participant_token_id: op.oracle_pool_participant_token,
 
@@ -207,15 +207,13 @@ pub fn start_get_api() {
         let mut epoch_ends = 0;
         if let Ok(l) = op.get_live_epoch_state() {
             // The percentage that the pool is funded
-            funded_percentage =
-                (l.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100;
+            funded_percentage = (l.funds / parameters.minimum_pool_box_value) * 100;
             latest_datapoint = l.latest_pool_datapoint;
             current_epoch_id = l.epoch_id;
             epoch_ends = l.epoch_ends;
         } else if let Ok(ep) = op.get_preparation_state() {
             // The percentage that the pool is funded
-            funded_percentage =
-                (ep.funds / (parameters.number_of_oracles * parameters.oracle_payout_price)) * 100;
+            funded_percentage = (ep.funds / parameters.minimum_pool_box_value) * 100;
             latest_datapoint = ep.latest_pool_datapoint;
             current_epoch_id = "Preparing Epoch Currently".to_string();
             epoch_ends = ep.next_epoch_ends;

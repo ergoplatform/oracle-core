@@ -93,7 +93,7 @@ impl FrontendConnector {
             current_pool_stage: pstatus.current_pool_stage,
             pool_funded_percentage: pstatus.funded_percentage,
 
-            number_of_oracles: pinfo.number_of_oracles,
+            minimum_pool_box_value: pinfo.minimum_pool_box_value,
             posting_schedule_blocks: posting_sched_blocks,
 
 
