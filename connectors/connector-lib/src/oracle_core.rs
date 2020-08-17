@@ -190,7 +190,7 @@ impl OracleCore {
     }
 }
 
-/// Reads the local `oracle_config.yaml` file
+/// Reads the local `oracle-config.yaml` file
 fn get_config_yaml_string() -> Result<String> {
     std::fs::read_to_string("oracle-config.yaml")
         .map_err(|_| ConnectorError::FailedOpeningOracleConfigFile)
