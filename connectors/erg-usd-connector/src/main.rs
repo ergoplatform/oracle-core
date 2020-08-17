@@ -26,6 +26,11 @@ static CONNECTOR_ASCII: &str = r#"
 static CG_RATE_URL: &str =
     "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
 
+/// Get the Erg/USD price from the nanoErgs per 1 USD datapoint price
+pub fn generate_current_price(datapoint: u64) -> f64 {
+    (1.0 / datapoint as f64) * 1000000000.0
+}
+
 /// Acquires the price of Ergs in USD from CoinGecko and convert it
 /// into nanoErgs per 1 USD.
 fn get_nanoerg_usd_price() -> Result<u64> {
