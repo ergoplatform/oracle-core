@@ -1,42 +1,38 @@
 /// This is a small library which wraps the `connector-lib` library for
 /// Connectors which wish to plug into the Ergo Explorer Oracle Pool Frontend.
-use connector_lib::Connector;
+mod api;
 
-/// The data which the Oracle Pool Frontend uses
-#[derive(Clone)]
-pub struct FrontEndData {
-    pub latest_price: u64,
-    pub posting_schedule_minutes: u64,
-    pub epoch_ends_in_minutes: u64,
-    pub current_pool_stage: String,
-    pub pool_funded_percentage: u64,
-    pub number_of_oracles: u64,
-    pub posting_schedule_blocks: u64,
-    pub latest_datapoint: u64,
-    pub live_epoch_address: String,
-    pub epoch_prep_address: String,
-    pub pool_deposits_address: String,
-    pub datapoint_address: String,
-    pub oracle_payout_price: u64,
-    pub live_epoch_length: u64,
-    pub epoch_prep_length: u64,
-    pub outlier_range: u64,
-    pub oracle_pool_nft_id: String,
-    pub oracle_pool_participant_token_id: String,
-    pub epoch_end_height: u64,
-}
+use anyhow::Result;
+use api::start_get_api;
+use connector_lib::{Connector, Datapoint, OracleCore};
+
+type Price = f64;
 
 /// A `Connector` which is also built to support the Oracle Pool Frontend
 #[derive(Clone)]
-pub struct FrontEndConnector {
+pub struct FrontendConnector {
+    /// The underlying `Connector`
     connector: Connector,
-    generate_frontend_data: fn(u64) -> FrontEndData,
+    /// The library user-defined function which performs the logic of going
+    /// from a `Datapoint` that is encoded as `u64` for on-chain use, to a
+    /// `Price` which is the human-readable `f64` value.
+    generate_current_price: fn(Datapoint) -> Price,
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+impl FrontendConnector {
+    /// Create a new FrontendConnector
+    pub fn new(
+        title: &str,
+        get_datapoint: fn() -> Result<u64>,
+        print_info: fn(&Connector, &OracleCore) -> Result<bool>,
+        generate_current_price: fn(Datapoint) -> Price,
+    ) -> FrontendConnector {
+        let connector = Connector::new(title, get_datapoint, print_info);
+        let frontend_connector = FrontendConnector {
+            connector: connector,
+            generate_current_price: generate_current_price,
+        };
+        start_get_api(frontend_connector.clone());
+        frontend_connector
     }
 }
