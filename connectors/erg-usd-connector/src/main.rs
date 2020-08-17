@@ -4,14 +4,8 @@
 /// server on the core.
 /// Note: The value that is posted on-chain is the number
 /// of nanoErgs per 1 USD, not the rate per nanoErg.
-#[macro_use]
-extern crate json;
-
-mod api;
-
 use anyhow::{anyhow, Result};
-use connector_lib::Connector;
-use std::thread;
+use frontend_connector_lib::FrontendConnector;
 
 static CONNECTOR_ASCII: &str = r#"
  ______ _____   _____        _    _  _____ _____     _____                            _
@@ -45,19 +39,13 @@ fn get_nanoerg_usd_price() -> Result<u64> {
 }
 
 fn main() {
-    let connector = Connector::new_basic_connector("Erg-USD", get_nanoerg_usd_price);
+    // Create the FrontendConnector
+    let connector = FrontendConnector::new_basic_connector(
+        "Erg-USD",
+        get_nanoerg_usd_price,
+        generate_current_price,
+    );
 
-    // Check if asked for bootstrap value
-    connector.check_bootstrap();
-
-    // Start Oracle Core GET API Server
-    thread::Builder::new()
-        .name("Erg-USD Connector API Thread".to_string())
-        .spawn(move || {
-            api::start_get_api();
-        })
-        .ok();
-
-    // Start the Connector
+    // Start the FrontendConnector
     connector.run();
 }
