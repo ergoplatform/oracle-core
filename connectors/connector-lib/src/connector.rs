@@ -4,7 +4,7 @@ use std::env;
 use std::thread;
 use std::time::Duration;
 
-type Datapoint = u64;
+pub type Datapoint = u64;
 
 #[derive(Clone)]
 pub struct Connector {

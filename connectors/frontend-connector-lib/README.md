@@ -12,19 +12,13 @@ How To Use
 To get started using this library you must create a `FrontEndConnector`. This is like your average `Connector` from `connector-lib`, however it also requires providing another function as input:
 
 ```rust
-generate_frontend_data(datapoint: u64) -> FrontEndData
+generate_current_price: fn(Datapoint) -> Price
 ```
 
-This is a function which the developer must write which creates a `FrontEndData` struct. This is a struct defined as:
+This is a function which performs the logic of going from a `Datapoint` that is encoded as `u64` for on-chain use, to a `Price` which is the human-readable `f64` value. This is needed by the frontend to display to end-users who will much prefer to have `$0.43` rather than `2282891327` for example.
 
-```rust
-Frontenddata definition here
-```
 
-Customizing this function provides the developer freedom in how their data is transformed before it is displayed in the Oracle Pool Frontend.
-
-The following is an example of creating a `FrontEndConnector`:
-
+The following is an example of creating and using a `FrontEndConnector`:
 
 ```rust
 ...
