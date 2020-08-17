@@ -103,7 +103,6 @@ pub fn prepare_frontend_data_json(oc: &OracleCore) -> Result<String> {
         live_epoch_length: pinfo.live_epoch_length,
         epoch_prep_length: pinfo.epoch_prep_length,
         outlier_range: pinfo.outlier_range,
-        number_of_oracles: pinfo.number_of_oracles,
         oracle_pool_nft_id: pinfo.oracle_pool_nft_id,
         oracle_pool_participant_token_id: pinfo.oracle_pool_participant_token_id,
         epoch_end_height: pstatus.epoch_ends,
