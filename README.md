@@ -71,7 +71,7 @@ It's possible to setup an oracle cluster using docker compose. We do not recomme
 docker-compose up -d
 ```
 
-3. It will take a while until our Ergo `node` sync the blockchain. After it is done, we need to restore our wallet using the API key defined in the first step. As you can see, we need to define a wallet password as well.
+3. While our Ergo `node` syncs the blockchain we can restore our wallet using the API key defined in the first step. As you can see, we need to define a wallet password as well.
 
 ```
 $ curl -XPOST -H "api_key: hello" \
@@ -93,15 +93,9 @@ $ curl -XPOST -H "api_key: hello" \
 "OK"
 ```
 
-5. Verify your wallet is on the tip and has some balance in it.
+5. The node will sync over the next couple of hours or so which provides us with a good time frame to setup the oracle core itself and get the required UTXO-set scans registered.
 
-```
-$ curl -XGET -H "api_key: hello" \
-       -H "accept: application/json" \
-       -H  "Content-Type: application/json" \
-       http://localhost:9053/wallet/balances
-```
-
+...
 
 # Writing A New Connector
 If you are looking to create a new Oracle Pool for a new datapoint, you need to write a new Connector. This process has been greatly simplified thanks to [`Connector Lib`](connectors/connector-lib).
