@@ -2,6 +2,7 @@
 
 This is a small framework for creating `Connector`s for an Oracle Pool. These connectors act as a middleware which interface between the outside world and the Oracle Core.
 
+Every `Connector` created using this crate will automatically have a `--bootstrap-value` CLI flag available for use when bootstrapping your Oracle Pool.
 
 Building A Basic Connector
 ==========================
