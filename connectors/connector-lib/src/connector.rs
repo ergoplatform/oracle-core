@@ -1,5 +1,6 @@
 use crate::oracle_core::{get_core_api_port, OracleCore};
 use anyhow::Result;
+use sigma_tree::ast::Constant;
 use std::env;
 use std::thread;
 use std::time::Duration;
@@ -35,7 +36,10 @@ impl Connector {
         let args: Vec<String> = env::args().collect();
         if args.len() > 1 && &args[1] == "--bootstrap-value" {
             if let Ok(price) = (self.get_datapoint)() {
-                println!("Bootstrap {} Value: {}", self.title, price);
+                // Convert the price into a sigma `Constant`
+                let constant: Constant = (price as i64).into();
+
+                println!("Bootstrap {} Value: {}", self.title, constant.base16_str());
                 std::process::exit(0);
             } else {
                 panic!("Failed to fetch Erg/USD from CoinGecko");
