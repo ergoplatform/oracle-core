@@ -120,7 +120,7 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     let body = json::stringify(tx_request_json.clone());
     let res = send_post_req(endpoint, body);
 
-    // println!("{:?}", tx_request_json.dump());
+    info!("{:?}", tx_request_json.dump());
 
     let res_json = parse_response_to_json(res)?;
     let error_details = res_json["detail"].to_string().clone();
