@@ -1,0 +1,12 @@
+*.class
+*.jar
+*.pdf
+*.aux
+*.bbl
+*.log
+*.out
+*.gz
+*.aux
+.idea
+**/.idea
+**/target
