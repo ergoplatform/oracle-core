@@ -66,13 +66,17 @@ Output:
 
 In order to bootstrap the pool we need a recent datapoint close to the value that will be committed by oracles (to ensure that they lie within 50%).
 The data-point is a long value and must be serialized properly for storing in the register. 
-The oracle-core (the off-chain component of the oracle-pool) will be used for obtaining this datapoint in a serialized manner, 
-though this can be done in other way as well. Details of the encoding are available in the [ErgoTree specification (Section 5.2)](https://ergoplatform.org/docs/ErgoTree.pdf).
+Details of the serialization are available in the [ErgoTree specification (Section 5.2)](https://ergoplatform.org/docs/ErgoTree.pdf).
 
-Follow [the steps to compile the oracle core](https://github.com/ergoplatform/oracle-core) and then issue the following command: 
+Follow [the steps to compile the oracle core](https://github.com/ergoplatform/oracle-core).
+Every oracle pool needs to select it's own oracle core connector. This is the piece of software which fetches your oracle pool's datapoint from the outside world. 
+You can find a list of connectors [in this folder](../connectors).
 
-    ./erg-usd-connector --bootstrap-value
- 
+Once you have compiled your selected connector, you can now generate a recent datapoint which will be used for bootstrapping your pool. 
+The `--bootstrap-value` command can be used with any connector to do so, as such:
+
+    `./erg-usd-connector --bootstrap-value` 
+
 This will print out some value such as `0502`. Copy that value and invoke the CLI as:
 
     java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
