@@ -50,7 +50,7 @@ sh run-oracle.sh
 UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 ```
 10. Press enter to confirm that the scans have been registered. Your oracle core is now properly set up and waiting for the UTXO-set scans to be triggered in order to read the state of the oracle pool on-chain to then perform actions/txs.
-11. Rescan the blockchain history by deleting `.ergo/wallet/registry` in your Ergo Node folder.
+11. Rescan the blockchain history by either using the `/wallet/rescan` GET endpoint of your node, or by deleting `.ergo/wallet/registry` in your Ergo Node folder. Either option triggers a rescan.
 12. Once the node has finished rescanning, the oracle core & adapter will automatically issue transactions and move the protocol forward.
 13. Congrats, you can now detach from the screen instance if you wish via `Ctrl+a d`. (And reattach via `screen -r`)
 
