@@ -42,15 +42,15 @@ pool_deposit_contract_address: "zLSQDVBaEyMzPngLk2R8agtkBKqRQMhGxrQqvUzAtxrH9Jbn
 
 #### Oracle Pool Parameters ####
 # The minimum amount of Ergs required for the oracle pool to be considered funded.
-minimum_pool_box_value: 44000000
+minimum_pool_box_value: 39000000
 # The payout in Ergs that a single oracle earns on successful datapoint posting
-oracle_payout_price: 2000000
+oracle_payout_price: 2500000
 # Length of the oracle pool's live epoch in blocks
 live_epoch_length: 20
 # Length of the oracle pool's epoch preparation stage in blocks
 epoch_preparation_length: 10
 # Buffer length in blocks that is the upper limit for an oracle pool to create a new epoch
-buffer_length: 4
+buffer_length: 5
 # The percentage range that an oracle can deviate from the previous latest datapoint. Range: 1 to 100
 outlier_range: 50
 
