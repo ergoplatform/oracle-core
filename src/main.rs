@@ -190,9 +190,9 @@ fn print_info(
 
     info_string.push_str("========================================================\n");
     info_string.push_str(&format!("Current Blockheight: {}\n", height));
-    info_string.push_str(&format!("Current Tx Base Fee: {}", parameters.base_fee));
+    info_string.push_str(&format!("Current Tx Base Fee: {}\n", parameters.base_fee));
     info_string.push_str(&format!(
-        "Pool Posting Schedule: {} Blocks",
+        "Pool Posting Schedule: {} Blocks\n",
         parameters.live_epoch_length + parameters.epoch_preparation_length
     ));
     info_string.push_str(&format!("Oracle Pool NFT ID: {}", op.oracle_pool_nft));
