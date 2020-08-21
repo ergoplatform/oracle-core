@@ -18,11 +18,11 @@ package object oraclepool {
 
   implicit def StringToBetterString(string: String): BetterString = new BetterString(string)
 
-  val oracleReward = 2500000L // NanoErgs
-  val minBoxValue = 1500000L // NanoErgs
-  val errorMargin = 50 // percent
-  val numOracles = 14
-  val epochPeriod = 30 // blocks
-  val livePeriod = 20 // blocks
-  val buffer = 5 // blocks
+  lazy val oracleReward = 2500000L // NanoErgs
+  lazy val minBoxValue = 1500000L // NanoErgs
+  lazy val errorMargin = 50 // percent
+  lazy val numOracles = 14
+  lazy val epochPeriod = 30 // blocks
+  lazy val livePeriod = 20 // blocks
+  lazy val buffer = 5 // blocks
 }

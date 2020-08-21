@@ -51,11 +51,11 @@ object ErgoAPI {
          |      "decimals": $decimals
          |    }
          |  ],
-         |  "fee": $defaultFee,
-         |  "inputsRaw": [],
-         |  "dataInputsRaw": []
+         |  "fee": $defaultFee
          |}
          |""".stripMargin
+
+    println(jsonRaw)
     query("wallet/transaction/send", isAuth = true, PostJsonRaw, Nil, Some(jsonRaw))
   }
 
@@ -86,7 +86,6 @@ object ErgoAPI {
          |}
          |""".stripMargin
 
-    println("send request")
     println(jsonRaw)
     query("wallet/transaction/send", isAuth = true, PostJsonRaw, Nil, Some(jsonRaw))
   }

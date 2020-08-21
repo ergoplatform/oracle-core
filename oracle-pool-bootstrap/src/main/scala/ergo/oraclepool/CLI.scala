@@ -6,32 +6,38 @@ import org.bouncycastle.crypto.digests.Blake2bDigest
 object GeneratePoolToken {
   def main(args: Array[String]): Unit = {
     if (args.size != 1) println("usage: java -cp <jarFile> ergo.oraclepool.GeneratePoolToken <recipientAddress>")
-    val address = args(0)
-    ergo.api.ErgoAPI.issueAsset(address, 1, "POOL", "oracle pool token", 0)
+    else {
+      val address = args(0)
+      val jsonResp = ergo.api.ErgoAPI.issueAsset(address, 1, "POOL", "oracle pool token", 0)
+      println(jsonResp)
+    }
   }
 }
 
 object GenerateOracleTokens {
   def main(args: Array[String]): Unit = {
-    if (args.size != 1) println("usage: java -cp <jarFile> ergo.oraclepool.GenerateOracleToken <recipientAddress> <numOracles>")
-    val address = args(0)
-    val count = args(1).toInt
-    ergo.api.ErgoAPI.issueAsset(
-      address,
-      count,
-      "ORACLE",
-      "oracle pool datapoint token",
-      0
-    )
+    if (args.size != 2) println("usage: java -cp <jarFile> ergo.oraclepool.GenerateOracleToken <recipientAddress> <numOracles>")
+    else {
+      val address = args(0)
+      val count = args(1).toInt
+      val jsonResp = ergo.api.ErgoAPI.issueAsset(
+        address,
+        count,
+        "ORACLE",
+        "datapoint token",
+        0
+      )
+      println(jsonResp)
+    }
   }
 }
 
 class Scripts(oracleTokenId: String, poolTokenId: String) {
 
-  val oracleTokenIdBase58 = oracleTokenId.decodeHex.encodeBase58
-  val poolTokenIdBase58 = poolTokenId.decodeHex.encodeBase58
+  lazy val oracleTokenIdBase58 = oracleTokenId.decodeHex.encodeBase58
+  lazy val poolTokenIdBase58 = poolTokenId.decodeHex.encodeBase58
 
-  val minPoolBoxValue = minBoxValue + (numOracles + 1) * oracleReward
+  lazy val minPoolBoxValue = minBoxValue + (numOracles + 1) * oracleReward
   val liveEpochScript =
     s"""{ val oldDatapoint = SELF.R4[Long].get;
        |  val delta = oldDatapoint / 100 * $errorMargin;
@@ -165,8 +171,8 @@ class Scripts(oracleTokenId: String, poolTokenId: String) {
        |""".stripMargin.lines.mkString
 
   val depositAddress = ErgoAPI.getP2SAddress(depositScript)
-
 }
+
 object GetAddresses {
   def main(args: Array[String]): Unit = {
     if (args.size != 2) println("usage: java -cp <jarFile> ergo.oraclepool.GetAddresses <oracleTokenId> <poolTokenId>")
@@ -181,6 +187,8 @@ object GetAddresses {
       println(s"DataPoint: $dataPointAddress")
       println
       println(s"Deposit: $depositAddress")
+      println
+      println(s"Min pool box value: $minPoolBoxValue")
     }
   }
 }
@@ -189,34 +197,38 @@ object BootStrapPool {
   def main(args: Array[String]): Unit = {
     if (args.size != 3)
       println("usage: java -cp <jarFile> ergo.oraclepool.BoostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>")
-    val oracleTokenId = args(0)
-    val poolTokenId = args(1)
-    val r4: String = args(2) // "0502" // construct using initialDataPoint
-    require(r4.take(2) == "05")
-    r4.decodeHex // decode to ensure that its a proper hex value
+    else {
+      val oracleTokenId = args(0)
+      val poolTokenId = args(1)
+      val r4: String = args(2) // "0502" // construct using initialDataPoint
+      require(r4.take(2) == "05")
+      r4.decodeHex // decode to ensure that its a proper hex value
 
-    val scripts = new Scripts(oracleTokenId, poolTokenId)
-    import scripts._
-    val r5: String = "0480b518" // hardcoded int 200000 (when this epoch ends), much below current height
-    val sendRes = ergo.api.ErgoAPI.send(epochPrepAddress, minBoxValue, poolTokenId, 1, Seq(r4, r5))
-    println(sendRes)
+      val scripts = new Scripts(oracleTokenId, poolTokenId)
+      import scripts._
+      val r5: String = "0480b518" // hardcoded int 200000 (when this epoch ends), much below current height
+      val sendRes = ergo.api.ErgoAPI.send(epochPrepAddress, minBoxValue, poolTokenId, 1, Seq(r4, r5))
+      println(sendRes)
+    }
   }
 }
 
 object BootStrapOracle {
   def main(args: Array[String]): Unit = {
     if (args.size != 3) println("usage: java -cp <jarFile> ergo.oraclepool.BoostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>")
-    val oracleTokenId = args(0)
-    val poolTokenId = args(1)
-    val oracleRewardAddress = args(2)
-    val eccPoint = ergo.api.ErgoAPI.getEccPoint(oracleRewardAddress)
-    val r4: String = "07" + eccPoint
-    val r5: String = "0e0101"
-    val r6: String = "0504"
+    else {
+      val oracleTokenId = args(0)
+      val poolTokenId = args(1)
+      val oracleRewardAddress = args(2)
+      val eccPoint = ergo.api.ErgoAPI.getEccPoint(oracleRewardAddress)
+      val r4: String = "07" + eccPoint
+      val r5: String = "0e0101"
+      val r6: String = "0504"
 
-    val scripts = new Scripts(oracleTokenId, poolTokenId)
-    import scripts._
-    val sendRes = ergo.api.ErgoAPI.send(dataPointAddress, minBoxValue, oracleTokenId, 1, Seq(r4, r5, r6))
-    println(sendRes)
+      val scripts = new Scripts(oracleTokenId, poolTokenId)
+      import scripts._
+      val sendRes = ergo.api.ErgoAPI.send(dataPointAddress, minBoxValue, oracleTokenId, 1, Seq(r4, r5, r6))
+      println(sendRes)
+    }
   }
 }

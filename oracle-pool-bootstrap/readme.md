@@ -75,7 +75,7 @@ You can find a list of connectors [in this folder](../connectors).
 Once you have compiled your selected connector, you can now generate a recent datapoint which will be used for bootstrapping your pool. 
 The `--bootstrap-value` command can be used with any connector to do so, as such:
 
-    `./erg-usd-connector --bootstrap-value` 
+    ./erg-usd-connector --bootstrap-value 
 
 This will print out some value such as `0502`. Copy that value and invoke the CLI as:
 
