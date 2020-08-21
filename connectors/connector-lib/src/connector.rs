@@ -42,7 +42,7 @@ impl Connector {
                 println!("Bootstrap {} Value: {}", self.title, constant.base16_str());
                 std::process::exit(0);
             } else {
-                panic!("Failed to fetch Erg/USD from CoinGecko");
+                panic!("Failed to fetch Connector bootstrap value.");
             }
         }
     }
@@ -76,7 +76,7 @@ impl Connector {
                         // If submitting Datapoint tx worked
                         let submit_result = oc.submit_datapoint(price);
                         if let Ok(tx_id) = submit_result {
-                            println!("\nSubmit New Datapoint: {} nanoErg/USD", price);
+                            println!("\nSubmit New {} Datapoint: {}", self.title, price);
                             println!("Transaction ID: {}", tx_id);
                         } else {
                             println!("Datapoint Tx Submit Error: {:?}", submit_result);
