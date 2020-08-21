@@ -181,16 +181,21 @@ fn print_info(
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
 
+    let datapoint_state = op.get_datapoint_state()?;
+    let deposits_state = op.get_pool_deposits_state()?;
+    let res_prep_state = op.get_preparation_state();
+    let res_live_state = op.get_live_epoch_state();
+
     let mut info_string = format!("{}", ORACLE_CORE_ASCII);
 
     info_string.push_str("========================================================\n");
     info_string.push_str(&format!("Current Blockheight: {}\n", height));
     info_string.push_str(&format!("Current Tx Base Fee: {}", parameters.base_fee));
-
-    let datapoint_state = op.get_datapoint_state()?;
-    let deposits_state = op.get_pool_deposits_state()?;
-    let res_prep_state = op.get_preparation_state();
-    let res_live_state = op.get_live_epoch_state();
+    info_string.push_str(&format!(
+        "Pool Posting Schedule: {} Blocks",
+        parameters.live_epoch_length + parameters.epoch_preparation_length
+    ));
+    info_string.push_str(&format!("Oracle Pool NFT ID: {}", op.oracle_pool_nft));
 
     info_string.push_str("\n========================================================\n");
     info_string.push_str(&format!("Pool Deposits State\n--------------------\nNumber Of Deposit Boxes: {}\nTotal nanoErgs In Deposit Boxes: {}\n", deposits_state.number_of_boxes, deposits_state.total_nanoergs));
