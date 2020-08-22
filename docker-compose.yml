@@ -5,7 +5,7 @@ volumes:
 
 services:
   node:
-    image: ergoplatform/ergo:v3.3.0
+    image: ergoplatform/ergo:v3.3.1
     restart: unless-stopped
     volumes:
       - "ergo_node_storage:/home/ergo/.ergo"
