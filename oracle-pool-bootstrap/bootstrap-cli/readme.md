@@ -1,5 +1,7 @@
-# Bootstrap CLI
-This is a CLI to bootstrap the oracle pool. The CLI has 5 modules (5 main classes) for each of the following tasks:
+# Oracle Pool Bootstrap CLI
+This is a CLI tool for bootstraping an oracle pool easily.
+
+The CLI has 5 modules (5 main classes) for each of the following tasks:
 1. `ergo.oraclepool.GeneratePoolToken` to generate a singleton pool token
 2. `ergo.oraclepool.GenerateOracleTokens` to generate multiple oracle tokens
 3. `ergo.oraclepool.GetAddresses` Getting the addresses using the tokens generated

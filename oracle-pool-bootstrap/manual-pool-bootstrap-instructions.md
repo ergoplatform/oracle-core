@@ -1,6 +1,6 @@
-# Bootstrapping The Oracle Pool
+# Manual Oracle Pool Bootstrapping Bootstrapping
 
-This article explains how to bootstrap the oracle pool. In summary, the following steps will be performed.
+This article explains how to bootstrap the oracle pool manually using an Ergo node. In summary, the following steps will be performed.
 
 1. Finalize constants such as epoch length, total number of oracles, etc.
 2. Generate the tokens
