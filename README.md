@@ -58,7 +58,7 @@ UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 # Bootstrapping An Oracle Pool
 In order for an oracle pool to run, it must be first created/bootstrapped on-chain. This is the bootstrap process that is required before oracle operators can run their oracle core and have the pool function on-chain.
 
-Check out the [Bootstrap doc](docs/Bootstrap.md) for detailed instructions about how to bootstrap an oracle pool and each of the oracles within it.
+Check out the [Oracle Pool Bootstrap folder](oracle-pool-bootstrap) for detailed instructions about how to bootstrap an oracle pool using the CLI tool or manually.
 
 
 # Writing A New Connector
