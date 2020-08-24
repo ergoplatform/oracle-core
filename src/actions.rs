@@ -7,8 +7,8 @@ use crate::encoding::{
 };
 use crate::node_interface::{
     address_to_raw_for_register, address_to_tree, current_block_height,
-    get_serialized_highest_value_unspent_box, raw_from_register_to_address, raw_to_address,
-    send_transaction, serialize_boxes,
+    get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
+    serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};

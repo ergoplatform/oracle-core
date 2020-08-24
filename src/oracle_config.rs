@@ -1,8 +1,8 @@
 use crate::{BlockDuration, NanoErg};
 use reqwest::header::HeaderValue;
-/// Basic functions for acquiring oracle config/node data
 use yaml_rust::{Yaml, YamlLoader};
 
+/// Pool Parameters as defined in the `oracle-config.yaml`
 pub struct PoolParameters {
     pub minimum_pool_box_value: u64,
     pub oracle_payout_price: NanoErg,
