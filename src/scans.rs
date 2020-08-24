@@ -29,10 +29,10 @@ impl Scan {
     }
 
     /// Registers a scan in the node and returns a `Scan` as a result
-    pub fn register(name: &String, trackingRule: JsonValue) -> Scan {
+    pub fn register(name: &String, tracking_rule: JsonValue) -> Scan {
         let scan_json = object! {
         scanName: name.clone(),
-        trackingRule: trackingRule,
+        tracking_rule: tracking_rule,
         };
         let scan_id = register_scan(&scan_json).expect("Failed to register scan.");
         println!("Scan ID: {}", scan_id);

@@ -56,7 +56,6 @@ impl OraclePool {
 
     /// Generates and submits the "Collect Funds" action tx
     pub fn action_collect_funds(&self) -> Result<String> {
-        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
