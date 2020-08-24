@@ -62,16 +62,21 @@ impl Connector {
             }
             // Otherwise if state is accessible
             else {
-                // Extra check to ensure core is reachable or reattempt
-                match oc.pool_status() {
-                    Ok(_) => (),
-                    Err(e) => {
-                        println!("Error: {:?}", e);
-                        continue;
-                    }
+                // Guarantee that the connector won't panic
+                let res_ps = oc.pool_status();
+                let res_os = oc.oracle_status();
+                if let Err(e) = res_ps {
+                    print!("\x1B[2J\x1B[1;1H");
+                    println!("Error: {:?}", e);
+                    continue;
                 }
-                let pool_status = oc.pool_status().unwrap();
-                let oracle_status = oc.oracle_status().unwrap();
+                if let Err(e) = res_os {
+                    print!("\x1B[2J\x1B[1;1H");
+                    println!("Error: {:?}", e);
+                    continue;
+                }
+                let pool_status = res_ps.unwrap();
+                let oracle_status = res_os.unwrap();
 
                 // Check if Connector should post
                 let should_post = &pool_status.current_pool_stage == "Live Epoch"
