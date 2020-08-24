@@ -62,6 +62,14 @@ impl Connector {
             }
             // Otherwise if state is accessible
             else {
+                // Extra check to ensure core is reachable or reattempt
+                match oc.pool_status() {
+                    Ok(_) => (),
+                    Err(e) => {
+                        println!("Error: {:?}", e);
+                        continue;
+                    }
+                }
                 let pool_status = oc.pool_status().unwrap();
                 let oracle_status = oc.oracle_status().unwrap();
 
