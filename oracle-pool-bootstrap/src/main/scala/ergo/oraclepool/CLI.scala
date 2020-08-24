@@ -1,11 +1,21 @@
-package ergo.oraclepool
-
 import ergo.api.ErgoAPI
+import ergo.oraclepool._
 import org.bouncycastle.crypto.digests.Blake2bDigest
 
-object GeneratePoolToken {
+object Main {
+  def main(args: Array[String]) = {
+    println("Usage:")
+    println("java -cp <jarFile> generatePoolToken <recipientAddress>")
+    println("java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>")
+    println("java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>")
+    println("java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>")
+    println("java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>")
+  }
+}
+
+object generatePoolToken {
   def main(args: Array[String]): Unit = {
-    if (args.size != 1) println("usage: java -cp <jarFile> ergo.oraclepool.GeneratePoolToken <recipientAddress>")
+    if (args.size != 1) println("usage: java -cp <jarFile> generatePoolToken <recipientAddress>")
     else {
       val address = args(0)
       val jsonResp = ergo.api.ErgoAPI.issueAsset(address, 1, "POOL", "oracle pool token", 0)
@@ -14,9 +24,9 @@ object GeneratePoolToken {
   }
 }
 
-object GenerateOracleTokens {
+object generateOracleTokens {
   def main(args: Array[String]): Unit = {
-    if (args.size != 2) println("usage: java -cp <jarFile> ergo.oraclepool.GenerateOracleToken <recipientAddress> <numOracles>")
+    if (args.size != 2) println("usage: java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>")
     else {
       val address = args(0)
       val count = args(1).toInt
@@ -40,7 +50,7 @@ class Scripts(oracleTokenId: String, poolTokenId: String) {
   lazy val minPoolBoxValue = minBoxValue + (numOracles + 1) * oracleReward
   val liveEpochScript =
     s"""{ val oldDatapoint = SELF.R4[Long].get;
-       |  val delta = oldDatapoint / 100 * $errorMargin;
+       |  val delta = oldDatapoint / 100 * $maxOutlierPercent;
        |  val minDatapoint = oldDatapoint - delta;
        |  val maxDatapoint = oldDatapoint + delta;
        |
@@ -70,7 +80,7 @@ class Scripts(oracleTokenId: String, poolTokenId: String) {
        |    oracleBoxes.size > 0 &&
        |    OUTPUTS(0).tokens == SELF.tokens &&
        |    OUTPUTS(0).R4[Long].get == average &&
-       |    OUTPUTS(0).R5[Int].get == SELF.R5[Int].get + $epochPeriod &&
+       |    OUTPUTS(0).R5[Int].get == SELF.R5[Int].get + $postingSchedule &&
        |    OUTPUTS(0).value >= SELF.value - (oracleBoxes.size + 1) * $oracleReward &&
        |    oracleRewardOutputs._2
        |  ) && pubKey
@@ -87,13 +97,13 @@ class Scripts(oracleTokenId: String, poolTokenId: String) {
 
   val epochPrepScript =
     s"""
-       |{ val canStartEpoch = HEIGHT > SELF.R5[Int].get - $livePeriod;
+       |{ val canStartEpoch = HEIGHT > SELF.R5[Int].get - $liveEpochPeriod;
        |  val epochNotOver = HEIGHT < SELF.R5[Int].get;
        |  val epochOver = HEIGHT >= SELF.R5[Int].get;
        |  val enoughFunds = SELF.value >= $minPoolBoxValue;
        |
-       |  val maxNewEpochHeight = HEIGHT + $epochPeriod + $buffer;
-       |  val minNewEpochHeight = HEIGHT + $epochPeriod;
+       |  val maxNewEpochHeight = HEIGHT + $postingSchedule + $buffer;
+       |  val minNewEpochHeight = HEIGHT + $postingSchedule;
        |
        |  if (OUTPUTS(0).R6[Coll[Byte]].isDefined) {
        |    val isliveEpochOutput = OUTPUTS(0).R6[Coll[Byte]].get == blake2b256(SELF.propositionBytes) &&
@@ -173,9 +183,9 @@ class Scripts(oracleTokenId: String, poolTokenId: String) {
   val depositAddress = ErgoAPI.getP2SAddress(depositScript)
 }
 
-object GetAddresses {
+object getContractAddresses {
   def main(args: Array[String]): Unit = {
-    if (args.size != 2) println("usage: java -cp <jarFile> ergo.oraclepool.GetAddresses <oracleTokenId> <poolTokenId>")
+    if (args.size != 2) println("usage: java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>")
     else {
       val scripts = new Scripts(oracleTokenId = args(0), poolTokenId = args(1))
       import scripts._
@@ -193,10 +203,10 @@ object GetAddresses {
   }
 }
 
-object BootStrapPool {
+object bootStrapPool {
   def main(args: Array[String]): Unit = {
     if (args.size != 3)
-      println("usage: java -cp <jarFile> ergo.oraclepool.BoostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>")
+      println("usage: java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>")
     else {
       val oracleTokenId = args(0)
       val poolTokenId = args(1)
@@ -213,9 +223,9 @@ object BootStrapPool {
   }
 }
 
-object BootStrapOracle {
+object bootStrapOracle {
   def main(args: Array[String]): Unit = {
-    if (args.size != 3) println("usage: java -cp <jarFile> ergo.oraclepool.BoostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>")
+    if (args.size != 3) println("usage: java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>")
     else {
       val oracleTokenId = args(0)
       val poolTokenId = args(1)

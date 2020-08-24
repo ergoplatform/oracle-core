@@ -1,30 +1,36 @@
 # Bootstrap CLI
 This is a CLI to bootstrap the oracle pool. The CLI has 5 modules (5 main classes) for each of the following tasks:
-1. `ergo.oraclepool.GeneratePoolToken` to generate a singleton pool token
-2. `ergo.oraclepool.GenerateOracleTokens` to generate multiple oracle tokens
-3. `ergo.oraclepool.GetAddresses` Getting the addresses using the tokens generated
-4. `ergo.oraclepool.BootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
-5. `ergo.oraclepool.BootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
+1. `generatePoolToken` to generate a singleton pool token
+2. `generateOracleTokens` to generate multiple oracle tokens
+3. `getContractAddresses` Getting the addresses using the tokens generated
+4. `bootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
+5. `bootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
 
 ## Step 1: Configure options
 
-Edit the file [ergp/oraclepool/package.scala](src/main/scala/ergo/oraclepool/package.scala) and update following parameters as desired:
+Create a file called `application.conf` in the same folder where the jar is present with the following content.
+Edit the file with your desired parameters:
 
-    val oracleReward = 2500000L // NanoErgs
-    val minBoxValue = 1500000L // NanoErgs
-    val errorMargin = 50 // percent
-    val numOracles = 14
-    val epochPeriod = 30 // blocks
-    val livePeriod = 20 // blocks
-    val buffer = 5 // blocks
-
-Edit the file [ergo/api/ErgoAPI.scala](src/main/scala/ergo/api/ErgoAPI.scala) and update following parameters as desired:
-
-    private var apiKey = "hello"
-    var baseUrl = "http://192.168.0.200:9053/"
-    private val defaultFee = 2000000
+    ergo.oraclepool {
+        pool {
+            oracleReward = 2500000
+            minBoxValue = 1500000
+            maxOutlierPercent = 50
+            numOracles = 14
+            postingSchedule = 30
+            liveEpochPeriod = 20
+            buffer = 5
+        }
+        node {
+            apiKey = "hello"
+            baseUrl = "http://192.168.0.200:9053/"
+            defaultFee = 3000000
+        }
+    }
     
-## Step 2: Compile the Jar
+## Step 2: Compile the Jar 
+
+Skip this step if using the pre-compiled jar.
 
 Use the command:
  
@@ -32,28 +38,39 @@ Use the command:
     
 The jar will be stored as `target/scala-2.12/oracle-pool-bootstrap.jar`. 
 Copy the jar to some desired location. 
- 
+
+Running the jar directly will give basic usage information:
+
+    java -jar oracle-pool-bootstrap.jar
+    
+    Usage:
+    java -cp <jarFile> generatePoolToken <recipientAddress>
+    java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>
+    java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>
+    java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>
+    java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
+    
 ## Step 3: Issue tokens
 
 Usage:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GeneratePoolToken <address_to_store_tokens_in>
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GenerateOracleTokens <address_to_store_tokens_in> <num_tokens>
+    java -cp oracle-pool-bootstrap.jar generatePoolToken <address_to_store_tokens_in>
+    java -cp oracle-pool-bootstrap.jar generateOracleTokens <address_to_store_tokens_in> <num_tokens>
 
 Example:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GeneratePoolToken 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GenerateOracleTokens 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk 20
+    java -cp oracle-pool-bootstrap.jar generatePoolToken 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk
+    java -cp oracle-pool-bootstrap.jar generateOracleTokens 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk 20
 
 ## Step 4: Get addresses
 
 Usage:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GetAddresses <oracleTokenId> <poolTokenId>
+    java -cp oracle-pool-bootstrap.jar getContractAddresses <oracleTokenId> <poolTokenId>
 
 Example:
 
-    java -cp oracle-pool-bootstrap.jar  ergo.oraclepool.GetAddresses 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc
+    java -cp oracle-pool-bootstrap.jar getContractAddresses 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc
 
 Output:
 
@@ -79,11 +96,11 @@ The `--bootstrap-value` command can be used with any connector to do so, as such
 
 This will print out some value such as `0502`. Copy that value and invoke the CLI as:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
+    java -cp oracle-pool-bootstrap.jar bootStrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
     
 Example:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
+    java -cp oracle-pool-bootstrap.jar bootStrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
 
 This will create the epoch preparation box with the desired token. 
     
