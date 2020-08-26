@@ -3,7 +3,7 @@
 # `ada-usd-oracle-deployed` folder.
 
 mkdir ../../ada-usd-oracle-deployed
-cp run-oracle.sh ../../ada-usd-oracle-deployed
+cp run-oracle.sh oracle-config.yaml ../../ada-usd-oracle-deployed
 cd ../..
 cp oracle-config.yaml ada-usd-oracle-deployed
 cargo build --release

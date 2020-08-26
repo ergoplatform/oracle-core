@@ -3,7 +3,7 @@
 # `erg-usd-oracle-deployed` folder.
 
 mkdir ../../erg-usd-oracle-deployed
-cp run-oracle.sh ../../erg-usd-oracle-deployed
+cp run-oracle.sh oracle-config.yaml ../../erg-usd-oracle-deployed
 cd ../..
 cp oracle-config.yaml erg-usd-oracle-deployed
 cargo build --release
