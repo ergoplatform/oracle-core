@@ -7,6 +7,7 @@ use crate::Result;
 use anyhow::anyhow;
 use json;
 use json::JsonValue;
+use log::info;
 use sigma_tree::chain::ErgoBox;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
@@ -34,6 +35,9 @@ impl Scan {
         scanName: name.clone(),
         tracking_rule: tracking_rule.clone(),
         };
+
+        info!("Registering {}: {}", name.clone(), tracking_rule.pretty(2));
+
         let res_scan_id = register_scan(&scan_json);
         if let Ok(scan_id) = res_scan_id {
             println!("Scan ID: {}", scan_id);
