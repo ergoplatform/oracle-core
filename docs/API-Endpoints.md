@@ -29,12 +29,12 @@ Example Response:
 #### /poolInfo
 Returns json with information about the oracle pool:
 - Contract addresses
-- Posting Price
+- Oracle Payout Price
 - Live Epoch Length
 - Epoch Preparation Length
-- Margin Of Error
-- Oracle Pool NFT
-- Oracle Pool Participant Token
+- Outlier Range
+- Oracle Pool NFT ID
+- Oracle Pool Participant Token ID
 
 Example Response:
 ```json
@@ -46,8 +46,8 @@ Example Response:
     "oracle_payout_price": 2000000,
     "live_epoch_length": 5,
     "epoch_prep_length": 5,
-    "margin_of_error": 0.01,
-    "number_of_oracles": 4,
+    "outlier_range": 0.01,
+    "minimum_pool_box_value": 100000000,
     "oracle_pool_nft_id": "b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc",
     "oracle_pool_participant_token_id": "12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed"
 }
@@ -68,12 +68,18 @@ Example Response:
 Returns the current status of the oracle pool.
 - Funded Percentage (Total Funds/Pool Price * 100)
 - Current Pool Stage (Epoch Preparation Vs. Live Epoch)
+- Latest Pool Datapoint
+- Latest Pool Epoch ID
+- Height The Current/Upcoming Epoch Ends
 
 Example Response:
 ```json
 {
     "funded_percentage": 1600,
-    "current_pool_stage": "Epoch Preparation"
+    "current_pool_stage": "Epoch Preparation",
+    "latest_pool_datapoint": 251821000,
+    "current_epoch_id": "14e10314b0b33f13667871c62b0e86904cb6aee854630af4296b567b18875185",
+    "epoch_ends": 288699
 }
 ```
 
@@ -81,7 +87,7 @@ Example Response:
 #### /oracleStatus
 Returns the current status of one's own oracle.
 - Waiting For Datapoint To Be Submitted To The Core For The Current Epoch (True/False)
-- Latest Datapoint
+- Latest Datapoint Oracle Posted
 - Epoch ID That the Datapoint Was Submit In
 - Creation Height Of The Datapoint Tx
 

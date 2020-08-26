@@ -7,8 +7,8 @@ use crate::encoding::{
 };
 use crate::node_interface::{
     address_to_raw_for_register, address_to_tree, current_block_height,
-    get_serialized_highest_value_unspent_box, raw_from_register_to_address, raw_to_address,
-    send_transaction, serialize_boxes,
+    get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
+    serialize_boxes,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
@@ -18,12 +18,10 @@ use anyhow::anyhow;
 use json;
 use sigma_tree::chain::ErgoBox;
 
-/// The default fee used for actions
-pub static FEE: u64 = 1000000;
-
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
     pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String> {
+        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
@@ -49,7 +47,8 @@ impl OraclePool {
         ]
         .into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["fee"] = FEE.into();
+        req["fee"] = parameters.base_fee.into();
+        req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -108,6 +107,7 @@ impl OraclePool {
 
     /// Generates and submits the "Start Next Epoch" action tx
     pub fn action_start_next_epoch(&self) -> Result<String> {
+        let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
@@ -133,7 +133,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = FEE.into();
+        req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -141,8 +141,8 @@ impl OraclePool {
 
     /// Generates and submits the "Create New Epoch" action tx
     pub fn action_create_new_epoch(&self) -> Result<String> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
         let parameters = PoolParameters::new();
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Define the new epoch finish height based off of current height
         let new_finish_height = current_block_height()?
@@ -173,7 +173,7 @@ impl OraclePool {
             get_serialized_highest_value_unspent_box()?,
         ]
         .into();
-        req["fee"] = FEE.into();
+        req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
         Ok(result)
@@ -189,18 +189,20 @@ impl OraclePool {
         // Filter out Datapoint boxes not from the latest epoch
         let current_epoch_datapoint_boxes =
             current_epoch_boxes_filter(&self.datapoint_stage.get_boxes()?, &live_epoch_state);
-
         // Sort Datapoint boxes so that local oracle box is first
         let sorted_datapoint_boxes = sort_datapoint_boxes(
             &current_epoch_datapoint_boxes,
             self.local_oracle_datapoint_scan.get_box()?,
         );
 
-        // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within margin of error
-        let (finalized_datapoint, successful_boxes) = finalize_datapoint(&sorted_datapoint_boxes)?;
+        // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within outlier range
+        let (finalized_datapoint, successful_boxes) = finalize_datapoint(
+            &sorted_datapoint_boxes,
+            live_epoch_state.latest_pool_datapoint,
+        )?;
 
         // Tx fee for the transaction
-        let tx_fee = (1200000 * sorted_datapoint_boxes.len()) as u64;
+        let tx_fee = (parameters.base_fee) * sorted_datapoint_boxes.len() as u64;
         // Define the new value of the oracle pool box after payouts/tx fee
         let new_box_value = live_epoch_state.funds
             - (parameters.oracle_payout_price * (successful_boxes.len() as u64 + 1));
@@ -250,8 +252,8 @@ impl OraclePool {
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![
-            get_serialized_highest_value_unspent_box()?,
             self.live_epoch_stage.get_serialized_box()?,
+            get_serialized_highest_value_unspent_box()?,
         ]
         .into();
         req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
@@ -296,7 +298,6 @@ pub fn sort_datapoint_boxes(
 }
 
 /// Function for averaging datapoints from a list of Datapoint boxes.
-/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
 pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     let datapoints_sum = boxes.iter().fold(Ok(0), |acc: Result<i64>, b| {
         Ok(acc? + deserialize_long(&b.additional_registers.get_ordered_values()[2])?)
@@ -308,25 +309,24 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     Ok(average as u64)
 }
 
-/// Filters out all boxes with datapoints that are greater than the margin of error
-/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
-pub fn margin_of_error_filter(
-    averaged_datapoint: u64,
+/// Filters out all boxes with datapoints that are outside of the outlier range compared to the latest Oracle Pool finalized datapoint
+pub fn outlier_range_filter(
     boxes: &Vec<ErgoBox>,
+    latest_finalized_datapoint: u64,
 ) -> Result<Vec<ErgoBox>> {
-    // Get parameters for margin of error
+    // Get parameters for outlier range
     let parameters = PoolParameters::new();
 
     // Specifying min/max acceptable value
-    let delta = (averaged_datapoint as f64 * parameters.margin_of_error) as u64;
-    let min = averaged_datapoint - delta;
-    let max = averaged_datapoint + delta;
+    let delta = (latest_finalized_datapoint / 100) * parameters.outlier_range;
+    let min = latest_finalized_datapoint - delta;
+    let max = latest_finalized_datapoint + delta;
 
-    // Find the successful boxes which are within the margin of error
+    // Find the successful boxes which are within the outlier range
     let mut successful_boxes = vec![];
     for b in boxes.clone() {
         let datapoint = deserialize_long(&b.additional_registers.get_ordered_values()[2])? as u64;
-        if datapoint > min && datapoint < max {
+        if datapoint >= min && datapoint <= max {
             successful_boxes.push(b);
         }
     }
@@ -344,24 +344,17 @@ pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     valid_boxes
 }
 
-/// Function which produced the finalized datapoint based on a list of `ErgoBox`es.
-/// Repeatedly acquires the average and filters out any boxes outside the margin of error.
-/// Returns `None` if boxes provided do not have a valid integer datapoint in R6
-pub fn finalize_datapoint(boxes: &Vec<ErgoBox>) -> Result<(u64, Vec<ErgoBox>)> {
+/// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
+/// Filters out any invalid boxes or boxes outside the outlier range.
+/// Returns the averaged datapoint and the filtered list of successful boxes.
+pub fn finalize_datapoint(
+    boxes: &Vec<ErgoBox>,
+    latest_finalized_datapoint: u64,
+) -> Result<(u64, Vec<ErgoBox>)> {
     // Filter out Datapoint boxes without a valid integer in R6
-    let mut successful_boxes = valid_boxes_filter(boxes);
+    let valid_boxes = valid_boxes_filter(boxes);
+    // Filter out Datapoint boxes outside of the outlier range
+    let successful_boxes = outlier_range_filter(&valid_boxes, latest_finalized_datapoint)?;
+    // Return average
     Ok((average_datapoints(&successful_boxes)?, successful_boxes))
-
-    // Logic for outlier checking to be integrated later on.
-    // For now just take straight average of datapoints, no outlier checking so commented out.
-    //
-    // loop {
-    //     let av = average_datapoints(&successful_boxes)?;
-    //     let filtered_boxes = margin_of_error_filter(av, &successful_boxes)?;
-    //     if successful_boxes == filtered_boxes {
-    //         return Ok((av, filtered_boxes));
-    //     }
-    //     successful_boxes = filtered_boxes;
-    // }
-    // None
 }

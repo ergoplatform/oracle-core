@@ -11,7 +11,9 @@ mod scans;
 mod templates;
 
 use anyhow::Error;
+use log::info;
 use node_interface::current_block_height;
+use oracle_config::PoolParameters;
 use std::thread;
 use std::time::Duration;
 
@@ -44,31 +46,36 @@ static ORACLE_CORE_ASCII: &str = r#"
 "#;
 
 fn main() {
-    let op = oracle_state::OraclePool::new();
-    let parameters = oracle_config::PoolParameters::new();
+    simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
+    log_panics::init();
 
+    let op = oracle_state::OraclePool::new();
+
+    // Start Oracle Core GET API Server
     thread::Builder::new()
-        .name("Oracle Core API Thread".to_string())
+        .name("Oracle Core GET API Thread".to_string())
         .spawn(|| {
             api::start_get_api();
         })
         .ok();
 
+    // Start Oracle Core POST API Server
     thread::Builder::new()
-        .name("Oracle Core API Thread".to_string())
+        .name("Oracle Core POST API Thread".to_string())
         .spawn(|| {
             api::start_post_api();
         })
         .ok();
 
     loop {
+        let parameters = oracle_config::PoolParameters::new();
         let height = current_block_height().unwrap_or(0);
-        if let Err(e) = print_info(op.clone(), height) {
-            println!("\nThe UTXO-Set Scans Have Not Found All Of The Oracle Pool Boxes Yet.\n\nPlease make sure that you have resynced your Ergo node so that the scans can find all of the boxes.");
-            // println!("Error: {:?}", e);
+        // Check if properly synced.
+        if let Err(e) = print_info(op.clone(), height, &parameters) {
+            let mess = format!("\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\nError: {:?}", e);
+            print_and_log(&mess);
         }
 
-        let res_datapoint_state = op.get_datapoint_state();
         let res_prep_state = op.get_preparation_state();
         let res_live_state = op.get_live_epoch_state();
         let res_deposits_state = op.get_pool_deposits_state();
@@ -86,10 +93,15 @@ fn main() {
             }
 
             // Check epoch prep state
-            let is_funded = prep_state.funds > parameters.max_pool_payout();
+            let is_funded = prep_state.funds >= parameters.minimum_pool_box_value;
             let epoch_prep_over =
                 height > prep_state.next_epoch_ends - parameters.live_epoch_length;
             let live_epoch_over = height >= prep_state.next_epoch_ends;
+
+            // The Pool is underfunded
+            if !is_funded {
+                println!("The Oracle Pool is underfunded.\nPlease submit funds to the pool to continue operation.");
+            }
 
             // Check if height is prior to next epoch expected end
             // height and that the pool is funded.
@@ -113,7 +125,7 @@ fn main() {
         // If the pool is in the Live Epoch stage
         if let Ok(epoch_state) = res_live_state {
             // Check for opportunity to Collect Datapoints
-            if height >= epoch_state.epoch_ends {
+            if height >= epoch_state.epoch_ends && epoch_state.commit_datapoint_in_epoch {
                 let action_res = op.action_collect_datapoints();
                 let action_name = "Collect Datapoints";
                 print_action_results(&action_res, action_name);
@@ -154,40 +166,65 @@ fn print_successful_action(action_name: &str, tx_id: &str) {
 
 /// Prints A Message With `---`s added
 fn print_action_response(message: &str) {
-    println!(
-        "--------------------------------------------------\n{}\n--------------------------------------------------",
+    let mess = format!(        "--------------------------------------------------\n{}\n--------------------------------------------------",
         message
-    );
+);
+    print_and_log(&mess);
 }
 
-/// Prints Information About The State Of The Protocol
-fn print_info(op: oracle_state::OraclePool, height: BlockHeight) -> Result<bool> {
+/// Prints And Logs Information About The State Of The Protocol
+fn print_info(
+    op: oracle_state::OraclePool,
+    height: BlockHeight,
+    parameters: &PoolParameters,
+) -> Result<bool> {
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
-
-    println!("{}", ORACLE_CORE_ASCII);
-    println!("========================================================");
-    println!("Current Blockheight: {}", height);
 
     let datapoint_state = op.get_datapoint_state()?;
     let deposits_state = op.get_pool_deposits_state()?;
     let res_prep_state = op.get_preparation_state();
     let res_live_state = op.get_live_epoch_state();
 
-    println!("========================================================");
-    println!("Pool Deposits State\n--------------------\nNumber Of Deposit Boxes: {}\nTotal nanoErgs In Deposit Boxes: {}\n", deposits_state.number_of_boxes, deposits_state.total_nanoergs);
+    let mut info_string = format!("{}", ORACLE_CORE_ASCII);
+
+    info_string.push_str("========================================================\n");
+    info_string.push_str(&format!("Current Blockheight: {}\n", height));
+    info_string.push_str(&format!("Current Tx Base Fee: {}\n", parameters.base_fee));
+    info_string.push_str(&format!(
+        "Pool Posting Schedule: {} Blocks\n",
+        parameters.live_epoch_length + parameters.epoch_preparation_length
+    ));
+    info_string.push_str(&format!("Oracle Pool NFT ID: {}", op.oracle_pool_nft));
+
+    info_string.push_str("\n========================================================\n");
+    info_string.push_str(&format!("Pool Deposits State\n--------------------\nNumber Of Deposit Boxes: {}\nTotal nanoErgs In Deposit Boxes: {}\n", deposits_state.number_of_boxes, deposits_state.total_nanoergs));
+
     if let Ok(prep_state) = res_prep_state {
-        println!(
-            "Epoch Preparation State\n------------------------\nTotal Pool Funds: {}\nNext Epoch Ends: {}\nLatest Pool Datapoint: {}\n",
-            prep_state.funds, prep_state.next_epoch_ends, prep_state.latest_pool_datapoint
-        );
+        info_string.push_str(&format!("\nEpoch Preparation State\n------------------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nNext Epoch Ends: {}\n",
+            prep_state.funds, prep_state.latest_pool_datapoint, prep_state.next_epoch_ends
+        ));
     } else if let Ok(live_state) = res_live_state {
-        println!(
-            "Live Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
+        info_string.push_str(&format!("\nLive Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
             live_state.funds, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch, live_state.epoch_ends
-        );
+        ));
+    } else {
+        info_string.push_str("Failed to find Epoch Preparation Box or Live Epoch Box.");
+        info_string.push_str("\n========================================================\n");
     }
-    println!("Oracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height);
-    println!("========================================================\n\n");
+
+    info_string.push_str(&format!("\nOracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
+        ));
+    info_string.push_str("\n========================================================\n");
+
+    // Prints and logs the info String
+    print_and_log(&info_string);
+
     Ok(true)
+}
+
+// Prints and logs a given message
+pub fn print_and_log(message: &str) {
+    println!("{}", message);
+    info!("{}", message);
 }

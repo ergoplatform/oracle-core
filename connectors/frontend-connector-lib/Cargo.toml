@@ -1,5 +1,5 @@
 [package]
-name = "erg-usd-connector"
+name = "frontend-connector-lib"
 version = "0.1.0"
 authors = ["Robert Kornacki <11645932+robkorn@users.noreply.github.com>"]
 edition = "2018"
@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 json            = "0.12.4"
 reqwest         = { version = "0.10.7", features = ["blocking"] }
-frontend-connector-lib     = {path = "../frontend-connector-lib"}
+connector-lib     = {path = "../connector-lib"}
 anyhow          = "1.0.32"
 openssl = { version = "0.10", features = ["vendored"] }
+sincere         = "0.6.6"

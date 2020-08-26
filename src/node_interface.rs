@@ -2,6 +2,7 @@ use crate::oracle_config::{get_node_api_header, get_node_url};
 use crate::scans::ScanID;
 use crate::{BlockHeight, P2PKAddress, P2SAddress, TxId};
 use json::JsonValue;
+use log::info;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::CONTENT_TYPE;
 use serde_json::from_str;
@@ -16,6 +17,8 @@ pub enum NodeError {
     NodeUnreachable,
     #[error("Failed reading response from node: {0}")]
     FailedParsingNodeResponse(String),
+    #[error("Failed parsing JSON box from node: {0}")]
+    FailedParsingBox(String),
     #[error("No Boxes Were Found.")]
     NoBoxesFound,
     #[error("The node rejected the request you provided.\nNode Response: {0}")]
@@ -99,8 +102,9 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
             let res_ergo_box = from_str(&box_json.to_string());
             if let Ok(ergo_box) = res_ergo_box {
                 box_list.push(ergo_box);
-            } else {
-                return Err(NodeError::FailedParsingNodeResponse(res_json.to_string()));
+            } else if let Err(e) = res_ergo_box {
+                let mess = format!("Box Json: {}\nError: {:?}", box_json.to_string(), e);
+                return Err(NodeError::FailedParsingBox(mess));
             }
         }
     }
@@ -116,7 +120,7 @@ pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
     let body = json::stringify(tx_request_json.clone());
     let res = send_post_req(endpoint, body);
 
-    // println!("{:?}", tx_request_json.dump());
+    info!("{:?}", tx_request_json.dump());
 
     let res_json = parse_response_to_json(res)?;
     let error_details = res_json["detail"].to_string().clone();

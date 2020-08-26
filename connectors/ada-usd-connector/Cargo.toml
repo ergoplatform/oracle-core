@@ -1,5 +1,5 @@
 [package]
-name = "erg-usd-connector"
+name = "ada-usd-connector"
 version = "0.1.0"
 authors = ["Robert Kornacki <11645932+robkorn@users.noreply.github.com>"]
 edition = "2018"
