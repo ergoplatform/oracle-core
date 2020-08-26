@@ -3,6 +3,7 @@ use crate::node_interface::{
     address_to_bytes, address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box,
     serialize_boxes,
 };
+use crate::print_and_log;
 use crate::Result;
 use anyhow::anyhow;
 use json;
@@ -37,13 +38,12 @@ impl Scan {
         };
 
         info!("Registering {}: {}", name.clone(), tracking_rule.pretty(2));
-
         let res_scan_id = register_scan(&scan_json);
         if let Ok(scan_id) = res_scan_id {
-            println!("Scan ID: {}", scan_id);
+            print_and_log(&format!("Scan Successfully Set.\nID: {}", scan_id));
             return Scan::new(name, &scan_id);
         } else if let Err(e) = res_scan_id {
-            panic!("Scan Register Error: {}", e);
+            print_and_log(&format!("Scan Register Error: {}", e));
         }
         return Scan::new(name, &"0".to_string());
     }
