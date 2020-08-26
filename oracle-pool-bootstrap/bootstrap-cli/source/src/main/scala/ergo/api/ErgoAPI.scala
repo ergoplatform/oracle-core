@@ -1,12 +1,19 @@
 package ergo.api
 
+import java.io.File
+
+import com.typesafe.config.ConfigFactory
 import ergo.api.Curl._
 import org.json.JSONObject
 
 object ErgoAPI {
-  private var apiKey = "hello"
-  var baseUrl = "http://192.168.0.200:9053/"
-  private val defaultFee = 2000000
+  lazy val config = ConfigFactory.parseFile(new File("application.conf")).getConfig("ergo.oraclepool")
+
+  lazy val nodeConfig = config.getConfig("node")
+
+  private lazy val apiKey = nodeConfig.getString("apiKey") // example "hello"
+  lazy val baseUrl = nodeConfig.getString("baseUrl") // example "http://192.168.0.200:9053/"
+  private lazy val defaultFee = nodeConfig.getString("defaultFee") // example 3000000
 
   private def authHeader: Array[(String, String)] =
     Array(
