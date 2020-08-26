@@ -27,14 +27,23 @@ pub enum NodeError {
     NodeSyncing,
 }
 
-/// Registers a scan with the node and returns the `scan_id`
+/// Registers a scan with the node and either returns the `scan_id` or an error
 pub fn register_scan(scan_json: &JsonValue) -> Result<ScanID> {
     let endpoint = "/scan/register";
     let body = scan_json.clone().to_string();
     let res = send_post_req(endpoint, body);
     let res_json = parse_response_to_json(res)?;
 
-    Ok(res_json["scanId"].to_string().clone())
+    info!(
+        "Node Register Scan Response Json: {}",
+        &res_json.pretty(2).to_string()
+    );
+
+    if res_json["error"].is_null() {
+        return Ok(res_json["scanId"].to_string().clone());
+    } else {
+        return Err(NodeError::BadRequest(res_json["error"].to_string()));
+    }
 }
 
 /// Acquires unspent boxes from the node wallet

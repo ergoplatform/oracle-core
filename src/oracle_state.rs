@@ -118,18 +118,21 @@ impl OraclePool {
                 register_epoch_preparation_scan(
                     &oracle_pool_nft,
                     &epoch_preparation_contract_address,
-                ),
-                register_live_epoch_scan(&oracle_pool_nft, &live_epoch_contract_address),
+                )
+                .unwrap(),
+                register_live_epoch_scan(&oracle_pool_nft, &live_epoch_contract_address).unwrap(),
                 register_local_oracle_datapoint_scan(
                     &oracle_pool_participant_token,
                     &datapoint_contract_address,
                     &local_oracle_address,
-                ),
+                )
+                .unwrap(),
                 register_datapoint_scan(
                     &oracle_pool_participant_token,
                     &datapoint_contract_address,
-                ),
-                register_pool_deposit_scan(&pool_deposit_contract_address),
+                )
+                .unwrap(),
+                register_pool_deposit_scan(&pool_deposit_contract_address).unwrap(),
             ];
             let res = save_scan_ids_locally(scans);
             if let Ok(_) = res {

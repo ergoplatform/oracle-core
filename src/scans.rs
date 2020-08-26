@@ -31,21 +31,17 @@ impl Scan {
     }
 
     /// Registers a scan in the node and returns a `Scan` as a result
-    pub fn register(name: &String, tracking_rule: JsonValue) -> Scan {
+    pub fn register(name: &String, tracking_rule: JsonValue) -> Result<Scan> {
         let scan_json = object! {
         scanName: name.clone(),
         tracking_rule: tracking_rule.clone(),
         };
 
         info!("Registering {}: {}", name.clone(), tracking_rule.pretty(2));
-        let res_scan_id = register_scan(&scan_json);
-        if let Ok(scan_id) = res_scan_id {
-            print_and_log(&format!("Scan Successfully Set.\nID: {}", scan_id));
-            return Scan::new(name, &scan_id);
-        } else if let Err(e) = res_scan_id {
-            print_and_log(&format!("Scan Register Error: {}", e));
-        }
-        return Scan::new(name, &"0".to_string());
+        let scan_id = register_scan(&scan_json)?;
+        print_and_log(&format!("Scan Successfully Set.\nID: {}", scan_id));
+
+        return Ok(Scan::new(name, &scan_id));
     }
 
     /// Returns all boxes found by the scan
@@ -91,7 +87,10 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 }
 
 /// This function registers scanning for the Live Epoch stage box
-pub fn register_live_epoch_scan(oracle_pool_nft: &String, live_epoch_address: &String) -> Scan {
+pub fn register_live_epoch_scan(
+    oracle_pool_nft: &String,
+    live_epoch_address: &String,
+) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
     let live_epoch_bytes =
         address_to_bytes(live_epoch_address).expect("Failed to access node to use addressToBytes.");
@@ -118,7 +117,7 @@ pub fn register_live_epoch_scan(oracle_pool_nft: &String, live_epoch_address: &S
 pub fn register_epoch_preparation_scan(
     oracle_pool_nft: &String,
     epoch_preparation_address: &String,
-) -> Scan {
+) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
     let epoch_prep_bytes = address_to_bytes(epoch_preparation_address)
         .expect("Failed to access node to use addressToBytes.");
@@ -146,7 +145,7 @@ pub fn register_local_oracle_datapoint_scan(
     oracle_pool_participant_token: &String,
     datapoint_address: &String,
     oracle_address: &String,
-) -> Scan {
+) -> Result<Scan> {
     // ErgoTree bytes of the datapoint P2S address/script
     let datapoint_add_bytes =
         address_to_bytes(datapoint_address).expect("Failed to access node to use addressToBytes.");
@@ -182,7 +181,7 @@ pub fn register_local_oracle_datapoint_scan(
 pub fn register_datapoint_scan(
     oracle_pool_participant_token: &String,
     datapoint_address: &String,
-) -> Scan {
+) -> Result<Scan> {
     // ErgoTree bytes of the datapoint P2S address/script
     let datapoint_add_bytes =
         address_to_bytes(datapoint_address).expect("Failed to access node to use addressToBytes.");
@@ -206,7 +205,7 @@ pub fn register_datapoint_scan(
 }
 
 /// This function registers scanning for any boxes in the Pool Deposit stage address
-pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> Scan {
+pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> Result<Scan> {
     // ErgoTree bytes of the datapoint P2S address/script
     let pool_dep_add_bytes = address_to_bytes(pool_deposit_address)
         .expect("Failed to access node to use addressToBytes.");
