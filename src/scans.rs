@@ -92,8 +92,7 @@ pub fn register_live_epoch_scan(
     live_epoch_address: &String,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let live_epoch_bytes =
-        address_to_bytes(live_epoch_address).expect("Failed to access node to use addressToBytes.");
+    let live_epoch_bytes = address_to_bytes(live_epoch_address)?;
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = object! {
@@ -119,8 +118,7 @@ pub fn register_epoch_preparation_scan(
     epoch_preparation_address: &String,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let epoch_prep_bytes = address_to_bytes(epoch_preparation_address)
-        .expect("Failed to access node to use addressToBytes.");
+    let epoch_prep_bytes = address_to_bytes(epoch_preparation_address)?;
 
     // Scan for NFT id + Epoch Preparation address
     let scan_json = object! {
@@ -147,12 +145,10 @@ pub fn register_local_oracle_datapoint_scan(
     oracle_address: &String,
 ) -> Result<Scan> {
     // ErgoTree bytes of the datapoint P2S address/script
-    let datapoint_add_bytes =
-        address_to_bytes(datapoint_address).expect("Failed to access node to use addressToBytes.");
+    let datapoint_add_bytes = address_to_bytes(datapoint_address)?;
 
     // Raw EC bytes + type identifier
-    let oracle_add_bytes = address_to_raw_for_register(&oracle_address)
-        .expect("Failed to access node to use addressToBytes.");
+    let oracle_add_bytes = address_to_raw_for_register(&oracle_address)?;
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object! {
@@ -183,8 +179,7 @@ pub fn register_datapoint_scan(
     datapoint_address: &String,
 ) -> Result<Scan> {
     // ErgoTree bytes of the datapoint P2S address/script
-    let datapoint_add_bytes =
-        address_to_bytes(datapoint_address).expect("Failed to access node to use addressToBytes.");
+    let datapoint_add_bytes = address_to_bytes(datapoint_address)?;
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object! {
