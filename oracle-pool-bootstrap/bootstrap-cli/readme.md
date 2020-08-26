@@ -1,5 +1,5 @@
 # Bootstrap CLI
-This is a CLI to bootstrap the oracle pool. The CLI has 5 modules (5 main classes) for each of the following tasks:
+This is a CLI tool which simplifies the process of bootstrapping an oracle pool. The CLI tool exposes 5 actions, one for each of the following tasks:
 1. `generatePoolToken` to generate a singleton pool token
 2. `generateOracleTokens` to generate multiple oracle tokens
 3. `getContractAddresses` Getting the addresses using the tokens generated
@@ -8,7 +8,7 @@ This is a CLI to bootstrap the oracle pool. The CLI has 5 modules (5 main classe
 
 ## Step 1: Configure options
 
-Create a file called `application.conf` (or download the [example config here](application.conf)) within the same folder where the jar is present. The default content of this config file will be:
+Create a file called `application.conf` (or download the [example config here](application.conf)). Here is an example config for a pool:
 
     ergo.oraclepool {
         pool {
@@ -27,7 +27,7 @@ Create a file called `application.conf` (or download the [example config here](a
         }
     }
 
-Edit the file with your desired parameters for your oracle pool.
+Edit the file with the desired parameters for your oracle pool.
 
 ## Step 2a: Compile The Jar (Optional)
 
@@ -72,7 +72,7 @@ Example:
     java -cp oracle-pool-bootstrap.jar generatePoolToken 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk
     java -cp oracle-pool-bootstrap.jar generateOracleTokens 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk 20
 
-## Step 5: Get addresses
+## Step 5: Get Smart Contract Addresses
 
 Usage:
 
@@ -91,13 +91,12 @@ Output:
 
 ## Step 6: Bootstrap Pool
 
-In order to bootstrap the pool we need a recent datapoint close to the value that will be committed by oracles (to ensure that they lie within 50%).
+In order to bootstrap the pool we need a recent datapoint close to the value that will be committed by oracles (to ensure that they lie within the outlier range of 50%).
 The data-point is a long value and must be serialized properly for storing in the register.
 Details of the serialization are available in the [ErgoTree specification (Section 5.2)](https://ergoplatform.org/docs/ErgoTree.pdf).
 
-Follow [the steps to compile the oracle core](https://github.com/ergoplatform/oracle-core).
 Every oracle pool needs to select it's own oracle core connector. This is the piece of software which fetches your oracle pool's datapoint from the outside world.
-You can find a list of connectors [in this folder](../connectors).
+You can find a list of connectors [in this folder](../connectors), and instructions to [compile the oracle core/connector of your choice here](https://github.com/ergoplatform/oracle-core).
 
 Once you have compiled your selected connector, you can now generate a recent datapoint which will be used for bootstrapping your pool.
 The `--bootstrap-value` command can be used with any connector to do so, as such:
@@ -112,7 +111,7 @@ Example:
 
     java -cp oracle-pool-bootstrap.jar bootstrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
 
-This will create the epoch preparation box with the desired token.
+This will create the Epoch Preparation box with the desired token.
 
 ## Step 7: Bootstrap Oracles
 
