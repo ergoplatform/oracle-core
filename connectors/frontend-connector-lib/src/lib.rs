@@ -86,6 +86,8 @@ impl FrontendConnector {
 
         let data_json = object! {
             title: self.connector.title.clone(),
+            current_block_height: block_height,
+
 
             latest_price: (self.generate_current_price)(pstatus.latest_datapoint),
             posting_schedule_minutes: posting_sched_minutes,
