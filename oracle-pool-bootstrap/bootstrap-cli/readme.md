@@ -1,32 +1,37 @@
-# Oracle Pool Bootstrap CLI
-This is a CLI tool for bootstraping an oracle pool easily.
-
-The CLI has 5 modules (5 main classes) for each of the following tasks:
-1. `ergo.oraclepool.GeneratePoolToken` to generate a singleton pool token
-2. `ergo.oraclepool.GenerateOracleTokens` to generate multiple oracle tokens
-3. `ergo.oraclepool.GetAddresses` Getting the addresses using the tokens generated
-4. `ergo.oraclepool.BootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
-5. `ergo.oraclepool.BootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
+# Bootstrap CLI
+This is a CLI tool which simplifies the process of bootstrapping an oracle pool. The CLI tool exposes 5 actions, one for each of the following tasks:
+1. `generatePoolToken` to generate a singleton pool token
+2. `generateOracleTokens` to generate multiple oracle tokens
+3. `getContractAddresses` Getting the addresses using the tokens generated
+4. `bootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
+5. `bootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
 
 ## Step 1: Configure options
 
-Edit the file [ergp/oraclepool/package.scala](src/main/scala/ergo/oraclepool/package.scala) and update following parameters as desired:
+Create a file called `application.conf` (or download the [example config here](application.conf)). Here is an example config for a pool:
 
-    val oracleReward = 2500000L // NanoErgs
-    val minBoxValue = 1500000L // NanoErgs
-    val errorMargin = 50 // percent
-    val numOracles = 14
-    val epochPeriod = 30 // blocks
-    val livePeriod = 20 // blocks
-    val buffer = 5 // blocks
+    ergo.oraclepool {
+        pool {
+            oracleReward = 2500000
+            minBoxValue = 1500000
+            maxOutlierPercent = 50
+            numOracles = 14
+            postingSchedule = 30
+            liveEpochPeriod = 20
+            buffer = 5
+        }
+        node {
+            apiKey = "hello"
+            baseUrl = "http://192.168.0.200:9053/"
+            defaultFee = 3000000
+        }
+    }
 
-Edit the file [ergo/api/ErgoAPI.scala](src/main/scala/ergo/api/ErgoAPI.scala) and update following parameters as desired:
+Edit the file with the desired parameters for your oracle pool.
 
-    private var apiKey = "hello"
-    var baseUrl = "http://192.168.0.200:9053/"
-    private val defaultFee = 2000000
+## Step 2a: Compile The Jar (Optional)
 
-## Step 2: Compile the Jar
+Skip this step if using the pre-compiled jar.
 
 Use the command:
 
@@ -35,27 +40,47 @@ Use the command:
 The jar will be stored as `target/scala-2.12/oracle-pool-bootstrap.jar`.
 Copy the jar to some desired location.
 
-## Step 3: Issue tokens
+
+## Step 2b: Copy The Pre-Compiled Jar
+
+Alternatively a pre-compiled `oracle-pool-bootstrap.jar` is provided in this folder which can be downloaded and used without having to have the JDK/sbt installed or doing the compiling yourself.
+
+
+## Step 3: Running The Bootstrap CLI Tool
+
+Running the jar is very simple and provides us with basic usage information:
+
+    java -jar oracle-pool-bootstrap.jar
+
+    Usage:
+    java -cp <jarFile> generatePoolToken <recipientAddress>
+    java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>
+    java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>
+    java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>
+    java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
+
+
+## Step 4: Issue tokens
 
 Usage:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GeneratePoolToken <address_to_store_tokens_in>
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GenerateOracleTokens <address_to_store_tokens_in> <num_tokens>
+    java -cp oracle-pool-bootstrap.jar generatePoolToken <address_to_store_tokens_in>
+    java -cp oracle-pool-bootstrap.jar generateOracleTokens <address_to_store_tokens_in> <num_tokens>
 
 Example:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GeneratePoolToken 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GenerateOracleTokens 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk 20
+    java -cp oracle-pool-bootstrap.jar generatePoolToken 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk
+    java -cp oracle-pool-bootstrap.jar generateOracleTokens 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk 20
 
-## Step 4: Get addresses
+## Step 5: Get Smart Contract Addresses
 
 Usage:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.GetAddresses <oracleTokenId> <poolTokenId>
+    java -cp oracle-pool-bootstrap.jar getContractAddresses <oracleTokenId> <poolTokenId>
 
 Example:
 
-    java -cp oracle-pool-bootstrap.jar  ergo.oraclepool.GetAddresses 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc
+    java -cp oracle-pool-bootstrap.jar getContractAddresses 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc
 
 Output:
 
@@ -64,15 +89,14 @@ Output:
     DataPoint: jL2aaqw6XU61SZznxeykLpREPzSmZv8bwbjEsJD6DMfXQLgBc12wMmPpVD81JnLuZUjHRKPysKxKQhcBaqDs7ZAtYwRuYmQojzKK9bHXDUY8N4BiJx8AUG8VEaggD4ztWSeQHrW7EbFxpXgaMKuzuN1Gq4zoYDArstgcrHKwg2uCeGeXiydQXRWEyE8e6noAP13nUBSmNNNVqkM9JGUVAJYo4GGdVFg8FRtFWcNdtbxCKfw4JGVhakCGj4qvd
     Deposit: zLSQDVBaDkFiQhpgVYqu9saX3ppCMzmma1qdryGH1x1GTkAjU9vVodDsYrk3H5UvqDmdxJLoDADg69KXyL9gVGW2NER7GxMotdh46Bzr9P9tJwPdgvNhSdoXYrLTemKadCU46aGy81YneoKB7xjz3a1v4Aar3n71XysQ6HwdKcJt8WFKqbZmRx4JnJTtBUtsdD184oU623BXA93cGrG1fFuFzSALqGztnS9Ai4JP6NcM8LE2wU
 
-## Step 5: Bootstrap Pool
+## Step 6: Bootstrap Pool
 
-In order to bootstrap the pool we need a recent datapoint close to the value that will be committed by oracles (to ensure that they lie within 50%).
+In order to bootstrap the pool we need a recent datapoint close to the value that will be committed by oracles (to ensure that they lie within the outlier range of 50%).
 The data-point is a long value and must be serialized properly for storing in the register.
 Details of the serialization are available in the [ErgoTree specification (Section 5.2)](https://ergoplatform.org/docs/ErgoTree.pdf).
 
-Follow [the steps to compile the oracle core](https://github.com/ergoplatform/oracle-core).
 Every oracle pool needs to select it's own oracle core connector. This is the piece of software which fetches your oracle pool's datapoint from the outside world.
-You can find a list of connectors [in this folder](../connectors).
+You can find a list of connectors [in this folder](../connectors), and instructions to [compile the oracle core/connector of your choice here](https://github.com/ergoplatform/oracle-core).
 
 Once you have compiled your selected connector, you can now generate a recent datapoint which will be used for bootstrapping your pool.
 The `--bootstrap-value` command can be used with any connector to do so, as such:
@@ -81,28 +105,28 @@ The `--bootstrap-value` command can be used with any connector to do so, as such
 
 This will print out some value such as `0502`. Copy that value and invoke the CLI as:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
+    java -cp oracle-pool-bootstrap.jar bootstrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
 
 Example:
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
+    java -cp oracle-pool-bootstrap.jar bootstrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
 
-This will create the epoch preparation box with the desired token.
+This will create the Epoch Preparation box with the desired token.
 
-## Step 6: Bootstrap Oracles
+## Step 7: Bootstrap Oracles
 
-To bootstrap the datapoint boxes for the oracles, do the following for each oracle. First obtain the reward address of the oracle where the reward is to be sent.
-This address must be an "ordinary" address (any address generated by the node's wallet will do). We call this the `rewardAddress`.
+To bootstrap the Datapoint boxes for the oracles, do the following for each oracle. First obtain the oracle's full node wallet address which they will be using to take part in the oracle pool.
+This address must be an "ordinary" P2PK address (any address generated by the node's wallet will do). We call this the `oracleAddress`.
 
 For the technically inclined, an ordinary address corresponds to the script `proveDlog(h)` for some elliptic curve point `h` on the Secp256k1 curve, which is
 the same curve used in Bitcoin.
 
 An example of a ordinary address is `9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk`. To bootstrap the oracle issue the following command.
 
-    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
+    java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapOracle <oracleTokenId> <poolTokenId> <oracleAddress>
 
 Example:
 
     java -cp oracle-pool-bootstrap.jar ergo.oraclepool.BootStrapOracle 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 9fcrXXaJgrGKC8iu98Y2spstDDxNccXSR9QjbfTvtuv7vJ3NQLk
 
-This will create the datapoint with the desired token.
+This will create the Datapoint box with the desired token.
