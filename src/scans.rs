@@ -34,10 +34,12 @@ impl Scan {
     pub fn register(name: &String, tracking_rule: JsonValue) -> Result<Scan> {
         let scan_json = object! {
         scanName: name.clone(),
-        tracking_rule: tracking_rule.clone(),
+        trackingRule: tracking_rule.clone(),
         };
 
-        info!("Registering {}: {}", name.clone(), tracking_rule.pretty(2));
+        // info!("Registering {}: {}", name.clone(), tracking_rule.pretty(2));
+        info!("Registering Scan:\n{}", scan_json.pretty(2));
+
         let scan_id = register_scan(&scan_json)?;
         print_and_log(&format!("Scan Successfully Set.\nID: {}", scan_id));
 

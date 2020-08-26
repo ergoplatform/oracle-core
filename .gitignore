@@ -15,4 +15,4 @@ scanIDs.json
 *.kra*
 ada-usd-oracle-deployed
 erg-usd-oracle-deployed
-oracle-core.log
+*oracle-core.log
