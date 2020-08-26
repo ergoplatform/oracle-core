@@ -32,11 +32,16 @@ impl Scan {
     pub fn register(name: &String, tracking_rule: JsonValue) -> Scan {
         let scan_json = object! {
         scanName: name.clone(),
-        tracking_rule: tracking_rule,
+        tracking_rule: tracking_rule.clone(),
         };
-        let scan_id = register_scan(&scan_json).expect("Failed to register scan.");
-        println!("Scan ID: {}", scan_id);
-        Scan::new(name, &scan_id)
+        let res_scan_id = register_scan(&scan_json);
+        if let Ok(scan_id) = res_scan_id {
+            println!("Scan ID: {}", scan_id);
+            return Scan::new(name, &scan_id);
+        } else if let Err(e) = res_scan_id {
+            panic!("Scan Register Error: {}", e);
+        }
+        return Scan::new(name, &"0".to_string());
     }
 
     /// Returns all boxes found by the scan
