@@ -10,12 +10,12 @@ A `Connector` must also be used with the oracle core in order to acquire data to
 
 The current oracle core is built to run the protocol specified in the [Basic Oracle Pool Spec](https://github.com/ergoplatform/oracle-core/blob/master/docs/specs/Basic-Oracle-Pool-Spec.md). Future versions will also support stake slashing and governance, with the specs already available for reading in the [specs folder](docs/specs).
 
-Many other documents can also be found explaining how various parts of the oracle core work in the [docs folder](docs).
+Other documents can also be found explaining how various parts of the oracle core work in the [docs folder](docs).
 
 
 
 # Building & Running An Oracle
-The majority of oracle operators will only need to focus on setting up their own oracle core to work with an [already bootstrapped oracle pool](#Bootstrapping-An-Oracle-Pool). This section will explain how to do so for oracle using the ERG-USD connector. The steps are exactly the same for other connectors, but simply require using that connector's prepare script.
+The majority of oracle operators will only need to focus on setting up their own oracle core to work with an [already bootstrapped oracle pool](#Bootstrapping-An-Oracle-Pool). This section will explain how to do so for oracles using the ERG-USD connector. The steps are exactly the same for other connectors, but simply require using that connector's prepare script.
 
 It is assumed that you are running this oracle on Linux, and have the following prerequisites:
 - Access to an [Ergo Node](https://github.com/ergoplatform/ergo) v3.3.0+ with an unlocked wallet.
@@ -36,9 +36,9 @@ sh prepare-erg-usd-oracle.sh
 ```
 4. Enter into the newly created `oracle-core-deployed` folder:
 ```sh
-cd ../../oracle-core-deployed & ls
+cd ../../erg-usd-oracle-deployed & ls
 ```
-5. Edit your `oracle-config.yaml` with your Ergo Node information, your oracle address (address that was used for bootstrapping the pool & is inside of your Ergo Node wallet), and other relevant pool information. Read more about the [config file here](docs/Oracle-Config.md). (Optionally acquire a pre-configured `oracle-config.yaml` from the user who bootstrapped the oracle pool and simply fill in your node info/oracle address)
+5. Edit your `oracle-config.yaml` with your Ergo Node information, your oracle address (address that was used for bootstrapping the pool & is inside of your Ergo Node wallet), and other relevant pool information. (Optionally acquire a pre-configured `oracle-config.yaml` from the user who bootstrapped the oracle pool and simply fill in your node info/oracle address)
 6. Ensure your Ergo Node is running (and matches the info you input in the config) and has it's wallet unlocked (with some Ergs in the wallet to pay for tx fees).
 7. Launch your oracle by running `run-oracle.sh`:
 ```sh
@@ -50,9 +50,9 @@ sh run-oracle.sh
 UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 ```
 10. Press enter to confirm that the scans have been registered. Your oracle core is now properly set up and waiting for the UTXO-set scans to be triggered in order to read the state of the oracle pool on-chain to then perform actions/txs.
-11. Rescan the blockchain history by either using the `/wallet/rescan` GET endpoint of your node, or by deleting `.ergo/wallet/registry` in your Ergo Node folder. Either option triggers a rescan.
-12. Once the node has finished rescanning, the oracle core & connector will automatically issue transactions and move the protocol forward.
-13. Congrats, you can now detach from the screen instance if you wish via `Ctrl+a d`. (And reattach via `screen -r`)
+11. Rescan the blockchain history by either using the `/wallet/rescan` GET endpoint of your node, or by deleting `.ergo/wallet/registry` in your Ergo Node folder. Either option triggers a rescan after the blockchain progresses into the next block.
+12. Once the node has finished rescanning (which can be checked via the `/wallet/status` endpoint and comparing the `walletHeight` value to the current blockheight), the oracle core & connector will automatically issue transactions and move the protocol forward.
+13. Congrats, you can now detach from the screen instance if you wish via `Ctrl+a d`. (And reattach via `screen -r`) Your oracle core/connector will run automatically going forward.
 
 
 # Bootstrapping An Oracle Pool
