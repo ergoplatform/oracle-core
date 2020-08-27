@@ -15,7 +15,7 @@ Many other documents can also be found explaining how various parts of the oracl
 
 
 # Building & Running An Oracle
-The majority of oracle operators will only need to focus on setting up their own oracle core to work with an [already bootstrapped oracle pool](#Bootstrapping-An-Oracle-Pool). This section will explain how to do so for oracle using the ERG-USD adapter. The steps are exactly the same for other adapters, but simply require using that adapter's prepare script.
+The majority of oracle operators will only need to focus on setting up their own oracle core to work with an [already bootstrapped oracle pool](#Bootstrapping-An-Oracle-Pool). This section will explain how to do so for oracle using the ERG-USD connector. The steps are exactly the same for other connectors, but simply require using that connector's prepare script.
 
 It is assumed that you are running this oracle on Linux, and have the following prerequisites:
 - Access to an [Ergo Node](https://github.com/ergoplatform/ergo) v3.3.0+ with an unlocked wallet.
@@ -26,11 +26,11 @@ It is assumed that you are running this oracle on Linux, and have the following 
 ```sh
 git clone git@github.com:ergoplatform/oracle-core.git
 ```
-2. Enter into the adapter's script folder:
+2. Enter into the connector's script folder:
 ```sh
 cd oracle-core/scripts/erg-usd-oracle
 ```
-3. Run the prepare script which will automatically compile the oracle core and the adapter for you:
+3. Run the prepare script which will automatically compile the oracle core and the connector for you:
 ```sh
 sh prepare-erg-usd-oracle.sh
 ```
@@ -44,14 +44,14 @@ cd ../../oracle-core-deployed & ls
 ```sh
 sh run-oracle.sh
 ```
-8. A `screen` instance will be created which launches both the oracle core and the adapter. (Press `Ctrl+a - n` to go between the core & the adapter screens).
+8. A `screen` instance will be created which launches both the oracle core and the connector. (Press `Ctrl+a - n` to go between the core & the connector screens).
 9. If your node is running and properly configured, the oracle core will inform you that it has successfully registered the required UTXO-set scans:
 ```sh
 UTXO-Set Scans Have Been Successfully Registered With The Ergo Node
 ```
 10. Press enter to confirm that the scans have been registered. Your oracle core is now properly set up and waiting for the UTXO-set scans to be triggered in order to read the state of the oracle pool on-chain to then perform actions/txs.
 11. Rescan the blockchain history by either using the `/wallet/rescan` GET endpoint of your node, or by deleting `.ergo/wallet/registry` in your Ergo Node folder. Either option triggers a rescan.
-12. Once the node has finished rescanning, the oracle core & adapter will automatically issue transactions and move the protocol forward.
+12. Once the node has finished rescanning, the oracle core & connector will automatically issue transactions and move the protocol forward.
 13. Congrats, you can now detach from the screen instance if you wish via `Ctrl+a d`. (And reattach via `screen -r`)
 
 
