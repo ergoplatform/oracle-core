@@ -10,7 +10,7 @@ pub enum ConnectorError {
     #[error("The configured oracle core is unreachable. Please ensure your config is correctly filled out and the core is running.")]
     CoreUnreachable,
     #[error("Failed reading response from core.")]
-    FailedParsingCoreResponse,
+    FailedParsingCoreResponse(String),
     #[error("Failed opening the local `oracle-config.yaml` file.")]
     FailedOpeningOracleConfigFile,
     #[error("Datapoint Error: {0}")]
@@ -34,6 +34,7 @@ pub struct OracleInfo {
 /// Info about the Oracle Pool
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolInfo {
+    pub number_of_oracles: String,
     pub live_epoch_address: String,
     pub epoch_prep_address: String,
     pub pool_deposits_address: String,
@@ -113,37 +114,37 @@ impl OracleCore {
                 return Ok(tx_id.to_string());
             }
         } else {
-            return Err(ConnectorError::FailedParsingCoreResponse);
+            return Err(ConnectorError::FailedParsingCoreResponse(resp_text));
         }
     }
     /// Get information about the local Oracle
     pub fn oracle_info(&self) -> Result<OracleInfo> {
         let resp_text = self.send_get_req("/oracleInfo")?;
-        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
     /// Get information about the Oracle Pool
     pub fn pool_info(&self) -> Result<PoolInfo> {
         let resp_text = self.send_get_req("/poolInfo")?;
-        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
     /// Get node info
     pub fn node_info(&self) -> Result<NodeInfo> {
         let resp_text = self.send_get_req("/nodeInfo")?;
-        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
     /// Get the current local Oracle Status
     pub fn oracle_status(&self) -> Result<OracleStatus> {
         let resp_text = self.send_get_req("/oracleStatus")?;
-        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
     /// Get the current Oracle Pool Status
     pub fn pool_status(&self) -> Result<PoolStatus> {
         let resp_text = self.send_get_req("/poolStatus")?;
-        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse)
+        from_str(&resp_text).map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
     /// Get the current block height
@@ -151,7 +152,7 @@ impl OracleCore {
         let resp_text = self.send_get_req("/blockHeight")?;
         resp_text
             .parse()
-            .map_err(|_| ConnectorError::FailedParsingCoreResponse)
+            .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
     /// Sends a GET request to the Oracle Core and converts response to text with extra quotes removed
@@ -164,7 +165,7 @@ impl OracleCore {
         let text: String = resp
             .text()
             .map(|s| s.chars().filter(|&c| c != '\\').collect())
-            .map_err(|_| ConnectorError::FailedParsingCoreResponse)?;
+            .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))?;
 
         // Check if returned response has quotes around it which need to be removed
         if &text[0..1] == "\"" {
@@ -185,7 +186,7 @@ impl OracleCore {
         let text: String = resp
             .text()
             .map(|s| s.chars().filter(|&c| c != '\\').collect())
-            .map_err(|_| ConnectorError::FailedParsingCoreResponse)?;
+            .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))?;
         Ok(text[1..(text.len() - 1)].to_string())
     }
 }

@@ -99,6 +99,7 @@ impl FrontendConnector {
             posting_schedule_blocks: posting_sched_blocks,
 
 
+            number_of_oracles: pinfo.number_of_oracles,
             current_epoch_id: pstatus.current_epoch_id,
             latest_datapoint: pstatus.latest_datapoint,
             live_epoch_address : pinfo.live_epoch_address,
