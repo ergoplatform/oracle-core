@@ -62,6 +62,10 @@ Check out the [Oracle Pool Bootstrap folder](oracle-pool-bootstrap) for detailed
 
 
 # Writing A New Connector
-If you are looking to create a new Oracle Pool for a new datapoint, you need to write a new Connector. This process has been greatly simplified thanks to [`Connector-lib`](connectors/connector-lib).
+If you are looking to create a new Oracle Pool for a new datapoint, you need to write a new Connector. This process has been greatly simplified thanks to [`Connector Lib`](connectors/connector-lib).
 
 Now within 15-20 lines of Rust code, you can easily create your own Connector that plugs right in to the Oracle Core.
+
+If you would like to integrate your pool with the Ergo Explorer we have also created [`Frontend Connector Lib`](connectors/frontend-connector-lib). This library builds off of `Connector Lib` and automatically provides + runs an API server which produces all of the data required for the frontend.
+
+Building a Frontend Connector provides a single endpoint which summarizes the majority of relevant data about your Oracle Pool, and as such can also be useful if you intend to create your own custom website/frontend for showing off what is going on in your pool.
