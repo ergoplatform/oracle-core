@@ -116,8 +116,14 @@ pub fn start_get_api() {
         let op = OraclePool::new();
         let parameters = PoolParameters::new();
 
+        let num_of_oracles = match op.datapoint_stage.number_of_boxes() {
+            Ok(n) => n,
+            Err(_) => 10,
+        };
+
         let response_json = object! {
-            live_epoch_address : op.live_epoch_stage.contract_address,
+            number_of_oracles: num_of_oracles,
+            live_epoch_address: op.live_epoch_stage.contract_address,
             epoch_prep_address: op.epoch_preparation_stage.contract_address,
             pool_deposits_address: op.pool_deposit_stage.contract_address,
             datapoint_address: op.datapoint_stage.contract_address,

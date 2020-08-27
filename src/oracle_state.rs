@@ -318,4 +318,9 @@ impl Stage {
     pub fn get_serialized_box(&self) -> Result<String> {
         self.scan.get_serialized_box()
     }
+
+    /// Returns the number of boxes held at the given stage based on the registered scan
+    pub fn number_of_boxes(&self) -> Result<u64> {
+        Ok(self.get_boxes()?.len() as u64)
+    }
 }
