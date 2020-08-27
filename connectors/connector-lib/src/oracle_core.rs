@@ -9,7 +9,7 @@ pub type Result<T> = std::result::Result<T, ConnectorError>;
 pub enum ConnectorError {
     #[error("The configured oracle core is unreachable. Please ensure your config is correctly filled out and the core is running.")]
     CoreUnreachable,
-    #[error("Failed reading response from core.")]
+    #[error("Failed reading response from core: {0}")]
     FailedParsingCoreResponse(String),
     #[error("Failed opening the local `oracle-config.yaml` file.")]
     FailedOpeningOracleConfigFile,
@@ -34,7 +34,7 @@ pub struct OracleInfo {
 /// Info about the Oracle Pool
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolInfo {
-    pub number_of_oracles: String,
+    pub number_of_oracles: u64,
     pub live_epoch_address: String,
     pub epoch_prep_address: String,
     pub pool_deposits_address: String,
@@ -165,7 +165,9 @@ impl OracleCore {
         let text: String = resp
             .text()
             .map(|s| s.chars().filter(|&c| c != '\\').collect())
-            .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))?;
+            .map_err(|_| {
+                ConnectorError::FailedParsingCoreResponse("Send Get Request Failed.".to_string())
+            })?;
 
         // Check if returned response has quotes around it which need to be removed
         if &text[0..1] == "\"" {
@@ -186,7 +188,9 @@ impl OracleCore {
         let text: String = resp
             .text()
             .map(|s| s.chars().filter(|&c| c != '\\').collect())
-            .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))?;
+            .map_err(|_| {
+                ConnectorError::FailedParsingCoreResponse("Send Post Request Failed.".to_string())
+            })?;
         Ok(text[1..(text.len() - 1)].to_string())
     }
 }
