@@ -15,12 +15,12 @@ services:
      - 9030:9030
      - 9053:9053
 
-  oracle-core:
+  oracle-core-erg-usd:
     build: .
     restart: unless-stopped
     network_mode: "host"
     volumes:
-      - "${PWD}/docker/oracle-config.yaml:/oracle-config.yaml"
+      - "${PWD}/scripts/erg-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
     depends_on:
       - node 
 
@@ -29,6 +29,28 @@ services:
     restart: unless-stopped
     network_mode: "host"
     volumes:
-      - "${PWD}/docker/oracle-config.yaml:/oracle-config.yaml"
+      - "${PWD}/scripts/erg-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    ports:
+      - 9092:9092
     depends_on:
-      - oracle-core
+      - oracle-core-erg-usd
+
+  oracle-core-ada-usd:
+    build: .
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/scripts/ada-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    depends_on:
+      - node
+
+  ada-usd-connector:
+    build: connectors/ada-usd-connector/
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/scripts/ada-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    ports:
+      - 9082:9082
+    depends_on:
+      - oracle-core-ada-usd
