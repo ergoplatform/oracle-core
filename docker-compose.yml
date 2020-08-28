@@ -1,0 +1,34 @@
+version: "3"
+
+volumes:
+  ergo_node_storage:
+
+services:
+  node:
+    image: ergoplatform/ergo:v3.3.0
+    restart: unless-stopped
+    volumes:
+      - "ergo_node_storage:/home/ergo/.ergo"
+      - "${PWD}/docker/ergo.conf:/etc/ergo.conf"
+    command: --mainnet -c /etc/ergo.conf
+    ports:
+     - 9030:9030
+     - 9053:9053
+
+  oracle-core:
+    build: .
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/docker/oracle-config.yaml:/oracle-config.yaml"
+    depends_on:
+      - node 
+
+  erg-usd-connector:
+    build: connectors/erg-usd-connector/
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/docker/oracle-config.yaml:/oracle-config.yaml"
+    depends_on:
+      - oracle-core

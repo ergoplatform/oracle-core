@@ -60,6 +60,48 @@ In order for an oracle pool to run, it must be first created/bootstrapped on-cha
 
 Check out the [Oracle Pool Bootstrap folder](oracle-pool-bootstrap) for detailed instructions about how to bootstrap an oracle pool using the CLI tool or manually.
 
+# Running An Oracle Using Docker Compose
+It's possible to setup an oracle cluster using docker compose. We do not recommend this deployment for production, unless you know what you are doing.
+
+1. Before bringing the cluster up, we need to update the `apiKeyHash` value inside `docker/ergo.conf`. This key will be used for interaction with the API.
+
+2. After that is done, we can bring up the cluster.
+
+```
+docker-compose up -d
+```
+
+3. It will take a while until our Ergo `node` sync the blockchain. After it is done, we need to restore our wallet using the API key defined in the first step. As you can see, we need to define a wallet password as well.
+
+```
+$ curl -XPOST -H "api_key: hello" \
+       -d '{"pass": "123", "mnemonic": "all all all..."}' \
+       -H  "accept: application/json" \
+       -H  "Content-Type: application/json" \
+       http://localhost:9053/wallet/restore
+"OK"
+```
+
+4. Now we need to unlock the wallet using the password we defined in the step above.
+
+```
+$ curl -XPOST -H "api_key: hello" \
+       -d '{"pass": "123"}' \
+       -H  "accept: application/json" \
+       -H  "Content-Type: application/json" \
+       http://localhost:9053/wallet/unlock
+"OK"
+```
+
+5. Verify your wallet is on the tip and has some balance in it.
+
+```
+$ curl -XGET -H "api_key: hello" \
+       -H "accept: application/json" \
+       -H  "Content-Type: application/json" \
+       http://localhost:9053/wallet/balances
+```
+
 
 # Writing A New Connector
 If you are looking to create a new Oracle Pool for a new datapoint, you need to write a new Connector. This process has been greatly simplified thanks to [`Connector Lib`](connectors/connector-lib).
