@@ -78,6 +78,7 @@ fn main() {
             print_and_log(&mess);
         }
 
+        // If in `read only` mode
         if args.len() > 1 && &args[1] == "--readonly" {
             print_and_log("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
         } else {

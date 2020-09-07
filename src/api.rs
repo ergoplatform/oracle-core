@@ -4,16 +4,28 @@ use crate::oracle_state::{OraclePool, PoolBoxState};
 use crate::print_action_results;
 use json;
 use sincere;
+use std::env;
 use std::str::from_utf8;
 
 /// Starts the POST API server which can be made publicly available without security risk
 pub fn start_post_api() {
     let mut app = sincere::App::new();
+    let args: Vec<String> = env::args().collect();
 
     // Accept a datapoint to be posted within a "Commit Datapoint" action tx
     app.post("/submitDatapoint", move |context| {
         let op = OraclePool::new();
         let res_post_json = from_utf8(context.request.body()).map(|t| json::parse(t));
+
+        // Check if oracle core is in `read only` mode
+        if args.len() > 1 && &args[1] == "--readonly" {
+            let error_json = object! {error: "Oracle Core is in `read only` mode."}.to_string();
+
+            context
+                .response
+                .header(("Access-Control-Allow-Origin", "*"))
+                .from_json(error_json).unwrap();
+        }
 
         // If the post request body is valid json
         if let Ok(Ok(post_json)) = res_post_json {
