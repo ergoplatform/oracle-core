@@ -1,6 +1,6 @@
 
 # Deviation Checking Oracle Pool Spec
-This is an informal specification which defines an oracle pool implementation which allows entry by predefined/whitelisted trusted oracles.
+This is an informal specification which defines an oracle pool implementation which allows entry by whitelisted trusted oracles and relies on deviation checking consensus.
 
 This spec follows [Ergo Improvement Proposal 6: Informal Smart Contract Protocol Specification Format](https://github.com/ergoplatform/eips/blob/master/eip-0006.md).
 
@@ -31,7 +31,9 @@ The datapoint collection transaction itself folds all of the individual datapoin
 
 In this design all of the oracles are incentivized to be the first to submit the collection transaction to generate the new finalized datapoint. The first to get their collection accepted into a block (hereby dubbed the **collector**), gets double the reward for the current epoch payout. Thus we have incentives for both oracles submitting their individual datapoints on time as well as finalizing the oracle pool's datapoint every epoch.
 
-There is an *outlier range* which all oracles must be within in order to get rewarded for providing data in the given epoch. This current scheme does not pay them out if they are not within this outlier range (rather than slashing which is a bit aggressive).
+There is a *deviation range* which all datapoints must be within in order to get collected. If an oracle submits a datapoint outside of the deviation range compared to other oracle datapoints, they do not get rewarded for the given epoch.
+
+In order for a new datapoint to be finalized by a collector, the number of datapoints within the *deviation range* must be greater than the *minimum consensus*. As such, if less than *minimum consensus* of oracles posted datapoints close enough to each other to be within the *deviation range*, then consensus is not reached and a collection cannot occur. This provides a much higher level of assurance for the finalized oracle pool datapoint.
 
 Submitting funds to the pool and oracles submitting datapoints are parallelized which allows for the pool to move through epochs smoothly.
 
@@ -79,7 +81,8 @@ The oracle pool box at this stage must also hold the pool's NFT/singleton token.
 ### Hard-coded Values
 - Live epoch duration
 - Epoch preparation duration
-- Outlier range(%) that oracles are allowed to deviate by.
+- Deviation range(%)
+- Minimum Consensus (number of oracles which must agree within deviation range to finalize a new datapoint)
 - The payout price for each successful oracle datapoint posting
 - The oracle pool NFT/singleton token id
 
@@ -244,20 +247,30 @@ Allows an oracle to use all of the individual oracle [Datapoint](<#Stage-Datapoi
 
 This action can only be initiated if the current height is greater than the block height in R5 of the existing [Live Epoch](<#Stage-Live-Epoch>) box (which represents the end height of the epoch). Due to all oracles being incentivized to collect via double payout, it is expected that at least one oracle will post the collection tx at the exact height of the new epoch, thereby generating the new [Epoch Preparation](<#Stage-Epoch-Preparation>) box.
 
-An oracle is rewarded for the epoch if they posted a datapoint that is within the outlier range compared to the previous finalized datapoint (which is a % hardcoded in the [Live Epoch](<#Stage-Live-Epoch>) contract) of the finalized datapoint.
+An oracle is rewarded for the epoch if they posted a datapoint that is within the deviation range compared to other datapoints (deviation range is a % hardcoded in the [Live Epoch](<#Stage-Live-Epoch>) contract). This is checked by providing the datapoints as a sorted list (from max to min), and that the min datapoint is within the deviation range compared to the max datapoint.
 
-Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) and which are within the outlier range are allowed to be collected.
+Only datapoints commit during the latest epoch (checked by comparing R5 of data-inputs with the input [Live Epoch](<#Stage-Live-Epoch>) box) and which are within the deviation range are allowed to be collected.
 
 ###### Finalize Datapoint Function
-This is the function which produces the finalized datapoint by folding down the input oracle datapoints produced during the epoch. The simplest function we can use is an average.
+This is the function which produces the finalized datapoint by folding down the input oracle datapoints produced during the epoch which are within the deviation range.
+
+Averaging is used because it allows datapoints within the deviation range to be more "heavily weighted" in one direction or another compared to using median. The deviation checking prevents averaging from getting out of hand, which makes it a superior option.
 ```haskell
 [Summed Total Of Oracle Input Datapoints] / [Number Of Oracle Input Datapoints]
 ```
 
+###### Deviation Checking Predicate
+This function can be used to verify all datapoints supplied as data-inputs are within the deviation range. Note that the datapoints are expected to be sorted when provided to this function.
 
+```haskell
+ [First Data-Input (Highest Datapoint) - ([First Data-Input (Highest Datapoint)] * [Deviation Range]) > [Last Data-Input (Lowest Datapoint)]
+ ```
+
+### Context Extension Values
+1. The integer index of the collector's datapoint box in the data-inputs in the current transaction.
 
 ### Data-Inputs
-1. Every [Datapoint](<#Stage-Datapoint>) box which has a datapoint that is within the outlier range.
+1. Every [Datapoint](<#Stage-Datapoint>) box which has a datapoint that is within the deviation range, all sorted from max to min.
 
 ### Inputs
 1. The [Live Epoch](<#Stage-Live-Epoch>) box.
@@ -267,24 +280,25 @@ This is the function which produces the finalized datapoint by folding down the 
 The [Epoch Preparation](<#Stage-Epoch-Preparation>) box with the new datapoint
 
 #### Output #2+
-Payment boxes which are holding Ergs that are sent to each oracle who successfully provided a datapoint within the outlier range, plus an extra payment box to the collector (meaning the collector can get 1 or 2 payment boxes depending if they provide accurate data).
+Payment boxes which are holding Ergs that are sent to each oracle who successfully provided a datapoint within the deviation range, plus an extra payment box to the collector (meaning the collector can get 1 or 2 payment boxes depending if they provide accurate data).
 
 The amount of Ergs inside each payment box is equal to `[Oracle Payout Price]` which is hardcoded into the contracts.
 
 
 ### Action Conditions
-1. The transaction must be signed by the address held in R4 of Data-Input #1. (This only allows the oracles to issue this action.)
+1. The transaction must be signed by the address held in R4 of the Data-Input box that is at the index of Context Extension Value #1. (This only allows the oracles to issue this action.)
 2. Output #1 has the oracle pool NFT.
 3. Output #1 has Ergs equivalent to: `[Input #1 Ergs] - [Pool Payout]`
 4. Output #1 R4 is the result of the `Finalize Datapoint Function`
 5. Output #1 R5 is equal to: `[Input #1 R5] + [Epoch Prep Length] + [Live Epoch Length]`
-6. A payment box output is generated for all of the successful oracles who provided a datapoint within the hardcoded outlier range (compared to finalized datapoint in R4 of Input #1). The addresses are acquired from the data-input [Datapoint](<#Stage-Datapoint>) box's R4.
-7. A (potentially second) payment box output is generated for the collector who's address is in R6 of Output #1.
-8. Each payment box has a total amount of Ergs inside equal to the `[Oracle Payout Price]`.
-9. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
-10. At least 1 valid data-input box is provided.
-11. The blake2b256 hash of Output #1's address is equal to the hash held in R6 of Input #1.
-12. Every data-input [Datapoint](<#Stage-Datapoint>) box has a datapoint within the outlier range.
+6. The blake2b256 hash of Output #1's address is equal to the hash held in R6 of Input #1.
+7. A payment box output is generated for all of the successful oracles who provided a datapoint that was collected. The addresses are acquired from each respective data-input [Datapoint](<#Stage-Datapoint>) box's R4.
+8. A (potentially second) payment box output is generated for the collector who's address is in R6 of Output #1.
+9. Each payment box has a total amount of Ergs inside equal to the `[Oracle Payout Price]`.
+10. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
+11. There must be at least `Minimum Consensus` number of data-input boxes.
+12. The data-input boxes must all be sorted from highest datapoint to lowest datapoint (aka in decreasing order).
+13. The data-inputs provided must pass the `Deviation Checking Predicate`.
 ---
 
 
