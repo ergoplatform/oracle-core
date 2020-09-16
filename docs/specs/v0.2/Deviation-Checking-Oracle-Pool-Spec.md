@@ -1,6 +1,6 @@
 
 # Deviation Checking Oracle Pool Spec
-This is an informal specification which defines an oracle pool implementation which allows entry by whitelisted trusted oracles and relies on deviation checking consensus.
+This is an informal specification which defines an oracle pool implementation which allows entry by selected oracles and relies on deviation checking consensus.
 
 This spec follows [Ergo Improvement Proposal 6: Informal Smart Contract Protocol Specification Format](https://github.com/ergoplatform/eips/blob/master/eip-0006.md).
 
