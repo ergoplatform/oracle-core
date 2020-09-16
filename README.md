@@ -8,7 +8,7 @@ The oracle core requires that the user has access to a full node wallet in order
 
 A `Connector` must also be used with the oracle core in order to acquire data to submit to the pool. Each connector sources data from the expected sources, potentially applies functions to said data, and then submits the data to the oracle core via HTTP API during the `Live Epoch` stage in the oracle pool protocol. All oracles for a given pool are expected to use the exact same connector, thereby making it simple to onboard and get started.
 
-The current oracle core is built to run the protocol specified in the [Basic Oracle Pool Spec](https://github.com/ergoplatform/oracle-core/blob/master/docs/specs/Basic-Oracle-Pool-Spec.md). Future versions will also support stake slashing and governance, with the specs already available for reading in the [specs folder](docs/specs).
+The current oracle core is built to run the protocol specified in the [Deviation Checking Oracle Pool Spec](/docs/specs/v0.2/Deviation-Checking-Oracle-Pool-Spec.md).
 
 Other documents can also be found explaining how various parts of the oracle core work in the [docs folder](docs).
 
