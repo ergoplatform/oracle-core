@@ -189,10 +189,12 @@ impl OraclePool {
         // Filter out Datapoint boxes not from the latest epoch
         let current_epoch_datapoint_boxes =
             current_epoch_boxes_filter(&self.datapoint_stage.get_boxes()?, &live_epoch_state);
-        // Sort Datapoint boxes so that local oracle box is first
-        let sorted_datapoint_boxes = sort_datapoint_boxes(
-            &current_epoch_datapoint_boxes,
+        // Sort Datapoint boxes in decreasing order
+        let sorted_datapoint_boxes = sort_datapoint_boxes(&current_epoch_datapoint_boxes);
+        // Find the index of the local oracle's Datapoint box in the sorted list
+        let local_datapoint_box_index = find_box_index_in_list(
             self.local_oracle_datapoint_scan.get_box()?,
+            sorted_datapoint_boxes,
         );
 
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within outlier range
@@ -264,6 +266,11 @@ impl OraclePool {
     }
 }
 
+/// Given an `ErgoBox`, find its index in the input `Vec<ErgoBox>`
+fn find_box_index_in_list(search_box: ErgoBox, sorted_datapoint_boxes: Vec<ErgoBox>) {
+    todo!()
+}
+
 /// Filters out Datapoint boxes that are not from the current epoch
 pub fn current_epoch_boxes_filter(
     datapoint_boxes: &Vec<ErgoBox>,
@@ -282,18 +289,12 @@ pub fn current_epoch_boxes_filter(
     filtered_boxes
 }
 
-/// Sorts Datapoint boxes so that the local oracle Datapoint box is first
-pub fn sort_datapoint_boxes(
-    all_datapoint_boxes: &Vec<ErgoBox>,
-    local_oracle_datapoint_box: ErgoBox,
-) -> Vec<ErgoBox> {
-    let mut filtered_boxes: Vec<ErgoBox> = all_datapoint_boxes
-        .clone()
-        .into_iter()
-        .filter(|b| b.clone() != local_oracle_datapoint_box)
-        .collect();
-    let mut datapoint_boxes = vec![local_oracle_datapoint_box];
-    datapoint_boxes.append(&mut filtered_boxes);
+/// Sort Datapoint boxes in decreasing order based on Datapoint value.
+pub fn sort_datapoint_boxes(all_datapoint_boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
+    let mut datapoint_boxes = all_datapoint_boxes.clone();
+    datapoint_boxes.sort_by_key(|b| {
+        deserialize_long(&b.additional_registers.get_ordered_values()[2]).unwrap_or(0)
+    });
     datapoint_boxes
 }
 
