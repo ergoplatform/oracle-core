@@ -192,11 +192,11 @@ impl OraclePool {
         // Sort Datapoint boxes in decreasing order
         let sorted_datapoint_boxes = sort_datapoint_boxes(&current_epoch_datapoint_boxes);
 
-        // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within outlier range
+        // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within the deviation range
         let (finalized_datapoint, successful_boxes) = finalize_datapoint(
             &sorted_datapoint_boxes,
-            5, // Make sure to change this for config #
-            2, // Make sure to change this for config #
+            5, // Make sure to change this to config #
+            2, // Make sure to change this to config #
         )?;
 
         // Find the index of the local oracle's Datapoint box in the successful boxes list
@@ -220,17 +220,26 @@ impl OraclePool {
             "tokenId": self.oracle_pool_nft.to_string(),
             "amount": 1
         };
-
         let registers = object! {
             "R4": serialize_long(finalized_datapoint as i64),
             "R5": serialize_int(new_finish_height as i32),
         };
-
         req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
             self.epoch_preparation_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
+
+        // Filling out request for collector payout
+        req["requests"]
+            .push(object! {
+                "address": self.local_oracle_address.clone(),
+                "value": parameters.oracle_payout_price,
+                "registers": object! {
+                    "R4": serialize_int(local_datapoint_box_index as i32)
+                }
+            })
+            .ok();
 
         // Filling out requests for the oracle payout outputs
         for b in &successful_boxes {
@@ -245,14 +254,6 @@ impl OraclePool {
                 })
                 .ok();
         }
-
-        // Filling out request for collector payout
-        req["requests"]
-            .push(object! {
-                "address": self.local_oracle_address.clone(),
-                "value": parameters.oracle_payout_price,
-            })
-            .ok();
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![
