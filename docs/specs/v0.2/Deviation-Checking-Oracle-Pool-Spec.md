@@ -279,8 +279,15 @@ This function can be used to verify all datapoints supplied as data-inputs are w
 #### Output #1
 The [Epoch Preparation](<#Stage-Epoch-Preparation>) box with the new datapoint
 
-#### Output #2+
-Payment boxes which are holding Ergs that are sent to each oracle who successfully provided a datapoint within the deviation range, plus an extra payment box to the collector (meaning the collector can get 1 or 2 payment boxes depending if they provide accurate data).
+#### Output #2
+A payment box to the collector.
+
+In this box an `Int` is held in R4 which represents the index of the collector's [Datapoint](<#Stage-Datapoint>) box within the data-inputs. (Because they are sorted in decreasing order, need to provide index of which one is collector's)
+
+The amount of Ergs inside the payment box is equal to `[Oracle Payout Price]` which is hardcoded into the contracts.
+
+#### Output #3+
+Payment boxes which are holding Ergs that are sent to each oracle who successfully provided a datapoint within the deviation range.
 
 The amount of Ergs inside each payment box is equal to `[Oracle Payout Price]` which is hardcoded into the contracts.
 
@@ -292,13 +299,14 @@ The amount of Ergs inside each payment box is equal to `[Oracle Payout Price]` w
 4. Output #1 R4 is the result of the `Finalize Datapoint Function`
 5. Output #1 R5 is equal to: `[Input #1 R5] + [Epoch Prep Length] + [Live Epoch Length]`
 6. The blake2b256 hash of Output #1's address is equal to the hash held in R6 of Input #1.
-7. A payment box output is generated for all of the successful oracles who provided a datapoint that was collected. The addresses are acquired from each respective data-input [Datapoint](<#Stage-Datapoint>) box's R4.
-8. A (potentially second) payment box output is generated for the collector who's address is in R6 of Output #1.
-9. Each payment box has a total amount of Ergs inside equal to the `[Oracle Payout Price]`.
-10. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
-11. There must be at least `Minimum Consensus` number of data-input boxes.
-12. The data-input boxes must all be sorted from highest datapoint to lowest datapoint (aka in decreasing order).
-13. The data-inputs provided must pass the `Deviation Checking Predicate`.
+7. Output #2 is a payment box which is sent to the collector who's address is in R6 of Output #1.
+8. Output #2 has an `Int` held in R4 which represents the index of the collector's [Datapoint](<#Stage-Datapoint>) box within the data-inputs.
+9. A payment box output is generated for all of the successful oracles who provided a datapoint that was collected. The addresses are acquired from each respective data-input [Datapoint](<#Stage-Datapoint>) box's R4.
+10. Each payment box has a total amount of Ergs inside equal to the `[Oracle Payout Price]`.
+11. Each data-input [Datapoint](<#Stage-Datapoint>) box has an R5 that is equal to Input #1 box id.
+12. There must be at least `Minimum Consensus` number of data-input boxes.
+13. The data-input boxes must all be sorted from highest datapoint to lowest datapoint (aka in decreasing order).
+14. The data-inputs provided must pass the `Deviation Checking Predicate`.
 ---
 
 
