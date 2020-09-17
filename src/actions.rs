@@ -195,8 +195,8 @@ impl OraclePool {
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within the deviation range
         let (finalized_datapoint, successful_boxes) = finalize_datapoint(
             &sorted_datapoint_boxes,
-            5, // Make sure to change this to config #
-            2, // Make sure to change this to config #
+            parameters.deviation_range as i64, // Make sure to change this to config #
+            parameters.consensus_num as i64,   // Make sure to change this to config #
         )?;
 
         // Find the index of the local oracle's Datapoint box in the successful boxes list
