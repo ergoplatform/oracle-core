@@ -195,7 +195,8 @@ impl OraclePool {
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within outlier range
         let (finalized_datapoint, successful_boxes) = finalize_datapoint(
             &sorted_datapoint_boxes,
-            live_epoch_state.latest_pool_datapoint,
+            5, // Make sure to change this for config #
+            2, // Make sure to change this for config #
         )?;
 
         // Find the index of the local oracle's Datapoint box in the successful boxes list
@@ -331,33 +332,6 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     Ok(average as u64)
 }
 
-//
-//
-
-/// Filters out all boxes with datapoints that are outside of the outlier range compared to the latest Oracle Pool finalized datapoint
-pub fn outlier_range_filter(
-    boxes: &Vec<ErgoBox>,
-    latest_finalized_datapoint: u64,
-) -> Result<Vec<ErgoBox>> {
-    // Get parameters for outlier range
-    let parameters = PoolParameters::new();
-
-    // Specifying min/max acceptable value
-    let delta = (latest_finalized_datapoint / 100) * parameters.outlier_range;
-    let min = latest_finalized_datapoint - delta;
-    let max = latest_finalized_datapoint + delta;
-
-    // Find the successful boxes which are within the outlier range
-    let mut successful_boxes = vec![];
-    for b in boxes.clone() {
-        let datapoint = deserialize_long(&b.additional_registers.get_ordered_values()[2])? as u64;
-        if datapoint >= min && datapoint <= max {
-            successful_boxes.push(b);
-        }
-    }
-    Ok(successful_boxes)
-}
-
 /// Verifies that the list of sorted Datapoint boxes passes the deviation check
 pub fn deviation_check(deviation_range: i64, datapoint_boxes: &Vec<ErgoBox>) -> Result<bool> {
     let num = datapoint_boxes.len();
@@ -374,14 +348,26 @@ pub fn deviation_check(deviation_range: i64, datapoint_boxes: &Vec<ErgoBox>) -> 
 }
 
 /// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
-/// Filters out any invalid boxes or boxes outside the outlier range.
+/// If list of Datapoint boxes is outside of the deviation range then
+/// attempts to filter boxes until a list which is within deviation range
+/// is found.
 /// Returns the averaged datapoint and the filtered list of successful boxes.
 pub fn finalize_datapoint(
     boxes: &Vec<ErgoBox>,
-    latest_finalized_datapoint: u64,
+    deviation_range: i64,
+    consensus_num: i64,
 ) -> Result<(u64, Vec<ErgoBox>)> {
-    // Filter out Datapoint boxes outside of the outlier range
-    let successful_boxes = outlier_range_filter(&boxes, latest_finalized_datapoint)?;
+    // Currently naive logic just pops. In the future should check whether
+    // max value or min value are farther off, and remove that element instead.
+    // Also checks that minimum `consensus_num` is kept.
+    let mut successful_boxes = boxes.clone();
+    while !deviation_check(deviation_range, &successful_boxes)? {
+        if (successful_boxes.len() as i64) < consensus_num {
+            return Err(anyhow!("Not enough boxes found within deviation range."));
+        }
+        successful_boxes.pop();
+    }
+
     // Return average
     Ok((average_datapoints(&successful_boxes)?, successful_boxes))
 }
