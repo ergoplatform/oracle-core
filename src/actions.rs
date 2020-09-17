@@ -191,17 +191,18 @@ impl OraclePool {
             current_epoch_boxes_filter(&self.datapoint_stage.get_boxes()?, &live_epoch_state);
         // Sort Datapoint boxes in decreasing order
         let sorted_datapoint_boxes = sort_datapoint_boxes(&current_epoch_datapoint_boxes);
-        // Find the index of the local oracle's Datapoint box in the sorted list
-        let local_datapoint_box_index = find_box_index_in_list(
-            self.local_oracle_datapoint_scan.get_box()?,
-            &sorted_datapoint_boxes,
-        ).ok_or(anyhow!("Failed to find local oracle Datapoint box for issuing `Collect Datapoints` transactions. The Oracle Core either failed to post a Datapoint in the latest epoch, or the Datapoint is outside of the deviation check."))?;
 
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within outlier range
         let (finalized_datapoint, successful_boxes) = finalize_datapoint(
             &sorted_datapoint_boxes,
             live_epoch_state.latest_pool_datapoint,
         )?;
+
+        // Find the index of the local oracle's Datapoint box in the successful boxes list
+        let local_datapoint_box_index = find_box_index_in_list(
+            self.local_oracle_datapoint_scan.get_box()?,
+            &successful_boxes,
+        ).ok_or(anyhow!("Failed to find local oracle Datapoint box for issuing `Collect Datapoints` transactions. The Oracle Core either failed to post a Datapoint in the latest epoch, or the Datapoint is outside of the deviation check."))?;
 
         // Tx fee for the transaction
         let tx_fee = (parameters.base_fee) * sorted_datapoint_boxes.len() as u64;
@@ -278,13 +279,26 @@ fn find_box_index_in_list(
         .position(|b| b.clone() == search_box)
 }
 
+/// Removes boxes which do not have a valid datapoint Long in R6.
+pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
+    let mut valid_boxes = vec![];
+    for b in boxes {
+        if let Ok(_) = deserialize_long(&b.additional_registers.get_ordered_values()[2]) {
+            valid_boxes.push(b.clone());
+        }
+    }
+    valid_boxes
+}
+
 /// Filters out Datapoint boxes that are not from the current epoch
+/// Also calls `valid_boxes_filter()` to remove invalid boxes.
 pub fn current_epoch_boxes_filter(
     datapoint_boxes: &Vec<ErgoBox>,
     live_epoch_state: &LiveEpochState,
 ) -> Vec<ErgoBox> {
     let mut filtered_boxes = vec![];
-    for b in datapoint_boxes {
+    let valid_boxes = valid_boxes_filter(datapoint_boxes);
+    for b in valid_boxes {
         if let Ok(s) =
             deserialize_hex_encoded_string(&b.additional_registers.get_ordered_values()[1])
         {
@@ -297,8 +311,8 @@ pub fn current_epoch_boxes_filter(
 }
 
 /// Sort Datapoint boxes in decreasing order based on Datapoint value.
-pub fn sort_datapoint_boxes(all_datapoint_boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
-    let mut datapoint_boxes = all_datapoint_boxes.clone();
+pub fn sort_datapoint_boxes(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
+    let mut datapoint_boxes = boxes.clone();
     datapoint_boxes.sort_by_key(|b| {
         deserialize_long(&b.additional_registers.get_ordered_values()[2]).unwrap_or(0)
     });
@@ -316,6 +330,9 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     let average = datapoints_sum / boxes.len() as i64;
     Ok(average as u64)
 }
+
+//
+//
 
 /// Filters out all boxes with datapoints that are outside of the outlier range compared to the latest Oracle Pool finalized datapoint
 pub fn outlier_range_filter(
@@ -341,15 +358,19 @@ pub fn outlier_range_filter(
     Ok(successful_boxes)
 }
 
-/// Removes boxes which do not have a valid datapoint Long in R6.
-pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
-    let mut valid_boxes = vec![];
-    for b in boxes {
-        if let Ok(_) = deserialize_long(&b.additional_registers.get_ordered_values()[2]) {
-            valid_boxes.push(b.clone());
-        }
-    }
-    valid_boxes
+/// Verifies that the list of sorted Datapoint boxes passes the deviation check
+pub fn deviation_check(deviation_range: i64, datapoint_boxes: &Vec<ErgoBox>) -> Result<bool> {
+    let num = datapoint_boxes.len();
+    let max_datapoint =
+        deserialize_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])?;
+    let min_datapoint = deserialize_long(
+        &datapoint_boxes[num - 1]
+            .additional_registers
+            .get_ordered_values()[2],
+    )?;
+    let deviation_delta = max_datapoint * deviation_range / 100;
+
+    Ok(min_datapoint >= max_datapoint - deviation_delta)
 }
 
 /// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
@@ -359,10 +380,8 @@ pub fn finalize_datapoint(
     boxes: &Vec<ErgoBox>,
     latest_finalized_datapoint: u64,
 ) -> Result<(u64, Vec<ErgoBox>)> {
-    // Filter out Datapoint boxes without a valid integer in R6
-    let valid_boxes = valid_boxes_filter(boxes);
     // Filter out Datapoint boxes outside of the outlier range
-    let successful_boxes = outlier_range_filter(&valid_boxes, latest_finalized_datapoint)?;
+    let successful_boxes = outlier_range_filter(&boxes, latest_finalized_datapoint)?;
     // Return average
     Ok((average_datapoints(&successful_boxes)?, successful_boxes))
 }
