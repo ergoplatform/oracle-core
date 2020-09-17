@@ -194,8 +194,8 @@ impl OraclePool {
         // Find the index of the local oracle's Datapoint box in the sorted list
         let local_datapoint_box_index = find_box_index_in_list(
             self.local_oracle_datapoint_scan.get_box()?,
-            sorted_datapoint_boxes,
-        );
+            &sorted_datapoint_boxes,
+        ).ok_or(anyhow!("Failed to find local oracle Datapoint box for issuing `Collect Datapoints` transactions. The Oracle Core either failed to post a Datapoint in the latest epoch, or the Datapoint is outside of the deviation check."))?;
 
         // Acquire the finalized oracle pool datapoint and the list of successful datapoint boxes which were within outlier range
         let (finalized_datapoint, successful_boxes) = finalize_datapoint(
@@ -267,8 +267,15 @@ impl OraclePool {
 }
 
 /// Given an `ErgoBox`, find its index in the input `Vec<ErgoBox>`
-fn find_box_index_in_list(search_box: ErgoBox, sorted_datapoint_boxes: Vec<ErgoBox>) {
-    todo!()
+/// If index cannot be found, then local oracle has not submit their
+/// own datapoint, and thus the function returns `None`
+fn find_box_index_in_list(
+    search_box: ErgoBox,
+    sorted_datapoint_boxes: &Vec<ErgoBox>,
+) -> Option<usize> {
+    sorted_datapoint_boxes
+        .iter()
+        .position(|b| b.clone() == search_box)
 }
 
 /// Filters out Datapoint boxes that are not from the current epoch
