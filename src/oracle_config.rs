@@ -9,7 +9,8 @@ pub struct PoolParameters {
     pub live_epoch_length: BlockDuration,
     pub epoch_preparation_length: BlockDuration,
     pub buffer_length: BlockDuration,
-    pub outlier_range: u64,
+    pub deviation_range: u64,
+    pub consensus_num: u64,
     pub base_fee: u64,
 }
 

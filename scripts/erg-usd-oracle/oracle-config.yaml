@@ -51,8 +51,10 @@ live_epoch_length: 20
 epoch_preparation_length: 10
 # Buffer length in blocks that is the upper limit for an oracle pool to create a new epoch
 buffer_length: 5
-# The percentage range that an oracle can deviate from the previous latest datapoint. Range: 1 to 100
-outlier_range: 50
+# The percentage range that the minimum datapoint can deviate from the maximum datapoint submit by oracles in the current epoch. Range: 1 to 100
+deviation_range: 5
+# Number of oracle who must be within deviation range of each other in order to reach consensus and finalize a new datapoint.
+consensus_num: 2
 
 
 #### Oracle Pool Features ####
