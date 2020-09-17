@@ -31,15 +31,18 @@ impl PoolParameters {
         let buf = config["buffer_length"]
             .as_i64()
             .expect("No buffer_length specified in config file.");
-        let outlier_range = config["outlier_range"]
-            .as_i64()
-            .expect("No outlier_range specified in config file.");
         let price = config["oracle_payout_price"]
             .as_i64()
             .expect("No oracle_payout_price specified in config file.");
         let num = config["minimum_pool_box_value"]
             .as_i64()
             .expect("No minimum_pool_box_value specified in config file.");
+        let deviation_range = config["deviation_range"]
+            .as_i64()
+            .expect("No deviation_range specified in config file.");
+        let consensus_num = config["consensus_num"]
+            .as_i64()
+            .expect("No consensus_num specified in config file.");
         let base_fee = config["base_fee"]
             .as_i64()
             .expect("No base_fee specified in config file.");
@@ -49,7 +52,8 @@ impl PoolParameters {
             live_epoch_length: lel as u64,
             epoch_preparation_length: epl as u64,
             buffer_length: buf as u64,
-            outlier_range: outlier_range as u64,
+            deviation_range: deviation_range as u64,
+            consensus_num: consensus_num as u64,
             base_fee: base_fee as u64,
         }
     }
@@ -110,7 +114,7 @@ mod tests {
             live_epoch_length: 20
             epoch_preparation_length: 10
             buffer_length: 4
-            outlier_range: 0.01
+            deviation_range: 5
             oracle_payout_price: 1000000
             base_fee: 1000000
             ";
@@ -120,7 +124,7 @@ mod tests {
         assert_eq!(pool_params.epoch_preparation_length, 10);
         assert_eq!(pool_params.buffer_length, 4);
         assert_eq!(pool_params.minimum_pool_box_value, 10000000);
-        assert_eq!(pool_params.outlier_range, 10);
+        assert_eq!(pool_params.deviation_range, 5);
         assert_eq!(pool_params.oracle_payout_price, 1000000);
         assert_eq!(pool_params.base_fee, 1000000);
     }
