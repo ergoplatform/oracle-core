@@ -1,0 +1,8 @@
+oracleReward = 2000000
+prepPeriod = 5
+livePeriod = 5
+minPoolBoxValue = 10000000
+buffer = 4
+poolTokenId = b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc
+oracleTokenId = 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed
+epochPrepScriptHash = b413a0bd1a41798d5ce92e044e4a064e887639fad61e3ee83ba12117465c3659
