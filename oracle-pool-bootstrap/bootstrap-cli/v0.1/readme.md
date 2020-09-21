@@ -1,4 +1,4 @@
-# Bootstrap CLI
+# Bootstrap CLI V0.1
 This is a CLI tool which simplifies the process of bootstrapping an oracle pool. The CLI tool exposes 5 actions, one for each of the following tasks:
 1. `generatePoolToken` to generate a singleton pool token
 2. `generateOracleTokens` to generate multiple oracle tokens
