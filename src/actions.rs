@@ -312,12 +312,13 @@ pub fn current_epoch_boxes_filter(
     filtered_boxes
 }
 
-/// Sort Datapoint boxes in decreasing order based on Datapoint value.
+/// Sort Datapoint boxes in decreasing order (from highest to lowest) based on Datapoint value.
 pub fn sort_datapoint_boxes(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut datapoint_boxes = boxes.clone();
     datapoint_boxes.sort_by_key(|b| {
         deserialize_long(&b.additional_registers.get_ordered_values()[2]).unwrap_or(0)
     });
+    datapoint_boxes.reverse();
     datapoint_boxes
 }
 
