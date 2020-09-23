@@ -230,16 +230,6 @@ impl OraclePool {
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
 
-        // Filling out request for collector payout
-        req["requests"]
-            .push(object! {
-                "address": self.local_oracle_address.clone(),
-                "value": parameters.oracle_payout_price,
-                "registers": object! {
-                    "R4": serialize_int(local_datapoint_box_index as i32)
-                }
-            })
-            .ok();
 
         // Filling out requests for the oracle payout outputs
         for b in &successful_boxes {
@@ -254,6 +244,13 @@ impl OraclePool {
                 })
                 .ok();
         }
+
+        // Add the local oracle Datapoint box index into R4 of the first oracle payout box
+        req["requests"][1]["registers"] =  object! {
+                    "R4": serialize_int(local_datapoint_box_index as i32)
+                };
+        // Pay the local oracle double due to being Collector
+        req["requests"][local_datapoint_box_index+1]["value"] =  (parameters.oracle_payout_price * 2).into();
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![
