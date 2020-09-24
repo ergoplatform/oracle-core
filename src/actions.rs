@@ -21,7 +21,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CollectionError {
-    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted Datapoints within the deviation range.")]
+    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted datapoints within the deviation range.")]
     FailedToReachConsensus(),
     #[error("Failed collecting datapoints. The local oracle did not post a datapoint in the current epoch.")]
     LocalOracleFailedToPostDatapoint(),
@@ -373,11 +373,12 @@ pub fn finalize_datapoint(
     // Also checks that minimum `consensus_num` is kept.
     let mut successful_boxes = boxes.clone();
     while !deviation_check(deviation_range, &successful_boxes)? {
+        successful_boxes.pop();
         if (successful_boxes.len() as i64) < consensus_num {
             Err(CollectionError::FailedToReachConsensus())?;
         }
-        successful_boxes.pop();
     }
+    println!("Succesful boxes len: {}", successful_boxes.len());
 
     // Return average
     Ok((average_datapoints(&successful_boxes)?, successful_boxes))
