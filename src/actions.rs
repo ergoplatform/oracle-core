@@ -1,3 +1,4 @@
+/// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
@@ -13,7 +14,6 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
-use anyhow::anyhow;
 use json;
 use sigma_tree::chain::ErgoBox;
 use thiserror::Error;
