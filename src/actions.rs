@@ -1,4 +1,3 @@
-/// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::encoding::{
@@ -378,8 +377,7 @@ pub fn finalize_datapoint(
             Err(CollectionError::FailedToReachConsensus())?;
         }
     }
-    println!("Succesful boxes len: {}", successful_boxes.len());
 
-    // Return average
+    // Return average + successful Datapoint boxes
     Ok((average_datapoints(&successful_boxes)?, successful_boxes))
 }

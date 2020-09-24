@@ -87,6 +87,7 @@ fn main() {
             let res_prep_state = op.get_preparation_state();
             let res_live_state = op.get_live_epoch_state();
             let res_deposits_state = op.get_pool_deposits_state();
+            let datapoint_state = op.get_datapoint_state();
 
             // If the pool is in the Epoch Preparation stage
             if let Ok(prep_state) = res_prep_state {
@@ -138,8 +139,24 @@ fn main() {
 
                     // If `Collect Datapoints` action fails
                     if let Err(e) = action_res {
-                        println!("{:?}\nTriggering a datapoint repost from the Connector.", e);
-                        repost_sender.try_send(true).ok();
+                        // Trigger a datapoint repost
+                        if let Ok(dps) = datapoint_state {
+                            // If its been at least 5 blocks since local oracle's previous datapoint posting, then repost
+                            if height >= (dps.creation_height + 5) {
+                                println!(
+                                    "{:?}\nTriggering a datapoint repost from the Connector.",
+                                    e
+                                );
+                                repost_sender.try_send(true).ok();
+                            } else {
+                                println!(
+                                    "{:?}\nDatapoint has been reposted recently. Waiting for other oracles to repost before retrying once again.",
+                                    e
+                                );
+                            }
+                        } else {
+                            println!("{:?}\nError. Failed to trigger a datapoint repost due to being unable to find local oracle Datapoint box.", e);
+                        }
                     }
                     // If `Collect Datapoints` action succeeds
                     else {
