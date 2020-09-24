@@ -11,6 +11,7 @@ mod scans;
 mod templates;
 
 use anyhow::Error;
+use crossbeam::atomic::AtomicCell;
 use log::info;
 use node_interface::current_block_height;
 use oracle_config::PoolParameters;
@@ -50,14 +51,14 @@ fn main() {
     simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
     log_panics::init();
     let args: Vec<String> = env::args().collect();
-
     let op = oracle_state::OraclePool::new();
+    let repost_flag = AtomicCell::new(false);
 
     // Start Oracle Core GET API Server
     thread::Builder::new()
         .name("Oracle Core GET API Thread".to_string())
         .spawn(|| {
-            api::start_get_api();
+            api::start_get_api(repost_flag);
         })
         .ok();
 
@@ -133,8 +134,16 @@ fn main() {
                 // Check for opportunity to Collect Datapoints
                 if height >= epoch_state.epoch_ends && epoch_state.commit_datapoint_in_epoch {
                     let action_res = op.action_collect_datapoints();
-                    let action_name = "Collect Datapoints";
-                    print_action_results(&action_res, action_name);
+
+                    // If `Collect Datapoints` action fails
+                    if let Err(e) = action_res {
+                        println!("{:?}", e)
+                    }
+                    // If `Collect Datapoints` action succeeds
+                    else {
+                        let action_name = "Collect Datapoints";
+                        print_action_results(&action_res, action_name);
+                    }
                 }
             }
         }
