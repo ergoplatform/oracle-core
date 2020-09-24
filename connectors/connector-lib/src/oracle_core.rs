@@ -156,6 +156,14 @@ impl OracleCore {
             .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
     }
 
+    /// Get the current block height
+    pub fn repost_check(&self) -> Result<bool> {
+        let resp_text = self.send_get_req("/requireDatapointRepost")?;
+        resp_text
+            .parse()
+            .map_err(|_| ConnectorError::FailedParsingCoreResponse(resp_text))
+    }
+
     /// Sends a GET request to the Oracle Core and converts response to text with extra quotes removed
     fn send_get_req(&self, endpoint: &str) -> Result<String> {
         let url = self.oracle_core_url().to_owned() + endpoint;

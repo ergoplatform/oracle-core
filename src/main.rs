@@ -138,8 +138,8 @@ fn main() {
 
                     // If `Collect Datapoints` action fails
                     if let Err(e) = action_res {
-                        println!("{:?}", e);
-                        repost_sender.try_send(true);
+                        println!("{:?}\nTriggering a datapoint repost from the Connector.", e);
+                        repost_sender.try_send(true).ok();
                     }
                     // If `Collect Datapoints` action succeeds
                     else {

@@ -79,8 +79,10 @@ impl Connector {
                 let oracle_status = res_os.unwrap();
 
                 // Check if Connector should post
-                let should_post = &pool_status.current_pool_stage == "Live Epoch"
-                    && oracle_status.waiting_for_datapoint_submit;
+                let repost_check = oc.repost_check().unwrap_or_default();
+                let should_post = repost_check
+                    || &pool_status.current_pool_stage == "Live Epoch"
+                        && oracle_status.waiting_for_datapoint_submit;
 
                 if should_post {
                     let price_res = (self.get_datapoint)();
