@@ -199,6 +199,13 @@ impl OraclePool {
             parameters.consensus_num as i64,   // Make sure to change this to config #
         )?;
 
+        // Check that sufficient number of Datapoint boxes were successful
+        if (successful_boxes.len() as u64) < parameters.consensus_num {
+            return Err(anyhow!(
+                "Insufficient number of boxes within deviation range to meet minimum consensus."
+            ));
+        }
+
         // Find the index of the local oracle's Datapoint box in the successful boxes list
         let local_datapoint_box_index = find_box_index_in_list(
             self.local_oracle_datapoint_scan.get_box()?,
@@ -230,7 +237,6 @@ impl OraclePool {
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
 
-
         // Filling out requests for the oracle payout outputs
         for b in &successful_boxes {
             // Get the P2PK from the hex encoded constant string minus the first two characters which are a register type descriptor
@@ -246,11 +252,12 @@ impl OraclePool {
         }
 
         // Add the local oracle Datapoint box index into R4 of the first oracle payout box
-        req["requests"][1]["registers"] =  object! {
-                    "R4": serialize_int(local_datapoint_box_index as i32)
-                };
+        req["requests"][1]["registers"] = object! {
+            "R4": serialize_int(local_datapoint_box_index as i32)
+        };
         // Pay the local oracle double due to being Collector
-        req["requests"][local_datapoint_box_index+1]["value"] =  (parameters.oracle_payout_price * 2).into();
+        req["requests"][local_datapoint_box_index + 1]["value"] =
+            (parameters.oracle_payout_price * 2).into();
 
         // Filling out the rest of the json request
         req["inputsRaw"] = vec![
