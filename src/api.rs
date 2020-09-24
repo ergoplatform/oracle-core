@@ -2,7 +2,7 @@ use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
 use crate::print_action_results;
-use crossbeam::atomic::AtomicCell;
+use crossbeam::Receiver;
 use json;
 use sincere;
 use std::env;
@@ -95,7 +95,7 @@ pub fn start_post_api() {
 }
 
 /// Starts the GET API server which can be made publicly available without security risk
-pub fn start_get_api(repost_flag: AtomicCell<bool>) {
+pub fn start_get_api(repost_receiver: Receiver<bool>) {
     let mut app = sincere::App::new();
 
     // Basic welcome endpoint
@@ -266,16 +266,17 @@ pub fn start_get_api(repost_flag: AtomicCell<bool>) {
             .unwrap();
     });
 
-    // Block height of the Ergo blockchain
+    // Whether the Core requires the Connector to repost a new Datapoint
     app.get("/requireDatapointRepost", move |context| {
-        // let current_height =
-        //     current_block_height().expect("Please ensure that the Ergo node is running.");
-        // let response_text = format!("{}", current_height);
-        // context
-        //     .response
-        //     .header(("Access-Control-Allow-Origin", "*"))
-        //     .from_text(response_text)
-        //     .unwrap();
+        let mut response_text = format!("false");
+        if let Ok(b) = repost_receiver.try_recv() {
+            response_text = b.to_string();
+        }
+        context
+            .response
+            .header(("Access-Control-Allow-Origin", "*"))
+            .from_text(response_text)
+            .unwrap();
     });
 
     // Start the API server with the port designated in the config.

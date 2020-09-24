@@ -10,8 +10,9 @@ mod oracle_state;
 mod scans;
 mod templates;
 
+use actions::CollectionError;
 use anyhow::Error;
-use crossbeam::atomic::AtomicCell;
+use crossbeam::channel::bounded;
 use log::info;
 use node_interface::current_block_height;
 use oracle_config::PoolParameters;
@@ -52,13 +53,13 @@ fn main() {
     log_panics::init();
     let args: Vec<String> = env::args().collect();
     let op = oracle_state::OraclePool::new();
-    let repost_flag = AtomicCell::new(false);
+    let (repost_sender, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
     thread::Builder::new()
         .name("Oracle Core GET API Thread".to_string())
         .spawn(|| {
-            api::start_get_api(repost_flag);
+            api::start_get_api(repost_receiver);
         })
         .ok();
 
@@ -137,7 +138,8 @@ fn main() {
 
                     // If `Collect Datapoints` action fails
                     if let Err(e) = action_res {
-                        println!("{:?}", e)
+                        println!("{:?}", e);
+                        repost_sender.try_send(true);
                     }
                     // If `Collect Datapoints` action succeeds
                     else {

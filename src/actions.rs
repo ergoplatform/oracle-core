@@ -17,6 +17,17 @@ use crate::Result;
 use anyhow::anyhow;
 use json;
 use sigma_tree::chain::ErgoBox;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum CollectionError {
+    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted Datapoints within the deviation range.")]
+    FailedToReachConsensus(),
+    #[error("Failed collecting datapoints. The local oracle did not post a datapoint in the current epoch.")]
+    LocalOracleFailedToPostDatapoint(),
+    #[error("Failed collecting datapoints. The local oracle did not post a datapoint within the deviation range (when compared to datapoints posted by other oracles in the pool).")]
+    LocalOracleFailedToPostDatapointWithinDeviation(),
+}
 
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
@@ -199,18 +210,12 @@ impl OraclePool {
             parameters.consensus_num as i64,   // Make sure to change this to config #
         )?;
 
-        // Check that sufficient number of Datapoint boxes were successful
-        if (successful_boxes.len() as u64) < parameters.consensus_num {
-            return Err(anyhow!(
-                "Insufficient number of boxes within deviation range to meet minimum consensus."
-            ));
-        }
-
         // Find the index of the local oracle's Datapoint box in the successful boxes list
         let local_datapoint_box_index = find_box_index_in_list(
             self.local_oracle_datapoint_scan.get_box()?,
             &successful_boxes,
-        ).ok_or(anyhow!("Failed to find local oracle Datapoint box for issuing `Collect Datapoints` transactions. The Oracle Core either failed to post a Datapoint in the latest epoch, or the Datapoint is outside of the deviation check."))?;
+        )
+        .ok_or(CollectionError::LocalOracleFailedToPostDatapointWithinDeviation())?;
 
         // Tx fee for the transaction
         let tx_fee = (parameters.base_fee) * sorted_datapoint_boxes.len() as u64;
@@ -332,7 +337,7 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
         Ok(acc? + deserialize_long(&b.additional_registers.get_ordered_values()[2])?)
     })?;
     if boxes.len() == 0 {
-        return Err(anyhow!("No datapoints posted in current epoch."));
+        Err(CollectionError::LocalOracleFailedToPostDatapoint())?;
     }
     let average = datapoints_sum / boxes.len() as i64;
     Ok(average as u64)
@@ -369,7 +374,7 @@ pub fn finalize_datapoint(
     let mut successful_boxes = boxes.clone();
     while !deviation_check(deviation_range, &successful_boxes)? {
         if (successful_boxes.len() as i64) < consensus_num {
-            return Err(anyhow!("Not enough boxes found within deviation range."));
+            Err(CollectionError::FailedToReachConsensus())?;
         }
         successful_boxes.pop();
     }
