@@ -357,7 +357,45 @@ pub fn deviation_check(deviation_range: i64, datapoint_boxes: &Vec<ErgoBox>) -> 
     Ok(min_datapoint >= max_datapoint - deviation_delta)
 }
 
-/// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
+/// Finds whether the first or the last value in a list of sorted Datapoint boxes
+/// deviates more compared to their adjacted datapoint, and then removes
+/// said datapoint which deviates further.
+pub fn remove_largest_local_deviation_datapoint(
+    datapoint_boxes: &Vec<ErgoBox>,
+) -> Result<Vec<ErgoBox>> {
+    let mut processed_boxes = datapoint_boxes.clone();
+
+    // Check if sufficient number of datapoint boxes to start removing
+    if datapoint_boxes.len() <= 2 {
+        Err(CollectionError::FailedToReachConsensus())?
+    } else {
+        // Deserialize all the datapoints in a list
+        let dp_len = datapoint_boxes.len();
+        let datapoints: Vec<i64> = datapoint_boxes
+            .iter()
+            .map(|b| {
+                deserialize_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])
+                    .unwrap_or(0)
+            })
+            .collect();
+        // Check deviation by subtracting largest value by 2nd largest
+        let front_deviation = datapoints[0] - datapoints[1];
+        // Check deviation by subtracting 2nd smallest value by smallest
+        let back_deviation = datapoints[dp_len - 2] - datapoints[dp_len - 1];
+
+        // Remove largest datapoint if front deviation is greater
+        if front_deviation >= back_deviation {
+            processed_boxes.drain(0..1);
+        }
+        // Remove smallest datapoint if back deviation is greater
+        else {
+            processed_boxes.pop();
+        }
+        Ok(processed_boxes)
+    }
+}
+
+// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
 /// If list of Datapoint boxes is outside of the deviation range then
 /// attempts to filter boxes until a list which is within deviation range
 /// is found.
@@ -367,12 +405,11 @@ pub fn finalize_datapoint(
     deviation_range: i64,
     consensus_num: i64,
 ) -> Result<(u64, Vec<ErgoBox>)> {
-    // Currently naive logic just pops. In the future should check whether
-    // max value or min value are farther off, and remove that element instead.
-    // Also checks that minimum `consensus_num` is kept.
     let mut successful_boxes = boxes.clone();
     while !deviation_check(deviation_range, &successful_boxes)? {
-        successful_boxes.pop();
+        // Removing largest deviation outlier
+        successful_boxes = remove_largest_local_deviation_datapoint(&successful_boxes)?;
+
         if (successful_boxes.len() as i64) < consensus_num {
             Err(CollectionError::FailedToReachConsensus())?;
         }
