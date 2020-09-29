@@ -3,7 +3,6 @@ extern crate json;
 
 mod actions;
 mod api;
-mod encoding;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;

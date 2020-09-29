@@ -6,7 +6,7 @@ use log::info;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::CONTENT_TYPE;
 use serde_json::from_str;
-use sigma_tree::chain::ErgoBox;
+use sigma_tree::chain::ergo_box::ErgoBox;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
@@ -74,15 +74,15 @@ pub fn get_highest_value_unspent_box() -> Result<ErgoBox> {
 
     // Find the highest value amount held in a single box in the wallet
     let highest_value = boxes.iter().fold(0, |acc, b| {
-        if b.value.value() > acc {
-            b.value.value()
+        if b.value.as_u64() > acc {
+            b.value.as_u64()
         } else {
             acc
         }
     });
 
     for b in boxes {
-        if b.value.value() == highest_value {
+        if b.value.as_u64() == highest_value {
             return Ok(b);
         }
     }

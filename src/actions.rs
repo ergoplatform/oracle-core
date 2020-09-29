@@ -1,10 +1,3 @@
-/// This file holds all the actions which can be performed
-/// by an oracle part of the oracle pool. These actions
-/// are implemented on the `OraclePool` struct.
-use crate::encoding::{
-    deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
-    serialize_long, string_to_blake2b_hash,
-};
 use crate::node_interface::{
     address_to_raw_for_register, address_to_tree, current_block_height,
     get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
@@ -14,8 +7,15 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
+/// This file holds all the actions which can be performed
+/// by an oracle part of the oracle pool. These actions
+/// are implemented on the `OraclePool` struct.
+use ergo_utilities::encoding::{
+    deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
+    serialize_long, string_to_blake2b_hash,
+};
 use json;
-use sigma_tree::chain::ErgoBox;
+use sigma_tree::chain::ergo_box::ErgoBox;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -100,7 +100,7 @@ impl OraclePool {
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
             .iter()
-            .fold(0, |acc, b| acc + b.value.value());
+            .fold(0, |acc, b| acc + b.value.as_u64());
 
         // Filling out the json tx request template
         req["requests"][0]["value"] = total_input_ergs.into();

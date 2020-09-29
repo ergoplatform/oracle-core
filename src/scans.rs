@@ -9,7 +9,7 @@ use anyhow::anyhow;
 use json;
 use json::JsonValue;
 use log::info;
-use sigma_tree::chain::ErgoBox;
+use sigma_tree::chain::ergo_box::ErgoBox;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;
