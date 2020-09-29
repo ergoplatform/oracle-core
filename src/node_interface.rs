@@ -27,6 +27,13 @@ pub enum NodeError {
     NodeSyncing,
 }
 
+// use crate::oracle_config::{get_node_api_key, get_node_url};
+// use ergo_utilities::NodeInterface;
+
+// pub fn new_node_interface() -> NodeInterface {
+//     NodeInterface::new(get_node_api_key(), ip, port)
+// }
+
 /// Registers a scan with the node and either returns the `scan_id` or an error
 pub fn register_scan(scan_json: &JsonValue) -> Result<ScanID> {
     let endpoint = "/scan/register";

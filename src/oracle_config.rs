@@ -75,28 +75,43 @@ pub fn get_config_yaml() -> String {
 
 /// Returns `http://ip:port` using `node_ip` and `node_port` from the config file
 pub fn get_node_url() -> String {
+    let ip = get_node_ip();
+    let port = get_node_port();
+    "http://".to_string() + &ip + ":" + &port
+}
+
+pub fn get_node_ip() -> String {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    let ip = config["node_ip"]
+    config["node_ip"]
         .as_str()
-        .expect("No node_ip specified in config file.");
-    let port = config["node_port"]
+        .expect("No node_ip specified in config file.")
+        .to_string()
+}
+
+pub fn get_node_port() -> String {
+    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
+    config["node_port"]
         .as_str()
-        .expect("No node_port specified in config file.");
-    "http://".to_string() + ip + ":" + &port
+        .expect("No node_port specified in config file.")
+        .to_string()
 }
 
 /// Acquires the `node_api_key` and builds a `HeaderValue`
 pub fn get_node_api_header() -> HeaderValue {
-    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    let api_key = config["node_api_key"]
-        .as_str()
-        .expect("No node_api_key specified in config file.")
-        .to_string();
-
+    let api_key = get_node_api_key();
     match HeaderValue::from_str(&api_key) {
         Ok(k) => k,
         _ => HeaderValue::from_static("None"),
     }
+}
+
+/// Returns the `node_api_key`
+pub fn get_node_api_key() -> String {
+    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
+    config["node_api_key"]
+        .as_str()
+        .expect("No node_api_key specified in config file.")
+        .to_string()
 }
 
 #[cfg(test)]
