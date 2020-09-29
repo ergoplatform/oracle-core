@@ -263,7 +263,7 @@ Averaging is used because it allows datapoints within the deviation range to be 
 This function can be used to verify all datapoints supplied as data-inputs are within the deviation range. Note that the datapoints are expected to be sorted when provided to this function.
 
 ```haskell
- [First Data-Input (Highest Datapoint) - ([First Data-Input (Highest Datapoint)] * [Deviation Range]) > [Last Data-Input (Lowest Datapoint)]
+ [Last Data-Input (Lowest Datapoint)] >= [First Data-Input (Highest Datapoint) - ([First Data-Input (Highest Datapoint)] * [Deviation Range])
  ```
 
 ### Context Extension Values
