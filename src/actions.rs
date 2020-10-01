@@ -1,3 +1,6 @@
+/// This file holds all the actions which can be performed
+/// by an oracle part of the oracle pool. These actions
+/// are implemented on the `OraclePool` struct.
 use crate::node_interface::{
     address_to_raw_for_register, address_to_tree, current_block_height,
     get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
@@ -7,10 +10,7 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
-/// This file holds all the actions which can be performed
-/// by an oracle part of the oracle pool. These actions
-/// are implemented on the `OraclePool` struct.
-use ergo_utilities::encoding::{
+use ergo_offchain_utilities::encoding::{
     deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
     serialize_long, string_to_blake2b_hash,
 };
