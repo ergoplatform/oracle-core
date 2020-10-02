@@ -1,8 +1,8 @@
 use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
+use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_offchain_utilities::node_interface::{NodeError, NodeInterface};
 use ergo_offchain_utilities::{BlockHeight, P2PKAddressString, P2SAddressString, ScanID, TxId};
 use json::JsonValue;
-use sigma_tree::chain::ergo_box::ErgoBox;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
 

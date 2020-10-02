@@ -6,10 +6,10 @@ use crate::scans::{
 };
 use crate::Result;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
+use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_offchain_utilities::encoding::{
     deserialize_hex_encoded_string, deserialize_int, deserialize_long,
 };
-use sigma_tree::chain::ergo_box::ErgoBox;
 use std::path::Path;
 use yaml_rust::YamlLoader;
 

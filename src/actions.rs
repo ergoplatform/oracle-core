@@ -10,12 +10,12 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
+use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_offchain_utilities::encoding::{
     deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
     serialize_long, string_to_blake2b_hash,
 };
 use json;
-use sigma_tree::chain::ergo_box::ErgoBox;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
