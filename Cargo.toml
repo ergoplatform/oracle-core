@@ -22,4 +22,5 @@ log                 = "0.4.11"
 simple-logging      = "2.0.2"
 log-panics          = "2.0.0"
 crossbeam           = "0.7.3"
+ergo-node-interface      = { git = "https://github.com/robkorn/ergo-utilities-rust"}
 ergo-offchain-utilities      = { git = "https://github.com/robkorn/ergo-utilities-rust"}
