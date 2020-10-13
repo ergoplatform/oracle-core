@@ -3,8 +3,8 @@
 use crate::P2SAddress;
 use base16;
 use blake2b_simd::Params;
-use sigma_tree::ast::{CollPrim, Constant, ConstantColl, ConstantVal};
-use sigma_tree::chain::{Address, AddressEncoder, NetworkPrefix};
+use ergo_lib::ast::{CollPrim, Constant, ConstantColl, ConstantVal};
+use ergo_lib::chain::address::{Address, AddressEncoder, NetworkPrefix};
 use std::fmt::{Debug, Display};
 use std::str;
 use thiserror::Error;

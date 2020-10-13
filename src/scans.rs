@@ -6,10 +6,10 @@ use crate::node_interface::{
 use crate::print_and_log;
 use crate::Result;
 use anyhow::anyhow;
+use ergo_lib::chain::ergo_box::ErgoBox;
 use json;
 use json::JsonValue;
 use log::info;
-use sigma_tree::chain::ErgoBox;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;

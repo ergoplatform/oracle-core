@@ -1,12 +1,12 @@
 use crate::oracle_config::{get_node_api_header, get_node_url};
 use crate::scans::ScanID;
 use crate::{BlockHeight, P2PKAddress, P2SAddress, TxId};
+use ergo_lib::chain::ergo_box::ErgoBox;
 use json::JsonValue;
 use log::info;
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::header::CONTENT_TYPE;
 use serde_json::from_str;
-use sigma_tree::chain::ErgoBox;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
@@ -74,15 +74,15 @@ pub fn get_highest_value_unspent_box() -> Result<ErgoBox> {
 
     // Find the highest value amount held in a single box in the wallet
     let highest_value = boxes.iter().fold(0, |acc, b| {
-        if b.value.value() > acc {
-            b.value.value()
+        if b.value.as_i64() > &acc {
+            b.value.as_i64().clone()
         } else {
             acc
         }
     });
 
     for b in boxes {
-        if b.value.value() == highest_value {
+        if b.value.as_i64().clone() == highest_value {
             return Ok(b);
         }
     }

@@ -11,7 +11,7 @@ yaml-rust       = "0.4.4"
 json            = "0.12.4"
 reqwest         = { version = "0.10.7", features = ["blocking"] }
 serde_json      = "1.0.57"
-sigma-tree      = { git = "https://github.com/ergoplatform/sigma-rust", branch = "develop",  features = ["with-serde"]  }
+ergo-lib        = "0.2.0"
 sincere         = "0.6.6"
 thiserror       = "1.0.20"
 anyhow          = "1.0.32"

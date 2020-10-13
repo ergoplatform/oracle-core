@@ -15,8 +15,8 @@ use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
 use anyhow::anyhow;
+use ergo_lib::chain::ergo_box::ErgoBox;
 use json;
-use sigma_tree::chain::ErgoBox;
 
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
@@ -90,7 +90,7 @@ impl OraclePool {
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
             .iter()
-            .fold(0, |acc, b| acc + b.value.value());
+            .fold(0, |acc, b| acc + b.value.as_u64());
 
         // Filling out the json tx request template
         req["requests"][0]["value"] = total_input_ergs.into();

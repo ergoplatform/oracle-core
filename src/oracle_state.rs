@@ -7,7 +7,7 @@ use crate::scans::{
 };
 use crate::Result;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
-use sigma_tree::chain::ErgoBox;
+use ergo_lib::chain::ergo_box::ErgoBox;
 use std::path::Path;
 use yaml_rust::YamlLoader;
 
@@ -228,7 +228,7 @@ impl OraclePool {
         let epoch_ends = deserialize_int(&epoch_box_regs[1])?;
 
         let epoch_state = LiveEpochState {
-            funds: epoch_box.value.value(),
+            funds: epoch_box.value.as_u64(),
             epoch_id: epoch_box_id,
             commit_datapoint_in_epoch: commit_datapoint_in_epoch,
             epoch_ends: epoch_ends as u64,
@@ -250,7 +250,7 @@ impl OraclePool {
         let next_epoch_ends = deserialize_int(&epoch_prep_box_regs[1])?;
 
         let prep_state = PreparationState {
-            funds: epoch_prep_box.value.value(),
+            funds: epoch_prep_box.value.as_u64(),
             next_epoch_ends: next_epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
@@ -285,7 +285,7 @@ impl OraclePool {
         // Sum up all Ergs held in pool deposit boxes
         let sum_ergs = deposits_box_list
             .iter()
-            .fold(0, |acc, b| acc + b.value.value());
+            .fold(0, |acc, b| acc + b.value.as_u64());
 
         let deposits_state = PoolDepositsState {
             number_of_boxes: deposits_box_list.len() as u64,
