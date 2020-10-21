@@ -17,19 +17,19 @@ pub fn register_scan(scan_json: &JsonValue) -> Result<ScanID> {
 
 /// Acquires unspent boxes from the node wallet
 pub fn get_unspent_wallet_boxes() -> Result<Vec<ErgoBox>> {
-    new_node_interface().get_unspent_wallet_boxes()
+    new_node_interface().unspent_boxes()
 }
 
 /// Acquires the unspent box with the highest value of Ergs inside
 /// from the wallet
 pub fn get_highest_value_unspent_box() -> Result<ErgoBox> {
-    new_node_interface().get_highest_value_unspent_box()
+    new_node_interface().highest_value_unspent_box()
 }
 
 /// Acquires the unspent box with the highest value of Ergs inside
 /// from the wallet and serializes it
 pub fn get_serialized_highest_value_unspent_box() -> Result<String> {
-    new_node_interface().get_serialized_highest_value_unspent_box()
+    new_node_interface().serialized_highest_value_unspent_box()
 }
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
