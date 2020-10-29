@@ -225,11 +225,6 @@ impl OraclePool {
 
         // Latest pool datapoint is held in R4 of the epoch box
         let latest_pool_datapoint = deserialize_long(&epoch_box_regs[0])?;
-        println!(
-            "Pool Datapoint (r4): {:?}, {:?}",
-            &epoch_box_regs[0],
-            &epoch_box_regs[0].base16_str()
-        );
 
         // Block height epochs ends is held in R5 of the epoch box
         let epoch_ends = deserialize_int(&epoch_box_regs[1])?;
@@ -252,13 +247,6 @@ impl OraclePool {
 
         // Latest pool datapoint is held in R4
         let latest_pool_datapoint = deserialize_long(&epoch_prep_box_regs[0])?;
-
-        println!("Pool Box: {:?}", epoch_prep_box);
-        println!(
-            "Pool Datapoint (r4): {:?}, {:?}",
-            &epoch_prep_box_regs[0],
-            &epoch_prep_box_regs[0].base16_str()
-        );
 
         // Next epoch ends height held in R5
         let next_epoch_ends = deserialize_int(&epoch_prep_box_regs[1])?;
