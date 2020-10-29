@@ -42,7 +42,7 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
 /// manually selected or will be automatically selected by wallet.
 /// Returns the resulting `TxId`.
 pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
-    new_node_interface().generate_and_submit_transaction(tx_request_json)
+    new_node_interface().generate_and_submit_transaction(&tx_request_json.dump())
 }
 
 /// Given a P2S Ergo address, extract the hex-encoded serialized ErgoTree (script)

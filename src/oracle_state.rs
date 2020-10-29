@@ -225,12 +225,17 @@ impl OraclePool {
 
         // Latest pool datapoint is held in R4 of the epoch box
         let latest_pool_datapoint = deserialize_long(&epoch_box_regs[0])?;
+        println!(
+            "Pool Datapoint (r4): {:?}, {:?}",
+            &epoch_box_regs[0],
+            &epoch_box_regs[0].base16_str()
+        );
 
         // Block height epochs ends is held in R5 of the epoch box
         let epoch_ends = deserialize_int(&epoch_box_regs[1])?;
 
         let epoch_state = LiveEpochState {
-            funds: epoch_box.value.as_u64(),
+            funds: epoch_box.value.as_u64().clone(),
             epoch_id: epoch_box_id,
             commit_datapoint_in_epoch: commit_datapoint_in_epoch,
             epoch_ends: epoch_ends as u64,
@@ -252,7 +257,7 @@ impl OraclePool {
         let next_epoch_ends = deserialize_int(&epoch_prep_box_regs[1])?;
 
         let prep_state = PreparationState {
-            funds: epoch_prep_box.value.as_u64(),
+            funds: epoch_prep_box.value.as_u64().clone(),
             next_epoch_ends: next_epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
@@ -287,7 +292,7 @@ impl OraclePool {
         // Sum up all Ergs held in pool deposit boxes
         let sum_ergs = deposits_box_list
             .iter()
-            .fold(0, |acc, b| acc + b.value.as_u64());
+            .fold(0, |acc, b| acc + b.value.as_u64().clone());
 
         let deposits_state = PoolDepositsState {
             number_of_boxes: deposits_box_list.len() as u64,

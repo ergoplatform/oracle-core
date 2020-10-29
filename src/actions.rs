@@ -10,6 +10,7 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
+pub use ergo_lib::ast::Constant;
 use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_offchain_utilities::encoding::{
     deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
@@ -40,6 +41,7 @@ impl OraclePool {
             "R4": address_to_raw_for_register(&self.local_oracle_address)?,
             "R5": serialize_hex_encoded_string(&live_epoch_id)?,
             "R6": serialize_long(datapoint as i64),
+            // "R6": Constant::from(datapoint as i64).base16_str(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
