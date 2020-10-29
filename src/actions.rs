@@ -40,8 +40,7 @@ impl OraclePool {
         let registers = object! {
             "R4": address_to_raw_for_register(&self.local_oracle_address)?,
             "R5": serialize_hex_encoded_string(&live_epoch_id)?,
-            "R6": serialize_long(datapoint as i64),
-            // "R6": Constant::from(datapoint as i64).base16_str(),
+            "R6": Constant::from(datapoint as i64).base16_str(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -73,8 +72,9 @@ impl OraclePool {
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_int(epoch_prep_state.next_epoch_ends as i32),
+            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
+
+            "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -125,8 +125,8 @@ impl OraclePool {
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_int(epoch_prep_state.next_epoch_ends as i32),
+            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
+            "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str(),
             "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?,
         };
         // Defining the tokens to be spent
@@ -165,8 +165,8 @@ impl OraclePool {
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": serialize_long(epoch_prep_state.latest_pool_datapoint as i64),
-            "R5": serialize_int(new_finish_height as i32),
+            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
+            "R5": Constant::from(new_finish_height as i32).base16_str(),
             "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?,
         };
         // Defining the tokens to be spent
@@ -234,8 +234,8 @@ impl OraclePool {
             "amount": 1
         };
         let registers = object! {
-            "R4": serialize_long(finalized_datapoint as i64),
-            "R5": serialize_int(new_finish_height as i32),
+            "R4": Constant::from(finalized_datapoint as i64).base16_str(),
+            "R5": Constant::from(new_finish_height as i32).base16_str(),
         };
         req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
@@ -259,7 +259,7 @@ impl OraclePool {
 
         // Add the local oracle Datapoint box index into R4 of the first oracle payout box
         req["requests"][1]["registers"] = object! {
-            "R4": serialize_int(local_datapoint_box_index as i32)
+            "R4": Constant::from(local_datapoint_box_index as i32).base16_str()
         };
         // Pay the local oracle double due to being Collector
         req["requests"][local_datapoint_box_index + 1]["value"] =
