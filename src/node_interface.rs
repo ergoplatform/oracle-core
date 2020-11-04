@@ -26,6 +26,14 @@ pub fn get_highest_value_unspent_box() -> Result<ErgoBox> {
     new_node_interface().highest_value_unspent_box()
 }
 
+pub fn unspent_boxes_with_min_total(total: u64) -> Result<Vec<ErgoBox>> {
+    new_node_interface().unspent_boxes_with_min_total(total)
+}
+
+pub fn serialized_unspent_boxes_with_min_total(total: u64) -> Result<Vec<String>> {
+    new_node_interface().serialized_unspent_boxes_with_min_total(total)
+}
+
 /// Acquires the unspent box with the highest value of Ergs inside
 /// from the wallet and serializes it
 pub fn get_serialized_highest_value_unspent_box() -> Result<String> {

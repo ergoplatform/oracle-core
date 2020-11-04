@@ -3,8 +3,8 @@
 /// are implemented on the `OraclePool` struct.
 use crate::node_interface::{
     address_to_raw_for_register, address_to_tree, current_block_height,
-    get_serialized_highest_value_unspent_box, raw_from_register_to_address, send_transaction,
-    serialize_boxes,
+    raw_from_register_to_address, send_transaction, serialize_boxes,
+    serialized_unspent_boxes_with_min_total,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
@@ -48,17 +48,17 @@ impl OraclePool {
             "amount": 1
         };
 
+        let mut inputs_raw = vec![self.local_oracle_datapoint_scan.get_serialized_box()?];
+        inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+            parameters.base_fee.into(),
+        )?);
+
         // Filling out the json tx request template
         req["requests"][0]["address"] = self.datapoint_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = vec![
-            self.local_oracle_datapoint_scan.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
-        ]
-        .into();
+        req["inputsRaw"] = inputs_raw.into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-        req["fee"] = parameters.base_fee.into();
         req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
@@ -92,12 +92,15 @@ impl OraclePool {
         } else {
             unserialized_input_boxes.append(&mut initial_deposit_boxes);
         }
-        // Serialize boxes and add extra box for paying fee
-        let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
-        serialized_input_boxes.push(get_serialized_highest_value_unspent_box()?);
 
         // Define the fee for the current action
         let action_fee = 500000 * unserialized_input_boxes.len() as u64;
+
+        // Serialize boxes and add extra box for paying fee
+        let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
+        serialized_input_boxes.append(&mut serialized_unspent_boxes_with_min_total(
+            action_fee.into(),
+        )?);
 
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
@@ -135,16 +138,17 @@ impl OraclePool {
             "amount": 1
         };
 
+        let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
+        inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+            parameters.base_fee.into(),
+        )?);
+
         // Filling out the json tx request template
         req["requests"][0]["value"] = epoch_prep_state.funds.into();
         req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = vec![
-            self.epoch_preparation_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
-        ]
-        .into();
+        req["inputsRaw"] = inputs_raw.into();
         req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
@@ -175,16 +179,17 @@ impl OraclePool {
             "amount": 1
         };
 
+        let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
+        inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+            parameters.base_fee.into(),
+        )?);
+
         // Filling out the json tx request template
         req["requests"][0]["value"] = epoch_prep_state.funds.into();
         req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
         req["requests"][0]["registers"] = registers.into();
         req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = vec![
-            self.epoch_preparation_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
-        ]
-        .into();
+        req["inputsRaw"] = inputs_raw.into();
         req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;
@@ -237,6 +242,9 @@ impl OraclePool {
             "R4": Constant::from(finalized_datapoint as i64).base16_str(),
             "R5": Constant::from(new_finish_height as i32).base16_str(),
         };
+        let mut inputs_raw = vec![self.live_epoch_stage.get_serialized_box()?];
+        inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(tx_fee)?);
+
         req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
             self.epoch_preparation_stage.contract_address.clone().into();
@@ -256,7 +264,6 @@ impl OraclePool {
                 })
                 .ok();
         }
-
         // Add the local oracle Datapoint box index into R4 of the first oracle payout box
         req["requests"][1]["registers"] = object! {
             "R4": Constant::from(local_datapoint_box_index as i32).base16_str()
@@ -264,13 +271,8 @@ impl OraclePool {
         // Pay the local oracle double due to being Collector
         req["requests"][local_datapoint_box_index + 1]["value"] =
             (parameters.oracle_payout_price * 2).into();
-
         // Filling out the rest of the json request
-        req["inputsRaw"] = vec![
-            self.live_epoch_stage.get_serialized_box()?,
-            get_serialized_highest_value_unspent_box()?,
-        ]
-        .into();
+        req["inputsRaw"] = inputs_raw.into();
         req["dataInputsRaw"] = serialize_boxes(&successful_boxes)?.into();
         req["fee"] = tx_fee.into();
 
