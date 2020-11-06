@@ -39,7 +39,7 @@ impl OraclePool {
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
             "R4": address_to_raw_for_register(&self.local_oracle_address)?,
-            "R5": serialize_hex_encoded_string(&live_epoch_id)?,
+            "R5": serialize_hex_encoded_string(&live_epoch_id)?.base16_str(),
             "R6": Constant::from(datapoint as i64).base16_str(),
         };
         // Defining the tokens to be spent
@@ -130,7 +130,7 @@ impl OraclePool {
         let registers = object! {
             "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
             "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str(),
-            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?,
+            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -171,7 +171,7 @@ impl OraclePool {
         let registers = object! {
             "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
             "R5": Constant::from(new_finish_height as i32).base16_str(),
-            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?,
+            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
