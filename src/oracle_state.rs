@@ -7,9 +7,7 @@ use crate::scans::{
 use crate::Result;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use ergo_lib::chain::ergo_box::ErgoBox;
-use ergo_offchain_utilities::encoding::{
-    deserialize_hex_encoded_string, deserialize_int, deserialize_long,
-};
+use ergo_offchain_utilities::encoding::{unwrap_hex_encoded_string, unwrap_int, unwrap_long};
 use std::path::Path;
 use yaml_rust::YamlLoader;
 
@@ -224,10 +222,10 @@ impl OraclePool {
         let commit_datapoint_in_epoch: bool = epoch_box_id == datapoint_state.origin_epoch_id;
 
         // Latest pool datapoint is held in R4 of the epoch box
-        let latest_pool_datapoint = deserialize_long(&epoch_box_regs[0])?;
+        let latest_pool_datapoint = unwrap_long(&epoch_box_regs[0])?;
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = deserialize_int(&epoch_box_regs[1])?;
+        let epoch_ends = unwrap_int(&epoch_box_regs[1])?;
 
         let epoch_state = LiveEpochState {
             funds: epoch_box.value.as_u64().clone(),
@@ -246,10 +244,10 @@ impl OraclePool {
         let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
         // Latest pool datapoint is held in R4
-        let latest_pool_datapoint = deserialize_long(&epoch_prep_box_regs[0])?;
+        let latest_pool_datapoint = unwrap_long(&epoch_prep_box_regs[0])?;
 
         // Next epoch ends height held in R5
-        let next_epoch_ends = deserialize_int(&epoch_prep_box_regs[1])?;
+        let next_epoch_ends = unwrap_int(&epoch_prep_box_regs[1])?;
 
         let prep_state = PreparationState {
             funds: epoch_prep_box.value.as_u64().clone(),
@@ -266,10 +264,10 @@ impl OraclePool {
         let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
         // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        let origin_epoch_id = deserialize_hex_encoded_string(&datapoint_box_regs[1])?;
+        let origin_epoch_id = unwrap_hex_encoded_string(&datapoint_box_regs[1])?;
 
         // Oracle datapoint held in R6
-        let datapoint = deserialize_long(&datapoint_box_regs[2])?;
+        let datapoint = unwrap_long(&datapoint_box_regs[2])?;
 
         let datapoint_state = DatapointState {
             datapoint: datapoint as u64,

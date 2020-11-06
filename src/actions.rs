@@ -13,8 +13,7 @@ use crate::Result;
 pub use ergo_lib::ast::Constant;
 use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_offchain_utilities::encoding::{
-    deserialize_hex_encoded_string, deserialize_long, serialize_hex_encoded_string, serialize_int,
-    serialize_long, string_to_blake2b_hash,
+    serialize_hex_encoded_string, string_to_blake2b_hash, unwrap_hex_encoded_string, unwrap_long,
 };
 use json;
 use thiserror::Error;
@@ -297,7 +296,7 @@ fn find_box_index_in_list(
 pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut valid_boxes = vec![];
     for b in boxes {
-        if let Ok(_) = deserialize_long(&b.additional_registers.get_ordered_values()[2]) {
+        if let Ok(_) = unwrap_long(&b.additional_registers.get_ordered_values()[2]) {
             valid_boxes.push(b.clone());
         }
     }
@@ -313,9 +312,7 @@ pub fn current_epoch_boxes_filter(
     let mut filtered_boxes = vec![];
     let valid_boxes = valid_boxes_filter(datapoint_boxes);
     for b in valid_boxes {
-        if let Ok(s) =
-            deserialize_hex_encoded_string(&b.additional_registers.get_ordered_values()[1])
-        {
+        if let Ok(s) = unwrap_hex_encoded_string(&b.additional_registers.get_ordered_values()[1]) {
             if s == live_epoch_state.epoch_id {
                 filtered_boxes.push(b.clone());
             }
@@ -327,9 +324,8 @@ pub fn current_epoch_boxes_filter(
 /// Sort Datapoint boxes in decreasing order (from highest to lowest) based on Datapoint value.
 pub fn sort_datapoint_boxes(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut datapoint_boxes = boxes.clone();
-    datapoint_boxes.sort_by_key(|b| {
-        deserialize_long(&b.additional_registers.get_ordered_values()[2]).unwrap_or(0)
-    });
+    datapoint_boxes
+        .sort_by_key(|b| unwrap_long(&b.additional_registers.get_ordered_values()[2]).unwrap_or(0));
     datapoint_boxes.reverse();
     datapoint_boxes
 }
@@ -337,7 +333,7 @@ pub fn sort_datapoint_boxes(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
 /// Function for averaging datapoints from a list of Datapoint boxes.
 pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     let datapoints_sum = boxes.iter().fold(Ok(0), |acc: Result<i64>, b| {
-        Ok(acc? + deserialize_long(&b.additional_registers.get_ordered_values()[2])?)
+        Ok(acc? + unwrap_long(&b.additional_registers.get_ordered_values()[2])?)
     })?;
     if boxes.len() == 0 {
         Err(CollectionError::LocalOracleFailedToPostDatapoint())?;
@@ -350,8 +346,8 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
 pub fn deviation_check(deviation_range: i64, datapoint_boxes: &Vec<ErgoBox>) -> Result<bool> {
     let num = datapoint_boxes.len();
     let max_datapoint =
-        deserialize_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])?;
-    let min_datapoint = deserialize_long(
+        unwrap_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])?;
+    let min_datapoint = unwrap_long(
         &datapoint_boxes[num - 1]
             .additional_registers
             .get_ordered_values()[2],
@@ -378,7 +374,7 @@ pub fn remove_largest_local_deviation_datapoint(
         let datapoints: Vec<i64> = datapoint_boxes
             .iter()
             .map(|b| {
-                deserialize_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])
+                unwrap_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])
                     .unwrap_or(0)
             })
             .collect();
