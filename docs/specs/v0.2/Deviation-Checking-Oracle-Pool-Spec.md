@@ -53,7 +53,7 @@ Do note, this only displays the state transitions (actions), which map onto spen
 
 ## Action ToC
 1. [Bootstrap Oracle Pool](<#Action-Bootstrap-Oracle-Pool>)
-2. [Bootstrap Oracle](<#Action-Bootrap-Oracle>)
+2. [Bootstrap Oracle](<#Action-Bootstrap-Oracle>)
 3. [Commit Datapoint](<#Action-Commit-Datapoint>)
 4. [Collect Datapoints](<#Action-Collect-Datapoints>)
 5. [Fund Oracle Pool](<#Action-Fund-Oracle-Pool>)
