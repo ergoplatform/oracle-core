@@ -11,7 +11,7 @@ node_api_key: "hello"
 # Port which you wish the Oracle Core GET API server to run on.
 # Note, the Oracle Core POST API server (to submit datapoints) will be on
 # `core_api_port` + 1.
-core_api_port: "9080"
+core_api_port: "9070"
 
 
 #### Local Oracle Parameters ####
@@ -19,46 +19,46 @@ core_api_port: "9080"
 oracle_address: "9fj9NJpzo13HfNyCdzyfNP8zAfjiTY3pys1JP5wCzez8MiP8QbF"
 # The base fee constant that all action txs use to calculate fee.
 # Adjust if blockchain is congested/higher tx fees are required.
-base_fee: 1000000
+base_fee: 1100000
 
 
 #### Pool Token Ids ####
 # ID of the oracle pool participant token
-oracle_pool_participant_token: "19719268d230fd9093e4db0e2e42a07883ffe976e77c7419efc1bb218a05d4ba"
+oracle_pool_participant_token: "f0ff151ed1250fb305a74bf843f8de1be6a13e3d1a37229b94391e648357a4ca"
 # ID of the oracle pool NFT
-oracle_pool_nft: "19475d9a78377ff0f36e9826cec439727bea522f6ffa3bda32e20d2f8b3103ac"
+oracle_pool_nft: "323b13f731b00bbf33899f00543f851b20d794c21e9b81ba5f71cec8289c0619"
 
 #### Pool Smart Contract Addresses ####
 # Address of the pool's "Live Epoch" contract
-live_epoch_contract_address: "USNVj4rN2DctyA1X4WckU2u6ExN2EcrqJZnsFyoNdrhryRMiQjaxwqyauWuptUPw21McpyQ2Zud3ucZKowep1wozrswYBBcpVVfShcSJqeTYoooHio9WqL2bbxGtv8Q1Phv6eRxJkh258nJeUedMoJY7mrwnKntBHH4Z7GbW52DfKmreBeknQ3fnmB84pTwgfqwDyRYPMYEpmECCCQ6vZFyw4pEQgGchJ9chGeM78UFzL2DsJeiMAZBiZJt3nSwHgsUzhq6TuRJYKfQzozmosdafGTqCtiDDsWhQH1ZopnevvADugEDhBqKjxNiY6QPW2nKaFPXbPTt2bTVaJoAnYK3Bt39NnJuMFKraRCDWgpfTzzvLS17ccdTJokqNuTib3sQNmrEEzVdRXm6K3Xu82wbPJ2ZNNkvhYCJYiEA8Vkzu7pFXSdPVe5bzZ6CxGwzGrta2nZ2fSnBGRqhUrVnVvLwa9TvWGn8HmQdmT8fi"
+live_epoch_contract_address: "8D6pdYVRvF6RA3pntG56smWBZJ7MHAbHdMsk4BmCvL6JoneTC4aLFHRqyUGvSLgmcAv4VBET9Y31a4Ajpfw4Ek7DG5waDNktq5Ft1i57YoYPC91T7fVr2ZTkX7yfonFxuadnmWwMFQcLV1bpPTD9r7JFsKtKSXWTBozn4A5T7YHVys1PR25mgMdEsu5f1DDz6TM4XAM7LovcrRT5q9emcM5UPHQZc2JY7pYjH72mWrGMYcmkMwubUnJC5F3EeAurq9Z7LUmsizmGAuWqomtkjxSSQLpSoS5kWry3rtNAbvj8XR4DWKKbh4Qfepng1bqsCNRvhAf1JLWfekKciY9YuLKesf9kdP46oJEk7pzVni18ucRK1ETE2dCrQZekrk97sqZxGR4GD6wuGqBhMugyqQ5gApUEf3xxpdtj836zLA6VRVHL4Jc3ftmyXmwuC5d3wEdJqyxrATcdH8fbDu86kqvXCcm4WGgd3EbqQSDAgsXwdz617TvK6rwz2W9eXuBf6euwtNNLccSwUHj45EC9okiShob3R6oexhgB568Gprcw4rLRYNEgSULKEbazn"
 # Address of the pool's "Epoch Preparation" contract
-epoch_preparation_contract_address: "Gxd4hMRT6Lbs5atqVxjyQa3GixJ3yJRqgHzxJBvrZPYfaQX8tGuDuA7taPcMNVBDE2uPMr8EupZYTJhxKKPa7JcrY4P9e33ZGgaqDzSJTg47o3ZA2yjo54X6vRANf9A1Hc751a81pNZ3HRAaV6gvwSPwTQNTn4CC52yPScz3k9d9czyij69Lo8DJAysjQTvwMUG4ttJ9dKXfH9yhXgUprqnTKiftHmLKe6a6gXhYLyjvCUJRVMsrnBvSSHcZWfDmt98rAAXQPH2gajK8KwGtR1wRLNp2V7RZTJ6qJHoimb5r7W99u8pFFdnwC62bP9pWBShrx1AGQQwkv9BXMUjPtt45Y4buHiFZ2DGhW4v4FKT6g1hA9mboWhVpyHvxvCfJiPVpPCpZWm1UA7"
+epoch_preparation_contract_address: "Gxd4hMRT6H2cFm9DGywqDwCMYkpo2Zmz966CSB9WrbNcUXTdUw4d5RTpJTL3nn36Y7X7gcM1Lq8DCvf3ZkE6DXohUKikt2TTGbw8gQcBaKgaogzMfxEhHQVYkuHHNwJTQPeWqEz64tgGnwmkr2U6CKz5QWfCpErLBHgrBsH2Xy2dheJxp4cvXpU3tfDQse5otig9465bCQsZrMU85Ltjdpi2duCGrgyRvV1Aoe4wPdzCV7R3CEtmnoDFSw6g6tbkieLz9brrB81nFM3KCUeQTvKPn9kuUj6PKnuNsDeTfXe1u78khQcoEYZNVWoeX9KpiqNDmdWcYGhniHDSC3bVdDizsQxHC9hQ2YV4nUQjx1SsNjH96Dbcnz4hg3pDS9Z4EBWcX5Eb7yFoV7"
 # Address of the pool's "Datapoint" contract
-datapoint_contract_address: "jL2aaqw6XU61SZznvu9PHCPevNDB9sYk66bjMR6Qaz8Be21nst9M92e84tuLjpbpH9bdZEwWk4W96fEGwVMEvoXQfT2q5wnxbDEEqja9DReofRW5pVWaHuLzKVyQRCfmiH7AQMsntC8B1YmAxSbuwNz8V1QUbFqjUpPcvzQqKbZ5eVyqyG5kSdiWMP4pf88reJWNS1b2Fi5GYa2yEqYvs4u6aRkzMTPo7EBTVAiQtmXL1okBSrMRzzGJZbewh"
+datapoint_contract_address: "jL2aaqw6XU61SZznwBKSYk5uhvGSniF7Wy4yzxFC26osVdyEHiDqzzpgpkVYg2GeCazyrreUj3R22S5SZSvXkcb1ATwcMzP9kCoCjmdqLYWuX5KankE8dFnv2D9aDyv7GuzEsgEmQbz9tDi4vyGom5FHdjUf4ZgJDm6WnP9sDhNpyV7mtBGaszNKHn211cKR68QmRsc73juzEo7UJEmK9TKkreevViv2L6M4qy25nWU4BYgkj8jjZ8HNjEPjR"
 # Address of the "Pool Deposit" contract
-pool_deposit_contract_address: "zLSQDVBaDU5xGcBW9bHKYwULkq5r4QhgKuoojHYCeFUsji53k81pu11ksp6WYpNnTriNh9X9PcKDWyAEnbokCULA6CRqk3KbFT9xy4pPM9Lw1nxmwMKcxMveVkDKfs81CXb9wPm8eCHiUzPhQHJ8LdjZ7jrKMh6cPGYUDrrswvWLfUBvXonvSQvmVQCNPBuBe8T6rZeQfQgvfZEupetLyoEMcWbsKCSdM1RzR7xg1NsDZVio2n"
+pool_deposit_contract_address: "zLSQDVBaFFXNwLXqJmgrB9qkdfm66j3dHhH42d88WjkMYdmaJA2dMxQ38D51nVaPqKnNBnihXdY8mY98ktKMei7pgRDZEpT9Y6QJCr43TtiUexQcNjFq2BGHwqDQ5WLm3xvMQw2A2ZzCkkph4WN9gY5BHzyikXZYFPypaPKDnh2cs5F2Nith3cn7XzDRn1orcbbre3grtobazsFuShHYtkYQmf1pJAzvvMm28Kd9SfMKYAe7fZ"
 
 
 #### Oracle Pool Parameters ####
 # The minimum amount of Ergs required for the oracle pool to be considered funded.
-minimum_pool_box_value: 39000000
+minimum_pool_box_value: 22200000
 # The payout in Ergs that a single oracle earns on successful datapoint posting
-oracle_payout_price: 2500000
+oracle_payout_price: 2000000
 # Length of the oracle pool's live epoch in blocks
 live_epoch_length: 20
 # Length of the oracle pool's epoch preparation stage in blocks
 epoch_preparation_length: 10
 # Buffer length in blocks that is the upper limit for an oracle pool to create a new epoch
-buffer_length: 5
+buffer_length: 4
 # The percentage range that the minimum datapoint can deviate from the maximum datapoint submit by oracles in the current epoch. Range: 1 to 100
 deviation_range: 5
 # Number of oracle who must be within deviation range of each other in order to reach consensus and finalize a new datapoint.
-consensus_num: 2
+consensus_num: 3
 
 
 #### Oracle Pool Features ####
-# Stake Slashing Config (Currently False as no support in initial version)
+# Stake Slashing Config (Currently False, slated for future support)
 stake_slashing: False
-# Governance (Currently False as no support in initial version)
+# Governance (Currently False, slated for future support)
 governance: False
 
