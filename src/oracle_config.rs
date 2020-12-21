@@ -59,6 +59,14 @@ impl PoolParameters {
     }
 }
 
+pub fn get_pool_deposits_contract_address() -> String {
+    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
+    config["pool_deposit_contract_address"]
+        .as_str()
+        .expect("No pool_deposit_contract_address specified in config file.")
+        .to_string()
+}
+
 /// Returns "core_api_port" from the config file
 pub fn get_core_api_port() -> String {
     let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];

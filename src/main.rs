@@ -14,7 +14,7 @@ use anyhow::Error;
 use crossbeam::channel::bounded;
 use log::info;
 use node_interface::current_block_height;
-use oracle_config::PoolParameters;
+use oracle_config::{get_pool_deposits_contract_address, PoolParameters};
 use std::env;
 use std::thread;
 use std::time::Duration;
@@ -108,7 +108,7 @@ fn main() {
 
                 // The Pool is underfunded
                 if !is_funded {
-                    println!("The Oracle Pool is underfunded.\nPlease submit funds to the pool to continue operation.");
+                    println!("The Oracle Pool is underfunded.\nTo continue operation of the oracle pool, please submit funds to: {}.", get_pool_deposits_contract_address());
                 }
 
                 // Check if height is prior to next epoch expected end
