@@ -49,7 +49,7 @@ buffer_length: 4
 # The percentage range that the minimum datapoint can deviate from the maximum datapoint submit by oracles in the current epoch. Range: 1 to 100
 deviation_range: 5
 # Number of oracle who must be within deviation range of each other in order to reach consensus and finalize a new datapoint.
-consensus_num: 3
+consensus_num: 4
 
 #### Oracle Pool Features ####
 # Stake Slashing Config (Currently False, slated for future support)
