@@ -2,6 +2,7 @@ use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState};
 use crate::print_action_results;
+use anyhow::anyhow;
 use crossbeam::Receiver;
 use json;
 use sincere;
@@ -34,7 +35,38 @@ pub fn start_post_api() {
             if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
                 // Check if in Live Epoch stage
                 if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
-                    let action_result = op.action_commit_datapoint(datapoint);
+                    if let Ok(epoch_state) = op.get_live_epoch_state() {
+                    let old_datapoint = epoch_state.latest_pool_datapoint;
+
+                    // 2% difference checks
+                    let difference = datapoint as f64/old_datapoint as f64;
+                    let mut action_result = Err(anyhow!("No datapoint has been submit."));
+
+
+                    // If the new datapoint is 20% higher, post the new datapoint
+                    if difference > 1.20 {
+                        action_result = op.action_commit_datapoint(datapoint);
+                    }
+                    // If the new datapoint is 20% lower, post the new datapoint
+                    else if difference < 0.80 {
+                        action_result = op.action_commit_datapoint(datapoint);
+                    }
+                    // If the new datapoint is 2% to 20% lower, post 2% lower than old
+                    else if difference < 0.98 {
+                        let new_datapoint = (old_datapoint as f64 * 0.98) as u64;
+                        action_result = op.action_commit_datapoint(new_datapoint);
+                    }
+                    // If the new datapoint is 2% to 20% higher, post 2% higher than old
+                    else if difference > 1.02 {
+                        let new_datapoint = (old_datapoint as f64 * 1.02) as u64;
+                        action_result = op.action_commit_datapoint(new_datapoint);
+                    }
+                    // If the difference is within 2% either way, post the new datapoint
+                    else {
+                        action_result = op.action_commit_datapoint(datapoint);
+                    }
+
+
                     let action_name = "Submit Datapoint";
                     print_action_results(&action_result, action_name);
                     // If transaction succeeded being posted
@@ -72,6 +104,7 @@ pub fn start_post_api() {
             .response
            .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
             }
+                    }
 
         }
         // If the post request body is not valid json
