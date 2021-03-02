@@ -51,14 +51,14 @@ pub fn start_post_api() {
                     else if difference < 0.80 {
                         action_result = op.action_commit_datapoint(datapoint);
                     }
-                    // If the new datapoint is 1.8% to 20% lower, post 1.88% lower than old
-                    else if difference < 0.982 {
-                        let new_datapoint = (old_datapoint as f64 * 0.982) as u64;
+                    // If the new datapoint is 1.9% to 20% lower, post 1.9% lower than old
+                    else if difference < 0.981 {
+                        let new_datapoint = (old_datapoint as f64 * 0.981) as u64;
                         action_result = op.action_commit_datapoint(new_datapoint);
                     }
-                    // If the new datapoint is 1.8% to 20% higher, post 1.8% higher than old
-                    else if difference > 1.018 {
-                        let new_datapoint = (old_datapoint as f64 * 1.018) as u64;
+                    // If the new datapoint is 1.9% to 20% higher, post 1.9% higher than old
+                    else if difference > 1.019 {
+                        let new_datapoint = (old_datapoint as f64 * 1.019) as u64;
                         action_result = op.action_commit_datapoint(new_datapoint);
                     }
                     // If the difference is within 2% either way, post the new datapoint
