@@ -43,22 +43,24 @@ pub fn start_post_api() {
                     let mut action_result = Err(anyhow!("No datapoint has been submit."));
 
 
-                    // If the new datapoint is 20% higher, post the new datapoint
-                    if difference > 1.20 {
-                        action_result = op.action_commit_datapoint(datapoint);
-                    }
-                    // If the new datapoint is 20% lower, post the new datapoint
-                    else if difference < 0.80 {
-                        action_result = op.action_commit_datapoint(datapoint);
-                    }
-                    // If the new datapoint is 3.9% to 20% lower, post 3.9% lower than old
-                    else if difference < 0.961 {
-                        let new_datapoint = (old_datapoint as f64 * 0.981) as u64;
+                    // Commented out +20% spike updates as not needed with fast posting schedule
+                    // // If the new datapoint is 20% higher, post the new datapoint
+                    // if difference > 1.20 {
+                    //     action_result = op.action_commit_datapoint(datapoint);
+                    // }
+                    // // If the new datapoint is 20% lower, post the new datapoint
+                    // else if difference < 0.80 {
+                    //     action_result = op.action_commit_datapoint(datapoint);
+                    // }
+
+                    // If the new datapoint is 0.49% to 20% lower, post 0.49% lower than old
+                    if difference < 0.9951 {
+                        let new_datapoint = (old_datapoint as f64 * 0.9951) as u64;
                         action_result = op.action_commit_datapoint(new_datapoint);
                     }
-                    // If the new datapoint is 3.9% to 20% higher, post 3.9% higher than old
-                    else if difference > 1.039 {
-                        let new_datapoint = (old_datapoint as f64 * 1.019) as u64;
+                    // If the new datapoint is 0.49% to 20% higher, post 0.49% higher than old
+                    else if difference > 1.0049 {
+                        let new_datapoint = (old_datapoint as f64 * 1.0049) as u64;
                         action_result = op.action_commit_datapoint(new_datapoint);
                     }
                     // Else if the difference is within 4% either way, post the new datapoint
