@@ -43,15 +43,14 @@ pub fn start_post_api() {
                     let mut action_result = Err(anyhow!("No datapoint has been submit."));
 
 
-                    // Commented out +20% spike updates as not needed with fast posting schedule
-                    // // If the new datapoint is 20% higher, post the new datapoint
-                    // if difference > 1.20 {
-                    //     action_result = op.action_commit_datapoint(datapoint);
-                    // }
-                    // // If the new datapoint is 20% lower, post the new datapoint
-                    // else if difference < 0.80 {
-                    //     action_result = op.action_commit_datapoint(datapoint);
-                    // }
+                    // If the new datapoint is 100% higher, post the new datapoint
+                    if difference > 2.00 {
+                        action_result = op.action_commit_datapoint(datapoint);
+                    }
+                    // If the new datapoint is 100% lower, post the new datapoint
+                    else if difference < 0.50 {
+                        action_result = op.action_commit_datapoint(datapoint);
+                    }
 
                     // If the new datapoint is 0.49% to 20% lower, post 0.49% lower than old
                     if difference < 0.9951 {
