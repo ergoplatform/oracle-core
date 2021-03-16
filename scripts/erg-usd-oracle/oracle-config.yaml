@@ -14,7 +14,7 @@ core_api_port: "9010"
 
 #### Local Oracle Parameters ####
 # Your oracle address
-oracle_address: "9eu8KzFpG1NcPmrE69FzfqqhGksAgZusBNDyhnZune3cg3ZiU5M"
+oracle_address: "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r"
 # The base fee constant that all action txs use to calculate fee.
 # Adjust if blockchain is congested/higher tx fees are required.
 base_fee: 1100000
