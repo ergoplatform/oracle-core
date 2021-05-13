@@ -6,6 +6,8 @@ node_port: "9053"
 # API key for the node
 node_api_key: "hello"
 
+cmc_api_key: "YOUR_COINMARKETCAP_API_KEY"
+
 #### Core API Parameters ####
 # Port which you wish the Oracle Core GET API server to run on.
 # Note, the Oracle Core POST API server (to submit datapoints) will be on

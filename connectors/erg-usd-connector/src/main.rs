@@ -4,14 +4,21 @@
 /// server on the core.
 /// Note: The value that is posted on-chain is the number
 /// of nanoErgs per 1 USD, not the rate per nanoErg.
+#[macro_use]
+mod connector_config;
+
 use anyhow::{anyhow, Result};
 use frontend_connector_lib::FrontendConnector;
+use connector_config::{get_cmc_api_key};
 
 // Number of nanoErgs in a single Erg
 static NANO_ERG_CONVERSION: f64 = 1000000000.0;
 
 static CG_RATE_URL: &str =
     "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
+
+static CMC_RATE_URL: &str =
+    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?convert=USD&&symbol=ERG";
 
 /// Get the Erg/USD price from the nanoErgs per 1 USD datapoint price
 pub fn generate_current_price(datapoint: u64) -> f64 {
@@ -21,15 +28,26 @@ pub fn generate_current_price(datapoint: u64) -> f64 {
 /// Acquires the price of Ergs in USD from CoinGecko, convert it
 /// into nanoErgs per 1 USD, and return it.
 fn get_nanoerg_usd_price() -> Result<u64> {
-    let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
-    let price_json = json::parse(&resp.text()?)?;
-    if let Some(p) = price_json["ergo"]["usd"].as_f64() {
-        // Convert from price Erg/USD to nanoErgs per 1 USD
-        let nanoerg_price = (1.0 / p) * NANO_ERG_CONVERSION;
-        return Ok(nanoerg_price as u64);
-    } else {
-        Err(anyhow!("Failed to parse price from json."))
+    let resp_cg = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
+    let resp_cmc = reqwest::blocking::Client::new().get(CMC_RATE_URL).header("X-CMC_PRO_API_KEY", get_cmc_api_key()).send()?;
+    let price_json_cg = json::parse(&resp_cg.text()?)?;
+    let price_json_cmc = json::parse(&resp_cmc.text()?)?;
+    fn convert_from_price(price: Option<f64>) -> u64 {
+        if let Some(p) = price {
+            // Convert from price Erg/USD to nanoErgs per 1 USD
+            let nanoerg_price =  (1.0 / p) * NANO_ERG_CONVERSION;
+            return nanoerg_price as u64;
+        } else {
+            0 as u64
+        }
     }
+    let price_cg = convert_from_price(price_json_cg["ergo"]["usd"].as_f64());
+    let price_cmc = convert_from_price(price_json_cmc["data"]["ERG"]["quote"]["USD"]["price"].as_f64());
+    if price_cg == 0 || price_cmc == 0 {
+        return Err(anyhow!("Failed to parse price from json."));
+    }
+    let nanoerg_price = (price_cg + price_cmc) / 2;
+    return Ok(nanoerg_price as u64);
 }
 
 fn main() {
