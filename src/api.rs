@@ -38,7 +38,7 @@ pub fn start_post_api() {
                     if let Ok(epoch_state) = op.get_live_epoch_state() {
                     let old_datapoint = epoch_state.latest_pool_datapoint;
 
-                    // Difference check
+                    // Difference calc
                     let difference = datapoint as f64/old_datapoint as f64;
                     let mut action_result = Err(anyhow!("No datapoint has been submit."));
 
@@ -51,7 +51,6 @@ pub fn start_post_api() {
                     else if difference < 0.50 {
                         action_result = op.action_commit_datapoint(datapoint);
                     }
-
                     // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
                     else if difference < 0.9951 {
                         let new_datapoint = (old_datapoint as f64 * 0.9951) as u64;
@@ -76,17 +75,16 @@ pub fn start_post_api() {
                         let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
                         let resp_json = object! {tx_id: tx_id}.to_string();
 
-                        context
-            .response
-           .header(("Access-Control-Allow-Origin", "*")).from_json(resp_json).unwrap();
+                    context
+                        .response
+                        .header(("Access-Control-Allow-Origin", "*")).from_json(resp_json).unwrap();
                     }
                     // If transaction failed being posted
                     else {
                         let error_json = object! {error: "Failed to post 'Commit Datapoint' action transaction."}.to_string();
-
                         context
-            .response
-           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
+                            .response
+                            .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                     }
                 }
                 // Else if in Epoch Prep stage
@@ -94,8 +92,8 @@ pub fn start_post_api() {
                     let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
 
                     context
-            .response
-           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
+                        .response
+                        .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                 }
             }
             // If the datapoint provided is not a valid i32 Integer
@@ -103,10 +101,10 @@ pub fn start_post_api() {
                 let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
 
                 context
-            .response
-           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
+                    .response
+                    .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
+                }
             }
-                    }
 
         }
         // If the post request body is not valid json
@@ -114,8 +112,8 @@ pub fn start_post_api() {
             let error_json = object! {error: "Invalid JSON Request Body."}.to_string();
 
             context
-            .response
-           .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
+                .response
+                .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
         }
     });
 
