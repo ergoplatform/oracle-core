@@ -38,16 +38,16 @@ pub fn start_post_api() {
                     if let Ok(epoch_state) = op.get_live_epoch_state() {
                     let old_datapoint = epoch_state.latest_pool_datapoint;
 
-                    // 2% difference checks
+                    // Difference check
                     let difference = datapoint as f64/old_datapoint as f64;
                     let mut action_result = Err(anyhow!("No datapoint has been submit."));
 
 
-                    // If the new datapoint is 100% higher, post the new datapoint
+                    // If the new datapoint is twice as high, post the new datapoint
                     if difference > 2.00 {
                         action_result = op.action_commit_datapoint(datapoint);
                     }
-                    // If the new datapoint is 50% lower, post the new datapoint
+                    // If the new datapoint is half, post the new datapoint
                     else if difference < 0.50 {
                         action_result = op.action_commit_datapoint(datapoint);
                     }
@@ -62,12 +62,13 @@ pub fn start_post_api() {
                         let new_datapoint = (old_datapoint as f64 * 1.0049) as u64;
                         action_result = op.action_commit_datapoint(new_datapoint);
                     }
-                    // Else if the difference is within 4% either way, post the new datapoint
+                    // Else if the difference is within 0.49% either way, post the new datapoint
                     else {
                         action_result = op.action_commit_datapoint(datapoint);
                     }
 
 
+                    // Print action
                     let action_name = "Submit Datapoint";
                     print_action_results(&action_result, action_name);
                     // If transaction succeeded being posted
