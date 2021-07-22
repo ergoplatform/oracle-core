@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 json            = "0.12.4"
+yaml-rust                   = "0.4.4"
 reqwest         = { version = "0.10.7", features = ["blocking"] }
 frontend-connector-lib     = {path = "../frontend-connector-lib"}
 anyhow          = "1.0.32"
