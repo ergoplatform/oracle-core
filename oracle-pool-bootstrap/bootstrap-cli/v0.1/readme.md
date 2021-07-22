@@ -3,8 +3,8 @@ This is a CLI tool which simplifies the process of bootstrapping an oracle pool.
 1. `generatePoolToken` to generate a singleton pool token
 2. `generateOracleTokens` to generate multiple oracle tokens
 3. `getContractAddresses` Getting the addresses using the tokens generated
-4. `bootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
-5. `bootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
+4. `bootStrapPool` Bootstrapping the epoch preparation box using the address and tokens
+5. `bootStrapOracle` Bootstrapping the oracle boxes using the address and tokens
 
 ## Step 1: Configure options
 
@@ -56,8 +56,8 @@ Running the jar is very simple and provides us with basic usage information:
     java -cp <jarFile> generatePoolToken <recipientAddress>
     java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>
     java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>
-    java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>
-    java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
+    java -cp <jarFile> bootStrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>
+    java -cp <jarFile> bootStrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
 
 
 ## Step 4: Issue tokens
