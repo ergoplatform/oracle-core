@@ -3,8 +3,8 @@ This is a CLI tool which simplifies the process of bootstrapping an Oracle Pool.
 1. `generatePoolToken` to generate a singleton pool token
 2. `generateOracleTokens` to generate multiple oracle tokens
 3. `getContractAddresses` Getting the addresses using the tokens generated
-4. `bootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
-5. `bootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
+4. `bootStrapPool` Bootstrapping the epoch preparation box using the address and tokens
+5. `bootStrapOracle` Bootstrapping the oracle boxes using the address and tokens
 
 
 ## Getting Started

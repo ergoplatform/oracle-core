@@ -8,8 +8,8 @@ object Main {
     println("java -cp <jarFile> generatePoolToken <recipientAddress>")
     println("java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>")
     println("java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>")
-    println("java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>")
-    println("java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>")
+    println("java -cp <jarFile> bootStrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>")
+    println("java -cp <jarFile> bootStrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>")
   }
 }
 
