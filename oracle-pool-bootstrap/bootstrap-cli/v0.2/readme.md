@@ -3,8 +3,8 @@ This is a CLI tool which simplifies the process of bootstrapping an oracle pool.
 1. `generatePoolToken` to generate a singleton pool token
 2. `generateOracleTokens` to generate multiple oracle tokens
 3. `getContractAddresses` Getting the addresses using the tokens generated
-4. `bootstrapPool` Bootstrapping the epoch preparation box using the address and tokens
-5. `bootstrapOracle` Bootstrapping the oracle boxes using the address and tokens
+4. `bootStrapPool` Bootstrapping the epoch preparation box using the address and tokens
+5. `bootStrapOracle` Bootstrapping the oracle boxes using the address and tokens
 
 ## Step 1: Configure options
 
@@ -56,8 +56,8 @@ Running the jar is very simple and provides us with basic usage information:
     java -cp <jarFile> generatePoolToken <recipientAddress>
     java -cp <jarFile> generateOracleToken <recipientAddress> <numOracles>
     java -cp <jarFile> getContractAddresses <oracleTokenId> <poolTokenId>
-    java -cp <jarFile> boostrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>
-    java -cp <jarFile> boostrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
+    java -cp <jarFile> bootStrapPool <oracleTokenId> <poolTokenId> <initialDataPoint_serialized>
+    java -cp <jarFile> bootStrapOracle <oracleTokenId> <poolTokenId> <rewardAddress>
 
 
 ## Step 4: Issue tokens
@@ -105,11 +105,11 @@ The `--bootstrap-value` command can be used with any connector to do so, as such
 
 This will print out some value such as `0502`. Copy that value and invoke the CLI as:
 
-    java -cp oracle-pool-bootstrap.jar bootstrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
+    java -cp oracle-pool-bootstrap.jar bootStrapPool <oracleTokenId> <poolTokenId> <initial_datapoint>
 
 Example:
 
-    java -cp oracle-pool-bootstrap.jar bootstrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
+    java -cp oracle-pool-bootstrap.jar bootStrapPool 12caaacb51c89646fac9a3786eb98d0113bd57d68223ccc11754a4f67281daed b662db51cf2dc39f110a021c2a31c74f0a1a18ffffbf73e8a051a7b8c0f09ebc 0502
 
 This will create the Epoch Preparation box with the desired token.
 
