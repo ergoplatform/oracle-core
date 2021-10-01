@@ -9,7 +9,6 @@ mod oracle_state;
 mod scans;
 mod templates;
 
-use actions::CollectionError;
 use anyhow::Error;
 use crossbeam::channel::bounded;
 use log::info;
