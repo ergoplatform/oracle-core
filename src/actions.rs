@@ -10,8 +10,9 @@ use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use crate::Result;
-use ergo_lib::ast::constant::Constant;
 use ergo_lib::chain::ergo_box::ErgoBox;
+use ergo_lib::chain::Base16Str;
+use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_offchain_utilities::encoding::{
     serialize_hex_encoded_string, string_to_blake2b_hash, unwrap_hex_encoded_string, unwrap_long,
 };
@@ -373,7 +374,7 @@ pub fn remove_largest_local_deviation_datapoint(
         let dp_len = datapoint_boxes.len();
         let datapoints: Vec<i64> = datapoint_boxes
             .iter()
-            .map(|b| {
+            .map(|_| {
                 unwrap_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])
                     .unwrap_or(0)
             })

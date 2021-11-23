@@ -1,6 +1,7 @@
 use crate::oracle_core::{get_core_api_port, OracleCore};
 use anyhow::Result;
-use ergo_lib::ast::Constant;
+use ergo_lib::chain::Base16Str;
+use ergo_lib::ergotree_ir::mir::constant::Constant;
 use std::env;
 use std::thread;
 use std::time::Duration;
