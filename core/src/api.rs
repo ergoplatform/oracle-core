@@ -40,6 +40,7 @@ pub fn start_post_api() {
 
                     // Difference calc
                     let difference = datapoint as f64/old_datapoint as f64;
+                    #[allow(unused_assignments)]
                     let mut action_result = Err(anyhow!("No datapoint has been submit."));
 
 
