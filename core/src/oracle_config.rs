@@ -142,7 +142,7 @@ mod tests {
             base_fee: 1000000
             ";
         let config = &YamlLoader::load_from_str(yaml_string).unwrap()[0];
-        let pool_params = PoolParameters::new_from_yaml_string(&config);
+        let pool_params = PoolParameters::new_from_yaml_string(config);
         assert_eq!(pool_params.live_epoch_length, 20);
         assert_eq!(pool_params.epoch_preparation_length, 10);
         assert_eq!(pool_params.buffer_length, 4);

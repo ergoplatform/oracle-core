@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::ptr_arg)]
 
 #[macro_use]
 extern crate json;
@@ -175,9 +177,9 @@ fn main() {
 /// Prints The Results Of An Action, Whether It Failed/Succeeded
 pub fn print_action_results(action_res: &Result<String>, action_name: &str) {
     if let Ok(tx_id) = action_res {
-        print_successful_action(&action_name, &tx_id);
+        print_successful_action(action_name, tx_id);
     } else if let Err(e) = action_res {
-        print_failed_action(&action_name, &e);
+        print_failed_action(action_name, e);
     }
 }
 
@@ -221,7 +223,7 @@ fn print_info(
     let res_prep_state = op.get_preparation_state();
     let res_live_state = op.get_live_epoch_state();
 
-    let mut info_string = format!("{}", ORACLE_CORE_ASCII);
+    let mut info_string = ORACLE_CORE_ASCII.to_string();
 
     info_string.push_str("========================================================\n");
     info_string.push_str(&format!("Current Blockheight: {}\n", height));

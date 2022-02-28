@@ -7,7 +7,7 @@ use crate::print_and_log;
 use crate::Result;
 use anyhow::anyhow;
 use ergo_lib::chain::ergo_box::ErgoBox;
-use json;
+
 use json::JsonValue;
 use log::info;
 
@@ -42,7 +42,7 @@ impl Scan {
         let scan_id = register_scan(&scan_json)?;
         print_and_log(&format!("Scan Successfully Set.\nID: {}", scan_id));
 
-        return Ok(Scan::new(name, &scan_id));
+        Ok(Scan::new(name, &scan_id))
     }
 
     /// Returns all boxes found by the scan
@@ -55,8 +55,8 @@ impl Scan {
     pub fn get_box(&self) -> Result<ErgoBox> {
         self.get_boxes()?
             .into_iter()
-            .nth(0)
-            .ok_or(anyhow!("No Boxes Found For {}", self.name))
+            .next()
+            .ok_or_else(|| anyhow!("No Boxes Found For {}", self.name))
     }
 
     /// Returns all boxes found by the scan
@@ -149,7 +149,7 @@ pub fn register_local_oracle_datapoint_scan(
     let datapoint_add_bytes = address_to_bytes(datapoint_address)?;
 
     // Raw EC bytes + type identifier
-    let oracle_add_bytes = address_to_raw_for_register(&oracle_address)?;
+    let oracle_add_bytes = address_to_raw_for_register(oracle_address)?;
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object! {

@@ -4,8 +4,7 @@ use crate::oracle_state::{OraclePool, PoolBoxState};
 use crate::print_action_results;
 use anyhow::anyhow;
 use crossbeam::Receiver;
-use json;
-use sincere;
+
 use std::env;
 use std::str::from_utf8;
 
@@ -17,7 +16,7 @@ pub fn start_post_api() {
     // Accept a datapoint to be posted within a "Commit Datapoint" action tx
     app.post("/submitDatapoint", move |context| {
         let op = OraclePool::new();
-        let res_post_json = from_utf8(context.request.body()).map(|t| json::parse(t));
+        let res_post_json = from_utf8(context.request.body()).map(json::parse);
 
         // Check if oracle core is in `read only` mode
         if args.len() > 1 && &args[1] == "--readonly" {
@@ -45,7 +44,8 @@ pub fn start_post_api() {
 
 
                     // If the new datapoint is twice as high, post the new datapoint
-                    if difference > 2.00 {
+                    #[allow(clippy::if_same_then_else)]
+                    if difference > 2.00  {
                         action_result = op.action_commit_datapoint(datapoint);
                     }
                     // If the new datapoint is half, post the new datapoint
@@ -134,9 +134,9 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic welcome endpoint
     app.get("/", move |context| {
-        let response_text = format!(
+        let response_text =
             "This is an Oracle Core. Please use one of the endpoints to interact with it.\n"
-        );
+                .to_string();
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))
@@ -163,10 +163,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
         let op = OraclePool::new();
         let parameters = PoolParameters::new();
 
-        let num_of_oracles = match op.datapoint_stage.number_of_boxes() {
-            Ok(n) => n,
-            Err(_) => 10,
-        };
+        let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
 
         let response_json = object! {
             number_of_oracles: num_of_oracles,
@@ -302,7 +299,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Whether the Core requires the Connector to repost a new Datapoint
     app.get("/requireDatapointRepost", move |context| {
-        let mut response_text = format!("false");
+        let mut response_text = "false".to_string();
         if let Ok(b) = repost_receiver.try_recv() {
             response_text = b.to_string();
         }

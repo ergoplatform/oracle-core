@@ -33,8 +33,8 @@ impl FrontendConnector {
     ) -> FrontendConnector {
         let connector = Connector::new(title, get_datapoint, print_info);
         let frontend_connector = FrontendConnector {
-            connector: connector,
-            generate_current_price: generate_current_price,
+            connector,
+            generate_current_price,
         };
         start_get_api(frontend_connector.clone());
         frontend_connector
@@ -48,8 +48,8 @@ impl FrontendConnector {
     ) -> FrontendConnector {
         let connector = Connector::new_basic_connector(title, get_datapoint);
         FrontendConnector {
-            connector: connector,
-            generate_current_price: generate_current_price,
+            connector,
+            generate_current_price,
         }
     }
 

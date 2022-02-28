@@ -85,7 +85,7 @@ impl OracleCore {
         OracleCore {
             ip: ip.to_string(),
             api_port: api_port.to_string(),
-            post_api_port: post_api_port,
+            post_api_port,
         }
     }
 
@@ -110,12 +110,12 @@ impl OracleCore {
             // If there no tx_id/there is an error
             if tx_id.is_empty() {
                 let error = resp_json["error"].clone();
-                return Err(ConnectorError::FailedSubmittingDatapoint(error.to_string()));
+                Err(ConnectorError::FailedSubmittingDatapoint(error.to_string()))
             } else {
-                return Ok(tx_id.to_string());
+                Ok(tx_id.to_string())
             }
         } else {
-            return Err(ConnectorError::FailedParsingCoreResponse(resp_text));
+            Err(ConnectorError::FailedParsingCoreResponse(resp_text))
         }
     }
     /// Get information about the local Oracle
@@ -166,7 +166,7 @@ impl OracleCore {
 
     /// Sends a GET request to the Oracle Core and converts response to text with extra quotes removed
     fn send_get_req(&self, endpoint: &str) -> Result<String> {
-        let url = self.oracle_core_url().to_owned() + endpoint;
+        let url = self.oracle_core_url() + endpoint;
         let resp = reqwest::blocking::Client::new()
             .get(&url)
             .send()
@@ -188,7 +188,7 @@ impl OracleCore {
 
     /// Sends a POST request to the Oracle Core and converts response to text
     fn send_post_req(&self, endpoint: &str, body: String) -> Result<String> {
-        let url = self.oracle_core_post_url().to_owned() + endpoint;
+        let url = self.oracle_core_post_url() + endpoint;
         let resp = reqwest::blocking::Client::new()
             .post(&url)
             .body(body)

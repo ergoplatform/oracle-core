@@ -16,7 +16,7 @@ use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_offchain_utilities::encoding::{
     serialize_hex_encoded_string, string_to_blake2b_hash, unwrap_hex_encoded_string, unwrap_long,
 };
-use json;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -50,12 +50,12 @@ impl OraclePool {
 
         let mut inputs_raw = vec![self.local_oracle_datapoint_scan.get_serialized_box()?];
         inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-            parameters.base_fee.into(),
+            parameters.base_fee,
         )?);
 
         // Filling out the json tx request template
         req["requests"][0]["address"] = self.datapoint_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["registers"] = registers;
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = inputs_raw.into();
         req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
@@ -99,7 +99,7 @@ impl OraclePool {
         // Serialize boxes and add extra box for paying fee
         let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
         serialized_input_boxes.append(&mut serialized_unspent_boxes_with_min_total(
-            action_fee.into(),
+            action_fee,
         )?);
 
         // Sum up the new total minus tx fee
@@ -111,7 +111,7 @@ impl OraclePool {
         req["requests"][0]["value"] = total_input_ergs.into();
         req["requests"][0]["address"] =
             self.epoch_preparation_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["registers"] = registers;
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = serialized_input_boxes.into();
         req["fee"] = action_fee.into();
@@ -140,13 +140,13 @@ impl OraclePool {
 
         let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
         inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-            parameters.base_fee.into(),
+            parameters.base_fee,
         )?);
 
         // Filling out the json tx request template
         req["requests"][0]["value"] = epoch_prep_state.funds.into();
         req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["registers"] = registers;
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = inputs_raw.into();
         req["fee"] = parameters.base_fee.into();
@@ -181,13 +181,13 @@ impl OraclePool {
 
         let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
         inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-            parameters.base_fee.into(),
+            parameters.base_fee,
         )?);
 
         // Filling out the json tx request template
         req["requests"][0]["value"] = epoch_prep_state.funds.into();
         req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["registers"] = registers;
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = inputs_raw.into();
         req["fee"] = parameters.base_fee.into();
@@ -248,7 +248,7 @@ impl OraclePool {
         req["requests"][0]["value"] = new_box_value.into();
         req["requests"][0]["address"] =
             self.epoch_preparation_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers.into();
+        req["requests"][0]["registers"] = registers;
         req["requests"][0]["assets"] = vec![token_json].into();
 
         // Filling out requests for the oracle payout outputs
@@ -297,7 +297,7 @@ fn find_box_index_in_list(
 pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
     let mut valid_boxes = vec![];
     for b in boxes {
-        if let Ok(_) = unwrap_long(&b.additional_registers.get_ordered_values()[2]) {
+        if unwrap_long(&b.additional_registers.get_ordered_values()[2]).is_ok() {
             valid_boxes.push(b.clone());
         }
     }
@@ -336,8 +336,8 @@ pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
     let datapoints_sum = boxes.iter().fold(Ok(0), |acc: Result<i64>, b| {
         Ok(acc? + unwrap_long(&b.additional_registers.get_ordered_values()[2])?)
     })?;
-    if boxes.len() == 0 {
-        Err(CollectionError::LocalOracleFailedToPostDatapoint())?;
+    if boxes.is_empty() {
+        return Err(CollectionError::LocalOracleFailedToPostDatapoint().into());
     }
     let average = datapoints_sum / boxes.len() as i64;
     Ok(average as u64)
@@ -368,7 +368,7 @@ pub fn remove_largest_local_deviation_datapoint(
 
     // Check if sufficient number of datapoint boxes to start removing
     if datapoint_boxes.len() <= 2 {
-        Err(CollectionError::FailedToReachConsensus())?
+        Err(CollectionError::FailedToReachConsensus().into())
     } else {
         // Deserialize all the datapoints in a list
         let dp_len = datapoint_boxes.len();
@@ -412,7 +412,7 @@ pub fn finalize_datapoint(
         successful_boxes = remove_largest_local_deviation_datapoint(&successful_boxes)?;
 
         if (successful_boxes.len() as i64) < consensus_num {
-            Err(CollectionError::FailedToReachConsensus())?;
+            return Err(CollectionError::FailedToReachConsensus().into());
         }
     }
 
