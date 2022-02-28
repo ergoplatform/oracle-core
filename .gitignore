@@ -18,3 +18,4 @@ ada-usd-oracle-deployed
 erg-usd-oracle-deployed
 *oracle-core.log
 oracle-config.yaml
+/.vim/
