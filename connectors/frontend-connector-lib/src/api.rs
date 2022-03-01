@@ -1,6 +1,5 @@
 use crate::FrontendConnector;
 use connector_lib::get_core_api_port;
-use sincere;
 
 /// Starts the Frontend GET API server which can be made publicly available
 pub fn start_get_api(frontend_connector: FrontendConnector) {
@@ -8,9 +7,7 @@ pub fn start_get_api(frontend_connector: FrontendConnector) {
 
     // Basic welcome endpoint
     app.get("/", move |context| {
-        let response_text = format!(
-            "This is an Oracle Core FrontendConnector. Please use the `/frontendData` endpoint to fetch relevant data.\n"
-        );
+        let response_text = "This is an Oracle Core FrontendConnector. Please use the `/frontendData` endpoint to fetch relevant data.\n".to_string();
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))

@@ -26,7 +26,7 @@ fn get_nanoerg_usd_price() -> Result<u64> {
     if let Some(p) = price_json["ergo"]["usd"].as_f64() {
         // Convert from price Erg/USD to nanoErgs per 1 USD
         let nanoerg_price = (1.0 / p) * NANO_ERG_CONVERSION;
-        return Ok(nanoerg_price as u64);
+        Ok(nanoerg_price as u64)
     } else {
         Err(anyhow!("Failed to parse price from json."))
     }

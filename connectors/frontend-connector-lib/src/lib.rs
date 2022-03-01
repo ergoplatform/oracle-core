@@ -1,3 +1,18 @@
+// Coding conventions
+#![allow(dead_code)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::ptr_arg)]
+#![allow(clippy::unit_arg)]
+#![forbid(unsafe_code)]
+#![deny(non_upper_case_globals)]
+#![deny(non_camel_case_types)]
+#![deny(non_snake_case)]
+#![deny(unused_mut)]
+#![deny(unused_imports)]
+#![deny(clippy::wildcard_enum_match_arm)]
+#![deny(clippy::todo)]
+#![deny(clippy::unimplemented)]
+
 /// This is a small library which wraps the `connector-lib` library for
 /// Connectors which wish to plug into the Ergo Explorer Oracle Pool Frontend.
 #[macro_use]
@@ -33,8 +48,8 @@ impl FrontendConnector {
     ) -> FrontendConnector {
         let connector = Connector::new(title, get_datapoint, print_info);
         let frontend_connector = FrontendConnector {
-            connector: connector,
-            generate_current_price: generate_current_price,
+            connector,
+            generate_current_price,
         };
         start_get_api(frontend_connector.clone());
         frontend_connector
@@ -48,8 +63,8 @@ impl FrontendConnector {
     ) -> FrontendConnector {
         let connector = Connector::new_basic_connector(title, get_datapoint);
         FrontendConnector {
-            connector: connector,
-            generate_current_price: generate_current_price,
+            connector,
+            generate_current_price,
         }
     }
 

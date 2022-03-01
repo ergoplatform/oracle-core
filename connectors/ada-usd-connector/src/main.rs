@@ -25,7 +25,7 @@ fn get_lovelace_usd_price() -> Result<u64> {
     let price_json = json::parse(&resp.text()?)?;
     if let Some(p) = price_json["cardano"]["usd"].as_f64() {
         let lovelace_price = (1.0 / p) * LOVELACE_CONVERSION;
-        return Ok(lovelace_price as u64);
+        Ok(lovelace_price as u64)
     } else {
         Err(anyhow!("Failed to parse price from json."))
     }

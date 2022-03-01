@@ -90,7 +90,7 @@ pub fn raw_from_register_to_address(typed_raw: &String) -> Result<P2PKAddressStr
 /// a vec of serialized strings in Base16 encoding
 pub fn serialize_boxes(b: &Vec<ErgoBox>) -> Result<Vec<String>> {
     Ok(b.iter()
-        .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or("".to_string()))
+        .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or_else(|_| "".to_string()))
         .collect())
 }
 

@@ -25,8 +25,8 @@ impl Connector {
     ) -> Connector {
         let connector = Connector {
             title: title.to_string(),
-            get_datapoint: get_datapoint,
-            print_info: print_info,
+            get_datapoint,
+            print_info,
         };
         connector.check_bootstrap();
         connector
@@ -57,7 +57,7 @@ impl Connector {
         // Main Loop
         loop {
             // If printing isn't successful (which involves fetching state from core)
-            if let Err(e) = (self.print_info)(&self, &oc) {
+            if let Err(e) = (self.print_info)(self, &oc) {
                 print!("\x1B[2J\x1B[1;1H");
                 println!("Error: {:?}", e);
             }

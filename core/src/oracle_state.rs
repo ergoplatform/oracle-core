@@ -135,7 +135,7 @@ impl OraclePool {
                 register_pool_deposit_scan(&pool_deposit_contract_address).unwrap(),
             ];
             let res = save_scan_ids_locally(scans);
-            if let Ok(_) = res {
+            if res.is_ok() {
                 // Congrats scans registered screen here
                 print!("\x1B[2J\x1B[1;1H");
                 println!("====================================================================");
@@ -180,9 +180,9 @@ impl OraclePool {
 
         // Create `OraclePool` struct
         OraclePool {
-            local_oracle_address: local_oracle_address,
-            oracle_pool_nft: oracle_pool_nft,
-            oracle_pool_participant_token: oracle_pool_participant_token,
+            local_oracle_address,
+            oracle_pool_nft,
+            oracle_pool_participant_token,
             epoch_preparation_stage: Stage {
                 contract_address: epoch_preparation_contract_address,
                 scan: epoch_preparation_scan,
@@ -199,7 +199,7 @@ impl OraclePool {
                 contract_address: pool_deposit_contract_address,
                 scan: pool_deposit_scan,
             },
-            local_oracle_datapoint_scan: local_oracle_datapoint_scan,
+            local_oracle_datapoint_scan,
         }
     }
 
@@ -228,9 +228,9 @@ impl OraclePool {
         let epoch_ends = unwrap_int(&epoch_box_regs[1])?;
 
         let epoch_state = LiveEpochState {
-            funds: epoch_box.value.as_u64().clone(),
+            funds: *epoch_box.value.as_u64(),
             epoch_id: epoch_box_id,
-            commit_datapoint_in_epoch: commit_datapoint_in_epoch,
+            commit_datapoint_in_epoch,
             epoch_ends: epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
@@ -250,7 +250,7 @@ impl OraclePool {
         let next_epoch_ends = unwrap_int(&epoch_prep_box_regs[1])?;
 
         let prep_state = PreparationState {
-            funds: epoch_prep_box.value.as_u64().clone(),
+            funds: *epoch_prep_box.value.as_u64(),
             next_epoch_ends: next_epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
         };
@@ -285,7 +285,7 @@ impl OraclePool {
         // Sum up all Ergs held in pool deposit boxes
         let sum_ergs = deposits_box_list
             .iter()
-            .fold(0, |acc, b| acc + b.value.as_u64().clone());
+            .fold(0, |acc, b| acc + *b.value.as_u64());
 
         let deposits_state = PoolDepositsState {
             number_of_boxes: deposits_box_list.len() as u64,
