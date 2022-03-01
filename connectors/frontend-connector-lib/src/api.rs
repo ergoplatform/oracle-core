@@ -1,7 +1,6 @@
 use crate::FrontendConnector;
 use connector_lib::get_core_api_port;
 
-
 /// Starts the Frontend GET API server which can be made publicly available
 pub fn start_get_api(frontend_connector: FrontendConnector) {
     let mut app = sincere::App::new();

@@ -98,9 +98,7 @@ impl OraclePool {
 
         // Serialize boxes and add extra box for paying fee
         let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
-        serialized_input_boxes.append(&mut serialized_unspent_boxes_with_min_total(
-            action_fee,
-        )?);
+        serialized_input_boxes.append(&mut serialized_unspent_boxes_with_min_total(action_fee)?);
 
         // Sum up the new total minus tx fee
         let total_input_ergs = unserialized_input_boxes
