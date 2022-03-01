@@ -126,10 +126,11 @@ pub fn get_node_api_key() -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn valid_ip_port_from_config() {
-        assert_eq!(get_node_url(), "http://0.0.0.0:9053".to_string())
-    }
+    // #[test]
+    // fn valid_ip_port_from_config() {
+    //     assert_eq!(get_node_url(), "http://0.0.0.0:9053".to_string())
+    // }
+
     #[test]
     fn pool_parameter_parsing_works() {
         let yaml_string = "
@@ -140,6 +141,7 @@ mod tests {
             deviation_range: 5
             oracle_payout_price: 1000000
             base_fee: 1000000
+            consensus_num: 3
             ";
         let config = &YamlLoader::load_from_str(yaml_string).unwrap()[0];
         let pool_params = PoolParameters::new_from_yaml_string(config);

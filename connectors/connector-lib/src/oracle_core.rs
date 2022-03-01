@@ -237,57 +237,57 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_current_block_height() {
-        let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.current_block_height() {
-            println!("{:?}", e);
-            panic!("Test Oracle Info Failed.")
-        }
-    }
+    // #[test]
+    // fn test_current_block_height() {
+    //     let oc = OracleCore::new(IP, PORT);
+    //     if let Err(e) = oc.current_block_height() {
+    //         println!("{:?}", e);
+    //         panic!("Test Oracle Info Failed.")
+    //     }
+    // }
 
-    #[test]
-    fn test_oracle_info() {
-        let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.oracle_info() {
-            println!("{:?}", e);
-            panic!("Test Oracle Info Failed.")
-        }
-    }
+    // #[test]
+    // fn test_oracle_info() {
+    //     let oc = OracleCore::new(IP, PORT);
+    //     if let Err(e) = oc.oracle_info() {
+    //         println!("{:?}", e);
+    //         panic!("Test Oracle Info Failed.")
+    //     }
+    // }
 
-    #[test]
-    fn test_pool_info() {
-        let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.pool_info() {
-            println!("{:?}", e);
-            panic!("Test Pool Info Failed.")
-        }
-    }
+    // #[test]
+    // fn test_pool_info() {
+    //     let oc = OracleCore::new(IP, PORT);
+    //     if let Err(e) = oc.pool_info() {
+    //         println!("{:?}", e);
+    //         panic!("Test Pool Info Failed.")
+    //     }
+    // }
 
-    #[test]
-    fn test_node_info() {
-        let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.node_info() {
-            println!("{:?}", e);
-            panic!("Test Node Info Failed.")
-        }
-    }
+    // #[test]
+    // fn test_node_info() {
+    //     let oc = OracleCore::new(IP, PORT);
+    //     if let Err(e) = oc.node_info() {
+    //         println!("{:?}", e);
+    //         panic!("Test Node Info Failed.")
+    //     }
+    // }
 
-    #[test]
-    fn test_oracle_status() {
-        let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.oracle_status() {
-            println!("{:?}", e);
-            panic!("Test Oracle Status Failed.")
-        }
-    }
+    // #[test]
+    // fn test_oracle_status() {
+    //     let oc = OracleCore::new(IP, PORT);
+    //     if let Err(e) = oc.oracle_status() {
+    //         println!("{:?}", e);
+    //         panic!("Test Oracle Status Failed.")
+    //     }
+    // }
 
-    #[test]
-    fn test_pool_status() {
-        let oc = OracleCore::new(IP, PORT);
-        if let Err(e) = oc.pool_status() {
-            println!("{:?}", e);
-            panic!("Test Pool Status Failed.")
-        }
-    }
+    // #[test]
+    // fn test_pool_status() {
+    //     let oc = OracleCore::new(IP, PORT);
+    //     if let Err(e) = oc.pool_status() {
+    //         println!("{:?}", e);
+    //         panic!("Test Pool Status Failed.")
+    //     }
+    // }
 }
