@@ -9,7 +9,6 @@ use crate::node_interface::{
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{LiveEpochState, OraclePool};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
-use crate::Result;
 use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_lib::chain::Base16Str;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
@@ -18,6 +17,17 @@ use ergo_offchain_utilities::encoding::{
 };
 
 use thiserror::Error;
+
+mod collect;
+
+pub enum PoolAction {
+    Bootstrap(BootstrapAction),
+    Refresh(RefreshAction),
+}
+
+pub struct BootstrapAction {}
+
+pub struct RefreshAction {}
 
 #[derive(Error, Debug)]
 pub enum CollectionError {
@@ -29,9 +39,23 @@ pub enum CollectionError {
     LocalOracleFailedToPostDatapointWithinDeviation(),
 }
 
+pub enum ActionExecError {}
+
+pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
+    match action {
+        PoolAction::Bootstrap(_) => todo!(),
+        PoolAction::Refresh(action) => execute_refresh_action(action),
+    }
+}
+
+fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
+    // TODO: build and send the refresh pool tx
+    todo!()
+}
+
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
-    pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String> {
+    pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String, anyhow::Error> {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
@@ -66,7 +90,7 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Collect Funds" action tx
-    pub fn action_collect_funds(&self) -> Result<String> {
+    pub fn action_collect_funds(&self) -> Result<String, anyhow::Error> {
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
         // Defining the registers of the output box
@@ -119,7 +143,7 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Start Next Epoch" action tx
-    pub fn action_start_next_epoch(&self) -> Result<String> {
+    pub fn action_start_next_epoch(&self) -> Result<String, anyhow::Error> {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
@@ -154,7 +178,7 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Create New Epoch" action tx
-    pub fn action_create_new_epoch(&self) -> Result<String> {
+    pub fn action_create_new_epoch(&self) -> Result<String, anyhow::Error> {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
@@ -195,7 +219,7 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Collect Datapoints" action tx
-    pub fn action_collect_datapoints(&self) -> Result<String> {
+    pub fn action_collect_datapoints(&self) -> Result<String, anyhow::Error> {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
@@ -289,131 +313,4 @@ fn find_box_index_in_list(
     sorted_datapoint_boxes
         .iter()
         .position(|b| b.clone() == search_box)
-}
-
-/// Removes boxes which do not have a valid datapoint Long in R6.
-pub fn valid_boxes_filter(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
-    let mut valid_boxes = vec![];
-    for b in boxes {
-        if unwrap_long(&b.additional_registers.get_ordered_values()[2]).is_ok() {
-            valid_boxes.push(b.clone());
-        }
-    }
-    valid_boxes
-}
-
-/// Filters out Datapoint boxes that are not from the current epoch
-/// Also calls `valid_boxes_filter()` to remove invalid boxes.
-pub fn current_epoch_boxes_filter(
-    datapoint_boxes: &Vec<ErgoBox>,
-    live_epoch_state: &LiveEpochState,
-) -> Vec<ErgoBox> {
-    let mut filtered_boxes = vec![];
-    let valid_boxes = valid_boxes_filter(datapoint_boxes);
-    for b in valid_boxes {
-        if let Ok(s) = unwrap_hex_encoded_string(&b.additional_registers.get_ordered_values()[1]) {
-            if s == live_epoch_state.epoch_id {
-                filtered_boxes.push(b.clone());
-            }
-        }
-    }
-    filtered_boxes
-}
-
-/// Sort Datapoint boxes in decreasing order (from highest to lowest) based on Datapoint value.
-pub fn sort_datapoint_boxes(boxes: &Vec<ErgoBox>) -> Vec<ErgoBox> {
-    let mut datapoint_boxes = boxes.clone();
-    datapoint_boxes
-        .sort_by_key(|b| unwrap_long(&b.additional_registers.get_ordered_values()[2]).unwrap_or(0));
-    datapoint_boxes.reverse();
-    datapoint_boxes
-}
-
-/// Function for averaging datapoints from a list of Datapoint boxes.
-pub fn average_datapoints(boxes: &Vec<ErgoBox>) -> Result<u64> {
-    let datapoints_sum = boxes.iter().fold(Ok(0), |acc: Result<i64>, b| {
-        Ok(acc? + unwrap_long(&b.additional_registers.get_ordered_values()[2])?)
-    })?;
-    if boxes.is_empty() {
-        return Err(CollectionError::LocalOracleFailedToPostDatapoint().into());
-    }
-    let average = datapoints_sum / boxes.len() as i64;
-    Ok(average as u64)
-}
-
-/// Verifies that the list of sorted Datapoint boxes passes the deviation check
-pub fn deviation_check(deviation_range: i64, datapoint_boxes: &Vec<ErgoBox>) -> Result<bool> {
-    let num = datapoint_boxes.len();
-    let max_datapoint =
-        unwrap_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])?;
-    let min_datapoint = unwrap_long(
-        &datapoint_boxes[num - 1]
-            .additional_registers
-            .get_ordered_values()[2],
-    )?;
-    let deviation_delta = max_datapoint * deviation_range / 100;
-
-    Ok(min_datapoint >= max_datapoint - deviation_delta)
-}
-
-/// Finds whether the first or the last value in a list of sorted Datapoint boxes
-/// deviates more compared to their adjacted datapoint, and then removes
-/// said datapoint which deviates further.
-pub fn remove_largest_local_deviation_datapoint(
-    datapoint_boxes: &Vec<ErgoBox>,
-) -> Result<Vec<ErgoBox>> {
-    let mut processed_boxes = datapoint_boxes.clone();
-
-    // Check if sufficient number of datapoint boxes to start removing
-    if datapoint_boxes.len() <= 2 {
-        Err(CollectionError::FailedToReachConsensus().into())
-    } else {
-        // Deserialize all the datapoints in a list
-        let dp_len = datapoint_boxes.len();
-        let datapoints: Vec<i64> = datapoint_boxes
-            .iter()
-            .map(|_| {
-                unwrap_long(&datapoint_boxes[0].additional_registers.get_ordered_values()[2])
-                    .unwrap_or(0)
-            })
-            .collect();
-        // Check deviation by subtracting largest value by 2nd largest
-        let front_deviation = datapoints[0] - datapoints[1];
-        // Check deviation by subtracting 2nd smallest value by smallest
-        let back_deviation = datapoints[dp_len - 2] - datapoints[dp_len - 1];
-
-        // Remove largest datapoint if front deviation is greater
-        if front_deviation >= back_deviation {
-            processed_boxes.drain(0..1);
-        }
-        // Remove smallest datapoint if back deviation is greater
-        else {
-            processed_boxes.pop();
-        }
-        Ok(processed_boxes)
-    }
-}
-
-// Function which produces the finalized datapoint based on a list of `ErgoBox`es.
-/// If list of Datapoint boxes is outside of the deviation range then
-/// attempts to filter boxes until a list which is within deviation range
-/// is found.
-/// Returns the averaged datapoint and the filtered list of successful boxes.
-pub fn finalize_datapoint(
-    boxes: &Vec<ErgoBox>,
-    deviation_range: i64,
-    consensus_num: i64,
-) -> Result<(u64, Vec<ErgoBox>)> {
-    let mut successful_boxes = boxes.clone();
-    while !deviation_check(deviation_range, &successful_boxes)? {
-        // Removing largest deviation outlier
-        successful_boxes = remove_largest_local_deviation_datapoint(&successful_boxes)?;
-
-        if (successful_boxes.len() as i64) < consensus_num {
-            return Err(CollectionError::FailedToReachConsensus().into());
-        }
-    }
-
-    // Return average + successful Datapoint boxes
-    Ok((average_datapoints(&successful_boxes)?, successful_boxes))
 }

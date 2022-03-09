@@ -18,17 +18,23 @@ extern crate json;
 
 mod actions;
 mod api;
+mod commands;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
 mod scans;
+mod state;
 mod templates;
 
+use actions::execute_action;
 use anyhow::Error;
+use commands::build_action;
 use crossbeam::channel::bounded;
 use log::info;
 use node_interface::current_block_height;
 use oracle_config::{get_pool_deposits_contract_address, PoolParameters};
+use state::process;
+use state::PoolState;
 use std::env;
 use std::thread;
 use std::time::Duration;
@@ -97,86 +103,19 @@ fn main() {
         if args.len() > 1 && &args[1] == "--readonly" {
             print_and_log("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
         } else {
-            let res_prep_state = op.get_preparation_state();
-            let res_live_state = op.get_live_epoch_state();
-            let res_deposits_state = op.get_pool_deposits_state();
-            let datapoint_state = op.get_datapoint_state();
+            // TODO: bootstrap should be initiated via command line option (or made manually by other means)
+            // find out the current state of the pool
+            let pool_state = match op.get_live_epoch_state() {
+                Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
+                Err(_) => PoolState::NeedsBootstrap,
+            };
+            match process(pool_state, height) {
+                Ok(cmd) => match build_action(cmd) {
+                    Ok(action) => execute_action(action),
+                    Err(_) => todo!(),
+                },
 
-            // If the pool is in the Epoch Preparation stage
-            if let Ok(prep_state) = res_prep_state {
-                // Check state of pool deposit boxes
-                if let Ok(deposits_state) = res_deposits_state {
-                    // Collect funds if sufficient funds exist worth collecting
-                    if deposits_state.total_nanoergs > 10000000 {
-                        let action_res = op.action_collect_funds();
-                        let action_name = "Collect Funds";
-                        print_action_results(&action_res, action_name);
-                    }
-                }
-
-                // Check epoch prep state
-                let is_funded = prep_state.funds >= parameters.minimum_pool_box_value;
-                let epoch_prep_over =
-                    height > prep_state.next_epoch_ends - parameters.live_epoch_length;
-                let live_epoch_over = height >= prep_state.next_epoch_ends;
-
-                // The Pool is underfunded
-                if !is_funded {
-                    println!("The Oracle Pool is underfunded.\nTo continue operation of the oracle pool, please submit funds to: {}.", get_pool_deposits_contract_address());
-                }
-
-                // Check if height is prior to next epoch expected end
-                // height and that the pool is funded.
-                if epoch_prep_over && !live_epoch_over && is_funded {
-                    // Attempt to issue tx
-                    let action_res = op.action_start_next_epoch();
-                    let action_name = "Start Next Epoch";
-                    print_action_results(&action_res, action_name);
-                }
-
-                // Check if height is past the next epoch expected end
-                // height and that the pool is funded.
-                if live_epoch_over && is_funded {
-                    // Attempt to issue tx
-                    let action_res = op.action_create_new_epoch();
-                    let action_name = "Create New Epoch";
-                    print_action_results(&action_res, action_name);
-                }
-            }
-
-            // If the pool is in the Live Epoch stage
-            if let Ok(epoch_state) = res_live_state {
-                // Check for opportunity to Collect Datapoints
-                if height >= epoch_state.epoch_ends && epoch_state.commit_datapoint_in_epoch {
-                    let action_res = op.action_collect_datapoints();
-
-                    // If `Collect Datapoints` action fails
-                    if let Err(e) = action_res {
-                        // Trigger a datapoint repost
-                        if let Ok(dps) = datapoint_state {
-                            // If its been at least 5 blocks since local oracle's previous datapoint posting, then repost
-                            if height >= (dps.creation_height + 5) {
-                                println!(
-                                    "{:?}\nTriggering a datapoint repost from the Connector.",
-                                    e
-                                );
-                                repost_sender.try_send(true).ok();
-                            } else {
-                                println!(
-                                    "{:?}\nDatapoint has been reposted recently. Waiting for other oracles to repost before retrying once again.",
-                                    e
-                                );
-                            }
-                        } else {
-                            println!("{:?}\nError. Failed to trigger a datapoint repost due to being unable to find local oracle Datapoint box.", e);
-                        }
-                    }
-                    // If `Collect Datapoints` action succeeds
-                    else {
-                        let action_name = "Collect Datapoints";
-                        print_action_results(&action_res, action_name);
-                    }
-                }
+                Err(_) => todo!(), // TODO: exit?
             }
         }
 

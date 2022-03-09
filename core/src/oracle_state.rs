@@ -46,7 +46,7 @@ pub struct OraclePool {
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
     pub funds: NanoErg,
-    pub epoch_id: EpochID,
+    pub epoch_id: u32,
     pub commit_datapoint_in_epoch: bool,
     pub epoch_ends: BlockHeight,
     pub latest_pool_datapoint: u64,
