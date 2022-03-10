@@ -18,6 +18,34 @@ pub enum PoolBoxState {
     LiveEpoch,
 }
 
+pub trait StageDataSource {
+    /// Returns all boxes held at the given stage based on the registered scan
+    fn get_boxes(&self) -> Result<Vec<ErgoBox>>;
+
+    /// Returns the first box found by the registered scan for a given `Stage`
+    fn get_box(&self) -> Result<ErgoBox>;
+
+    /// Returns all boxes held at the given stage based on the registered scan
+    /// serialized and ready to be used as rawInputs
+    fn get_serialized_boxes(&self) -> Result<Vec<String>>;
+
+    /// Returns the first box found by the registered scan for a given `Stage`
+    /// serialized and ready to be used as a rawInput
+    fn get_serialized_box(&self) -> Result<String>;
+
+    /// Returns the number of boxes held at the given stage based on the registered scan
+    fn number_of_boxes(&self) -> Result<u64>;
+}
+
+pub trait LiveEpochStage {
+    fn get_refresh_box(&self) -> Result<ErgoBox>;
+    fn get_pool_box(&self) -> Result<ErgoBox>;
+}
+
+pub trait DatapointStage {
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<ErgoBox>>;
+}
+
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
 #[derive(Debug, Clone)]
 pub struct Stage {
@@ -296,31 +324,47 @@ impl OraclePool {
     }
 }
 
-impl Stage {
+impl StageDataSource for Stage {
     /// Returns all boxes held at the given stage based on the registered scan
-    pub fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
+    fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
         self.scan.get_boxes()
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
-    pub fn get_box(&self) -> Result<ErgoBox> {
+    fn get_box(&self) -> Result<ErgoBox> {
         self.scan.get_box()
     }
 
     /// Returns all boxes held at the given stage based on the registered scan
     /// serialized and ready to be used as rawInputs
-    pub fn get_serialized_boxes(&self) -> Result<Vec<String>> {
+    fn get_serialized_boxes(&self) -> Result<Vec<String>> {
         self.scan.get_serialized_boxes()
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     /// serialized and ready to be used as a rawInput
-    pub fn get_serialized_box(&self) -> Result<String> {
+    fn get_serialized_box(&self) -> Result<String> {
         self.scan.get_serialized_box()
     }
 
     /// Returns the number of boxes held at the given stage based on the registered scan
-    pub fn number_of_boxes(&self) -> Result<u64> {
+    fn number_of_boxes(&self) -> Result<u64> {
         Ok(self.get_boxes()?.len() as u64)
+    }
+}
+
+impl LiveEpochStage for Stage {
+    fn get_refresh_box(&self) -> Result<ErgoBox> {
+        todo!()
+    }
+
+    fn get_pool_box(&self) -> Result<ErgoBox> {
+        todo!()
+    }
+}
+
+impl DatapointStage for Stage {
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<ErgoBox>> {
+        todo!()
     }
 }

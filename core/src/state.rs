@@ -41,19 +41,10 @@ pub fn process(
             let epoch_is_over =
                 height >= live_epoch.epoch_ends && live_epoch.commit_datapoint_in_epoch;
             if epoch_is_over {
-                Ok(Some(PoolCommand::RefreshPool))
+                Ok(Some(PoolCommand::Refresh))
             } else {
                 Ok(None)
             }
         }
     }
-}
-
-pub fn execute_refresh_action(
-    pool_box: ErgoBox,
-    refresh_box: ErgoBox,
-    oracle_boxes: Vec<ErgoBox>,
-) -> Result<(), anyhow::Error> {
-    // TODO: minimum logic, max side effects
-    todo!()
 }

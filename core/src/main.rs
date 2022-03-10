@@ -110,11 +110,14 @@ fn main() {
                 Err(_) => PoolState::NeedsBootstrap,
             };
             match process(pool_state, height) {
-                Ok(cmd) => match build_action(cmd) {
-                    Ok(action) => execute_action(action),
-                    Err(_) => todo!(),
-                },
-
+                Ok(Some(cmd)) => {
+                    match build_action(cmd, op.live_epoch_stage, op.datapoint_stage) {
+                        // TODO: handle error
+                        Ok(action) => execute_action(action).unwrap(),
+                        Err(_) => todo!(),
+                    }
+                }
+                Ok(None) => (),    // do nothing
                 Err(_) => todo!(), // TODO: exit?
             }
         }

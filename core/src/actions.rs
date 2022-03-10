@@ -7,7 +7,7 @@ use crate::node_interface::{
     serialized_unspent_boxes_with_min_total,
 };
 use crate::oracle_config::PoolParameters;
-use crate::oracle_state::{LiveEpochState, OraclePool};
+use crate::oracle_state::{LiveEpochState, OraclePool, StageDataSource};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use ergo_lib::chain::ergo_box::ErgoBox;
 use ergo_lib::chain::Base16Str;
@@ -27,7 +27,11 @@ pub enum PoolAction {
 
 pub struct BootstrapAction {}
 
-pub struct RefreshAction {}
+pub struct RefreshAction {
+    pool_box: ErgoBox,
+    refresh_box: ErgoBox,
+    oracle_boxes: Vec<ErgoBox>,
+}
 
 #[derive(Error, Debug)]
 pub enum CollectionError {
@@ -39,6 +43,7 @@ pub enum CollectionError {
     LocalOracleFailedToPostDatapointWithinDeviation(),
 }
 
+#[derive(Error, Debug)]
 pub enum ActionExecError {}
 
 pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
@@ -63,7 +68,7 @@ impl OraclePool {
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
             "R4": address_to_raw_for_register(&self.local_oracle_address)?,
-            "R5": serialize_hex_encoded_string(&live_epoch_id)?.base16_str(),
+            // "R5": serialize_hex_encoded_string(&live_epoch_id)?.base16_str(),
             "R6": Constant::from(datapoint as i64).base16_str(),
         };
         // Defining the tokens to be spent
@@ -218,6 +223,7 @@ impl OraclePool {
         Ok(result)
     }
 
+    /*
     /// Generates and submits the "Collect Datapoints" action tx
     pub fn action_collect_datapoints(&self) -> Result<String, anyhow::Error> {
         let parameters = PoolParameters::new();
@@ -301,6 +307,7 @@ impl OraclePool {
         let result = send_transaction(&req)?;
         Ok(result)
     }
+    */
 }
 
 /// Given an `ErgoBox`, find its index in the input `Vec<ErgoBox>`
