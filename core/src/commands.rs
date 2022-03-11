@@ -27,8 +27,15 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
 
 #[cfg(test)]
 mod tests {
-    use ergo_lib::chain::ergo_box::ErgoBox;
+    use std::convert::TryFrom;
 
+    use ergo_lib::chain::ergo_box::BoxValue;
+    use ergo_lib::chain::ergo_box::ErgoBox;
+    use ergo_lib::chain::token::Token;
+    use ergo_lib::chain::token::TokenId;
+    use ergo_lib::chain::Digest32;
+
+    use crate::BlockHeight;
     use crate::Result;
 
     use super::*;
@@ -58,11 +65,17 @@ mod tests {
         }
     }
 
-    fn make_refresh_box() -> ErgoBox {
+    fn make_refresh_box(refresh_nft: TokenId, reward_token: Token, value: BoxValue) -> ErgoBox {
         todo!()
     }
 
-    fn make_pool_box() -> ErgoBox {
+    fn make_pool_box(
+        epoch_start_height: BlockHeight,
+        datapoint: u64,
+        epoch_counter: u32,
+        refresh_nft: TokenId,
+        value: BoxValue,
+    ) -> ErgoBox {
         todo!()
     }
 
@@ -72,8 +85,28 @@ mod tests {
 
     #[test]
     fn test_refresh_pool() {
-        let refresh_box = make_refresh_box();
-        let pool_box = make_pool_box();
+        let refresh_box = make_refresh_box(
+            // TODO: make TokenId::from_base16(s: &str) -> Result<TokenId, Error>
+            // TODO: make TokenId::from_base64(s: &str) -> Result<TokenId, Error> (fromBase64 in ErgoScript)
+            Digest32::try_from(
+                "3130a82e45842aebb888742868e055e2f554ab7d92f233f2c828ed4a43793710".to_string(),
+            )
+            .unwrap()
+            .into(),
+            BoxValue::SAFE_USER_MIN,
+        );
+        let pool_box = make_pool_box(
+            1,
+            1,
+            1,
+            // TODO: make TokenId::from_base16(s: &str) -> Result<TokenId, Error>
+            Digest32::try_from(
+                "3130a82e45842aebb888742868e055e2f554ab7d92f233f2c828ed4a43793710".to_string(),
+            )
+            .unwrap()
+            .into(),
+            BoxValue::SAFE_USER_MIN,
+        );
         let datapoints = vec![make_datapoint_box()];
         let live_epoch_stage_mock = LiveEpochStageMock {
             refresh_box,
