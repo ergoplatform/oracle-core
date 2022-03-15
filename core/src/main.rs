@@ -32,7 +32,7 @@ use commands::build_action;
 use crossbeam::channel::bounded;
 use log::info;
 use node_interface::current_block_height;
-use oracle_config::{get_pool_deposits_contract_address, PoolParameters};
+use oracle_config::PoolParameters;
 use state::process;
 use state::PoolState;
 use std::env;

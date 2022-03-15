@@ -1,6 +1,6 @@
 use crate::oracle_core::{get_core_api_port, OracleCore};
 use anyhow::Result;
-use ergo_lib::chain::Base16Str;
+use ergo_lib::ergotree_ir::base16_str::Base16Str;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use std::env;
 use std::thread;
@@ -40,7 +40,11 @@ impl Connector {
                 // Convert the price into a sigma `Constant`
                 let constant: Constant = (price as i64).into();
 
-                println!("Bootstrap {} Value: {}", self.title, constant.base16_str());
+                println!(
+                    "Bootstrap {} Value: {}",
+                    self.title,
+                    constant.base16_str().unwrap()
+                );
                 std::process::exit(0);
             } else {
                 panic!("Failed to fetch Connector bootstrap value.");

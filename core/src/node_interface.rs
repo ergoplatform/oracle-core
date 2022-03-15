@@ -1,10 +1,14 @@
 use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
-use ergo_lib::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::{NodeError, NodeInterface};
-use ergo_offchain_utilities::{BlockHeight, P2PKAddressString, P2SAddressString, ScanID, TxId};
 use json::JsonValue;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
+pub type ScanID = String;
+pub type TxId = String;
+pub type P2PKAddressString = String;
+pub type P2SAddressString = String;
+pub type BlockHeight = u64;
 
 pub fn new_node_interface() -> NodeInterface {
     NodeInterface::new(&get_node_api_key(), &get_node_ip(), &get_node_port())

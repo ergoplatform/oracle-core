@@ -1,6 +1,6 @@
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
-use crate::oracle_state::{OraclePool, PoolBoxState};
+use crate::oracle_state::{OraclePool, PoolBoxState, StageDataSource};
 use crate::print_action_results;
 use anyhow::anyhow;
 use crossbeam::Receiver;
@@ -260,7 +260,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             // The percentage that the pool is funded
             funded_percentage = (l.funds / parameters.minimum_pool_box_value) * 100;
             latest_datapoint = l.latest_pool_datapoint;
-            current_epoch_id = l.epoch_id;
+            current_epoch_id = l.epoch_id.to_string();
             epoch_ends = l.epoch_ends;
         } else if let Ok(ep) = op.get_preparation_state() {
             // The percentage that the pool is funded

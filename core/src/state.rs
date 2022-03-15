@@ -1,13 +1,5 @@
 #![allow(unused_imports)]
 
-use anyhow::Result;
-use ergo_lib::chain::ergo_box::ErgoBox;
-use ergo_lib::chain::ergo_box::NonMandatoryRegisterId;
-use ergo_lib::ergotree_ir::ir_ergo_box::IrErgoBox;
-use ergo_offchain_utilities::encoding::unwrap_hex_encoded_string;
-use ergo_offchain_utilities::encoding::unwrap_int;
-use ergo_offchain_utilities::encoding::unwrap_long;
-
 use crate::actions::CollectionError;
 use crate::commands::PoolCommand;
 use crate::oracle_config::PoolParameters;
@@ -17,6 +9,7 @@ use crate::oracle_state::OraclePool;
 use crate::oracle_state::PreparationState;
 use crate::oracle_state::Stage;
 use crate::TokenID;
+use anyhow::Result;
 
 pub enum StateError {}
 

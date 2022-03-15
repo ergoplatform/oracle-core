@@ -15,4 +15,4 @@ reqwest         = { version = "0.10.7", features = ["blocking"] }
 thiserror       = "1.0.20"
 openssl = { version = "0.10", features = ["vendored"] }
 anyhow          = "1.0.32"
-ergo-lib        = "0.13.3"
+ergo-lib = { version = "^0.15.0", path = "../../../sigma-rust/ergo-lib", features = ["rest"] }

@@ -29,11 +29,11 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
 mod tests {
     use std::convert::TryFrom;
 
-    use ergo_lib::chain::ergo_box::BoxValue;
-    use ergo_lib::chain::ergo_box::ErgoBox;
-    use ergo_lib::chain::token::Token;
-    use ergo_lib::chain::token::TokenId;
-    use ergo_lib::chain::Digest32;
+    use ergo_lib::ergo_chain_types::Digest32;
+    use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
+    use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+    use ergo_lib::ergotree_ir::chain::token::Token;
+    use ergo_lib::ergotree_ir::chain::token::TokenId;
 
     use crate::BlockHeight;
     use crate::Result;

@@ -2,19 +2,15 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::node_interface::{
-    address_to_raw_for_register, address_to_tree, current_block_height,
-    raw_from_register_to_address, send_transaction, serialize_boxes,
+    address_to_raw_for_register, send_transaction, serialize_boxes,
     serialized_unspent_boxes_with_min_total,
 };
 use crate::oracle_config::PoolParameters;
-use crate::oracle_state::{LiveEpochState, OraclePool, StageDataSource};
+use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
-use ergo_lib::chain::ergo_box::ErgoBox;
-use ergo_lib::chain::Base16Str;
+use ergo_lib::ergotree_ir::base16_str::Base16Str;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
-use ergo_offchain_utilities::encoding::{
-    serialize_hex_encoded_string, string_to_blake2b_hash, unwrap_hex_encoded_string, unwrap_long,
-};
 
 use thiserror::Error;
 
@@ -69,7 +65,7 @@ impl OraclePool {
         let registers = object! {
             "R4": address_to_raw_for_register(&self.local_oracle_address)?,
             // "R5": serialize_hex_encoded_string(&live_epoch_id)?.base16_str(),
-            "R6": Constant::from(datapoint as i64).base16_str(),
+            "R6": Constant::from(datapoint as i64).base16_str().unwrap(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -101,9 +97,9 @@ impl OraclePool {
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
         let registers = object! {
-            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
+            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
 
-            "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str(),
+            "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str().unwrap(),
         };
         // Defining the tokens to be spent
         let token_json = object! {
@@ -149,78 +145,80 @@ impl OraclePool {
 
     /// Generates and submits the "Start Next Epoch" action tx
     pub fn action_start_next_epoch(&self) -> Result<String, anyhow::Error> {
-        let parameters = PoolParameters::new();
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
+        todo!()
+        // let parameters = PoolParameters::new();
+        // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
-        // Defining the registers of the output box
-        let epoch_prep_state = self.get_preparation_state()?;
-        let registers = object! {
-            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
-            "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str(),
-            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str(),
-        };
-        // Defining the tokens to be spent
-        let token_json = object! {
-            "tokenId": self.oracle_pool_nft.to_string(),
-            "amount": 1
-        };
+        // // Defining the registers of the output box
+        // let epoch_prep_state = self.get_preparation_state()?;
+        // let registers = object! {
+        //     "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
+        //     "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str().unwrap(),
+        //     "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str().unwrap(),
+        // };
+        // // Defining the tokens to be spent
+        // let token_json = object! {
+        //     "tokenId": self.oracle_pool_nft.to_string(),
+        //     "amount": 1
+        // };
 
-        let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
-        inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-            parameters.base_fee,
-        )?);
+        // let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
+        // inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+        //     parameters.base_fee,
+        // )?);
 
-        // Filling out the json tx request template
-        req["requests"][0]["value"] = epoch_prep_state.funds.into();
-        req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers;
-        req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = inputs_raw.into();
-        req["fee"] = parameters.base_fee.into();
+        // // Filling out the json tx request template
+        // req["requests"][0]["value"] = epoch_prep_state.funds.into();
+        // req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
+        // req["requests"][0]["registers"] = registers;
+        // req["requests"][0]["assets"] = vec![token_json].into();
+        // req["inputsRaw"] = inputs_raw.into();
+        // req["fee"] = parameters.base_fee.into();
 
-        let result = send_transaction(&req)?;
-        Ok(result)
+        // let result = send_transaction(&req)?;
+        // Ok(result)
     }
 
     /// Generates and submits the "Create New Epoch" action tx
     pub fn action_create_new_epoch(&self) -> Result<String, anyhow::Error> {
-        let parameters = PoolParameters::new();
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
+        todo!()
+        // let parameters = PoolParameters::new();
+        // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
-        // Define the new epoch finish height based off of current height
-        let new_finish_height = current_block_height()?
-            + parameters.epoch_preparation_length
-            + parameters.live_epoch_length
-            + parameters.buffer_length;
+        // // Define the new epoch finish height based off of current height
+        // let new_finish_height = current_block_height()?
+        //     + parameters.epoch_preparation_length
+        //     + parameters.live_epoch_length
+        //     + parameters.buffer_length;
 
-        // Defining the registers of the output box
-        let epoch_prep_state = self.get_preparation_state()?;
-        let registers = object! {
-            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str(),
-            "R5": Constant::from(new_finish_height as i32).base16_str(),
-            "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str(),
-        };
-        // Defining the tokens to be spent
-        let token_json = object! {
-            "tokenId": self.oracle_pool_nft.to_string(),
-            "amount": 1
-        };
+        // // Defining the registers of the output box
+        // let epoch_prep_state = self.get_preparation_state()?;
+        // let registers = object! {
+        //     "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
+        //     "R5": Constant::from(new_finish_height as i32).base16_str().unwrap(),
+        //     "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str().unwrap(),
+        // };
+        // // Defining the tokens to be spent
+        // let token_json = object! {
+        //     "tokenId": self.oracle_pool_nft.to_string(),
+        //     "amount": 1
+        // };
 
-        let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
-        inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-            parameters.base_fee,
-        )?);
+        // let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
+        // inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+        //     parameters.base_fee,
+        // )?);
 
-        // Filling out the json tx request template
-        req["requests"][0]["value"] = epoch_prep_state.funds.into();
-        req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers;
-        req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = inputs_raw.into();
-        req["fee"] = parameters.base_fee.into();
+        // // Filling out the json tx request template
+        // req["requests"][0]["value"] = epoch_prep_state.funds.into();
+        // req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
+        // req["requests"][0]["registers"] = registers;
+        // req["requests"][0]["assets"] = vec![token_json].into();
+        // req["inputsRaw"] = inputs_raw.into();
+        // req["fee"] = parameters.base_fee.into();
 
-        let result = send_transaction(&req)?;
-        Ok(result)
+        // let result = send_transaction(&req)?;
+        // Ok(result)
     }
 
     /*
@@ -267,8 +265,8 @@ impl OraclePool {
             "amount": 1
         };
         let registers = object! {
-            "R4": Constant::from(finalized_datapoint as i64).base16_str(),
-            "R5": Constant::from(new_finish_height as i32).base16_str(),
+            "R4": Constant::from(finalized_datapoint as i64).base16_str().unwrap(),
+            "R5": Constant::from(new_finish_height as i32).base16_str().unwrap(),
         };
         let mut inputs_raw = vec![self.live_epoch_stage.get_serialized_box()?];
         inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(tx_fee)?);
@@ -283,7 +281,7 @@ impl OraclePool {
         for b in &successful_boxes {
             // Get the P2PK from the hex encoded constant string minus the first two characters which are a register type descriptor
             let oracle_address = raw_from_register_to_address(
-                &b.additional_registers.get_ordered_values()[0].base16_str(),
+                &b.additional_registers.get_ordered_values()[0].base16_str().unwrap(),
             )?;
             req["requests"]
                 .push(object! {
@@ -294,7 +292,7 @@ impl OraclePool {
         }
         // Add the local oracle Datapoint box index into R4 of the first oracle payout box
         req["requests"][1]["registers"] = object! {
-            "R4": Constant::from(local_datapoint_box_index as i32).base16_str()
+            "R4": Constant::from(local_datapoint_box_index as i32).base16_str().unwrap()
         };
         // Pay the local oracle double due to being Collector
         req["requests"][local_datapoint_box_index + 1]["value"] =

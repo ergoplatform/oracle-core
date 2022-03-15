@@ -6,8 +6,8 @@ use crate::scans::{
 };
 use crate::Result;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
-use ergo_lib::chain::ergo_box::ErgoBox;
-use ergo_offchain_utilities::encoding::{unwrap_hex_encoded_string, unwrap_int, unwrap_long};
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use std::path::Path;
 use yaml_rust::YamlLoader;
 
@@ -243,21 +243,22 @@ impl OraclePool {
     pub fn get_live_epoch_state(&self) -> Result<LiveEpochState> {
         let epoch_box = self.live_epoch_stage.get_box()?;
         let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
-        let epoch_box_id: String = epoch_box.box_id().into();
+        let epoch_id: u32 = todo!();
+        // let epoch_box_id: String = epoch_box.box_id().into();
 
         // Whether datapoint was commit in the current Live Epoch
-        let datapoint_state = self.get_datapoint_state()?;
-        let commit_datapoint_in_epoch: bool = epoch_box_id == datapoint_state.origin_epoch_id;
+        // let datapoint_state = self.get_datapoint_state()?;
+        let commit_datapoint_in_epoch: bool = todo!(); // epoch_box_id == datapoint_state.origin_epoch_id;
 
         // Latest pool datapoint is held in R4 of the epoch box
-        let latest_pool_datapoint = unwrap_long(&epoch_box_regs[0])?;
+        let latest_pool_datapoint = epoch_box_regs[0].try_extract_into::<i64>()?;
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = unwrap_int(&epoch_box_regs[1])?;
+        let epoch_ends = epoch_box_regs[1].try_extract_into::<i32>()?;
 
         let epoch_state = LiveEpochState {
             funds: *epoch_box.value.as_u64(),
-            epoch_id: epoch_box_id,
+            epoch_id,
             commit_datapoint_in_epoch,
             epoch_ends: epoch_ends as u64,
             latest_pool_datapoint: latest_pool_datapoint as u64,
@@ -268,42 +269,44 @@ impl OraclePool {
 
     /// Get the state of the current epoch preparation box
     pub fn get_preparation_state(&self) -> Result<PreparationState> {
-        let epoch_prep_box = self.epoch_preparation_stage.get_box()?;
-        let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
+        todo!()
+        // let epoch_prep_box = self.epoch_preparation_stage.get_box()?;
+        // let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
-        // Latest pool datapoint is held in R4
-        let latest_pool_datapoint = unwrap_long(&epoch_prep_box_regs[0])?;
+        // // Latest pool datapoint is held in R4
+        // let latest_pool_datapoint = unwrap_long(&epoch_prep_box_regs[0])?;
 
-        // Next epoch ends height held in R5
-        let next_epoch_ends = unwrap_int(&epoch_prep_box_regs[1])?;
+        // // Next epoch ends height held in R5
+        // let next_epoch_ends = unwrap_int(&epoch_prep_box_regs[1])?;
 
-        let prep_state = PreparationState {
-            funds: *epoch_prep_box.value.as_u64(),
-            next_epoch_ends: next_epoch_ends as u64,
-            latest_pool_datapoint: latest_pool_datapoint as u64,
-        };
+        // let prep_state = PreparationState {
+        //     funds: *epoch_prep_box.value.as_u64(),
+        //     next_epoch_ends: next_epoch_ends as u64,
+        //     latest_pool_datapoint: latest_pool_datapoint as u64,
+        // };
 
-        Ok(prep_state)
+        // Ok(prep_state)
     }
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Result<DatapointState> {
-        let datapoint_box = self.local_oracle_datapoint_scan.get_box()?;
-        let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
+        todo!()
+        // let datapoint_box = self.local_oracle_datapoint_scan.get_box()?;
+        // let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
 
-        // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        let origin_epoch_id = unwrap_hex_encoded_string(&datapoint_box_regs[1])?;
+        // // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
+        // let origin_epoch_id = unwrap_hex_encoded_string(&datapoint_box_regs[1])?;
 
-        // Oracle datapoint held in R6
-        let datapoint = unwrap_long(&datapoint_box_regs[2])?;
+        // // Oracle datapoint held in R6
+        // let datapoint = unwrap_long(&datapoint_box_regs[2])?;
 
-        let datapoint_state = DatapointState {
-            datapoint: datapoint as u64,
-            origin_epoch_id: origin_epoch_id.clone(),
-            creation_height: datapoint_box.creation_height as u64,
-        };
+        // let datapoint_state = DatapointState {
+        //     datapoint: datapoint as u64,
+        //     origin_epoch_id: origin_epoch_id.clone(),
+        //     creation_height: datapoint_box.creation_height as u64,
+        // };
 
-        Ok(datapoint_state)
+        // Ok(datapoint_state)
     }
 
     /// Get the current state of all of the pool deposit boxes

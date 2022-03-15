@@ -6,8 +6,8 @@ use crate::node_interface::{
 use crate::print_and_log;
 use crate::Result;
 use anyhow::anyhow;
-use ergo_lib::chain::ergo_box::ErgoBox;
 
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use json::JsonValue;
 use log::info;
 
