@@ -24,9 +24,9 @@ pub enum PoolAction {
 pub struct BootstrapAction {}
 
 pub struct RefreshAction {
-    pool_box: ErgoBox,
-    refresh_box: ErgoBox,
-    oracle_boxes: Vec<ErgoBox>,
+    pub pool_box: ErgoBox,
+    pub refresh_box: ErgoBox,
+    pub oracle_boxes: Vec<ErgoBox>,
 }
 
 #[derive(Error, Debug)]

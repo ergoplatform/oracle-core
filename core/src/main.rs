@@ -10,7 +10,7 @@
 #![deny(unused_mut)]
 #![deny(unused_imports)]
 #![deny(clippy::wildcard_enum_match_arm)]
-#![deny(clippy::todo)]
+// #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
 
 #[macro_use]
@@ -111,7 +111,8 @@ fn main() {
             };
             match process(pool_state, height) {
                 Ok(Some(cmd)) => {
-                    match build_action(cmd, op.live_epoch_stage, op.datapoint_stage) {
+                    match build_action(cmd, op.live_epoch_stage.clone(), op.datapoint_stage.clone())
+                    {
                         // TODO: handle error
                         Ok(action) => execute_action(action).unwrap(),
                         Err(_) => todo!(),

@@ -21,6 +21,7 @@ log = "0.4.11"
 simple-logging = "2.0.2"
 log-panics = "2.0.0"
 crossbeam = "0.7.3"
-ergo-lib = { version = "^0.15.0", path = "../../sigma-rust/ergo-lib", features = ["rest"] }
-ergo-node-interface = "0.2.6"
-# ergo-offchain-utilities = { git = "https://github.com/robkorn/ergo-utilities-rust", rev = "3715262a88010165920eb755e01aa94eed5fb46e" }
+# ergo-lib = { version = "^0.15.0", features = ["rest"] }
+# ergo-lib = { version = "^0.15.0", path = "../../sigma-rust/ergo-lib", features = ["rest"] }
+ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "83da8dd44682a84a0eba6b900f98467ae3674510" }
+ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "0ca1704146c0bfef6942235a541f95d606a238ef" }
