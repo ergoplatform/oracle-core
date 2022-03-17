@@ -8,8 +8,9 @@ use crate::node_interface::{
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{OraclePool, StageDataSource, StageError};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
+use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::ergotree_ir::base16_str::Base16Str;
-use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, ErgoBoxCandidate};
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 
 use derive_more::From;
@@ -29,9 +30,7 @@ pub struct BootstrapAction {}
 
 #[derive(Debug)]
 pub struct RefreshAction {
-    pub pool_box: ErgoBox,
-    pub refresh_box: ErgoBox,
-    pub oracle_boxes: Vec<ErgoBox>,
+    pub tx: UnsignedTransaction,
 }
 
 #[derive(Error, Debug)]
@@ -55,7 +54,7 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
 }
 
 fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
-    // TODO: build and send the refresh pool tx
+    // TODO: use NodeInterface::sign_and_submit_transaction to sign and send the refresh pool tx
     todo!()
 }
 

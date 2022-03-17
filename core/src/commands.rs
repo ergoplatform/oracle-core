@@ -1,4 +1,9 @@
+use std::convert::TryInto;
+
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
+use ergo_lib::wallet::box_selector::BoxSelection;
+use ergo_lib::wallet::tx_builder::TxBuilder;
 
 use crate::actions::PoolAction;
 use crate::actions::RefreshAction;
@@ -33,11 +38,51 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
 ) -> Result<RefreshAction, PoolCommandError> {
-    Ok(RefreshAction {
-        pool_box: live_epoch_stage_src.get_pool_box()?,
-        refresh_box: live_epoch_stage_src.get_refresh_box()?,
-        oracle_boxes: datapoint_stage_src.get_oracle_datapoint_boxes()?,
-    })
+    let in_pool_box = live_epoch_stage_src.get_pool_box()?;
+    let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
+    let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let out_pool_box = build_out_pool_box()?;
+    let out_refresh_box = build_out_pool_box()?;
+    let out_oracle_boxes = build_out_oracle_boxes()?;
+
+    // TODO: get all unspent boxes via NodeInterface::unspent_boxes()
+    // TODO: use BoxSelector to select input boxes for tx fee
+    // TODO: append selected input boxes to the box_selection below
+
+    let mut input_boxes = vec![in_pool_box, in_refresh_box];
+    input_boxes.append(&mut in_oracle_boxes);
+    let box_selection = BoxSelection {
+        boxes: input_boxes.try_into().unwrap(),
+        change_boxes: vec![],
+    };
+
+    let mut output_candidates = vec![out_pool_box, out_refresh_box];
+    output_candidates.append(&mut out_oracle_boxes);
+
+    // TODO: HOW TO DETERMINE CHANGE ADDRESS??? via /wallet/status (changeAddress field) ?
+
+    let b = TxBuilder::new(
+        box_selection,
+        output_candidates,
+        current_height,
+        fee_amount,
+        change_address,
+        min_change_value,
+    );
+    let tx = b.build()?;
+    Ok(RefreshAction { tx })
+}
+
+fn build_out_pool_box() -> Result<ErgoBoxCandidate, PoolCommandError> {
+    todo!()
+}
+
+fn build_out_refresh_box() -> Result<ErgoBoxCandidate, PoolCommandError> {
+    todo!()
+}
+
+fn build_out_oracle_boxes() -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
+    todo!()
 }
 
 #[cfg(test)]
@@ -81,7 +126,16 @@ mod tests {
     }
 
     fn make_refresh_box(refresh_nft: &TokenId, reward_token: Token, value: BoxValue) -> ErgoBox {
-        todo!()
+        ErgoBox::new(
+            value,
+            ergo_tree,
+            tokens,
+            additional_registers,
+            creation_height,
+            transaction_id,
+            index,
+        )
+        .unwrap()
     }
 
     fn make_pool_box(
@@ -115,6 +169,6 @@ mod tests {
         };
         let datapoint_stage_mock = DatapointStageMock { datapoints };
         let action = build_refresh_action(live_epoch_stage_mock, datapoint_stage_mock).unwrap();
-        assert_eq!(action.pool_box, pool_box);
+        assert_eq!(action.in_pool_box, pool_box);
     }
 }
