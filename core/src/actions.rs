@@ -6,23 +6,28 @@ use crate::node_interface::{
     serialized_unspent_boxes_with_min_total,
 };
 use crate::oracle_config::PoolParameters;
-use crate::oracle_state::{OraclePool, StageDataSource};
+use crate::oracle_state::{OraclePool, StageDataSource, StageError};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use ergo_lib::ergotree_ir::base16_str::Base16Str;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 
+use derive_more::From;
 use thiserror::Error;
 
 mod collect;
 
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug, From)]
 pub enum PoolAction {
     Bootstrap(BootstrapAction),
     Refresh(RefreshAction),
 }
 
+#[derive(Debug)]
 pub struct BootstrapAction {}
 
+#[derive(Debug)]
 pub struct RefreshAction {
     pub pool_box: ErgoBox,
     pub refresh_box: ErgoBox,
@@ -56,9 +61,9 @@ fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> 
 
 impl OraclePool {
     /// Generates and submits the "Commit Datapoint" action tx
-    pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String, anyhow::Error> {
+    pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String, StageError> {
         let parameters = PoolParameters::new();
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();
 
         // Defining the registers of the output box
         let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
@@ -91,8 +96,8 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Collect Funds" action tx
-    pub fn action_collect_funds(&self) -> Result<String, anyhow::Error> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
+    pub fn action_collect_funds(&self) -> Result<String, StageError> {
+        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();
 
         // Defining the registers of the output box
         let epoch_prep_state = self.get_preparation_state()?;
@@ -144,7 +149,7 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Start Next Epoch" action tx
-    pub fn action_start_next_epoch(&self) -> Result<String, anyhow::Error> {
+    pub fn action_start_next_epoch(&self) -> Result<String, StageError> {
         todo!()
         // let parameters = PoolParameters::new();
         // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
@@ -180,7 +185,7 @@ impl OraclePool {
     }
 
     /// Generates and submits the "Create New Epoch" action tx
-    pub fn action_create_new_epoch(&self) -> Result<String, anyhow::Error> {
+    pub fn action_create_new_epoch(&self) -> Result<String, StageError> {
         todo!()
         // let parameters = PoolParameters::new();
         // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
@@ -223,7 +228,7 @@ impl OraclePool {
 
     /*
     /// Generates and submits the "Collect Datapoints" action tx
-    pub fn action_collect_datapoints(&self) -> Result<String, anyhow::Error> {
+    pub fn action_collect_datapoints(&self) -> Result<String, StateError> {
         let parameters = PoolParameters::new();
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 

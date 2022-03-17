@@ -8,10 +8,9 @@ use crate::oracle_state::LiveEpochState;
 use crate::oracle_state::OraclePool;
 use crate::oracle_state::PreparationState;
 use crate::oracle_state::Stage;
+use crate::oracle_state::StageError;
 use crate::TokenID;
 use anyhow::Result;
-
-pub enum StateError {}
 
 pub struct EpochState {
     epoch_start_height: u64,
@@ -27,7 +26,7 @@ pub fn process(
     // op: OraclePool,
     // parameters: PoolParameters,
     height: u64,
-) -> Result<Option<PoolCommand>, StateError> {
+) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
         PoolState::NeedsBootstrap => todo!(),
         PoolState::LiveEpoch(live_epoch) => {

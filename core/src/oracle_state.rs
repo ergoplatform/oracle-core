@@ -3,13 +3,28 @@ use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
     register_local_oracle_datapoint_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan,
+    ScanError,
 };
-use crate::Result;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
+use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
+use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
+use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
+use thiserror::Error;
 use yaml_rust::YamlLoader;
+
+pub type Result<T> = std::result::Result<T, StageError>;
+
+#[derive(Debug, From, Error)]
+pub enum StageError {
+    #[error("node error: {0}")]
+    NodeError(NodeError),
+    #[error("unexpected data error: {0}")]
+    UnexpectedData(TryExtractFromError),
+    #[error("scan error: {0}")]
+    ScanError(ScanError),
+}
 
 /// Enum for the state that the oracle pool box is currently in
 #[derive(Debug, Clone)]
@@ -330,24 +345,24 @@ impl OraclePool {
 impl StageDataSource for Stage {
     /// Returns all boxes held at the given stage based on the registered scan
     fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
-        self.scan.get_boxes()
+        self.scan.get_boxes().map_err(Into::into)
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     fn get_box(&self) -> Result<ErgoBox> {
-        self.scan.get_box()
+        self.scan.get_box().map_err(Into::into)
     }
 
     /// Returns all boxes held at the given stage based on the registered scan
     /// serialized and ready to be used as rawInputs
     fn get_serialized_boxes(&self) -> Result<Vec<String>> {
-        self.scan.get_serialized_boxes()
+        self.scan.get_serialized_boxes().map_err(Into::into)
     }
 
     /// Returns the first box found by the registered scan for a given `Stage`
     /// serialized and ready to be used as a rawInput
     fn get_serialized_box(&self) -> Result<String> {
-        self.scan.get_serialized_box()
+        self.scan.get_serialized_box().map_err(Into::into)
     }
 
     /// Returns the number of boxes held at the given stage based on the registered scan

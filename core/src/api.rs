@@ -2,7 +2,6 @@ use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, PoolBoxState, StageDataSource};
 use crate::print_action_results;
-use anyhow::anyhow;
 use crossbeam::Receiver;
 
 use std::env;
@@ -39,40 +38,38 @@ pub fn start_post_api() {
 
                     // Difference calc
                     let difference = datapoint as f64/old_datapoint as f64;
-                    #[allow(unused_assignments)]
-                    let mut action_result = Err(anyhow!("No datapoint has been submit."));
-
 
                     // If the new datapoint is twice as high, post the new datapoint
                     #[allow(clippy::if_same_then_else)]
-                    if difference > 2.00  {
-                        action_result = op.action_commit_datapoint(datapoint);
+                    let action_result = if difference > 2.00  {
+                         op.action_commit_datapoint(datapoint)
                     }
                     // If the new datapoint is half, post the new datapoint
                     else if difference < 0.50 {
-                        action_result = op.action_commit_datapoint(datapoint);
+                         op.action_commit_datapoint(datapoint)
                     }
                     // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
                     else if difference < 0.9951 {
                         let new_datapoint = (old_datapoint as f64 * 0.9951) as u64;
-                        action_result = op.action_commit_datapoint(new_datapoint);
+                         op.action_commit_datapoint(new_datapoint)
                     }
                     // If the new datapoint is 0.49% to 100% higher, post 0.49% higher than old
                     else if difference > 1.0049 {
                         let new_datapoint = (old_datapoint as f64 * 1.0049) as u64;
-                        action_result = op.action_commit_datapoint(new_datapoint);
+                         op.action_commit_datapoint(new_datapoint)
                     }
                     // Else if the difference is within 0.49% either way, post the new datapoint
                     else {
-                        action_result = op.action_commit_datapoint(datapoint);
-                    }
+                         op.action_commit_datapoint(datapoint)
+                    };
 
 
                     // Print action
                     let action_name = "Submit Datapoint";
-                    print_action_results(&action_result, action_name);
+                    let action_result_anyhow: anyhow::Result<String> = action_result.map_err(Into::into);
+                    print_action_results(&action_result_anyhow, action_name);
                     // If transaction succeeded being posted
-                    if let Ok(res) = action_result{
+                    if let Ok(res) = action_result_anyhow {
                         let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
                         let resp_json = object! {tx_id: tx_id}.to_string();
 

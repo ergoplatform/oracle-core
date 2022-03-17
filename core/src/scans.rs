@@ -4,15 +4,30 @@ use crate::node_interface::{
     serialize_boxes,
 };
 use crate::print_and_log;
-use crate::Result;
-use anyhow::anyhow;
 
+use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_node_interface::node_interface::NodeError;
 use json::JsonValue;
 use log::info;
+use thiserror::Error;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;
+
+pub type Result<T> = std::result::Result<T, ScanError>;
+
+#[derive(Debug, From, Error)]
+pub enum ScanError {
+    #[error("node error: {0}")]
+    NodeError(NodeError),
+    #[error("no boxes found")]
+    NoBoxesFound,
+    #[error("failed to register scan")]
+    FailedToRegister,
+    #[error("IO error: {0}")]
+    IoError(std::io::Error),
+}
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
 #[derive(Debug, Clone)]
@@ -56,7 +71,7 @@ impl Scan {
         self.get_boxes()?
             .into_iter()
             .next()
-            .ok_or_else(|| anyhow!("No Boxes Found For {}", self.name))
+            .ok_or(ScanError::NoBoxesFound)
     }
 
     /// Returns all boxes found by the scan
@@ -79,7 +94,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
     let mut id_json = object! {};
     for scan in scans {
         if &scan.id == "null" {
-            return Err(anyhow!("Failed to register {}", scan.name));
+            return Err(ScanError::FailedToRegister);
         }
         id_json[scan.name] = scan.id.into();
     }
