@@ -111,8 +111,12 @@ fn main() {
             };
             match process(pool_state, height) {
                 Ok(Some(cmd)) => {
-                    match build_action(cmd, op.live_epoch_stage.clone(), op.datapoint_stage.clone())
-                    {
+                    match build_action(
+                        cmd,
+                        op.live_epoch_stage.clone(),
+                        op.datapoint_stage.clone(),
+                        height,
+                    ) {
                         // TODO: handle error
                         Ok(action) => execute_action(action).unwrap(),
                         Err(_) => todo!(),

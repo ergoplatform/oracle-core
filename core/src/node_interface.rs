@@ -8,7 +8,6 @@ pub type ScanID = String;
 pub type TxId = String;
 pub type P2PKAddressString = String;
 pub type P2SAddressString = String;
-pub type BlockHeight = u64;
 
 pub fn new_node_interface() -> NodeInterface {
     NodeInterface::new(&get_node_api_key(), &get_node_ip(), &get_node_port())

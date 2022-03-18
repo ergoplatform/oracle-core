@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::tx_builder::TxBuilder;
@@ -10,6 +11,7 @@ use crate::actions::RefreshAction;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
 use crate::oracle_state::StageError;
+use crate::BlockHeight;
 
 pub enum PoolCommand {
     Bootstrap,
@@ -25,11 +27,12 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
     cmd: PoolCommand,
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
+    height: BlockHeight,
 ) -> Result<PoolAction, PoolCommandError> {
     match cmd {
         PoolCommand::Bootstrap => todo!(),
         PoolCommand::Refresh => {
-            build_refresh_action(live_epoch_stage_src, datapoint_stage_src).map(Into::into)
+            build_refresh_action(live_epoch_stage_src, datapoint_stage_src, height).map(Into::into)
         }
     }
 }
@@ -37,6 +40,7 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
 pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
+    height: BlockHeight,
 ) -> Result<RefreshAction, PoolCommandError> {
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
@@ -59,15 +63,17 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
     output_candidates.append(&mut out_oracle_boxes);
 
+    let tx_fee = BoxValue::SAFE_USER_MIN;
+
     // TODO: HOW TO DETERMINE CHANGE ADDRESS??? via /wallet/status (changeAddress field) ?
 
     let b = TxBuilder::new(
         box_selection,
         output_candidates,
-        current_height,
-        fee_amount,
+        height as u32,
+        tx_fee,
         change_address,
-        min_change_value,
+        BoxValue::MIN,
     );
     let tx = b.build()?;
     Ok(RefreshAction { tx })
