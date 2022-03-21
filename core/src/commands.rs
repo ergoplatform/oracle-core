@@ -77,8 +77,6 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
 
     let tx_fee = BoxValue::SAFE_USER_MIN;
 
-    // TODO: HOW TO DETERMINE CHANGE ADDRESS??? via /wallet/status (changeAddress field) ?
-
     let b = TxBuilder::new(
         box_selection,
         output_candidates,

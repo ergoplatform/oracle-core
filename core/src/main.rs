@@ -125,18 +125,15 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
             Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
             Err(_) => PoolState::NeedsBootstrap,
         };
-        match process(pool_state, height)? {
-            Some(cmd) => {
-                let action = build_action(
-                    cmd,
-                    op.live_epoch_stage.clone(),
-                    op.datapoint_stage.clone(),
-                    height,
-                    change_address,
-                )?;
-                execute_action(action)?;
-            }
-            None => (), // do nothing
+        if let Some(cmd) = process(pool_state, height)? {
+            let action = build_action(
+                cmd,
+                op.live_epoch_stage.clone(),
+                op.datapoint_stage.clone(),
+                height,
+                change_address,
+            )?;
+            execute_action(action)?;
         }
     }
     Ok(())
