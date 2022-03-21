@@ -32,6 +32,7 @@ use commands::build_action;
 use crossbeam::channel::bounded;
 use log::info;
 use node_interface::current_block_height;
+use node_interface::get_wallet_change_address;
 use oracle_config::PoolParameters;
 use state::process;
 use state::PoolState;
@@ -71,7 +72,6 @@ fn main() {
     simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
     log_panics::init();
     let args: Vec<String> = env::args().collect();
-    let op = oracle_state::OraclePool::new();
     let (repost_sender, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
@@ -90,46 +90,56 @@ fn main() {
         })
         .ok();
 
+    let is_readonly = args.len() > 1 && &args[1] == "--readonly";
     loop {
-        let parameters = oracle_config::PoolParameters::new();
-        let height = current_block_height().unwrap_or(0);
-        // Check if properly synced.
-        if let Err(e) = print_info(op.clone(), height, &parameters) {
-            let mess = format!("\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\nError: {:?}", e);
-            print_and_log(&mess);
+        if let Err(e) = main_loop_iteration(is_readonly) {
+            todo!()
         }
-
-        // If in `read only` mode
-        if args.len() > 1 && &args[1] == "--readonly" {
-            print_and_log("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
-        } else {
-            // TODO: bootstrap should be initiated via command line option (or made manually by other means)
-            // find out the current state of the pool
-            let pool_state = match op.get_live_epoch_state() {
-                Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
-                Err(_) => PoolState::NeedsBootstrap,
-            };
-            match process(pool_state, height) {
-                Ok(Some(cmd)) => {
-                    match build_action(
-                        cmd,
-                        op.live_epoch_stage.clone(),
-                        op.datapoint_stage.clone(),
-                        height,
-                    ) {
-                        // TODO: handle error
-                        Ok(action) => execute_action(action).unwrap(),
-                        Err(_) => todo!(),
-                    }
-                }
-                Ok(None) => (),    // do nothing
-                Err(_) => todo!(), // TODO: exit?
-            }
-        }
-
         // Delay loop restart
         thread::sleep(Duration::new(30, 0));
     }
+}
+
+fn main_loop_iteration(is_readonly: bool) -> Result<()> {
+    let op = oracle_state::OraclePool::new();
+    let parameters = oracle_config::PoolParameters::new();
+    let height = current_block_height()?;
+    let change_address = get_wallet_change_address()?;
+    // TODO: extract the check from print_into()
+    // Check if properly synced.
+    if let Err(e) = print_info(op.clone(), height, &parameters) {
+        let mess = format!(
+            "\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\nError: {:?}",
+            e
+        );
+        print_and_log(&mess);
+    }
+
+    // If in `read only` mode
+    if is_readonly {
+        print_and_log("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
+    } else {
+        // TODO: bootstrap should be initiated via command line option (or made manually by other means)
+        // find out the current state of the pool
+        let pool_state = match op.get_live_epoch_state() {
+            Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
+            Err(_) => PoolState::NeedsBootstrap,
+        };
+        match process(pool_state, height)? {
+            Some(cmd) => {
+                let action = build_action(
+                    cmd,
+                    op.live_epoch_stage.clone(),
+                    op.datapoint_stage.clone(),
+                    height,
+                    change_address,
+                )?;
+                execute_action(action)?;
+            }
+            None => (), // do nothing
+        }
+    }
+    Ok(())
 }
 
 /// Prints The Results Of An Action, Whether It Failed/Succeeded

@@ -10,7 +10,7 @@ use crate::oracle_state::{OraclePool, StageDataSource, StageError};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::ergotree_ir::base16_str::Base16Str;
-use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, ErgoBoxCandidate};
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 
 use derive_more::From;

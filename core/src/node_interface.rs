@@ -1,6 +1,9 @@
 use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
-use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_node_interface::node_interface::{NodeError, NodeInterface};
+use ergo_lib::ergotree_ir::chain::{address::Address, ergo_box::ErgoBox};
+use ergo_node_interface::{
+    node_interface::{NodeError, NodeInterface},
+    BlockHeight,
+};
 use json::JsonValue;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
@@ -112,4 +115,8 @@ pub fn serialized_box_from_id(box_id: &String) -> Result<String> {
 /// Get the current block height of the chain
 pub fn current_block_height() -> Result<BlockHeight> {
     new_node_interface().current_block_height()
+}
+
+pub fn get_wallet_change_address() -> Result<Address> {
+    todo!()
 }

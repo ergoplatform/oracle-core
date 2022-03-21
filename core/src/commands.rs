@@ -1,10 +1,13 @@
 use std::convert::TryInto;
 
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::tx_builder::TxBuilder;
+use ergo_lib::wallet::tx_builder::TxBuilderError;
+use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::actions::RefreshAction;
@@ -18,9 +21,12 @@ pub enum PoolCommand {
     Refresh,
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, Error)]
 pub enum PoolCommandError {
+    #[error("stage error: {0}")]
     StageError(StageError),
+    #[error("tx builder error: {0}")]
+    TxBuilderError(TxBuilderError),
 }
 
 pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
@@ -28,12 +34,17 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
     height: BlockHeight,
+    change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {
     match cmd {
         PoolCommand::Bootstrap => todo!(),
-        PoolCommand::Refresh => {
-            build_refresh_action(live_epoch_stage_src, datapoint_stage_src, height).map(Into::into)
-        }
+        PoolCommand::Refresh => build_refresh_action(
+            live_epoch_stage_src,
+            datapoint_stage_src,
+            height,
+            change_address,
+        )
+        .map(Into::into),
     }
 }
 
@@ -41,13 +52,14 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
     height: BlockHeight,
+    change_address: Address,
 ) -> Result<RefreshAction, PoolCommandError> {
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
-    let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
     let out_pool_box = build_out_pool_box()?;
     let out_refresh_box = build_out_pool_box()?;
-    let out_oracle_boxes = build_out_oracle_boxes()?;
+    let mut out_oracle_boxes = build_out_oracle_boxes()?;
 
     // TODO: get all unspent boxes via NodeInterface::unspent_boxes()
     // TODO: use BoxSelector to select input boxes for tx fee
@@ -96,6 +108,7 @@ mod tests {
     use std::convert::TryInto;
 
     use crate::oracle_state::Result;
+    use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
     use ergo_lib::ergotree_ir::chain::token::Token;
@@ -132,16 +145,17 @@ mod tests {
     }
 
     fn make_refresh_box(refresh_nft: &TokenId, reward_token: Token, value: BoxValue) -> ErgoBox {
-        ErgoBox::new(
-            value,
-            ergo_tree,
-            tokens,
-            additional_registers,
-            creation_height,
-            transaction_id,
-            index,
-        )
-        .unwrap()
+        todo!()
+        // ErgoBox::new(
+        //     value,
+        //     ergo_tree,
+        //     tokens,
+        //     additional_registers,
+        //     creation_height,
+        //     transaction_id,
+        //     index,
+        // )
+        // .unwrap()
     }
 
     fn make_pool_box(
@@ -173,8 +187,17 @@ mod tests {
             refresh_box,
             pool_box: pool_box.clone(),
         };
+        let change_address =
+            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
+                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
+                .unwrap();
         let datapoint_stage_mock = DatapointStageMock { datapoints };
-        let action = build_refresh_action(live_epoch_stage_mock, datapoint_stage_mock).unwrap();
-        assert_eq!(action.in_pool_box, pool_box);
+        let action = build_refresh_action(
+            live_epoch_stage_mock,
+            datapoint_stage_mock,
+            100,
+            change_address,
+        )
+        .unwrap();
     }
 }
