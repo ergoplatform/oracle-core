@@ -25,6 +25,7 @@ mod oracle_state;
 mod scans;
 mod state;
 mod templates;
+mod wallet;
 
 use actions::execute_action;
 use anyhow::Error;
@@ -39,6 +40,7 @@ use state::PoolState;
 use std::env;
 use std::thread;
 use std::time::Duration;
+use wallet::WalletData;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
@@ -104,6 +106,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
     let height = current_block_height()?;
+    let wallet = WalletData {};
     let change_address = get_wallet_change_address()?;
     // TODO: extract the check from print_into()
     // Check if properly synced.
@@ -130,6 +133,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
                 cmd,
                 op.live_epoch_stage.clone(),
                 op.datapoint_stage.clone(),
+                wallet,
                 height,
                 change_address,
             )?;

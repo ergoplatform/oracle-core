@@ -5,8 +5,12 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::wallet::box_selector::BoxSelection;
+use ergo_lib::wallet::box_selector::BoxSelector;
+use ergo_lib::wallet::box_selector::BoxSelectorError;
+use ergo_lib::wallet::box_selector::SimpleBoxSelector;
 use ergo_lib::wallet::tx_builder::TxBuilder;
 use ergo_lib::wallet::tx_builder::TxBuilderError;
+use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
@@ -14,6 +18,7 @@ use crate::actions::RefreshAction;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
 use crate::oracle_state::StageError;
+use crate::wallet::WalletDataSource;
 use crate::BlockHeight;
 
 pub enum PoolCommand {
@@ -27,12 +32,17 @@ pub enum PoolCommandError {
     StageError(StageError),
     #[error("tx builder error: {0}")]
     TxBuilderError(TxBuilderError),
+    #[error("node error: {0}")]
+    NodeError(NodeError),
+    #[error("box selector error: {0}")]
+    BoxSelectorError(BoxSelectorError),
 }
 
-pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
+pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
     cmd: PoolCommand,
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
+    wallet: C,
     height: BlockHeight,
     change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {
@@ -41,6 +51,7 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
         PoolCommand::Refresh => build_refresh_action(
             live_epoch_stage_src,
             datapoint_stage_src,
+            wallet,
             height,
             change_address,
         )
@@ -48,12 +59,15 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage>(
     }
 }
 
-pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
+pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
+    wallet: C,
     height: BlockHeight,
     change_address: Address,
 ) -> Result<RefreshAction, PoolCommandError> {
+    let tx_fee = BoxValue::SAFE_USER_MIN;
+
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
     let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
@@ -61,12 +75,13 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
     let out_refresh_box = build_out_pool_box()?;
     let mut out_oracle_boxes = build_out_oracle_boxes()?;
 
-    // TODO: get all unspent boxes via NodeInterface::unspent_boxes()
-    // TODO: use BoxSelector to select input boxes for tx fee
-    // TODO: append selected input boxes to the box_selection below
+    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    let box_selector = SimpleBoxSelector::new();
+    let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
     let mut input_boxes = vec![in_pool_box, in_refresh_box];
     input_boxes.append(&mut in_oracle_boxes);
+    input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
         change_boxes: vec![],
@@ -74,8 +89,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage>(
 
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
     output_candidates.append(&mut out_oracle_boxes);
-
-    let tx_fee = BoxValue::SAFE_USER_MIN;
+    // TODO: add change boxes from selection
 
     let b = TxBuilder::new(
         box_selection,
@@ -105,7 +119,6 @@ fn build_out_oracle_boxes() -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
 mod tests {
     use std::convert::TryInto;
 
-    use crate::oracle_state::Result;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -123,11 +136,11 @@ mod tests {
     }
 
     impl LiveEpochStage for LiveEpochStageMock {
-        fn get_refresh_box(&self) -> Result<ErgoBox> {
+        fn get_refresh_box(&self) -> std::result::Result<ErgoBox, StageError> {
             Ok(self.refresh_box.clone())
         }
 
-        fn get_pool_box(&self) -> Result<ErgoBox> {
+        fn get_pool_box(&self) -> std::result::Result<ErgoBox, StageError> {
             Ok(self.pool_box.clone())
         }
     }
@@ -137,8 +150,16 @@ mod tests {
     }
 
     impl DatapointStage for DatapointStageMock {
-        fn get_oracle_datapoint_boxes(&self) -> Result<Vec<ErgoBox>> {
+        fn get_oracle_datapoint_boxes(&self) -> std::result::Result<Vec<ErgoBox>, StageError> {
             Ok(self.datapoints.clone())
+        }
+    }
+
+    struct WalletDataMock {}
+
+    impl WalletDataSource for WalletDataMock {
+        fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
+            todo!()
         }
     }
 
@@ -190,9 +211,11 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
         let datapoint_stage_mock = DatapointStageMock { datapoints };
+        let wallet_mock = WalletDataMock {};
         let action = build_refresh_action(
             live_epoch_stage_mock,
             datapoint_stage_mock,
+            wallet_mock,
             100,
             change_address,
         )
