@@ -84,12 +84,11 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
-        change_boxes: vec![],
+        change_boxes: selection.change_boxes,
     };
 
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
     output_candidates.append(&mut out_oracle_boxes);
-    // TODO: add change boxes from selection
 
     let b = TxBuilder::new(
         box_selection,
