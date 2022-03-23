@@ -118,17 +118,26 @@ fn build_out_oracle_boxes() -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
 mod tests {
     use std::convert::TryInto;
 
+    use ergo_lib::chain::ergo_state_context::ErgoStateContext;
+    use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+    use ergo_lib::chain::transaction::TxIoVec;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
     use ergo_lib::ergotree_ir::chain::token::Token;
     use ergo_lib::ergotree_ir::chain::token::TokenAmount;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
+    use ergo_lib::wallet::signing::TransactionContext;
+    use ergo_lib::wallet::Wallet;
+    use proptest::prelude::*;
+    use proptest::strategy::ValueTree;
+    use proptest::test_runner::TestRunner;
 
     use crate::BlockHeight;
 
     use super::*;
 
+    #[derive(Clone)]
     struct LiveEpochStageMock {
         refresh_box: ErgoBox,
         pool_box: ErgoBox,
@@ -144,6 +153,7 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
     struct DatapointStageMock {
         datapoints: Vec<ErgoBox>,
     }
@@ -154,6 +164,7 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
     struct WalletDataMock {}
 
     impl WalletDataSource for WalletDataMock {
@@ -190,6 +201,11 @@ mod tests {
         todo!()
     }
 
+    pub fn force_any_val<T: Arbitrary>() -> T {
+        let mut runner = TestRunner::default();
+        any::<T>().new_tree(&mut runner).unwrap().current()
+    }
+
     #[test]
     fn test_refresh_pool() {
         let reward_token_id =
@@ -212,12 +228,39 @@ mod tests {
         let datapoint_stage_mock = DatapointStageMock { datapoints };
         let wallet_mock = WalletDataMock {};
         let action = build_refresh_action(
-            live_epoch_stage_mock,
-            datapoint_stage_mock,
-            wallet_mock,
+            live_epoch_stage_mock.clone(),
+            datapoint_stage_mock.clone(),
+            wallet_mock.clone(),
             100,
             change_address,
         )
         .unwrap();
+        // TODO: try to sign the tx
+
+        let ctx = force_any_val::<ErgoStateContext>();
+        let wallet = Wallet::from_mnemonic("", "").unwrap();
+
+        let in_pool_box = live_epoch_stage_mock.get_pool_box().unwrap();
+        let in_refresh_box = live_epoch_stage_mock.get_refresh_box().unwrap();
+        let mut in_oracle_boxes = datapoint_stage_mock.get_oracle_datapoint_boxes().unwrap();
+        let mut unspent_boxes = wallet_mock.get_unspent_wallet_boxes().unwrap();
+        let mut input_boxes = vec![in_pool_box, in_refresh_box];
+        input_boxes.append(&mut in_oracle_boxes);
+        input_boxes.append(&mut unspent_boxes);
+
+        let tx_context = TransactionContext::new(
+            action.tx.clone(),
+            find_input_boxes(action.tx, input_boxes),
+            None,
+        )
+        .unwrap();
+        assert!(wallet.sign_transaction(tx_context, &ctx, None).is_ok());
+    }
+
+    fn find_input_boxes(
+        tx: UnsignedTransaction,
+        available_boxes: Vec<ErgoBox>,
+    ) -> TxIoVec<ErgoBox> {
+        todo!()
     }
 }
