@@ -125,18 +125,18 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+    use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
     use ergo_lib::ergotree_ir::chain::token::TokenAmount;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
     use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
+    use ergo_lib::ergotree_ir::mir::constant::Constant;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use proptest::prelude::*;
     use proptest::strategy::ValueTree;
     use proptest::test_runner::TestRunner;
-
-    use crate::BlockHeight;
 
     use super::*;
 
@@ -209,20 +209,26 @@ mod tests {
     }
 
     fn make_pool_box(
-        // epoch_start_height: BlockHeight,
-        datapoint: u64,
-        epoch_counter: u32,
+        datapoint: i64,
+        epoch_counter: i32,
         refresh_nft: TokenId,
         value: BoxValue,
         creation_height: u32,
     ) -> ErgoBox {
         let tokens = [Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))].into();
-        // TODO: r4 = datapoint, r5 = epoch_counter
         ErgoBox::new(
             value,
             pool_contract(),
             Some(tokens),
-            NonMandatoryRegisters::empty(),
+            NonMandatoryRegisters::new(
+                vec![
+                    (NonMandatoryRegisterId::R4, Constant::from(datapoint)),
+                    (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
+                ]
+                .into_iter()
+                .collect(),
+            )
+            .unwrap(),
             creation_height,
             force_any_val::<TxId>(),
             0,
