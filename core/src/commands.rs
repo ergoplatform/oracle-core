@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
@@ -19,7 +20,6 @@ use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
 use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
-use crate::BlockHeight;
 
 pub enum PoolCommand {
     Bootstrap,
@@ -43,7 +43,7 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
     wallet: C,
-    height: BlockHeight,
+    height: u32,
     change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {
     match cmd {
@@ -63,16 +63,18 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     live_epoch_stage_src: A,
     datapoint_stage_src: B,
     wallet: C,
-    height: BlockHeight,
+    height: u32,
     change_address: Address,
 ) -> Result<RefreshAction, PoolCommandError> {
     let tx_fee = BoxValue::SAFE_USER_MIN;
 
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
-    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    let out_pool_box = build_out_pool_box()?;
-    let out_refresh_box = build_out_pool_box()?;
+    let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let rate = todo!();
+    let reward_decrement = todo!();
+    let out_pool_box = build_out_pool_box(in_pool_box, height, rate)?;
+    let out_refresh_box = build_out_refresh_box(in_refresh_box, height, reward_decrement)?;
     let mut out_oracle_boxes = build_out_oracle_boxes()?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -102,11 +104,19 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     Ok(RefreshAction { tx })
 }
 
-fn build_out_pool_box() -> Result<ErgoBoxCandidate, PoolCommandError> {
+fn build_out_pool_box(
+    in_pool_box: ErgoBox,
+    creation_height: u32,
+    rate: u64,
+) -> Result<ErgoBoxCandidate, PoolCommandError> {
     todo!()
 }
 
-fn build_out_refresh_box() -> Result<ErgoBoxCandidate, PoolCommandError> {
+fn build_out_refresh_box(
+    in_refresh_box: ErgoBox,
+    creation_height: u32,
+    reward_decrement: u32,
+) -> Result<ErgoBoxCandidate, PoolCommandError> {
     todo!()
 }
 

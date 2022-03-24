@@ -134,7 +134,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
                 op.live_epoch_stage.clone(),
                 op.datapoint_stage.clone(),
                 wallet,
-                height,
+                height as u32,
                 change_address,
             )?;
             execute_action(action)?;
