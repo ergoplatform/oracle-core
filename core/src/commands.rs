@@ -134,9 +134,8 @@ mod tests {
     use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
-    use proptest::prelude::*;
-    use proptest::strategy::ValueTree;
-    use proptest::test_runner::TestRunner;
+    use sigma_test_util::force_any_val;
+    use sigma_test_util::force_any_val_with;
 
     use super::*;
 
@@ -168,11 +167,13 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct WalletDataMock {}
+    struct WalletDataMock {
+        unspent_boxes: Vec<ErgoBox>,
+    }
 
     impl WalletDataSource for WalletDataMock {
         fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
-            todo!()
+            Ok(self.unspent_boxes.clone())
         }
     }
 
@@ -271,11 +272,6 @@ mod tests {
         .unwrap()
     }
 
-    pub fn force_any_val<T: Arbitrary>() -> T {
-        let mut runner = TestRunner::default();
-        any::<T>().new_tree(&mut runner).unwrap().current()
-    }
-
     fn find_input_boxes(
         tx: UnsignedTransaction,
         available_boxes: Vec<ErgoBox>,
@@ -320,7 +316,11 @@ mod tests {
         let datapoint_stage_mock = DatapointStageMock {
             datapoints: vec![in_oracle_box],
         };
-        let wallet_mock = WalletDataMock {};
+        let wallet_mock = WalletDataMock {
+            unspent_boxes: vec![force_any_val_with::<ErgoBox>(
+                (BoxValue::MIN_RAW * 5000..BoxValue::MIN_RAW * 10000).into(),
+            )],
+        };
         let action = build_refresh_action(
             live_epoch_stage_mock.clone(),
             datapoint_stage_mock.clone(),

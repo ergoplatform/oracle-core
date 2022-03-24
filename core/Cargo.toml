@@ -32,3 +32,4 @@ derive_more = "0.99"
 ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "e6489aa3c5691d46ad61b2f2f7b08135dd42734d" , features = ["arbitrary"]}
 proptest = {version = "1.0.0"}
 proptest-derive = {version = "0.3.0"}
+sigma-test-util = {version = "^0.3.0"}
