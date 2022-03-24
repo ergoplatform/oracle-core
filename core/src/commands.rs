@@ -120,13 +120,16 @@ mod tests {
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+    use ergo_lib::chain::transaction::TxId;
     use ergo_lib::chain::transaction::TxIoVec;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+    use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
     use ergo_lib::ergotree_ir::chain::token::TokenAmount;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
+    use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use proptest::prelude::*;
@@ -173,28 +176,58 @@ mod tests {
         }
     }
 
-    fn make_refresh_box(refresh_nft: &TokenId, reward_token: Token, value: BoxValue) -> ErgoBox {
+    fn refresh_contract() -> ErgoTree {
         todo!()
-        // ErgoBox::new(
-        //     value,
-        //     ergo_tree,
-        //     tokens,
-        //     additional_registers,
-        //     creation_height,
-        //     transaction_id,
-        //     index,
-        // )
-        // .unwrap()
+    }
+
+    fn pool_contract() -> ErgoTree {
+        todo!()
+    }
+
+    fn make_refresh_box(
+        refresh_nft: &TokenId,
+        reward_token: Token,
+        value: BoxValue,
+        creation_height: u32,
+    ) -> ErgoBox {
+        let tokens = vec![
+            Token::from((refresh_nft.clone(), 1u64.try_into().unwrap())),
+            reward_token,
+        ]
+        .try_into()
+        .unwrap();
+        ErgoBox::new(
+            value,
+            refresh_contract(),
+            Some(tokens),
+            NonMandatoryRegisters::empty(),
+            creation_height,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap()
     }
 
     fn make_pool_box(
-        epoch_start_height: BlockHeight,
+        // epoch_start_height: BlockHeight,
         datapoint: u64,
         epoch_counter: u32,
         refresh_nft: TokenId,
         value: BoxValue,
+        creation_height: u32,
     ) -> ErgoBox {
-        todo!()
+        let tokens = [Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))].into();
+        // TODO: r4 = datapoint, r5 = epoch_counter
+        ErgoBox::new(
+            value,
+            pool_contract(),
+            Some(tokens),
+            NonMandatoryRegisters::empty(),
+            creation_height,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap()
     }
 
     fn make_datapoint_box() -> ErgoBox {
@@ -215,14 +248,16 @@ mod tests {
 
     #[test]
     fn test_refresh_pool() {
+        let height = 100u32;
         let reward_token_id =
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
         let reward_token_amt: TokenAmount = 100u64.try_into().unwrap();
         let reward_token: Token = (reward_token_id, reward_token_amt).into();
         let refresh_nft =
             TokenId::from_base64("VGpXblpyNHU3eCFBJUQqRy1LYU5kUmdVa1hwMnM1djg=").unwrap();
-        let refresh_box = make_refresh_box(&refresh_nft, reward_token, BoxValue::SAFE_USER_MIN);
-        let pool_box = make_pool_box(1, 1, 1, refresh_nft, BoxValue::SAFE_USER_MIN);
+        let refresh_box =
+            make_refresh_box(&refresh_nft, reward_token, BoxValue::SAFE_USER_MIN, height);
+        let pool_box = make_pool_box(1, 1, refresh_nft, BoxValue::SAFE_USER_MIN, height);
         let datapoints = vec![make_datapoint_box()];
         let live_epoch_stage_mock = LiveEpochStageMock {
             refresh_box,
