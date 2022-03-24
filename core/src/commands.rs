@@ -128,10 +128,10 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
-    use ergo_lib::ergotree_ir::chain::token::TokenAmount;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
     use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
     use ergo_lib::ergotree_ir::mir::constant::Constant;
+    use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use proptest::prelude::*;
@@ -236,8 +236,39 @@ mod tests {
         .unwrap()
     }
 
-    fn make_datapoint_box() -> ErgoBox {
-        todo!()
+    fn make_datapoint_box(
+        pub_key: EcPoint,
+        datapoint: i64,
+        epoch_counter: i32,
+        oracle_token_id: TokenId,
+        reward_token: Token,
+        value: BoxValue,
+        creation_height: u32,
+    ) -> ErgoBox {
+        let tokens = vec![
+            Token::from((oracle_token_id.clone(), 1u64.try_into().unwrap())),
+            reward_token,
+        ]
+        .try_into()
+        .unwrap();
+        ErgoBox::new(
+            value,
+            pool_contract(),
+            Some(tokens),
+            NonMandatoryRegisters::new(
+                vec![
+                    (NonMandatoryRegisterId::R4, Constant::from(datapoint)),
+                    (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
+                ]
+                .into_iter()
+                .collect(),
+            )
+            .unwrap(),
+            creation_height,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap()
     }
 
     pub fn force_any_val<T: Arbitrary>() -> T {
@@ -255,25 +286,40 @@ mod tests {
     #[test]
     fn test_refresh_pool() {
         let height = 100u32;
+        let oracle_token_id =
+            TokenId::from_base64("YlFlVGhXbVpxNHQ3dyF6JUMqRi1KQE5jUmZValhuMnI=").unwrap();
         let reward_token_id =
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
-        let reward_token_amt: TokenAmount = 100u64.try_into().unwrap();
-        let reward_token: Token = (reward_token_id, reward_token_amt).into();
         let refresh_nft =
             TokenId::from_base64("VGpXblpyNHU3eCFBJUQqRy1LYU5kUmdVa1hwMnM1djg=").unwrap();
-        let refresh_box =
-            make_refresh_box(&refresh_nft, reward_token, BoxValue::SAFE_USER_MIN, height);
-        let pool_box = make_pool_box(1, 1, refresh_nft, BoxValue::SAFE_USER_MIN, height);
-        let datapoints = vec![make_datapoint_box()];
+        let in_refresh_box = make_refresh_box(
+            &refresh_nft,
+            Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
+            BoxValue::SAFE_USER_MIN,
+            height - 10,
+        );
+        let in_pool_box = make_pool_box(1, 1, refresh_nft, BoxValue::SAFE_USER_MIN, height - 10);
+        let oracle_pub_key = force_any_val::<EcPoint>();
+        let in_oracle_box = make_datapoint_box(
+            oracle_pub_key,
+            1,
+            1,
+            oracle_token_id,
+            Token::from((reward_token_id, 5u64.try_into().unwrap())),
+            BoxValue::SAFE_USER_MIN,
+            height - 9, // right after the pool+oracle boxes block
+        );
         let live_epoch_stage_mock = LiveEpochStageMock {
-            refresh_box,
-            pool_box: pool_box.clone(),
+            refresh_box: in_refresh_box,
+            pool_box: in_pool_box.clone(),
         };
         let change_address =
             AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
-        let datapoint_stage_mock = DatapointStageMock { datapoints };
+        let datapoint_stage_mock = DatapointStageMock {
+            datapoints: vec![in_oracle_box],
+        };
         let wallet_mock = WalletDataMock {};
         let action = build_refresh_action(
             live_epoch_stage_mock.clone(),
