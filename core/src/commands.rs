@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
+use ergo_lib::ergotree_ir::chain::ergo_box::BoxId;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::wallet::box_selector::BoxSelection;
@@ -16,6 +17,7 @@ use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::actions::RefreshAction;
+use crate::box_kind::OracleBox;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
 use crate::oracle_state::StageError;
@@ -36,6 +38,8 @@ pub enum PoolCommandError {
     NodeError(NodeError),
     #[error("box selector error: {0}")]
     BoxSelectorError(BoxSelectorError),
+    #[error("unexpected error: {0}")]
+    Unexpected(String),
 }
 
 pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
@@ -71,18 +75,35 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
     let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    let rate = todo!();
-    let reward_decrement = todo!();
-    let out_pool_box = build_out_pool_box(in_pool_box, height, rate)?;
-    let out_refresh_box = build_out_refresh_box(in_refresh_box, height, reward_decrement)?;
-    let mut out_oracle_boxes = build_out_oracle_boxes()?;
+    // let stripped_in_oracle_boxes = strip_oracle_boxes(in_oracle_boxes.clone())?;
+    let sorted_in_oracle_boxes = sort_oracle_boxes(&in_oracle_boxes);
+    let valid_in_oracle_boxes = filter_oracle_boxes(sorted_in_oracle_boxes);
+    let rate = calc_pool_rate(valid_in_oracle_boxes.clone());
+    let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
+    let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
+    let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
+    // let valid_in_oracle_boxes = valid_stripped_in_oracle_boxes
+    //     .into_iter()
+    //     .map(|ob| {
+    //         in_oracle_boxes
+    //             .clone()
+    //             .into_iter()
+    //             .find(|b| b.box_id() == ob.box_id())
+    //             .unwrap()
+    //     })
+    //     .collect();
+    let mut out_oracle_boxes = build_out_oracle_boxes(valid_in_oracle_boxes)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
     let mut input_boxes = vec![in_pool_box, in_refresh_box];
-    input_boxes.append(&mut in_oracle_boxes);
+    let mut real_in_oracle_boxes = in_oracle_boxes
+        .into_iter()
+        .map(|ob| ob.force_box())
+        .collect();
+    input_boxes.append(&mut real_in_oracle_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
@@ -104,6 +125,36 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     Ok(RefreshAction { tx })
 }
 
+fn strip_oracle_boxes(boxes: Vec<ErgoBox>) -> Result<Vec<(BoxId, u64)>, PoolCommandError> {
+    todo!()
+    // boxes
+    //     .iter()
+    //     .map(|b| {
+    //         (
+    //             b.box_id(),
+    //             b.get_register(NonMandatoryRegisterId::R6.into()).ok_or(
+    //                 PoolCommandError::Unexpected("oracle box R6 (rate) is empty".to_string()),
+    //             ),
+    //         )
+    //     })
+    //     .collect::<Result<Vec<(BoxId, Constant)>, PoolCommandError>>()?
+    //     .into_iter()
+    //     .map(|(box_id, c)| (box_id, c.try_extract_into::<i64>()))
+    //     .collect::<Result<Vec<(BoxId, u64)>, TryExtractFromError>>()
+}
+
+fn filter_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox> {
+    todo!()
+}
+
+fn sort_oracle_boxes<'a>(oracle_boxes: &'a Vec<&dyn OracleBox>) -> Vec<&'a dyn OracleBox> {
+    todo!()
+}
+
+fn calc_pool_rate(oracle_boxes: Vec<&dyn OracleBox>) -> u64 {
+    todo!()
+}
+
 fn build_out_pool_box(
     in_pool_box: ErgoBox,
     creation_height: u32,
@@ -120,7 +171,9 @@ fn build_out_refresh_box(
     todo!()
 }
 
-fn build_out_oracle_boxes() -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
+fn build_out_oracle_boxes(
+    valid_oracle_boxes: Vec<&dyn OracleBox>,
+) -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
     todo!()
 }
 
@@ -147,6 +200,8 @@ mod tests {
     use sigma_test_util::force_any_val;
     use sigma_test_util::force_any_val_with;
 
+    use crate::box_kind::OracleBoxWrapper;
+
     use super::*;
 
     #[derive(Clone)]
@@ -167,12 +222,19 @@ mod tests {
 
     #[derive(Clone)]
     struct DatapointStageMock {
-        datapoints: Vec<ErgoBox>,
+        datapoints: Vec<OracleBoxWrapper>,
     }
 
     impl DatapointStage for DatapointStageMock {
-        fn get_oracle_datapoint_boxes(&self) -> std::result::Result<Vec<ErgoBox>, StageError> {
-            Ok(self.datapoints.clone())
+        fn get_oracle_datapoint_boxes(
+            &self,
+        ) -> std::result::Result<Vec<&dyn OracleBox>, StageError> {
+            let wrapped_boxes = self
+                .datapoints
+                .iter()
+                .map(|b| b as &dyn OracleBox)
+                .collect();
+            Ok(wrapped_boxes)
         }
     }
 
@@ -324,7 +386,7 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
         let datapoint_stage_mock = DatapointStageMock {
-            datapoints: vec![in_oracle_box],
+            datapoints: vec![OracleBoxWrapper::new(in_oracle_box.clone()).unwrap()],
         };
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![force_any_val_with::<ErgoBox>(
@@ -347,8 +409,7 @@ mod tests {
             live_epoch_stage_mock.get_pool_box().unwrap(),
             live_epoch_stage_mock.get_refresh_box().unwrap(),
         ];
-        possible_input_boxes
-            .append(&mut datapoint_stage_mock.get_oracle_datapoint_boxes().unwrap());
+        possible_input_boxes.append(&mut vec![in_oracle_box]);
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
         let tx_context = TransactionContext::new(

@@ -1,4 +1,5 @@
-/// This files relates to the state of the oracle/oracle pool.
+// This files relates to the state of the oracle/oracle pool.
+use crate::box_kind::OracleBox;
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
@@ -58,7 +59,7 @@ pub trait LiveEpochStage {
 }
 
 pub trait DatapointStage {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<ErgoBox>>;
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<&dyn OracleBox>>;
 }
 
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
@@ -382,7 +383,7 @@ impl LiveEpochStage for Stage {
 }
 
 impl DatapointStage for Stage {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<ErgoBox>> {
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<&dyn OracleBox>> {
         todo!()
     }
 }

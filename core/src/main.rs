@@ -18,6 +18,7 @@ extern crate json;
 
 mod actions;
 mod api;
+mod box_kind;
 mod commands;
 mod node_interface;
 mod oracle_config;
