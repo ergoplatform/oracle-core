@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
-use ergo_lib::ergotree_ir::chain::ergo_box::BoxId;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::wallet::box_selector::BoxSelection;
@@ -75,23 +74,12 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
     let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    // let stripped_in_oracle_boxes = strip_oracle_boxes(in_oracle_boxes.clone())?;
     let sorted_in_oracle_boxes = sort_oracle_boxes(&in_oracle_boxes);
     let valid_in_oracle_boxes = filter_oracle_boxes(sorted_in_oracle_boxes);
     let rate = calc_pool_rate(valid_in_oracle_boxes.clone());
     let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
     let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
     let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
-    // let valid_in_oracle_boxes = valid_stripped_in_oracle_boxes
-    //     .into_iter()
-    //     .map(|ob| {
-    //         in_oracle_boxes
-    //             .clone()
-    //             .into_iter()
-    //             .find(|b| b.box_id() == ob.box_id())
-    //             .unwrap()
-    //     })
-    //     .collect();
     let mut out_oracle_boxes = build_out_oracle_boxes(valid_in_oracle_boxes)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -123,24 +111,6 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     );
     let tx = b.build()?;
     Ok(RefreshAction { tx })
-}
-
-fn strip_oracle_boxes(boxes: Vec<ErgoBox>) -> Result<Vec<(BoxId, u64)>, PoolCommandError> {
-    todo!()
-    // boxes
-    //     .iter()
-    //     .map(|b| {
-    //         (
-    //             b.box_id(),
-    //             b.get_register(NonMandatoryRegisterId::R6.into()).ok_or(
-    //                 PoolCommandError::Unexpected("oracle box R6 (rate) is empty".to_string()),
-    //             ),
-    //         )
-    //     })
-    //     .collect::<Result<Vec<(BoxId, Constant)>, PoolCommandError>>()?
-    //     .into_iter()
-    //     .map(|(box_id, c)| (box_id, c.try_extract_into::<i64>()))
-    //     .collect::<Result<Vec<(BoxId, u64)>, TryExtractFromError>>()
 }
 
 fn filter_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox> {
