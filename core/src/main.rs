@@ -20,6 +20,7 @@ mod actions;
 mod api;
 mod box_kind;
 mod commands;
+mod contracts;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;

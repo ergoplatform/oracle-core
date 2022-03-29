@@ -17,6 +17,7 @@ use thiserror::Error;
 use crate::actions::PoolAction;
 use crate::actions::RefreshAction;
 use crate::box_kind::OracleBox;
+use crate::contracts::RefreshContract;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
 use crate::oracle_state::StageError;
@@ -37,6 +38,8 @@ pub enum PoolCommandError {
     NodeError(NodeError),
     #[error("box selector error: {0}")]
     BoxSelectorError(BoxSelectorError),
+    #[error("not enough oracle boxes error: found {found}, expected {expected}")]
+    NotEnoughOracleBoxes { found: usize, expected: usize },
     #[error("unexpected error: {0}")]
     Unexpected(String),
 }
@@ -74,8 +77,15 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
     let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    // The oracle boxes must be arranged in increasing order of their R6 values (rate).
     in_oracle_boxes.sort_by_key(|b| b.rate());
-    let valid_in_oracle_boxes = filter_oracle_boxes(in_oracle_boxes);
+    let valid_in_oracle_boxes = filtered_oracle_boxes(in_oracle_boxes);
+    if valid_in_oracle_boxes.len() >= RefreshContract::MIN_DATA_POINTS {
+        return Err(PoolCommandError::NotEnoughOracleBoxes {
+            found: valid_in_oracle_boxes.len(),
+            expected: RefreshContract::MIN_DATA_POINTS,
+        });
+    }
     let rate = calc_pool_rate(valid_in_oracle_boxes.clone());
     let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
     let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
@@ -113,7 +123,8 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     Ok(RefreshAction { tx })
 }
 
-fn filter_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox> {
+fn filtered_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox> {
+    // The first oracle box's rate must be within 5% of that of the last, and must be > 0
     todo!()
 }
 
