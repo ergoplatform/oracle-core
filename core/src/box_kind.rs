@@ -1,12 +1,16 @@
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxId;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
 use thiserror::Error;
 
 pub trait OracleBox {
     fn box_id(&self) -> BoxId;
+    fn value(&self) -> BoxValue;
+    fn ergo_tree(&self) -> ErgoTree;
     fn oracle_token(&self) -> Token;
     fn reward_token(&self) -> Token;
     fn public_key(&self) -> EcPoint;
@@ -29,6 +33,14 @@ impl OracleBoxWrapper {
 
 impl OracleBox for OracleBoxWrapper {
     fn box_id(&self) -> BoxId {
+        todo!()
+    }
+
+    fn value(&self) -> BoxValue {
+        todo!()
+    }
+
+    fn ergo_tree(&self) -> ErgoTree {
         todo!()
     }
 

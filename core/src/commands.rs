@@ -1,10 +1,13 @@
 use std::convert::TryInto;
 
 use derive_more::From;
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
+use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -32,6 +35,8 @@ pub enum PoolCommand {
 pub enum PoolCommandError {
     #[error("stage error: {0}")]
     StageError(StageError),
+    #[error("box builder error: {0}")]
+    ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
     #[error("tx builder error: {0}")]
     TxBuilderError(TxBuilderError),
     #[error("node error: {0}")]
@@ -90,7 +95,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
     let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
     let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
-    let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes)?;
+    let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
@@ -150,8 +155,24 @@ fn build_out_refresh_box(
 
 fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<&dyn OracleBox>,
+    creation_height: u32,
 ) -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
-    todo!()
+    valid_oracle_boxes
+        .iter()
+        .map(|in_ob| {
+            let mut builder =
+                ErgoBoxCandidateBuilder::new(in_ob.value(), in_ob.ergo_tree(), creation_height);
+            builder.set_register_value(R4, in_ob.public_key().into());
+            builder.add_token(in_ob.oracle_token());
+            let mut reward_token_new = in_ob.reward_token();
+            reward_token_new.amount = reward_token_new
+                .amount
+                .checked_add(&1u64.try_into().unwrap())
+                .unwrap();
+            builder.add_token(reward_token_new);
+            builder.build().map_err(Into::into)
+        })
+        .collect::<Result<Vec<ErgoBoxCandidate>, PoolCommandError>>()
 }
 
 #[cfg(test)]
