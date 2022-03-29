@@ -73,22 +73,25 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
 
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
-    let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    let sorted_in_oracle_boxes = sort_oracle_boxes(&in_oracle_boxes);
-    let valid_in_oracle_boxes = filter_oracle_boxes(sorted_in_oracle_boxes);
+    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    in_oracle_boxes.sort_by_key(|b| b.rate());
+    let valid_in_oracle_boxes = filter_oracle_boxes(in_oracle_boxes);
     let rate = calc_pool_rate(valid_in_oracle_boxes.clone());
     let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
     let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
     let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
-    let mut out_oracle_boxes = build_out_oracle_boxes(valid_in_oracle_boxes)?;
+    let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
     let mut input_boxes = vec![in_pool_box, in_refresh_box];
-    let mut real_in_oracle_boxes = in_oracle_boxes.into_iter().map(|ob| ob.get_box()).collect();
-    input_boxes.append(&mut real_in_oracle_boxes);
+    let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
+        .into_iter()
+        .map(|ob| ob.get_box())
+        .collect();
+    input_boxes.append(&mut valid_in_oracle_raw_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
@@ -114,10 +117,6 @@ fn filter_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox>
     todo!()
 }
 
-fn sort_oracle_boxes<'a>(oracle_boxes: &'a Vec<&dyn OracleBox>) -> Vec<&'a dyn OracleBox> {
-    todo!()
-}
-
 fn calc_pool_rate(oracle_boxes: Vec<&dyn OracleBox>) -> u64 {
     todo!()
 }
@@ -139,7 +138,7 @@ fn build_out_refresh_box(
 }
 
 fn build_out_oracle_boxes(
-    valid_oracle_boxes: Vec<&dyn OracleBox>,
+    valid_oracle_boxes: &Vec<&dyn OracleBox>,
 ) -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
     todo!()
 }
