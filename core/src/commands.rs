@@ -87,10 +87,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
     let mut input_boxes = vec![in_pool_box, in_refresh_box];
-    let mut real_in_oracle_boxes = in_oracle_boxes
-        .into_iter()
-        .map(|ob| ob.force_box())
-        .collect();
+    let mut real_in_oracle_boxes = in_oracle_boxes.into_iter().map(|ob| ob.get_box()).collect();
     input_boxes.append(&mut real_in_oracle_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {

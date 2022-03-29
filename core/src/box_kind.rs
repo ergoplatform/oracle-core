@@ -12,7 +12,7 @@ pub trait OracleBox {
     fn public_key(&self) -> EcPoint;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> u64;
-    fn force_box(&self) -> ErgoBox;
+    fn get_box(&self) -> ErgoBox;
 }
 
 #[derive(Debug, From, Error)]
@@ -52,7 +52,7 @@ impl OracleBox for OracleBoxWrapper {
         todo!()
     }
 
-    fn force_box(&self) -> ErgoBox {
+    fn get_box(&self) -> ErgoBox {
         self.0.clone()
     }
 }
