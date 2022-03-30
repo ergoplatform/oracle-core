@@ -15,4 +15,4 @@ reqwest         = { version = "0.10.7", features = ["blocking"] }
 thiserror       = "1.0.20"
 openssl = { version = "0.10", features = ["vendored"] }
 anyhow          = "1.0.32"
-ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "83da8dd44682a84a0eba6b900f98467ae3674510" }
+ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "b06c6aa38715a0232e76498124f3260c320b3b88" }

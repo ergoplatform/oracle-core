@@ -20,7 +20,7 @@ use thiserror::Error;
 use crate::actions::PoolAction;
 use crate::actions::RefreshAction;
 use crate::box_kind::OracleBox;
-use crate::contracts::RefreshContract;
+use crate::contracts::refresh::RefreshContract;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
 use crate::oracle_state::StageError;
@@ -85,10 +85,10 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     // The oracle boxes must be arranged in increasing order of their R6 values (rate).
     in_oracle_boxes.sort_by_key(|b| b.rate());
     let valid_in_oracle_boxes = filtered_oracle_boxes(in_oracle_boxes);
-    if valid_in_oracle_boxes.len() >= RefreshContract::MIN_DATA_POINTS {
+    if valid_in_oracle_boxes.len() >= RefreshContract::new().min_data_points() {
         return Err(PoolCommandError::NotEnoughOracleBoxes {
             found: valid_in_oracle_boxes.len(),
-            expected: RefreshContract::MIN_DATA_POINTS,
+            expected: RefreshContract::new().min_data_points(),
         });
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.clone());
@@ -190,7 +190,6 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
-    use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
     use ergo_lib::ergotree_ir::mir::constant::Constant;
     use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
     use ergo_lib::wallet::signing::TransactionContext;
@@ -199,6 +198,8 @@ mod tests {
     use sigma_test_util::force_any_val_with;
 
     use crate::box_kind::OracleBoxWrapper;
+    use crate::contracts::oracle::OracleContract;
+    use crate::contracts::pool::PoolContract;
 
     use super::*;
 
@@ -247,14 +248,6 @@ mod tests {
         }
     }
 
-    fn refresh_contract() -> ErgoTree {
-        todo!()
-    }
-
-    fn pool_contract() -> ErgoTree {
-        todo!()
-    }
-
     fn make_refresh_box(
         refresh_nft: &TokenId,
         reward_token: Token,
@@ -269,7 +262,7 @@ mod tests {
         .unwrap();
         ErgoBox::new(
             value,
-            refresh_contract(),
+            RefreshContract::new().ergo_tree(),
             Some(tokens),
             NonMandatoryRegisters::empty(),
             creation_height,
@@ -289,7 +282,7 @@ mod tests {
         let tokens = [Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))].into();
         ErgoBox::new(
             value,
-            pool_contract(),
+            PoolContract::new().ergo_tree(),
             Some(tokens),
             NonMandatoryRegisters::new(
                 vec![
@@ -324,7 +317,7 @@ mod tests {
         .unwrap();
         ErgoBox::new(
             value,
-            pool_contract(),
+            OracleContract::new().ergo_tree(),
             Some(tokens),
             NonMandatoryRegisters::new(
                 vec![

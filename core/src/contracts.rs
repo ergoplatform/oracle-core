@@ -1,5 +1,3 @@
-pub struct RefreshContract {}
-
-impl RefreshContract {
-    pub const MIN_DATA_POINTS: usize = 4;
-}
+pub mod oracle;
+pub mod pool;
+pub mod refresh;
