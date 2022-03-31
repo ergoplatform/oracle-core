@@ -7,7 +7,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
     min_data_points: usize,
-    pool_token_id: TokenId,
+    pool_nft_token_id: TokenId,
 }
 
 impl RefreshContract {
@@ -21,7 +21,7 @@ impl RefreshContract {
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
         dbg!(ergo_tree.get_constants().unwrap());
-        let pool_token_id: TokenId = ergo_tree
+        let pool_nft_token_id: TokenId = ergo_tree
             .get_constant(17)
             .unwrap()
             .unwrap()
@@ -36,7 +36,7 @@ impl RefreshContract {
             .unwrap() as usize;
 
         assert_eq!(
-            pool_token_id,
+            pool_nft_token_id,
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
         );
         assert_eq!(min_data_points, 4);
@@ -44,7 +44,7 @@ impl RefreshContract {
         Self {
             ergo_tree,
             min_data_points,
-            pool_token_id,
+            pool_nft_token_id,
         }
     }
 
