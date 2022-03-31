@@ -23,13 +23,13 @@ log-panics = "2.0.0"
 crossbeam = "0.7.3"
 # ergo-lib = { version = "^0.15.0", features = ["rest"] }
 # ergo-lib = { version = "^0.15.0", path = "../../sigma-rust/ergo-lib", features = ["rest"] }
-ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "b06c6aa38715a0232e76498124f3260c320b3b88" }
-ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "25f6fea7969fdfd83002c33a17a8c211da3f0e3e" }
+ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "2b71c708dfed95a51eff30acfbba0add43fc4458" }
+ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "0f875a6c80e2b82248050de8b2430380068e9d9f" }
 derive_more = "0.99"
 
 [dev-dependencies]
 # sigma-test-util = { version = "^0.3.0", path = "../../sigma-rust/sigma-test-util" }
-ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "b06c6aa38715a0232e76498124f3260c320b3b88" , features = ["arbitrary"]}
+ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "2b71c708dfed95a51eff30acfbba0add43fc4458" , features = ["arbitrary"]}
 proptest = {version = "1.0.0"}
 proptest-derive = {version = "0.3.0"}
 sigma-test-util = {version = "^0.3.0"}
