@@ -2,7 +2,6 @@ use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
-use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
 pub struct PoolContract {
@@ -19,9 +18,7 @@ impl PoolContract {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
-        dbg!((0..ergo_tree.constants_len().unwrap())
-            .map(|i| (i, ergo_tree.get_constant(i).unwrap().unwrap()))
-            .collect::<Vec<(usize, Constant)>>());
+        dbg!(ergo_tree.get_constants().unwrap());
         let refresh_nft_token_id: TokenId = ergo_tree
             .get_constant(2)
             .unwrap()
