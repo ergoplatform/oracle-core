@@ -8,6 +8,7 @@ pub struct RefreshContract {
     ergo_tree: ErgoTree,
     min_data_points: usize,
     pool_nft_token_id: TokenId,
+    oracle_nft_token_id: TokenId,
 }
 
 impl RefreshContract {
@@ -27,6 +28,21 @@ impl RefreshContract {
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap();
+        assert_eq!(
+            pool_nft_token_id,
+            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
+        );
+        let oracle_nft_token_id: TokenId = ergo_tree
+            .get_constant(3)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap();
+        assert_eq!(
+            oracle_nft_token_id,
+            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap()
+        );
+
         // TODO: there is two (with the same value 4) constants
         let min_data_points: usize = ergo_tree
             .get_constant(19)
@@ -34,17 +50,13 @@ impl RefreshContract {
             .unwrap()
             .try_extract_into::<i32>()
             .unwrap() as usize;
-
-        assert_eq!(
-            pool_nft_token_id,
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
-        );
         assert_eq!(min_data_points, 4);
 
         Self {
             ergo_tree,
             min_data_points,
             pool_nft_token_id,
+            oracle_nft_token_id,
         }
     }
 
@@ -54,5 +66,9 @@ impl RefreshContract {
 
     pub fn min_data_points(&self) -> usize {
         4
+    }
+
+    pub fn oracle_nft_token_id(&self) -> TokenId {
+        self.oracle_nft_token_id.clone()
     }
 }

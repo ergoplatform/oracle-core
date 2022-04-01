@@ -160,16 +160,19 @@ fn build_out_oracle_boxes(
     valid_oracle_boxes
         .iter()
         .map(|in_ob| {
-            let mut builder =
-                ErgoBoxCandidateBuilder::new(in_ob.value(), in_ob.ergo_tree(), creation_height);
+            let mut builder = ErgoBoxCandidateBuilder::new(
+                in_ob.value(),
+                in_ob.ergo_tree().clone(),
+                creation_height,
+            );
             builder.set_register_value(R4, in_ob.public_key().into());
-            builder.add_token(in_ob.oracle_token());
+            builder.add_token(in_ob.oracle_token().clone());
             let mut reward_token_new = in_ob.reward_token();
             reward_token_new.amount = reward_token_new
                 .amount
                 .checked_add(&1u64.try_into().unwrap())
                 .unwrap();
-            builder.add_token(reward_token_new);
+            builder.add_token(reward_token_new.clone());
             builder.build().map_err(Into::into)
         })
         .collect::<Result<Vec<ErgoBoxCandidate>, PoolCommandError>>()
@@ -321,8 +324,9 @@ mod tests {
             Some(tokens),
             NonMandatoryRegisters::new(
                 vec![
-                    (NonMandatoryRegisterId::R4, Constant::from(datapoint)),
+                    (NonMandatoryRegisterId::R4, Constant::from(pub_key)),
                     (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
+                    (NonMandatoryRegisterId::R6, Constant::from(datapoint)),
                 ]
                 .into_iter()
                 .collect(),
@@ -345,8 +349,7 @@ mod tests {
     #[test]
     fn test_refresh_pool() {
         let height = 100u32;
-        let oracle_token_id =
-            TokenId::from_base64("YlFlVGhXbVpxNHQ3dyF6JUMqRi1KQE5jUmZValhuMnI=").unwrap();
+        let refresh_contract = RefreshContract::new();
         let reward_token_id =
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
         let refresh_nft =
@@ -363,7 +366,7 @@ mod tests {
             oracle_pub_key,
             1,
             1,
-            oracle_token_id,
+            refresh_contract.oracle_nft_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 9, // right after the pool+oracle boxes block
