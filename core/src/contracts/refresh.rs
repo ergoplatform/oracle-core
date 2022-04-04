@@ -6,7 +6,8 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
-    min_data_points: usize,
+    min_data_points: u32,
+    max_deviation_percent: u32,
     pool_nft_token_id: TokenId,
     oracle_nft_token_id: TokenId,
 }
@@ -44,17 +45,26 @@ impl RefreshContract {
         );
 
         // TODO: there is two (with the same value 4) constants
-        let min_data_points: usize = ergo_tree
+        let min_data_points = ergo_tree
             .get_constant(19)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
-            .unwrap() as usize;
+            .unwrap() as u32;
         assert_eq!(min_data_points, 4);
+
+        let max_deviation_percent = ergo_tree
+            .get_constant(19)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32;
+        assert_eq!(max_deviation_percent, 5);
 
         Self {
             ergo_tree,
             min_data_points,
+            max_deviation_percent,
             pool_nft_token_id,
             oracle_nft_token_id,
         }
@@ -64,8 +74,12 @@ impl RefreshContract {
         self.ergo_tree.clone()
     }
 
-    pub fn min_data_points(&self) -> usize {
-        4
+    pub fn min_data_points(&self) -> u32 {
+        self.min_data_points
+    }
+
+    pub fn max_deviation_percent(&self) -> u32 {
+        self.max_deviation_percent
     }
 
     pub fn oracle_nft_token_id(&self) -> TokenId {

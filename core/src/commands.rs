@@ -44,7 +44,7 @@ pub enum PoolCommandError {
     #[error("box selector error: {0}")]
     BoxSelectorError(BoxSelectorError),
     #[error("not enough oracle boxes error: found {found}, expected {expected}")]
-    NotEnoughOracleBoxes { found: usize, expected: usize },
+    NotEnoughOracleBoxes { found: u32, expected: u32 },
     #[error("unexpected error: {0}")]
     Unexpected(String),
 }
@@ -82,12 +82,10 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
     let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    // The oracle boxes must be arranged in increasing order of their R6 values (rate).
-    in_oracle_boxes.sort_by_key(|b| b.rate());
     let valid_in_oracle_boxes = filtered_oracle_boxes(in_oracle_boxes);
-    if valid_in_oracle_boxes.len() >= RefreshContract::new().min_data_points() {
+    if valid_in_oracle_boxes.len() as u32 >= RefreshContract::new().min_data_points() {
         return Err(PoolCommandError::NotEnoughOracleBoxes {
-            found: valid_in_oracle_boxes.len(),
+            found: valid_in_oracle_boxes.len() as u32,
             expected: RefreshContract::new().min_data_points(),
         });
     }
@@ -129,8 +127,65 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
 }
 
 fn filtered_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox> {
+    // The oracle boxes must be arranged in increasing order of their R6 values (rate).
+    let mut successful_boxes = oracle_boxes.clone();
+    successful_boxes.sort_by_key(|b| b.rate());
     // The first oracle box's rate must be within 5% of that of the last, and must be > 0
-    todo!()
+    // TODO: get from parameters? why? it's hardcoded in the contract anyway (as maxDeviationPercent in Refresh contract)
+    let refresh_contract = RefreshContract::new();
+    let deviation_range = refresh_contract.max_deviation_percent();
+    while !deviation_check(deviation_range, &successful_boxes) {
+        // Removing largest deviation outlier
+        successful_boxes = remove_largest_local_deviation_datapoint(&successful_boxes)?;
+        if (successful_boxes.len() as u32) < refresh_contract.min_data_points() {
+            return Err(PoolCommandError::FailedToReachConsensus().into());
+        }
+    }
+    successful_boxes
+}
+
+fn deviation_check(deviation_range: u32, datapoint_boxes: &Vec<&dyn OracleBox>) -> bool {
+    let num = datapoint_boxes.len();
+    // expected sorted datapoint_boxes
+    let max_datapoint = datapoint_boxes[0].rate();
+    let min_datapoint = datapoint_boxes[num - 1].rate();
+    let deviation_delta = max_datapoint * (deviation_range as u64) / 100;
+    min_datapoint >= max_datapoint - deviation_delta
+}
+
+/// Finds whether the first or the last value in a list of sorted Datapoint boxes
+/// deviates more compared to their adjacted datapoint, and then removes
+/// said datapoint which deviates further.
+fn remove_largest_local_deviation_datapoint<'a>(
+    datapoint_boxes: &'a Vec<&dyn OracleBox>,
+) -> Result<Vec<&'a dyn OracleBox>, PoolCommandError> {
+    let mut processed_boxes = datapoint_boxes.clone();
+
+    // Check if sufficient number of datapoint boxes to start removing
+    if datapoint_boxes.len() <= 2 {
+        Err(PoolCommandError::FailedToReachConsensus().into())
+    } else {
+        // Deserialize all the datapoints in a list
+        let dp_len = datapoint_boxes.len();
+        let datapoints: Vec<i64> = datapoint_boxes
+            .iter()
+            .map(|_| datapoint_boxes[0].rate() as i64)
+            .collect();
+        // Check deviation by subtracting largest value by 2nd largest
+        let front_deviation = datapoints[0] - datapoints[1];
+        // Check deviation by subtracting 2nd smallest value by smallest
+        let back_deviation = datapoints[dp_len - 2] - datapoints[dp_len - 1];
+
+        // Remove largest datapoint if front deviation is greater
+        if front_deviation >= back_deviation {
+            processed_boxes.drain(0..1);
+        }
+        // Remove smallest datapoint if back deviation is greater
+        else {
+            processed_boxes.pop();
+        }
+        Ok(processed_boxes)
+    }
 }
 
 fn calc_pool_rate(oracle_boxes: Vec<&dyn OracleBox>) -> u64 {
