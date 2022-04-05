@@ -64,7 +64,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
             expected: RefreshContract::new().min_data_points(),
         });
     }
-    let rate = calc_pool_rate(valid_in_oracle_boxes.clone());
+    let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
     let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
     let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
@@ -157,8 +157,10 @@ fn remove_largest_local_deviation_datapoint(
     }
 }
 
-fn calc_pool_rate(oracle_boxes: Vec<&dyn OracleBox>) -> u64 {
-    todo!()
+fn calc_pool_rate(oracle_boxes_rates: Vec<u64>) -> u64 {
+    let datapoints_sum: u64 = oracle_boxes_rates.iter().sum();
+
+    datapoints_sum / oracle_boxes_rates.len() as u64
 }
 
 fn build_out_pool_box(
