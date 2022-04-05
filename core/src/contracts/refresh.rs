@@ -54,7 +54,7 @@ impl RefreshContract {
         assert_eq!(min_data_points, 4);
 
         let max_deviation_percent = ergo_tree
-            .get_constant(19)
+            .get_constant(14)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
