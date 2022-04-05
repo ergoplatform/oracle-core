@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxId;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -147,5 +149,19 @@ impl OracleBox for OracleBoxWrapper {
 
     fn get_box(&self) -> ErgoBox {
         self.0.clone()
+    }
+}
+
+impl TryFrom<ErgoBox> for OracleBoxWrapper {
+    type Error = OracleBoxError;
+
+    fn try_from(value: ErgoBox) -> Result<Self, Self::Error> {
+        OracleBoxWrapper::new(value)
+    }
+}
+
+impl From<OracleBoxWrapper> for ErgoBox {
+    fn from(w: OracleBoxWrapper) -> Self {
+        w.0.clone()
     }
 }

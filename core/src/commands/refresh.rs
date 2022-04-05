@@ -365,6 +365,33 @@ mod tests {
         .unwrap()
     }
 
+    fn make_datapoint_boxes(
+        pub_key: EcPoint,
+        datapoints: Vec<i64>,
+        epoch_counter: i32,
+        oracle_token_id: TokenId,
+        reward_token: Token,
+        value: BoxValue,
+        creation_height: u32,
+    ) -> Vec<OracleBoxWrapper> {
+        datapoints
+            .into_iter()
+            .map(|datapoint| {
+                make_datapoint_box(
+                    pub_key.clone(),
+                    datapoint,
+                    epoch_counter,
+                    oracle_token_id.clone(),
+                    reward_token.clone(),
+                    value,
+                    creation_height,
+                )
+                .try_into()
+                .unwrap()
+            })
+            .collect()
+    }
+
     fn find_input_boxes(
         tx: UnsignedTransaction,
         available_boxes: Vec<ErgoBox>,
@@ -388,15 +415,16 @@ mod tests {
         );
         let in_pool_box = make_pool_box(1, 1, refresh_nft, BoxValue::SAFE_USER_MIN, height - 10);
         let oracle_pub_key = force_any_val::<EcPoint>();
-        let in_oracle_box = make_datapoint_box(
+        let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_key,
-            1,
+            vec![95, 96, 97, 98, 110],
             1,
             refresh_contract.oracle_nft_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 9, // right after the pool+oracle boxes block
         );
+
         let live_epoch_stage_mock = LiveEpochStageMock {
             refresh_box: in_refresh_box,
             pool_box: in_pool_box.clone(),
@@ -406,7 +434,7 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
         let datapoint_stage_mock = DatapointStageMock {
-            datapoints: vec![OracleBoxWrapper::new(in_oracle_box.clone()).unwrap()],
+            datapoints: in_oracle_boxes.clone(),
         };
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![force_any_val_with::<ErgoBox>(
@@ -429,7 +457,9 @@ mod tests {
             live_epoch_stage_mock.get_pool_box().unwrap(),
             live_epoch_stage_mock.get_refresh_box().unwrap(),
         ];
-        possible_input_boxes.append(&mut vec![in_oracle_box]);
+        let mut in_oracle_boxes_raw: Vec<ErgoBox> =
+            in_oracle_boxes.into_iter().map(Into::into).collect();
+        possible_input_boxes.append(&mut in_oracle_boxes_raw);
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
         let tx_context = TransactionContext::new(
