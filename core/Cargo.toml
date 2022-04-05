@@ -26,6 +26,7 @@ crossbeam = "0.7.3"
 ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "35bfd30c9cb9223af5510925942ba301e638931e" }
 ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "ca123f5e2894d2f397155b97024ca4af8fd0c1d9" }
 derive_more = "0.99"
+bounded-vec = { version = "^0.5.0" }
 
 [dev-dependencies]
 # sigma-test-util = { version = "^0.3.0", path = "../../sigma-rust/sigma-test-util" }
