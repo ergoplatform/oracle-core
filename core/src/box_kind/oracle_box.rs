@@ -1,12 +1,9 @@
 use std::convert::TryFrom;
 
-use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
-use ergo_lib::ergotree_ir::chain::ergo_box::BoxId;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
 use thiserror::Error;
@@ -14,9 +11,6 @@ use thiserror::Error;
 use crate::contracts::refresh::RefreshContract;
 
 pub trait OracleBox {
-    fn box_id(&self) -> BoxId;
-    fn value(&self) -> BoxValue;
-    fn ergo_tree(&self) -> ErgoTree;
     fn oracle_token(&self) -> Token;
     fn reward_token(&self) -> Token;
     fn public_key(&self) -> EcPoint;
@@ -103,18 +97,6 @@ impl OracleBoxWrapper {
 }
 
 impl OracleBox for OracleBoxWrapper {
-    fn box_id(&self) -> BoxId {
-        self.0.box_id()
-    }
-
-    fn value(&self) -> BoxValue {
-        self.0.value
-    }
-
-    fn ergo_tree(&self) -> ErgoTree {
-        self.0.ergo_tree.clone()
-    }
-
     fn oracle_token(&self) -> Token {
         self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
     }

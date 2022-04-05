@@ -1,5 +1,6 @@
 use crate::actions::RefreshAction;
 use crate::box_kind::OracleBox;
+use crate::box_kind::PoolBox;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
@@ -14,6 +15,7 @@ use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4;
+use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R5;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -66,7 +68,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
-    let out_pool_box = build_out_pool_box(in_pool_box.clone(), height, rate)?;
+    let out_pool_box = build_out_pool_box(in_pool_box, height, rate)?;
     let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
     let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
 
@@ -74,7 +76,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
-    let mut input_boxes = vec![in_pool_box, in_refresh_box];
+    let mut input_boxes = vec![in_pool_box.get_box(), in_refresh_box];
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
         .into_iter()
         .map(|ob| ob.get_box())
@@ -159,16 +161,24 @@ fn remove_largest_local_deviation_datapoint(
 
 fn calc_pool_rate(oracle_boxes_rates: Vec<u64>) -> u64 {
     let datapoints_sum: u64 = oracle_boxes_rates.iter().sum();
-
     datapoints_sum / oracle_boxes_rates.len() as u64
 }
 
 fn build_out_pool_box(
-    in_pool_box: ErgoBox,
+    in_pool_box: &dyn PoolBox,
     creation_height: u32,
     rate: u64,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
-    todo!()
+    let mut builder = ErgoBoxCandidateBuilder::new(
+        in_pool_box.get_box().value,
+        in_pool_box.get_box().ergo_tree.clone(),
+        creation_height,
+    );
+    let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
+    builder.add_token(in_pool_box.pool_token().clone());
+    builder.set_register_value(R4, (rate as i64).into());
+    builder.set_register_value(R5, new_epoch_counter.into());
+    builder.build().map_err(Into::into)
 }
 
 fn build_out_refresh_box(
@@ -187,8 +197,8 @@ fn build_out_oracle_boxes(
         .iter()
         .map(|in_ob| {
             let mut builder = ErgoBoxCandidateBuilder::new(
-                in_ob.value(),
-                in_ob.ergo_tree().clone(),
+                in_ob.get_box().value,
+                in_ob.get_box().ergo_tree.clone(),
                 creation_height,
             );
             builder.set_register_value(R4, in_ob.public_key().into());
@@ -228,6 +238,7 @@ mod tests {
     use sigma_test_util::force_any_val_with;
 
     use crate::box_kind::OracleBoxWrapper;
+    use crate::box_kind::PoolBoxWrapper;
     use crate::contracts::oracle::OracleContract;
     use crate::contracts::pool::PoolContract;
     use crate::oracle_state::StageError;
@@ -237,7 +248,7 @@ mod tests {
     #[derive(Clone)]
     struct LiveEpochStageMock {
         refresh_box: ErgoBox,
-        pool_box: ErgoBox,
+        pool_box: PoolBoxWrapper,
     }
 
     impl LiveEpochStage for LiveEpochStageMock {
@@ -245,8 +256,8 @@ mod tests {
             Ok(self.refresh_box.clone())
         }
 
-        fn get_pool_box(&self) -> std::result::Result<ErgoBox, StageError> {
-            Ok(self.pool_box.clone())
+        fn get_pool_box(&self) -> std::result::Result<&dyn PoolBox, StageError> {
+            Ok(&self.pool_box as &dyn PoolBox)
         }
     }
 
@@ -309,7 +320,7 @@ mod tests {
         refresh_nft: TokenId,
         value: BoxValue,
         creation_height: u32,
-    ) -> ErgoBox {
+    ) -> PoolBoxWrapper {
         let tokens = [Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))].into();
         ErgoBox::new(
             value,
@@ -328,6 +339,8 @@ mod tests {
             force_any_val::<TxId>(),
             0,
         )
+        .unwrap()
+        .try_into()
         .unwrap()
     }
 
@@ -429,7 +442,7 @@ mod tests {
 
         let live_epoch_stage_mock = LiveEpochStageMock {
             refresh_box: in_refresh_box,
-            pool_box: in_pool_box.clone(),
+            pool_box: in_pool_box,
         };
         let change_address =
             AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
@@ -456,7 +469,7 @@ mod tests {
         let wallet = Wallet::from_mnemonic("", "").unwrap();
 
         let mut possible_input_boxes = vec![
-            live_epoch_stage_mock.get_pool_box().unwrap(),
+            live_epoch_stage_mock.get_pool_box().unwrap().get_box(),
             live_epoch_stage_mock.get_refresh_box().unwrap(),
         ];
         let mut in_oracle_boxes_raw: Vec<ErgoBox> =
