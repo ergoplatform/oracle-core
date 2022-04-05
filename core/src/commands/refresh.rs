@@ -3,9 +3,12 @@ use crate::box_kind::OracleBox;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
+use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
 
+use derive_more::From;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -13,14 +16,32 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
+use ergo_lib::wallet::box_selector::BoxSelectorError;
 use ergo_lib::wallet::box_selector::SimpleBoxSelector;
 use ergo_lib::wallet::tx_builder::TxBuilder;
+use ergo_lib::wallet::tx_builder::TxBuilderError;
+use ergo_node_interface::node_interface::NodeError;
+use thiserror::Error;
 
 use std::convert::TryInto;
 
-use bounded_vec::BoundedVec;
-
-use super::PoolCommandError;
+#[derive(Debug, From, Error)]
+pub enum RefrechActionError {
+    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted datapoints within the deviation range: found {found}, expected {expected}")]
+    FailedToReachConsensus { found: u32, expected: u32 },
+    #[error("Not enough datapoints left during the removal of the outliers")]
+    NotEnoughDatapoints,
+    #[error("stage error: {0}")]
+    StageError(StageError),
+    #[error("node error: {0}")]
+    NodeError(NodeError),
+    #[error("box selector error: {0}")]
+    BoxSelectorError(BoxSelectorError),
+    #[error("tx builder error: {0}")]
+    TxBuilderError(TxBuilderError),
+    #[error("box builder error: {0}")]
+    ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
+}
 
 pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
     live_epoch_stage_src: A,
@@ -28,15 +49,17 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     wallet: C,
     height: u32,
     change_address: Address,
-) -> Result<RefreshAction, PoolCommandError> {
+) -> Result<RefreshAction, RefrechActionError> {
     let tx_fee = BoxValue::SAFE_USER_MIN;
 
     let in_pool_box = live_epoch_stage_src.get_pool_box()?;
     let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
-    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    let valid_in_oracle_boxes = filtered_oracle_boxes(in_oracle_boxes);
-    if valid_in_oracle_boxes.len() as u32 >= RefreshContract::new().min_data_points() {
-        return Err(PoolCommandError::NotEnoughOracleBoxes {
+    let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let refresh_contract = RefreshContract::new();
+    let deviation_range = refresh_contract.max_deviation_percent();
+    let valid_in_oracle_boxes = filtered_oracle_boxes(in_oracle_boxes, deviation_range)?;
+    if (valid_in_oracle_boxes.len() as u32) < RefreshContract::new().min_data_points() {
+        return Err(RefrechActionError::FailedToReachConsensus {
             found: valid_in_oracle_boxes.len() as u32,
             expected: RefreshContract::new().min_data_points(),
         });
@@ -78,22 +101,19 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     Ok(RefreshAction { tx })
 }
 
-fn filtered_oracle_boxes(oracle_boxes: Vec<&dyn OracleBox>) -> Vec<&dyn OracleBox> {
+fn filtered_oracle_boxes(
+    oracle_boxes: Vec<&dyn OracleBox>,
+    deviation_range: u32,
+) -> Result<Vec<&dyn OracleBox>, RefrechActionError> {
     // The oracle boxes must be arranged in increasing order of their R6 values (rate).
     let mut successful_boxes = oracle_boxes.clone();
     successful_boxes.sort_by_key(|b| b.rate());
-    // The first oracle box's rate must be within 5% of that of the last, and must be > 0
-    // TODO: get from parameters? why? it's hardcoded in the contract anyway (as maxDeviationPercent in Refresh contract)
-    let refresh_contract = RefreshContract::new();
-    let deviation_range = refresh_contract.max_deviation_percent();
+    // The first oracle box's rate must be within deviation_range(5%) of that of the last, and must be > 0
     while !deviation_check(deviation_range, &successful_boxes) {
         // Removing largest deviation outlier
-        successful_boxes = remove_largest_local_deviation_datapoint(&successful_boxes)?;
-        if (successful_boxes.len() as u32) < refresh_contract.min_data_points() {
-            return Err(PoolCommandError::FailedToReachConsensus().into());
-        }
+        remove_largest_local_deviation_datapoint(&mut successful_boxes)?;
     }
-    successful_boxes
+    Ok(successful_boxes)
 }
 
 fn deviation_check(deviation_range: u32, datapoint_boxes: &Vec<&dyn OracleBox>) -> bool {
@@ -108,17 +128,14 @@ fn deviation_check(deviation_range: u32, datapoint_boxes: &Vec<&dyn OracleBox>) 
 /// Finds whether the first or the last value in a list of sorted Datapoint boxes
 /// deviates more compared to their adjacted datapoint, and then removes
 /// said datapoint which deviates further.
-fn remove_largest_local_deviation_datapoint<'a>(
-    datapoint_boxes: &'a BoundedVec<&dyn OracleBox, 2, 255>,
-) -> Result<Vec<&'a dyn OracleBox>, PoolCommandError> {
-    let mut processed_boxes = datapoint_boxes.clone();
-
+fn remove_largest_local_deviation_datapoint(
+    datapoint_boxes: &mut Vec<&dyn OracleBox>,
+) -> Result<(), RefrechActionError> {
+    let dp_len = datapoint_boxes.len();
     // Check if sufficient number of datapoint boxes to start removing
-    if datapoint_boxes.len() <= 2 {
-        Err(PoolCommandError::FailedToReachConsensus().into())
+    if dp_len <= 2 {
+        Err(RefrechActionError::NotEnoughDatapoints)
     } else {
-        // Deserialize all the datapoints in a list
-        let dp_len = datapoint_boxes.len();
         let datapoints: Vec<i64> = datapoint_boxes
             .iter()
             .map(|_| datapoint_boxes[0].rate() as i64)
@@ -130,13 +147,13 @@ fn remove_largest_local_deviation_datapoint<'a>(
 
         // Remove largest datapoint if front deviation is greater
         if front_deviation >= back_deviation {
-            processed_boxes.drain(0..1);
+            datapoint_boxes.drain(0..1);
         }
         // Remove smallest datapoint if back deviation is greater
         else {
-            processed_boxes.pop();
+            datapoint_boxes.pop();
         }
-        Ok(processed_boxes)
+        Ok(())
     }
 }
 
@@ -148,7 +165,7 @@ fn build_out_pool_box(
     in_pool_box: ErgoBox,
     creation_height: u32,
     rate: u64,
-) -> Result<ErgoBoxCandidate, PoolCommandError> {
+) -> Result<ErgoBoxCandidate, RefrechActionError> {
     todo!()
 }
 
@@ -156,14 +173,14 @@ fn build_out_refresh_box(
     in_refresh_box: ErgoBox,
     creation_height: u32,
     reward_decrement: u32,
-) -> Result<ErgoBoxCandidate, PoolCommandError> {
+) -> Result<ErgoBoxCandidate, RefrechActionError> {
     todo!()
 }
 
 fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<&dyn OracleBox>,
     creation_height: u32,
-) -> Result<Vec<ErgoBoxCandidate>, PoolCommandError> {
+) -> Result<Vec<ErgoBoxCandidate>, RefrechActionError> {
     valid_oracle_boxes
         .iter()
         .map(|in_ob| {
@@ -182,7 +199,7 @@ fn build_out_oracle_boxes(
             builder.add_token(reward_token_new.clone());
             builder.build().map_err(Into::into)
         })
-        .collect::<Result<Vec<ErgoBoxCandidate>, PoolCommandError>>()
+        .collect::<Result<Vec<ErgoBoxCandidate>, RefrechActionError>>()
 }
 
 #[cfg(test)]

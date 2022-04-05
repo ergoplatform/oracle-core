@@ -1,9 +1,5 @@
 use derive_more::From;
-use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::wallet::box_selector::BoxSelectorError;
-use ergo_lib::wallet::tx_builder::TxBuilderError;
-use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
@@ -13,6 +9,7 @@ use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
 
 use self::refresh::build_refresh_action;
+use self::refresh::RefrechActionError;
 
 mod refresh;
 
@@ -26,17 +23,9 @@ pub enum PoolCommandError {
     #[error("stage error: {0}")]
     StageError(StageError),
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
-    #[error("tx builder error: {0}")]
-    TxBuilderError(TxBuilderError),
-    #[error("node error: {0}")]
-    NodeError(NodeError),
-    #[error("box selector error: {0}")]
-    BoxSelectorError(BoxSelectorError),
-    #[error("not enough oracle boxes error: found {found}, expected {expected}")]
-    NotEnoughOracleBoxes { found: u32, expected: u32 },
-    #[error("unexpected error: {0}")]
     Unexpected(String),
+    #[error("error on building RefreshAction: {0}")]
+    RefrechActionError(RefrechActionError),
 }
 
 pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
@@ -56,6 +45,7 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
             height,
             change_address,
         )
+        .map_err(Into::into)
         .map(Into::into),
     }
 }
