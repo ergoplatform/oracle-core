@@ -40,4 +40,8 @@ impl PoolContract {
     pub fn ergo_tree(&self) -> ErgoTree {
         self.ergo_tree.clone()
     }
+
+    pub fn refresh_nft_token_id(&self) -> TokenId {
+        self.refresh_nft_token_id.clone()
+    }
 }

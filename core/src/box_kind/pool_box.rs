@@ -10,7 +10,7 @@ use thiserror::Error;
 use crate::contracts::refresh::RefreshContract;
 
 pub trait PoolBox {
-    fn pool_token(&self) -> Token;
+    fn pool_nft_token(&self) -> Token;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> u64;
     fn get_box(&self) -> ErgoBox;
@@ -32,20 +32,28 @@ pub enum PoolBoxError {
 pub struct PoolBoxWrapper(ErgoBox);
 
 impl PoolBox for PoolBoxWrapper {
-    fn pool_token(&self) -> Token {
-        todo!()
+    fn pool_nft_token(&self) -> Token {
+        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
     }
 
     fn epoch_counter(&self) -> u32 {
-        todo!()
+        self.0
+            .get_register(NonMandatoryRegisterId::R5.into())
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32
     }
 
     fn rate(&self) -> u64 {
-        todo!()
+        self.0
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .unwrap()
+            .try_extract_into::<i64>()
+            .unwrap() as u64
     }
 
     fn get_box(&self) -> ErgoBox {
-        todo!()
+        self.0.clone()
     }
 }
 

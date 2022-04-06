@@ -175,7 +175,7 @@ fn build_out_pool_box(
         creation_height,
     );
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
-    builder.add_token(in_pool_box.pool_token().clone());
+    builder.add_token(in_pool_box.pool_nft_token().clone());
     builder.set_register_value(R4, (rate as i64).into());
     builder.set_register_value(R5, new_epoch_counter.into());
     builder.build().map_err(Into::into)
@@ -422,11 +422,11 @@ mod tests {
     fn test_refresh_pool() {
         let height = 100u32;
         let refresh_contract = RefreshContract::new();
+        let pool_contract = PoolContract::new();
         let reward_token_id =
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
         let pool_nft_token_id = refresh_contract.pool_nft_token_id();
-        let refresh_nft =
-            TokenId::from_base64("VGpXblpyNHU3eCFBJUQqRy1LYU5kUmdVa1hwMnM1djg=").unwrap();
+        let refresh_nft = pool_contract.refresh_nft_token_id();
         let in_refresh_box = make_refresh_box(
             &refresh_nft,
             Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
