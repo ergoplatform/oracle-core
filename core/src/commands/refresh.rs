@@ -317,11 +317,15 @@ mod tests {
     fn make_pool_box(
         datapoint: i64,
         epoch_counter: i32,
-        refresh_nft: TokenId,
+        pool_nft_token_id: TokenId,
         value: BoxValue,
         creation_height: u32,
     ) -> PoolBoxWrapper {
-        let tokens = [Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))].into();
+        let tokens = [Token::from((
+            pool_nft_token_id.clone(),
+            1u64.try_into().unwrap(),
+        ))]
+        .into();
         ErgoBox::new(
             value,
             PoolContract::new().ergo_tree(),
@@ -420,6 +424,7 @@ mod tests {
         let refresh_contract = RefreshContract::new();
         let reward_token_id =
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
+        let pool_nft_token_id = refresh_contract.pool_nft_token_id();
         let refresh_nft =
             TokenId::from_base64("VGpXblpyNHU3eCFBJUQqRy1LYU5kUmdVa1hwMnM1djg=").unwrap();
         let in_refresh_box = make_refresh_box(
@@ -428,7 +433,13 @@ mod tests {
             BoxValue::SAFE_USER_MIN,
             height - 10,
         );
-        let in_pool_box = make_pool_box(1, 1, refresh_nft, BoxValue::SAFE_USER_MIN, height - 10);
+        let in_pool_box = make_pool_box(
+            1,
+            1,
+            pool_nft_token_id,
+            BoxValue::SAFE_USER_MIN,
+            height - 10,
+        );
         let oracle_pub_key = force_any_val::<EcPoint>();
         let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_key,

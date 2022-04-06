@@ -85,4 +85,8 @@ impl RefreshContract {
     pub fn oracle_nft_token_id(&self) -> TokenId {
         self.oracle_nft_token_id.clone()
     }
+
+    pub fn pool_nft_token_id(&self) -> TokenId {
+        self.pool_nft_token_id.clone()
+    }
 }
