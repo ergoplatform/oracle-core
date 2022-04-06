@@ -435,7 +435,13 @@ mod tests {
         tx: UnsignedTransaction,
         available_boxes: Vec<ErgoBox>,
     ) -> TxIoVec<ErgoBox> {
-        todo!()
+        tx.inputs.mapped(|i| {
+            available_boxes
+                .clone()
+                .into_iter()
+                .find(|b| b.box_id() == i.box_id)
+                .unwrap()
+        })
     }
 
     #[test]
@@ -515,6 +521,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(wallet.sign_transaction(tx_context, &ctx, None).is_ok());
+
+        let signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }
 }
