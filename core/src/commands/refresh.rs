@@ -1,6 +1,7 @@
 use crate::actions::RefreshAction;
 use crate::box_kind::OracleBox;
 use crate::box_kind::PoolBox;
+use crate::box_kind::RefreshBox;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_state::DatapointStage;
 use crate::oracle_state::LiveEpochStage;
@@ -12,10 +13,10 @@ use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
-use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R5;
+use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -67,16 +68,16 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
         });
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
-    let reward_decrement = valid_in_oracle_boxes.len() as u32 * 2;
+    let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
     let out_pool_box = build_out_pool_box(in_pool_box, height, rate)?;
-    let out_refresh_box = build_out_refresh_box(in_refresh_box.clone(), height, reward_decrement)?;
+    let out_refresh_box = build_out_refresh_box(in_refresh_box, height, reward_decrement)?;
     let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
-    let mut input_boxes = vec![in_pool_box.get_box(), in_refresh_box];
+    let mut input_boxes = vec![in_pool_box.get_box(), in_refresh_box.get_box()];
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
         .into_iter()
         .map(|ob| ob.get_box())
@@ -182,11 +183,27 @@ fn build_out_pool_box(
 }
 
 fn build_out_refresh_box(
-    in_refresh_box: ErgoBox,
+    in_refresh_box: &dyn RefreshBox,
     creation_height: u32,
-    reward_decrement: u32,
+    reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
-    todo!()
+    let mut builder = ErgoBoxCandidateBuilder::new(
+        in_refresh_box.get_box().value,
+        in_refresh_box.get_box().ergo_tree.clone(),
+        creation_height,
+    );
+    builder.add_token(in_refresh_box.refresh_nft_token().clone());
+    let reward_token = in_refresh_box.reward_token();
+    let new_reward_token: Token = (
+        reward_token.token_id,
+        reward_token
+            .amount
+            .checked_sub(&reward_decrement.try_into().unwrap())
+            .unwrap(),
+    )
+        .into();
+    builder.add_token(new_reward_token);
+    builder.build().map_err(Into::into)
 }
 
 fn build_out_oracle_boxes(
@@ -239,6 +256,7 @@ mod tests {
 
     use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::PoolBoxWrapper;
+    use crate::box_kind::RefreshBoxWrapper;
     use crate::contracts::oracle::OracleContract;
     use crate::contracts::pool::PoolContract;
     use crate::oracle_state::StageError;
@@ -247,13 +265,13 @@ mod tests {
 
     #[derive(Clone)]
     struct LiveEpochStageMock {
-        refresh_box: ErgoBox,
+        refresh_box: RefreshBoxWrapper,
         pool_box: PoolBoxWrapper,
     }
 
     impl LiveEpochStage for LiveEpochStageMock {
-        fn get_refresh_box(&self) -> std::result::Result<ErgoBox, StageError> {
-            Ok(self.refresh_box.clone())
+        fn get_refresh_box(&self) -> std::result::Result<&dyn RefreshBox, StageError> {
+            Ok(&self.refresh_box as &dyn RefreshBox)
         }
 
         fn get_pool_box(&self) -> std::result::Result<&dyn PoolBox, StageError> {
@@ -295,7 +313,7 @@ mod tests {
         reward_token: Token,
         value: BoxValue,
         creation_height: u32,
-    ) -> ErgoBox {
+    ) -> RefreshBoxWrapper {
         let tokens = vec![
             Token::from((refresh_nft.clone(), 1u64.try_into().unwrap())),
             reward_token,
@@ -311,6 +329,8 @@ mod tests {
             force_any_val::<TxId>(),
             0,
         )
+        .unwrap()
+        .try_into()
         .unwrap()
     }
 
@@ -427,6 +447,7 @@ mod tests {
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
         let pool_nft_token_id = refresh_contract.pool_nft_token_id();
         let refresh_nft = pool_contract.refresh_nft_token_id();
+        dbg!(&reward_token_id);
         let in_refresh_box = make_refresh_box(
             &refresh_nft,
             Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
@@ -481,7 +502,7 @@ mod tests {
 
         let mut possible_input_boxes = vec![
             live_epoch_stage_mock.get_pool_box().unwrap().get_box(),
-            live_epoch_stage_mock.get_refresh_box().unwrap(),
+            live_epoch_stage_mock.get_refresh_box().unwrap().get_box(),
         ];
         let mut in_oracle_boxes_raw: Vec<ErgoBox> =
             in_oracle_boxes.into_iter().map(Into::into).collect();

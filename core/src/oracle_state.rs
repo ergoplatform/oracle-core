@@ -1,5 +1,5 @@
 // This files relates to the state of the oracle/oracle pool.
-use crate::box_kind::{OracleBox, PoolBox};
+use crate::box_kind::{OracleBox, PoolBox, RefreshBox};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
@@ -54,7 +54,7 @@ pub trait StageDataSource {
 }
 
 pub trait LiveEpochStage {
-    fn get_refresh_box(&self) -> Result<ErgoBox>;
+    fn get_refresh_box(&self) -> Result<&dyn RefreshBox>;
     fn get_pool_box(&self) -> Result<&dyn PoolBox>;
 }
 
@@ -373,7 +373,7 @@ impl StageDataSource for Stage {
 }
 
 impl LiveEpochStage for Stage {
-    fn get_refresh_box(&self) -> Result<ErgoBox> {
+    fn get_refresh_box(&self) -> Result<&dyn RefreshBox> {
         todo!()
     }
 
