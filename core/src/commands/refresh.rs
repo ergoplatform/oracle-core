@@ -465,10 +465,10 @@ mod tests {
             &refresh_nft,
             Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
             BoxValue::SAFE_USER_MIN,
-            height - 10,
+            height - 32,
         );
         let in_pool_box = make_pool_box(
-            1,
+            200,
             1,
             pool_nft_token_id,
             BoxValue::SAFE_USER_MIN,
@@ -480,12 +480,12 @@ mod tests {
 
         let in_oracle_boxes = make_datapoint_boxes(
             *oracle_pub_key,
-            vec![195, 196, 197, 198, 199, 250],
+            vec![195, 196, 197, 198, 199, 260],
             1,
             refresh_contract.oracle_nft_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
-            height - 9, // right after the pool+oracle boxes block
+            height - 9,
         );
 
         let live_epoch_stage_mock = LiveEpochStageMock {
@@ -508,7 +508,7 @@ mod tests {
             live_epoch_stage_mock.clone(),
             datapoint_stage_mock.clone(),
             wallet_mock.clone(),
-            100,
+            height,
             change_address,
         )
         .unwrap();
