@@ -80,6 +80,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
 
     let mut input_boxes = vec![in_pool_box.get_box(), in_refresh_box.get_box()];
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
+        .clone()
         .into_iter()
         .map(|ob| ob.get_box())
         .collect();
@@ -105,6 +106,16 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
         values: vec![(0, 0i32.into())].into_iter().collect(),
     };
     b.set_context_extension(in_refresh_box.get_box().box_id(), in_refresh_box_ctx_ext);
+    valid_in_oracle_boxes
+        .iter()
+        .enumerate()
+        .for_each(|(idx, ob)| {
+            let outindex = (idx as i32 + 2).into(); // first two output boxes are pool box and refresh box
+            let ob_ctx_ext = ContextExtension {
+                values: vec![(0, outindex)].into_iter().collect(),
+            };
+            b.set_context_extension(ob.get_box().box_id(), ob_ctx_ext);
+        });
     let tx = b.build()?;
     Ok(RefreshAction { tx })
 }
@@ -478,13 +489,15 @@ mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
+        // TODO: make a key for each oracle
         let in_oracle_boxes = make_datapoint_boxes(
             *oracle_pub_key,
-            vec![195, 196, 197, 198, 199, 260],
+            // TODO: filtering out outliers does not work
+            vec![195, 196, 197, 198, 199, 200],
             1,
             refresh_contract.oracle_nft_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
-            BoxValue::SAFE_USER_MIN,
+            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
             height - 9,
         );
 
@@ -499,6 +512,8 @@ mod tests {
         let datapoint_stage_mock = DatapointStageMock {
             datapoints: in_oracle_boxes.clone(),
         };
+
+        // TODO: guard with wallet's PK (can be spent)
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![force_any_val_with::<ErgoBox>(
                 (BoxValue::MIN_RAW * 5000..BoxValue::MIN_RAW * 10000).into(),
