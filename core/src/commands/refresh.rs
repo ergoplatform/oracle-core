@@ -244,6 +244,7 @@ mod tests {
     use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::chain::transaction::TxIoVec;
+    use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -471,13 +472,15 @@ mod tests {
             1,
             pool_nft_token_id,
             BoxValue::SAFE_USER_MIN,
-            height - 10,
+            height - 32, // from previous epoch
         );
-        // TODO: make pubkey for own oracle box from wallet
-        let oracle_pub_key = force_any_val::<EcPoint>();
+        let secret = force_any_val::<DlogProverInput>();
+        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let oracle_pub_key = secret.public_image().h;
+
         let in_oracle_boxes = make_datapoint_boxes(
-            oracle_pub_key,
-            vec![95, 96, 97, 98, 110],
+            *oracle_pub_key,
+            vec![195, 196, 197, 198, 199, 250],
             1,
             refresh_contract.oracle_nft_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
@@ -509,8 +512,6 @@ mod tests {
             change_address,
         )
         .unwrap();
-
-        let wallet = Wallet::from_mnemonic("", "").unwrap();
 
         let mut possible_input_boxes = vec![
             live_epoch_stage_mock.get_pool_box().unwrap().get_box(),
