@@ -11,6 +11,7 @@ use crate::wallet::WalletDataSource;
 use derive_more::From;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
+use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
@@ -92,7 +93,7 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
     output_candidates.append(&mut out_oracle_boxes);
 
-    let b = TxBuilder::new(
+    let mut b = TxBuilder::new(
         box_selection,
         output_candidates,
         height as u32,
@@ -100,6 +101,10 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
         change_address,
         BoxValue::MIN,
     );
+    let in_refresh_box_ctx_ext = ContextExtension {
+        values: vec![(0, 0i32.into())].into_iter().collect(),
+    };
+    b.set_context_extension(in_refresh_box.get_box().box_id(), in_refresh_box_ctx_ext);
     let tx = b.build()?;
     Ok(RefreshAction { tx })
 }
@@ -446,7 +451,8 @@ mod tests {
 
     #[test]
     fn test_refresh_pool() {
-        let height = 100u32;
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = ctx.pre_header.height;
         let refresh_contract = RefreshContract::new();
         let pool_contract = PoolContract::new();
         let reward_token_id =
@@ -467,6 +473,7 @@ mod tests {
             BoxValue::SAFE_USER_MIN,
             height - 10,
         );
+        // TODO: make pubkey for own oracle box from wallet
         let oracle_pub_key = force_any_val::<EcPoint>();
         let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_key,
@@ -503,7 +510,6 @@ mod tests {
         )
         .unwrap();
 
-        let ctx = force_any_val::<ErgoStateContext>();
         let wallet = Wallet::from_mnemonic("", "").unwrap();
 
         let mut possible_input_boxes = vec![
@@ -522,6 +528,6 @@ mod tests {
         )
         .unwrap();
 
-        let signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }
 }
