@@ -249,6 +249,7 @@ fn build_out_oracle_boxes(
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::convert::TryInto;
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
@@ -263,13 +264,15 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
+    use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
     use ergo_lib::ergotree_ir::mir::constant::Constant;
+    use ergo_lib::ergotree_ir::mir::expr::Expr;
     use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
+    use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use ergo_node_interface::node_interface::NodeError;
     use sigma_test_util::force_any_val;
-    use sigma_test_util::force_any_val_with;
 
     use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::PoolBoxWrapper;
@@ -448,6 +451,21 @@ mod tests {
             .collect()
     }
 
+    fn make_wallet_unspent_box(pub_key: ProveDlog, value: BoxValue) -> ErgoBox {
+        let c: Constant = pub_key.into();
+        let expr: Expr = c.into();
+        ErgoBox::new(
+            value,
+            ErgoTree::try_from(expr).unwrap(),
+            None,
+            NonMandatoryRegisters::empty(),
+            1,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap()
+    }
+
     fn find_input_boxes(
         tx: UnsignedTransaction,
         available_boxes: Vec<ErgoBox>,
@@ -513,11 +531,12 @@ mod tests {
             datapoints: in_oracle_boxes.clone(),
         };
 
-        // TODO: guard with wallet's PK (can be spent)
+        let wallet_unspent_box = make_wallet_unspent_box(
+            secret.public_image(),
+            BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+        );
         let wallet_mock = WalletDataMock {
-            unspent_boxes: vec![force_any_val_with::<ErgoBox>(
-                (BoxValue::MIN_RAW * 5000..BoxValue::MIN_RAW * 10000).into(),
-            )],
+            unspent_boxes: vec![wallet_unspent_box],
         };
         let action = build_refresh_action(
             live_epoch_stage_mock.clone(),
