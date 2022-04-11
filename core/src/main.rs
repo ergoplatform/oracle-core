@@ -37,6 +37,7 @@ use log::info;
 use node_interface::current_block_height;
 use node_interface::get_wallet_change_address;
 use oracle_config::PoolParameters;
+use oracle_state::LiveEpochStage;
 use state::process;
 use state::PoolState;
 use std::env;
@@ -181,8 +182,8 @@ fn print_action_response(message: &str) {
 }
 
 /// Prints And Logs Information About The State Of The Protocol
-fn print_info(
-    op: oracle_state::OraclePool,
+fn print_info<A: LiveEpochStage>(
+    op: oracle_state::OraclePool<A>,
     height: BlockHeight,
     parameters: &PoolParameters,
 ) -> Result<bool> {

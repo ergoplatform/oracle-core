@@ -6,7 +6,7 @@ use crate::node_interface::{
     serialized_unspent_boxes_with_min_total,
 };
 use crate::oracle_config::PoolParameters;
-use crate::oracle_state::{OraclePool, StageDataSource, StageError};
+use crate::oracle_state::{LiveEpochStage, OraclePool, StageDataSource, StageError};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::ergotree_ir::base16_str::Base16Str;
@@ -58,7 +58,7 @@ fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> 
     todo!()
 }
 
-impl OraclePool {
+impl<A: LiveEpochStage> OraclePool<A> {
     /// Generates and submits the "Commit Datapoint" action tx
     pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String, StageError> {
         let parameters = PoolParameters::new();
@@ -87,7 +87,7 @@ impl OraclePool {
         req["requests"][0]["registers"] = registers;
         req["requests"][0]["assets"] = vec![token_json].into();
         req["inputsRaw"] = inputs_raw.into();
-        req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
+        // req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
         req["fee"] = parameters.base_fee.into();
 
         let result = send_transaction(&req)?;

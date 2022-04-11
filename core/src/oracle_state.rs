@@ -71,7 +71,7 @@ pub struct Stage {
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug, Clone)]
-pub struct OraclePool {
+pub struct OraclePool<A: LiveEpochStage> {
     /// Address of the local oracle running the oracle core
     pub local_oracle_address: P2PKAddress,
     /// Token IDs
@@ -79,7 +79,7 @@ pub struct OraclePool {
     pub oracle_pool_participant_token: TokenID,
     /// Stages
     pub epoch_preparation_stage: Stage,
-    pub live_epoch_stage: Stage,
+    pub live_epoch_stage: A,
     pub datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
     // Local Oracle Datapoint Scan
@@ -121,9 +121,9 @@ pub struct PoolDepositsState {
     pub total_nanoergs: NanoErg,
 }
 
-impl OraclePool {
+impl<A: LiveEpochStage> OraclePool<A> {
     /// Create a new `OraclePool` struct
-    pub fn new() -> OraclePool {
+    pub fn new() -> OraclePool<A> {
         let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
 
         let local_oracle_address = config["oracle_address"]
