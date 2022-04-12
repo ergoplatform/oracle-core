@@ -10,6 +10,7 @@ pub struct RefreshContract {
     max_deviation_percent: u32,
     pool_nft_token_id: TokenId,
     oracle_nft_token_id: TokenId,
+    pub epoch_length: u32,
 }
 
 impl RefreshContract {
@@ -61,12 +62,21 @@ impl RefreshContract {
             .unwrap() as u32;
         assert_eq!(max_deviation_percent, 5);
 
+        let epoch_length = ergo_tree
+            .get_constant(14)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32;
+        assert_eq!(epoch_length, 30);
+
         Self {
             ergo_tree,
             min_data_points,
             max_deviation_percent,
             pool_nft_token_id,
             oracle_nft_token_id,
+            epoch_length,
         }
     }
 

@@ -214,8 +214,8 @@ fn print_info(
             prep_state.funds, prep_state.latest_pool_datapoint, prep_state.next_epoch_ends
         ));
     } else if let Ok(live_state) = res_live_state {
-        info_string.push_str(&format!("\nLive Epoch State\n-----------------\nTotal Pool Funds: {}\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
-            live_state.funds, live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch, live_state.epoch_ends
+        info_string.push_str(&format!("\nLive Epoch State\n-----------------\nLatest Pool Datapoint: {}\nLive Epoch ID: {}\nCommit Datapoint In Live Epoch: {}\nLive Epoch Ends: {}\n",
+            live_state.latest_pool_datapoint, live_state.epoch_id, live_state.commit_datapoint_in_epoch, live_state.epoch_ends
         ));
     } else {
         info_string.push_str("Failed to find Epoch Preparation Box or Live Epoch Box.");

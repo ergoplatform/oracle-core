@@ -103,32 +103,6 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
     Ok(true)
 }
 
-/// This function registers scanning for the Live Epoch stage box
-pub fn register_live_epoch_scan(
-    oracle_pool_nft: &String,
-    live_epoch_address: &String,
-) -> Result<Scan> {
-    // ErgoTree bytes of the P2S address/script
-    let live_epoch_bytes = address_to_bytes(live_epoch_address)?;
-
-    // Scan for NFT id + Oracle Pool Epoch address
-    let scan_json = object! {
-        "predicate": "and",
-        "args": [
-            {
-            "predicate": "containsAsset",
-            "assetId": oracle_pool_nft.clone(),
-            },
-            {
-            "predicate": "equals",
-            "value": live_epoch_bytes.clone(),
-            }
-        ]
-    };
-
-    Scan::register(&"Live Epoch Scan".to_string(), scan_json)
-}
-
 /// This function registers scanning for the pool box
 pub fn register_pool_box_scan(oracle_pool_nft: &String) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script

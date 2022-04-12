@@ -3,9 +3,8 @@ use crate::box_kind::{OracleBox, PoolBoxWrapper, RefreshBoxWrapper};
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
-    register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
-    register_local_oracle_datapoint_scan, register_pool_box_scan, register_pool_deposit_scan,
-    save_scan_ids_locally, Scan, ScanError,
+    register_datapoint_scan, register_epoch_preparation_scan, register_local_oracle_datapoint_scan,
+    register_pool_box_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use derive_more::From;
@@ -83,7 +82,6 @@ pub struct OraclePool {
     pub oracle_pool_participant_token: TokenID,
     /// Stages
     pub epoch_preparation_stage: Stage,
-    pub live_epoch_stage: Stage,
     pub datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
     // Local Oracle Datapoint Scan
@@ -95,7 +93,6 @@ pub struct OraclePool {
 /// The state of the oracle pool when it is in the Live Epoch stage
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
-    pub funds: NanoErg,
     pub epoch_id: u32,
     pub commit_datapoint_in_epoch: bool,
     pub epoch_ends: BlockHeight,
@@ -136,10 +133,6 @@ impl OraclePool {
             .as_str()
             .expect("No oracle_pool_nft specified in config file.")
             .to_string();
-        // let oracle_pool_nft = config["oracle_pool_nft"]
-        //     .as_str()
-        //     .expect("No oracle_pool_nft specified in config file.")
-        //     .to_string();
 
         let oracle_pool_nft: String = RefreshContract::new().pool_nft_token_id().into();
         let oracle_pool_participant_token = config["oracle_pool_participant_token"]
@@ -150,10 +143,6 @@ impl OraclePool {
         let epoch_preparation_contract_address = config["epoch_preparation_contract_address"]
             .as_str()
             .expect("No epoch_preparation_contract_address specified in config file.")
-            .to_string();
-        let live_epoch_contract_address = config["live_epoch_contract_address"]
-            .as_str()
-            .expect("No live_epoch_contract_address specified in config file.")
             .to_string();
         let datapoint_contract_address = config["datapoint_contract_address"]
             .as_str()
@@ -172,7 +161,6 @@ impl OraclePool {
                     &epoch_preparation_contract_address,
                 )
                 .unwrap(),
-                register_live_epoch_scan(&oracle_pool_nft, &live_epoch_contract_address).unwrap(),
                 register_local_oracle_datapoint_scan(
                     &oracle_pool_participant_token,
                     &datapoint_contract_address,
@@ -214,10 +202,6 @@ impl OraclePool {
             &"Epoch Preparation Scan".to_string(),
             &scan_json["Epoch Preparation Scan"].to_string(),
         );
-        let live_epoch_scan = Scan::new(
-            &"Live Epoch Scan".to_string(),
-            &scan_json["Live Epoch Scan"].to_string(),
-        );
         let datapoint_scan = Scan::new(
             &"All Oracle Datapoints Scan".to_string(),
             &scan_json["All Datapoints Scan"].to_string(),
@@ -250,10 +234,6 @@ impl OraclePool {
             epoch_preparation_stage: Stage {
                 contract_address: epoch_preparation_contract_address,
                 scan: epoch_preparation_scan,
-            },
-            live_epoch_stage: Stage {
-                contract_address: live_epoch_contract_address,
-                scan: live_epoch_scan,
             },
             datapoint_stage: Stage {
                 contract_address: datapoint_contract_address.clone(),
