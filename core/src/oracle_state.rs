@@ -1,10 +1,12 @@
 // This files relates to the state of the oracle/oracle pool.
 use crate::box_kind::{OracleBox, PoolBox, PoolBoxWrapper, RefreshBoxWrapper};
+use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_local_oracle_datapoint_scan,
-    register_pool_box_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan, ScanError,
+    register_pool_box_scan, register_pool_deposit_scan, register_refresh_box_scan,
+    save_scan_ids_locally, Scan, ScanError,
 };
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use derive_more::From;
@@ -135,6 +137,8 @@ impl OraclePool {
             .to_string();
 
         let oracle_pool_nft: String = RefreshContract::new().pool_nft_token_id().into();
+        let refresh_nft: String = PoolContract::new().refresh_nft_token_id().into();
+
         let oracle_pool_participant_token = config["oracle_pool_participant_token"]
             .as_str()
             .expect("No oracle_pool_participant_token specified in config file.")
@@ -152,6 +156,8 @@ impl OraclePool {
             .as_str()
             .expect("No pool_deposit_contract_address specified in config file.")
             .to_string();
+
+        let refresh_box_scan_name = "Refresh Box Scan";
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
@@ -174,6 +180,7 @@ impl OraclePool {
                 .unwrap(),
                 register_pool_deposit_scan(&pool_deposit_contract_address).unwrap(),
                 register_pool_box_scan(&oracle_pool_nft).unwrap(),
+                register_refresh_box_scan(refresh_box_scan_name, &refresh_nft).unwrap(),
             ];
             let res = save_scan_ids_locally(scans);
             if res.is_ok() {
@@ -199,31 +206,27 @@ impl OraclePool {
 
         // Create all `Scan` structs for protocol
         let epoch_preparation_scan = Scan::new(
-            &"Epoch Preparation Scan".to_string(),
+            "Epoch Preparation Scan",
             &scan_json["Epoch Preparation Scan"].to_string(),
         );
         let datapoint_scan = Scan::new(
-            &"All Oracle Datapoints Scan".to_string(),
+            "All Oracle Datapoints Scan",
             &scan_json["All Datapoints Scan"].to_string(),
         );
         let local_oracle_datapoint_scan = Scan::new(
-            &"Local Oracle Datapoint Scan".to_string(),
+            "Local Oracle Datapoint Scan",
             &scan_json["Local Oracle Datapoint Scan"].to_string(),
         );
         let pool_deposit_scan = Scan::new(
-            &"Pool Deposits Scan".to_string(),
+            "Pool Deposits Scan",
             &scan_json["Pool Deposits Scan"].to_string(),
         );
 
-        let pool_box_scan = Scan::new(
-            &"Pool Box Scan".to_string(),
-            &scan_json["Pool Box Scan"].to_string(),
-        );
+        let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
 
-        // TODO: save it above
         let refresh_box_scan = Scan::new(
-            &"Refresh Box Scan".to_string(),
-            &scan_json["Refresh Box Scan"].to_string(),
+            refresh_box_scan_name,
+            &scan_json[refresh_box_scan_name].to_string(),
         );
 
         // Create `OraclePool` struct
