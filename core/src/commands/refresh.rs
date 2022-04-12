@@ -1,10 +1,13 @@
 use crate::actions::RefreshAction;
 use crate::box_kind::OracleBox;
 use crate::box_kind::PoolBox;
+use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::RefreshBox;
+use crate::box_kind::RefreshBoxWrapper;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_state::DatapointStage;
-use crate::oracle_state::LiveEpochStage;
+use crate::oracle_state::PoolBoxSource;
+use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
 
@@ -47,8 +50,9 @@ pub enum RefrechActionError {
     ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
 }
 
-pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
-    live_epoch_stage_src: A,
+pub fn build_refresh_action<B: DatapointStage, C: WalletDataSource>(
+    pool_box_source: &dyn PoolBoxSource,
+    refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: B,
     wallet: C,
     height: u32,
@@ -56,8 +60,8 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
 ) -> Result<RefreshAction, RefrechActionError> {
     let tx_fee = BoxValue::SAFE_USER_MIN;
 
-    let in_pool_box = live_epoch_stage_src.get_pool_box()?;
-    let in_refresh_box = live_epoch_stage_src.get_refresh_box()?;
+    let in_pool_box = pool_box_source.get_pool_box()?;
+    let in_refresh_box = refresh_box_source.get_refresh_box()?;
     let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
     let refresh_contract = RefreshContract::new();
     let deviation_range = refresh_contract.max_deviation_percent();
@@ -70,8 +74,8 @@ pub fn build_refresh_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataS
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
-    let out_pool_box = build_out_pool_box(in_pool_box, height, rate)?;
-    let out_refresh_box = build_out_refresh_box(in_refresh_box, height, reward_decrement)?;
+    let out_pool_box = build_out_pool_box(&in_pool_box, height, rate)?;
+    let out_refresh_box = build_out_refresh_box(&in_refresh_box, height, reward_decrement)?;
     let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -182,7 +186,7 @@ fn calc_pool_rate(oracle_boxes_rates: Vec<u64>) -> u64 {
 }
 
 fn build_out_pool_box(
-    in_pool_box: &dyn PoolBox,
+    in_pool_box: &PoolBoxWrapper,
     creation_height: u32,
     rate: u64,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
@@ -199,7 +203,7 @@ fn build_out_pool_box(
 }
 
 fn build_out_refresh_box(
-    in_refresh_box: &dyn RefreshBox,
+    in_refresh_box: &RefreshBoxWrapper,
     creation_height: u32,
     reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
@@ -283,19 +287,22 @@ mod tests {
 
     use super::*;
 
+    // TODO: split into pool box and refresh box source mocks
     #[derive(Clone)]
     struct LiveEpochStageMock {
         refresh_box: RefreshBoxWrapper,
         pool_box: PoolBoxWrapper,
     }
 
-    impl LiveEpochStage for LiveEpochStageMock {
-        fn get_refresh_box(&self) -> std::result::Result<&dyn RefreshBox, StageError> {
-            Ok(&self.refresh_box as &dyn RefreshBox)
+    impl PoolBoxSource for LiveEpochStageMock {
+        fn get_pool_box(&self) -> std::result::Result<PoolBoxWrapper, StageError> {
+            Ok(self.pool_box.clone())
         }
+    }
 
-        fn get_pool_box(&self) -> std::result::Result<&dyn PoolBox, StageError> {
-            Ok(&self.pool_box as &dyn PoolBox)
+    impl RefreshBoxSource for LiveEpochStageMock {
+        fn get_refresh_box(&self) -> std::result::Result<RefreshBoxWrapper, StageError> {
+            Ok(self.refresh_box.clone())
         }
     }
 
@@ -539,7 +546,8 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
         };
         let action = build_refresh_action(
-            live_epoch_stage_mock.clone(),
+            &live_epoch_stage_mock,
+            &live_epoch_stage_mock,
             datapoint_stage_mock.clone(),
             wallet_mock.clone(),
             height,

@@ -4,7 +4,8 @@ use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::oracle_state::DatapointStage;
-use crate::oracle_state::LiveEpochStage;
+use crate::oracle_state::PoolBoxSource;
+use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
 
@@ -28,9 +29,10 @@ pub enum PoolCommandError {
     RefrechActionError(RefrechActionError),
 }
 
-pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
+pub fn build_action<B: DatapointStage, C: WalletDataSource>(
     cmd: PoolCommand,
-    live_epoch_stage_src: A,
+    pool_box_source: &dyn PoolBoxSource,
+    refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: B,
     wallet: C,
     height: u32,
@@ -39,7 +41,8 @@ pub fn build_action<A: LiveEpochStage, B: DatapointStage, C: WalletDataSource>(
     match cmd {
         PoolCommand::Bootstrap => todo!(),
         PoolCommand::Refresh => build_refresh_action(
-            live_epoch_stage_src,
+            pool_box_source,
+            refresh_box_source,
             datapoint_stage_src,
             wallet,
             height,

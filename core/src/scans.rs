@@ -1,3 +1,4 @@
+use crate::contracts::pool::PoolContract;
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
     address_to_bytes, address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box,
@@ -126,6 +127,29 @@ pub fn register_live_epoch_scan(
     };
 
     Scan::register(&"Live Epoch Scan".to_string(), scan_json)
+}
+
+/// This function registers scanning for the pool box
+pub fn register_pool_box_scan(oracle_pool_nft: &String) -> Result<Scan> {
+    // ErgoTree bytes of the P2S address/script
+    let pool_box_tree_bytes = PoolContract::new().ergo_tree().to_base16_bytes().unwrap();
+
+    // Scan for NFT id + Oracle Pool Epoch address
+    let scan_json = object! {
+        "predicate": "and",
+        "args": [
+            {
+            "predicate": "containsAsset",
+            "assetId": oracle_pool_nft.clone(),
+            },
+            {
+            "predicate": "equals",
+            "value": pool_box_tree_bytes.clone(),
+            }
+        ]
+    };
+
+    Scan::register(&"Pool Box Scan".to_string(), scan_json)
 }
 
 /// This function registers scanning for the Epoch Preparation stage box

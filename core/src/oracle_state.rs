@@ -1,10 +1,11 @@
 // This files relates to the state of the oracle/oracle pool.
-use crate::box_kind::{OracleBox, PoolBox, RefreshBox};
+use crate::box_kind::{OracleBox, PoolBoxWrapper, RefreshBoxWrapper};
+use crate::contracts::refresh::RefreshContract;
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_live_epoch_scan,
-    register_local_oracle_datapoint_scan, register_pool_deposit_scan, save_scan_ids_locally, Scan,
-    ScanError,
+    register_local_oracle_datapoint_scan, register_pool_box_scan, register_pool_deposit_scan,
+    save_scan_ids_locally, Scan, ScanError,
 };
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use derive_more::From;
@@ -53,9 +54,12 @@ pub trait StageDataSource {
     fn number_of_boxes(&self) -> Result<u64>;
 }
 
-pub trait LiveEpochStage {
-    fn get_refresh_box(&self) -> Result<&dyn RefreshBox>;
-    fn get_pool_box(&self) -> Result<&dyn PoolBox>;
+pub trait PoolBoxSource {
+    fn get_pool_box(&self) -> Result<PoolBoxWrapper>;
+}
+
+pub trait RefreshBoxSource {
+    fn get_refresh_box(&self) -> Result<RefreshBoxWrapper>;
 }
 
 pub trait DatapointStage {
@@ -71,7 +75,7 @@ pub struct Stage {
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug, Clone)]
-pub struct OraclePool<A: LiveEpochStage> {
+pub struct OraclePool {
     /// Address of the local oracle running the oracle core
     pub local_oracle_address: P2PKAddress,
     /// Token IDs
@@ -79,11 +83,13 @@ pub struct OraclePool<A: LiveEpochStage> {
     pub oracle_pool_participant_token: TokenID,
     /// Stages
     pub epoch_preparation_stage: Stage,
-    pub live_epoch_stage: A,
+    pub live_epoch_stage: Stage,
     pub datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
     // Local Oracle Datapoint Scan
     pub local_oracle_datapoint_scan: Scan,
+    pool_box_scan: Scan,
+    refresh_box_scan: Scan,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -121,19 +127,21 @@ pub struct PoolDepositsState {
     pub total_nanoergs: NanoErg,
 }
 
-impl<A: LiveEpochStage> OraclePool<A> {
+impl OraclePool {
     /// Create a new `OraclePool` struct
-    pub fn new() -> OraclePool<A> {
+    pub fn new() -> OraclePool {
         let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
 
         let local_oracle_address = config["oracle_address"]
             .as_str()
             .expect("No oracle_pool_nft specified in config file.")
             .to_string();
-        let oracle_pool_nft = config["oracle_pool_nft"]
-            .as_str()
-            .expect("No oracle_pool_nft specified in config file.")
-            .to_string();
+        // let oracle_pool_nft = config["oracle_pool_nft"]
+        //     .as_str()
+        //     .expect("No oracle_pool_nft specified in config file.")
+        //     .to_string();
+
+        let oracle_pool_nft: String = RefreshContract::new().pool_nft_token_id().into();
         let oracle_pool_participant_token = config["oracle_pool_participant_token"]
             .as_str()
             .expect("No oracle_pool_participant_token specified in config file.")
@@ -177,6 +185,7 @@ impl<A: LiveEpochStage> OraclePool<A> {
                 )
                 .unwrap(),
                 register_pool_deposit_scan(&pool_deposit_contract_address).unwrap(),
+                register_pool_box_scan(&oracle_pool_nft).unwrap(),
             ];
             let res = save_scan_ids_locally(scans);
             if res.is_ok() {
@@ -222,6 +231,17 @@ impl<A: LiveEpochStage> OraclePool<A> {
             &scan_json["Pool Deposits Scan"].to_string(),
         );
 
+        let pool_box_scan = Scan::new(
+            &"Pool Box Scan".to_string(),
+            &scan_json["Pool Box Scan"].to_string(),
+        );
+
+        // TODO: save it above
+        let refresh_box_scan = Scan::new(
+            &"Refresh Box Scan".to_string(),
+            &scan_json["Refresh Box Scan"].to_string(),
+        );
+
         // Create `OraclePool` struct
         OraclePool {
             local_oracle_address,
@@ -244,6 +264,8 @@ impl<A: LiveEpochStage> OraclePool<A> {
                 scan: pool_deposit_scan,
             },
             local_oracle_datapoint_scan,
+            pool_box_scan,
+            refresh_box_scan,
         }
     }
 
@@ -341,6 +363,26 @@ impl<A: LiveEpochStage> OraclePool<A> {
 
         Ok(deposits_state)
     }
+
+    pub fn get_pool_box_source(&self) -> &dyn PoolBoxSource {
+        &self.pool_box_scan as &dyn PoolBoxSource
+    }
+
+    pub fn get_refresh_box_source(&self) -> &dyn RefreshBoxSource {
+        &self.refresh_box_scan as &dyn RefreshBoxSource
+    }
+}
+
+impl PoolBoxSource for Scan {
+    fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
+        todo!()
+    }
+}
+
+impl RefreshBoxSource for Scan {
+    fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
+        todo!()
+    }
 }
 
 impl StageDataSource for Stage {
@@ -369,16 +411,6 @@ impl StageDataSource for Stage {
     /// Returns the number of boxes held at the given stage based on the registered scan
     fn number_of_boxes(&self) -> Result<u64> {
         Ok(self.get_boxes()?.len() as u64)
-    }
-}
-
-impl LiveEpochStage for Stage {
-    fn get_refresh_box(&self) -> Result<&dyn RefreshBox> {
-        todo!()
-    }
-
-    fn get_pool_box(&self) -> Result<&dyn PoolBox> {
-        todo!()
     }
 }
 

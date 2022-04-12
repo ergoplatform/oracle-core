@@ -37,7 +37,6 @@ use log::info;
 use node_interface::current_block_height;
 use node_interface::get_wallet_change_address;
 use oracle_config::PoolParameters;
-use oracle_state::LiveEpochStage;
 use state::process;
 use state::PoolState;
 use std::env;
@@ -134,7 +133,8 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
         if let Some(cmd) = process(pool_state, height)? {
             let action = build_action(
                 cmd,
-                op.live_epoch_stage.clone(),
+                op.get_pool_box_source(),
+                op.get_refresh_box_source(),
                 op.datapoint_stage.clone(),
                 wallet,
                 height as u32,
@@ -182,8 +182,8 @@ fn print_action_response(message: &str) {
 }
 
 /// Prints And Logs Information About The State Of The Protocol
-fn print_info<A: LiveEpochStage>(
-    op: oracle_state::OraclePool<A>,
+fn print_info(
+    op: oracle_state::OraclePool,
     height: BlockHeight,
     parameters: &PoolParameters,
 ) -> Result<bool> {
