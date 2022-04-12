@@ -63,7 +63,7 @@ impl RefreshContract {
         assert_eq!(max_deviation_percent, 5);
 
         let epoch_length = ergo_tree
-            .get_constant(14)
+            .get_constant(0)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
