@@ -1,5 +1,5 @@
 // This files relates to the state of the oracle/oracle pool.
-use crate::box_kind::{OracleBox, PoolBoxWrapper, RefreshBoxWrapper};
+use crate::box_kind::{OracleBox, PoolBox, PoolBoxWrapper, RefreshBoxWrapper};
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
@@ -9,7 +9,7 @@ use crate::scans::{
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
 use thiserror::Error;
@@ -111,7 +111,7 @@ pub struct PreparationState {
 #[derive(Debug, Clone)]
 pub struct DatapointState {
     pub datapoint: u64,
-    /// Box id of the epoch which the datapoint was posted in/originates from
+    /// epoch counter of the epoch which the datapoint was posted in/originates from
     pub origin_epoch_id: EpochID,
     /// Height that the datapoint was declared as being created
     pub creation_height: BlockHeight,
@@ -259,23 +259,20 @@ impl OraclePool {
 
     /// Get the state of the current oracle pool epoch
     pub fn get_live_epoch_state(&self) -> Result<LiveEpochState> {
-        let epoch_box = self.live_epoch_stage.get_box()?;
-        let epoch_box_regs = epoch_box.additional_registers.get_ordered_values();
-        let epoch_id: u32 = todo!();
+        let pool_box = self.get_pool_box_source().get_pool_box()?;
+        let epoch_id: u32 = pool_box.epoch_counter();
         // let epoch_box_id: String = epoch_box.box_id().into();
 
         // Whether datapoint was commit in the current Live Epoch
-        // let datapoint_state = self.get_datapoint_state()?;
-        let commit_datapoint_in_epoch: bool = todo!(); // epoch_box_id == datapoint_state.origin_epoch_id;
+        let datapoint_state = self.get_datapoint_state()?;
+        let commit_datapoint_in_epoch: bool = epoch_id == datapoint_state.origin_epoch_id;
 
-        // Latest pool datapoint is held in R4 of the epoch box
-        let latest_pool_datapoint = epoch_box_regs[0].try_extract_into::<i64>()?;
+        let latest_pool_datapoint = pool_box.rate();
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = epoch_box_regs[1].try_extract_into::<i32>()?;
+        let epoch_ends = pool_box.get_box().creation_height + RefreshContract::new().epoch_length;
 
         let epoch_state = LiveEpochState {
-            funds: *epoch_box.value.as_u64(),
             epoch_id,
             commit_datapoint_in_epoch,
             epoch_ends: epoch_ends as u64,

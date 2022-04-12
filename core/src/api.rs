@@ -215,7 +215,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
         // Get latest datapoint submit epoch
         let datapoint_epoch = match op.get_datapoint_state() {
             Ok(d) => d.origin_epoch_id,
-            Err(_) => "Null".to_string(),
+            Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_creation = match op.get_datapoint_state() {
@@ -240,7 +240,6 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Status of the oracle pool
     app.get("/poolStatus", move |context| {
         let op = OraclePool::new();
-        let parameters = PoolParameters::new();
 
         // Current stage of the oracle pool box
         let current_stage = match op.check_oracle_pool_stage() {

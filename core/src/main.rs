@@ -56,8 +56,8 @@ pub type NanoErg = u64;
 pub type BlockHeight = u64;
 /// Duration in number of blocks.
 pub type BlockDuration = u64;
-/// The id of the oracle pool epoch box
-pub type EpochID = String;
+/// The epoch counter
+pub type EpochID = u32;
 /// A Base58 encoded String of a Token ID.
 pub type TokenID = String;
 // Anyhow Error used for the base Result return type.
@@ -76,7 +76,7 @@ fn main() {
     simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
     log_panics::init();
     let args: Vec<String> = env::args().collect();
-    let (repost_sender, repost_receiver) = bounded(1);
+    let (_, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
     thread::Builder::new()
@@ -96,7 +96,7 @@ fn main() {
 
     let is_readonly = args.len() > 1 && &args[1] == "--readonly";
     loop {
-        if let Err(e) = main_loop_iteration(is_readonly) {
+        if let Err(_e) = main_loop_iteration(is_readonly) {
             todo!()
         }
         // Delay loop restart

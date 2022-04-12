@@ -53,7 +53,7 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     }
 }
 
-fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
+fn execute_refresh_action(_action: RefreshAction) -> Result<(), ActionExecError> {
     // TODO: use NodeInterface::sign_and_submit_transaction to sign and send the refresh pool tx
     todo!()
 }
@@ -65,7 +65,7 @@ impl OraclePool {
         let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();
 
         // Defining the registers of the output box
-        let live_epoch_id = self.get_live_epoch_state()?.epoch_id;
+        let _live_epoch_id = self.get_live_epoch_state()?.epoch_id;
         let registers = object! {
             "R4": address_to_raw_for_register(&self.local_oracle_address)?,
             // "R5": serialize_hex_encoded_string(&live_epoch_id)?.base16_str(),
