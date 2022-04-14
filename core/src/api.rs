@@ -1,7 +1,8 @@
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
-use crate::oracle_state::{OraclePool, PoolBoxState, StageDataSource};
+use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::print_action_results;
+use crate::state::PoolState;
 use crossbeam::Receiver;
 
 use std::env;
@@ -32,8 +33,7 @@ pub fn start_post_api() {
             // If the datapoint provided is a valid Integer
             if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
                 // Check if in Live Epoch stage
-                if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
-                    if let Ok(epoch_state) = op.get_live_epoch_state() {
+                if let PoolState::LiveEpoch(epoch_state) = op.check_oracle_pool_stage() {
                     let old_datapoint = epoch_state.latest_pool_datapoint;
 
                     // Difference calc
@@ -60,7 +60,7 @@ pub fn start_post_api() {
                     }
                     // Else if the difference is within 0.49% either way, post the new datapoint
                     else {
-                         op.action_commit_datapoint(datapoint)
+                        op.action_commit_datapoint(datapoint)
                     };
 
 
@@ -84,23 +84,14 @@ pub fn start_post_api() {
                             .response
                             .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                     }
-                }
-                // Else if in Epoch Prep stage
-                else {
+            }
+            // If the datapoint provided is not a valid i32 Integer
+            else {
                     let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
 
                     context
                         .response
                         .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
-                }
-            }
-            // If the datapoint provided is not a valid i32 Integer
-            else {
-                let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
-
-                context
-                    .response
-                    .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                 }
             }
 
@@ -243,8 +234,8 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
         // Current stage of the oracle pool box
         let current_stage = match op.check_oracle_pool_stage() {
-            PoolBoxState::LiveEpoch => "Live Epoch",
-            PoolBoxState::Preparation => "Epoch Preparation",
+            PoolState::LiveEpoch(_) => "Live Epoch",
+            PoolState::NeedsBootstrap => "Needs bootstrap",
         };
 
         let mut latest_datapoint = 0;
@@ -254,12 +245,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             latest_datapoint = l.latest_pool_datapoint;
             current_epoch_id = l.epoch_id.to_string();
             epoch_ends = l.epoch_ends;
-        } else if let Ok(ep) = op.get_preparation_state() {
-            latest_datapoint = ep.latest_pool_datapoint;
-            current_epoch_id = "Preparing Epoch Currently".to_string();
-            epoch_ends = ep.next_epoch_ends;
         }
-
         let response_json = object! {
             current_pool_stage: current_stage,
             latest_datapoint: latest_datapoint,

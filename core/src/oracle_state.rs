@@ -8,6 +8,7 @@ use crate::scans::{
     register_pool_box_scan, register_pool_deposit_scan, register_refresh_box_scan,
     save_scan_ids_locally, Scan, ScanError,
 };
+use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -27,13 +28,6 @@ pub enum StageError {
     UnexpectedData(TryExtractFromError),
     #[error("scan error: {0}")]
     ScanError(ScanError),
-}
-
-/// Enum for the state that the oracle pool box is currently in
-#[derive(Debug, Clone)]
-pub enum PoolBoxState {
-    Preparation,
-    LiveEpoch,
 }
 
 pub trait StageDataSource {
@@ -253,10 +247,10 @@ impl OraclePool {
     }
 
     /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
-    pub fn check_oracle_pool_stage(&self) -> PoolBoxState {
+    pub fn check_oracle_pool_stage(&self) -> PoolState {
         match self.get_live_epoch_state() {
-            Ok(_) => PoolBoxState::LiveEpoch,
-            Err(_) => PoolBoxState::Preparation,
+            Ok(s) => PoolState::LiveEpoch(s),
+            Err(_) => PoolState::NeedsBootstrap,
         }
     }
 
@@ -285,26 +279,25 @@ impl OraclePool {
         Ok(epoch_state)
     }
 
-    /// Get the state of the current epoch preparation box
-    pub fn get_preparation_state(&self) -> Result<PreparationState> {
-        todo!()
-        // let epoch_prep_box = self.epoch_preparation_stage.get_box()?;
-        // let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
+    // /// Get the state of the current epoch preparation box
+    // pub fn get_preparation_state(&self) -> Result<PreparationState> {
+    // let epoch_prep_box = self.epoch_preparation_stage.get_box()?;
+    // let epoch_prep_box_regs = epoch_prep_box.additional_registers.get_ordered_values();
 
-        // // Latest pool datapoint is held in R4
-        // let latest_pool_datapoint = unwrap_long(&epoch_prep_box_regs[0])?;
+    // // Latest pool datapoint is held in R4
+    // let latest_pool_datapoint = unwrap_long(&epoch_prep_box_regs[0])?;
 
-        // // Next epoch ends height held in R5
-        // let next_epoch_ends = unwrap_int(&epoch_prep_box_regs[1])?;
+    // // Next epoch ends height held in R5
+    // let next_epoch_ends = unwrap_int(&epoch_prep_box_regs[1])?;
 
-        // let prep_state = PreparationState {
-        //     funds: *epoch_prep_box.value.as_u64(),
-        //     next_epoch_ends: next_epoch_ends as u64,
-        //     latest_pool_datapoint: latest_pool_datapoint as u64,
-        // };
+    // let prep_state = PreparationState {
+    //     funds: *epoch_prep_box.value.as_u64(),
+    //     next_epoch_ends: next_epoch_ends as u64,
+    //     latest_pool_datapoint: latest_pool_datapoint as u64,
+    // };
 
-        // Ok(prep_state)
-    }
+    // Ok(prep_state)
+    // }
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Result<DatapointState> {

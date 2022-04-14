@@ -2,11 +2,11 @@
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
 use crate::node_interface::{
-    address_to_raw_for_register, send_transaction, serialize_boxes,
-    serialized_unspent_boxes_with_min_total, sign_and_submit_transaction,
+    address_to_raw_for_register, send_transaction, serialized_unspent_boxes_with_min_total,
+    sign_and_submit_transaction,
 };
 use crate::oracle_config::PoolParameters;
-use crate::oracle_state::{OraclePool, StageDataSource, StageError};
+use crate::oracle_state::{OraclePool, StageError};
 use crate::templates::BASIC_TRANSACTION_SEND_REQUEST;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::ergotree_ir::base16_str::Base16Str;
@@ -98,58 +98,58 @@ impl OraclePool {
         Ok(result)
     }
 
-    /// Generates and submits the "Collect Funds" action tx
-    pub fn action_collect_funds(&self) -> Result<String, StageError> {
-        let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();
+    // /// Generates and submits the "Collect Funds" action tx
+    // pub fn action_collect_funds(&self) -> Result<String, StageError> {
+    //     let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();
 
-        // Defining the registers of the output box
-        let epoch_prep_state = self.get_preparation_state()?;
-        let registers = object! {
-            "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
+    //     // Defining the registers of the output box
+    //     let epoch_prep_state = self.get_preparation_state()?;
+    //     let registers = object! {
+    //         "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
 
-            "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str().unwrap(),
-        };
-        // Defining the tokens to be spent
-        let token_json = object! {
-            "tokenId": self.oracle_pool_nft.to_string(),
-            "amount": 1
-        };
+    //         "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str().unwrap(),
+    //     };
+    //     // Defining the tokens to be spent
+    //     let token_json = object! {
+    //         "tokenId": self.oracle_pool_nft.to_string(),
+    //         "amount": 1
+    //     };
 
-        // Create input boxes Vec with serialized Epoch Preparation box inside
-        let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
-        // Acquire all Pool Deposit boxes
-        let mut initial_deposit_boxes = self.pool_deposit_stage.get_boxes()?;
-        // Only append up to 27 boxes for now. This is to prevent exceeding execution limit for txs.
-        if initial_deposit_boxes.len() > 27 {
-            unserialized_input_boxes.append(&mut initial_deposit_boxes[..27].to_vec());
-        } else {
-            unserialized_input_boxes.append(&mut initial_deposit_boxes);
-        }
+    //     // Create input boxes Vec with serialized Epoch Preparation box inside
+    //     let mut unserialized_input_boxes = vec![self.epoch_preparation_stage.get_box()?];
+    //     // Acquire all Pool Deposit boxes
+    //     let mut initial_deposit_boxes = self.pool_deposit_stage.get_boxes()?;
+    //     // Only append up to 27 boxes for now. This is to prevent exceeding execution limit for txs.
+    //     if initial_deposit_boxes.len() > 27 {
+    //         unserialized_input_boxes.append(&mut initial_deposit_boxes[..27].to_vec());
+    //     } else {
+    //         unserialized_input_boxes.append(&mut initial_deposit_boxes);
+    //     }
 
-        // Define the fee for the current action
-        let action_fee = 500000 * unserialized_input_boxes.len() as u64;
+    //     // Define the fee for the current action
+    //     let action_fee = 500000 * unserialized_input_boxes.len() as u64;
 
-        // Serialize boxes and add extra box for paying fee
-        let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
-        serialized_input_boxes.append(&mut serialized_unspent_boxes_with_min_total(action_fee)?);
+    //     // Serialize boxes and add extra box for paying fee
+    //     let mut serialized_input_boxes = serialize_boxes(&unserialized_input_boxes)?;
+    //     serialized_input_boxes.append(&mut serialized_unspent_boxes_with_min_total(action_fee)?);
 
-        // Sum up the new total minus tx fee
-        let total_input_ergs = unserialized_input_boxes
-            .iter()
-            .fold(0, |acc, b| acc + b.value.as_u64());
+    //     // Sum up the new total minus tx fee
+    //     let total_input_ergs = unserialized_input_boxes
+    //         .iter()
+    //         .fold(0, |acc, b| acc + b.value.as_u64());
 
-        // Filling out the json tx request template
-        req["requests"][0]["value"] = total_input_ergs.into();
-        req["requests"][0]["address"] =
-            self.epoch_preparation_stage.contract_address.clone().into();
-        req["requests"][0]["registers"] = registers;
-        req["requests"][0]["assets"] = vec![token_json].into();
-        req["inputsRaw"] = serialized_input_boxes.into();
-        req["fee"] = action_fee.into();
+    //     // Filling out the json tx request template
+    //     req["requests"][0]["value"] = total_input_ergs.into();
+    //     req["requests"][0]["address"] =
+    //         self.epoch_preparation_stage.contract_address.clone().into();
+    //     req["requests"][0]["registers"] = registers;
+    //     req["requests"][0]["assets"] = vec![token_json].into();
+    //     req["inputsRaw"] = serialized_input_boxes.into();
+    //     req["fee"] = action_fee.into();
 
-        let result = send_transaction(&req)?;
-        Ok(result)
-    }
+    //     let result = send_transaction(&req)?;
+    //     Ok(result)
+    // }
 
     // /// Generates and submits the "Start Next Epoch" action tx
     // pub fn action_start_next_epoch(&self) -> Result<String, StageError> {
