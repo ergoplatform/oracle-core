@@ -3,7 +3,7 @@
 /// are implemented on the `OraclePool` struct.
 use crate::node_interface::{
     address_to_raw_for_register, send_transaction, serialize_boxes,
-    serialized_unspent_boxes_with_min_total,
+    serialized_unspent_boxes_with_min_total, sign_and_submit_transaction,
 };
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::{OraclePool, StageDataSource, StageError};
@@ -14,6 +14,7 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 
 use derive_more::From;
+use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 mod collect;
@@ -43,8 +44,11 @@ pub enum CollectionError {
     LocalOracleFailedToPostDatapointWithinDeviation(),
 }
 
-#[derive(Error, Debug)]
-pub enum ActionExecError {}
+#[derive(Error, Debug, From)]
+pub enum ActionExecError {
+    #[error("node error: {0}")]
+    NodeError(NodeError),
+}
 
 pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     match action {
@@ -53,9 +57,9 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     }
 }
 
-fn execute_refresh_action(_action: RefreshAction) -> Result<(), ActionExecError> {
-    // TODO: use NodeInterface::sign_and_submit_transaction to sign and send the refresh pool tx
-    todo!()
+fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
+    let _tx_id = sign_and_submit_transaction(&action.tx)?;
+    Ok(())
 }
 
 impl OraclePool {

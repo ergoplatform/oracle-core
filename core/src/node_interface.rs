@@ -1,5 +1,8 @@
 use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
-use ergo_lib::ergotree_ir::chain::{address::Address, ergo_box::ErgoBox};
+use ergo_lib::{
+    chain::transaction::unsigned::UnsignedTransaction,
+    ergotree_ir::chain::{address::Address, ergo_box::ErgoBox},
+};
 use ergo_node_interface::{
     node_interface::{NodeError, NodeInterface},
     BlockHeight,
@@ -119,4 +122,9 @@ pub fn current_block_height() -> Result<BlockHeight> {
 
 pub fn get_wallet_change_address() -> Result<Address> {
     todo!()
+}
+
+/// Sign an `UnsignedTransaction` and then submit it to the mempool.
+pub fn sign_and_submit_transaction(unsigned_tx: &UnsignedTransaction) -> Result<TxId> {
+    new_node_interface().sign_and_submit_transaction(unsigned_tx)
 }

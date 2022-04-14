@@ -10,7 +10,6 @@
 //     oracle_boxes: Vec<ErgoBox>,
 //     live_epoch_id: u32,
 // ) -> Result<Vec<ErgoBox>, CollectionError> {
-//     // TODO: prepare oracle datapoint boxes (sort, finalize)
 //     let current_epoch_datapoint_boxes = current_epoch_boxes_filter(&oracle_boxes, live_epoch_id);
 //     // Sort Datapoint boxes in decreasing order
 //     let sorted_datapoint_boxes = sort_datapoint_boxes(&current_epoch_datapoint_boxes);
