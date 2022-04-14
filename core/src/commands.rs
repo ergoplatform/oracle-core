@@ -3,7 +3,7 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
-use crate::oracle_state::DatapointStage;
+use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
@@ -29,7 +29,7 @@ pub enum PoolCommandError {
     RefrechActionError(RefrechActionError),
 }
 
-pub fn build_action<B: DatapointStage, C: WalletDataSource>(
+pub fn build_action<B: DatapointBoxesSource, C: WalletDataSource>(
     cmd: PoolCommand,
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,

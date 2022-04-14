@@ -1,5 +1,5 @@
 // This files relates to the state of the oracle/oracle pool.
-use crate::box_kind::{OracleBox, PoolBox, PoolBoxWrapper, RefreshBoxWrapper};
+use crate::box_kind::{OracleBoxWrapper, PoolBox, PoolBoxWrapper, RefreshBoxWrapper};
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_config::get_config_yaml;
@@ -63,8 +63,8 @@ pub trait RefreshBoxSource {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper>;
 }
 
-pub trait DatapointStage {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<&dyn OracleBox>>;
+pub trait DatapointBoxesSource {
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>>;
 }
 
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
@@ -394,8 +394,13 @@ impl StageDataSource for Stage {
     }
 }
 
-impl DatapointStage for Stage {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<&dyn OracleBox>> {
-        todo!()
+impl DatapointBoxesSource for Stage {
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>> {
+        let res = self
+            .get_boxes()?
+            .into_iter()
+            .map(|b| OracleBoxWrapper::new(b).unwrap())
+            .collect();
+        Ok(res)
     }
 }

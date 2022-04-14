@@ -5,7 +5,7 @@ use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::contracts::refresh::RefreshContract;
-use crate::oracle_state::DatapointStage;
+use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
@@ -50,7 +50,7 @@ pub enum RefrechActionError {
     ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
 }
 
-pub fn build_refresh_action<B: DatapointStage, C: WalletDataSource>(
+pub fn build_refresh_action<B: DatapointBoxesSource, C: WalletDataSource>(
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: B,
@@ -65,7 +65,13 @@ pub fn build_refresh_action<B: DatapointStage, C: WalletDataSource>(
     let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
     let refresh_contract = RefreshContract::new();
     let deviation_range = refresh_contract.max_deviation_percent();
-    let valid_in_oracle_boxes = filtered_oracle_boxes(in_oracle_boxes, deviation_range)?;
+    let valid_in_oracle_boxes = filtered_oracle_boxes(
+        in_oracle_boxes
+            .iter()
+            .map(|b| b as &dyn OracleBox)
+            .collect(),
+        deviation_range,
+    )?;
     if (valid_in_oracle_boxes.len() as u32) < RefreshContract::new().min_data_points() {
         return Err(RefrechActionError::FailedToReachConsensus {
             found: valid_in_oracle_boxes.len() as u32,
@@ -311,16 +317,11 @@ mod tests {
         datapoints: Vec<OracleBoxWrapper>,
     }
 
-    impl DatapointStage for DatapointStageMock {
+    impl DatapointBoxesSource for DatapointStageMock {
         fn get_oracle_datapoint_boxes(
             &self,
-        ) -> std::result::Result<Vec<&dyn OracleBox>, StageError> {
-            let wrapped_boxes = self
-                .datapoints
-                .iter()
-                .map(|b| b as &dyn OracleBox)
-                .collect();
-            Ok(wrapped_boxes)
+        ) -> std::result::Result<Vec<OracleBoxWrapper>, StageError> {
+            Ok(self.datapoints.clone())
         }
     }
 
