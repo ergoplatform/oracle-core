@@ -151,83 +151,81 @@ impl OraclePool {
         Ok(result)
     }
 
-    /// Generates and submits the "Start Next Epoch" action tx
-    pub fn action_start_next_epoch(&self) -> Result<String, StageError> {
-        todo!()
-        // let parameters = PoolParameters::new();
-        // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
+    // /// Generates and submits the "Start Next Epoch" action tx
+    // pub fn action_start_next_epoch(&self) -> Result<String, StageError> {
+    // let parameters = PoolParameters::new();
+    // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
-        // // Defining the registers of the output box
-        // let epoch_prep_state = self.get_preparation_state()?;
-        // let registers = object! {
-        //     "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
-        //     "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str().unwrap(),
-        //     "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str().unwrap(),
-        // };
-        // // Defining the tokens to be spent
-        // let token_json = object! {
-        //     "tokenId": self.oracle_pool_nft.to_string(),
-        //     "amount": 1
-        // };
+    // // Defining the registers of the output box
+    // let epoch_prep_state = self.get_preparation_state()?;
+    // let registers = object! {
+    //     "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
+    //     "R5": Constant::from(epoch_prep_state.next_epoch_ends as i32).base16_str().unwrap(),
+    //     "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str().unwrap(),
+    // };
+    // // Defining the tokens to be spent
+    // let token_json = object! {
+    //     "tokenId": self.oracle_pool_nft.to_string(),
+    //     "amount": 1
+    // };
 
-        // let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
-        // inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-        //     parameters.base_fee,
-        // )?);
+    // let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
+    // inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+    //     parameters.base_fee,
+    // )?);
 
-        // // Filling out the json tx request template
-        // req["requests"][0]["value"] = epoch_prep_state.funds.into();
-        // req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
-        // req["requests"][0]["registers"] = registers;
-        // req["requests"][0]["assets"] = vec![token_json].into();
-        // req["inputsRaw"] = inputs_raw.into();
-        // req["fee"] = parameters.base_fee.into();
+    // // Filling out the json tx request template
+    // req["requests"][0]["value"] = epoch_prep_state.funds.into();
+    // req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
+    // req["requests"][0]["registers"] = registers;
+    // req["requests"][0]["assets"] = vec![token_json].into();
+    // req["inputsRaw"] = inputs_raw.into();
+    // req["fee"] = parameters.base_fee.into();
 
-        // let result = send_transaction(&req)?;
-        // Ok(result)
-    }
+    // let result = send_transaction(&req)?;
+    // Ok(result)
+    // }
 
-    /// Generates and submits the "Create New Epoch" action tx
-    pub fn action_create_new_epoch(&self) -> Result<String, StageError> {
-        todo!()
-        // let parameters = PoolParameters::new();
-        // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
+    // /// Generates and submits the "Create New Epoch" action tx
+    // pub fn action_create_new_epoch(&self) -> Result<String, StageError> {
+    // let parameters = PoolParameters::new();
+    // let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST)?;
 
-        // // Define the new epoch finish height based off of current height
-        // let new_finish_height = current_block_height()?
-        //     + parameters.epoch_preparation_length
-        //     + parameters.live_epoch_length
-        //     + parameters.buffer_length;
+    // // Define the new epoch finish height based off of current height
+    // let new_finish_height = current_block_height()?
+    //     + parameters.epoch_preparation_length
+    //     + parameters.live_epoch_length
+    //     + parameters.buffer_length;
 
-        // // Defining the registers of the output box
-        // let epoch_prep_state = self.get_preparation_state()?;
-        // let registers = object! {
-        //     "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
-        //     "R5": Constant::from(new_finish_height as i32).base16_str().unwrap(),
-        //     "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str().unwrap(),
-        // };
-        // // Defining the tokens to be spent
-        // let token_json = object! {
-        //     "tokenId": self.oracle_pool_nft.to_string(),
-        //     "amount": 1
-        // };
+    // // Defining the registers of the output box
+    // let epoch_prep_state = self.get_preparation_state()?;
+    // let registers = object! {
+    //     "R4": Constant::from(epoch_prep_state.latest_pool_datapoint as i64).base16_str().unwrap(),
+    //     "R5": Constant::from(new_finish_height as i32).base16_str().unwrap(),
+    //     "R6": serialize_hex_encoded_string(&string_to_blake2b_hash(address_to_tree(&self.epoch_preparation_stage.contract_address)?)?)?.base16_str().unwrap(),
+    // };
+    // // Defining the tokens to be spent
+    // let token_json = object! {
+    //     "tokenId": self.oracle_pool_nft.to_string(),
+    //     "amount": 1
+    // };
 
-        // let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
-        // inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-        //     parameters.base_fee,
-        // )?);
+    // let mut inputs_raw = vec![self.epoch_preparation_stage.get_serialized_box()?];
+    // inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
+    //     parameters.base_fee,
+    // )?);
 
-        // // Filling out the json tx request template
-        // req["requests"][0]["value"] = epoch_prep_state.funds.into();
-        // req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
-        // req["requests"][0]["registers"] = registers;
-        // req["requests"][0]["assets"] = vec![token_json].into();
-        // req["inputsRaw"] = inputs_raw.into();
-        // req["fee"] = parameters.base_fee.into();
+    // // Filling out the json tx request template
+    // req["requests"][0]["value"] = epoch_prep_state.funds.into();
+    // req["requests"][0]["address"] = self.live_epoch_stage.contract_address.clone().into();
+    // req["requests"][0]["registers"] = registers;
+    // req["requests"][0]["assets"] = vec![token_json].into();
+    // req["inputsRaw"] = inputs_raw.into();
+    // req["fee"] = parameters.base_fee.into();
 
-        // let result = send_transaction(&req)?;
-        // Ok(result)
-    }
+    // let result = send_transaction(&req)?;
+    // Ok(result)
+    // }
 
     /*
     /// Generates and submits the "Collect Datapoints" action tx
