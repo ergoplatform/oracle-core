@@ -1,5 +1,7 @@
 // This files relates to the state of the oracle/oracle pool.
-use crate::box_kind::{OracleBoxWrapper, PoolBox, PoolBoxWrapper, RefreshBoxWrapper};
+use crate::box_kind::{
+    OracleBoxWrapper, PoolBox, PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
+};
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
 use crate::oracle_config::get_config_yaml;
@@ -14,6 +16,7 @@ use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
+use std::convert::TryInto;
 use std::path::Path;
 use thiserror::Error;
 use yaml_rust::YamlLoader;
@@ -28,6 +31,10 @@ pub enum StageError {
     UnexpectedData(TryExtractFromError),
     #[error("scan error: {0}")]
     ScanError(ScanError),
+    #[error("pool box error: {0}")]
+    PoolBoxError(PoolBoxError),
+    #[error("refresh box error: {0}")]
+    RefreshBoxError(RefreshBoxError),
 }
 
 pub trait StageDataSource {
@@ -348,13 +355,13 @@ impl OraclePool {
 
 impl PoolBoxSource for Scan {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
-        todo!()
+        Ok(self.get_box()?.try_into()?)
     }
 }
 
 impl RefreshBoxSource for Scan {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        todo!()
+        Ok(self.get_box()?.try_into()?)
     }
 }
 
