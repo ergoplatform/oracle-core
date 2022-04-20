@@ -1,13 +1,9 @@
 use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
 use ergo_lib::{
-    chain::transaction::unsigned::UnsignedTransaction,
-    ergotree_ir::chain::{
-        address::{Address, AddressEncoder, NetworkPrefix},
-        ergo_box::ErgoBox,
-    },
+    chain::transaction::unsigned::UnsignedTransaction, ergotree_ir::chain::ergo_box::ErgoBox,
 };
 use ergo_node_interface::{
-    node_interface::{NodeError, NodeInterface},
+    node_interface::{NodeError, NodeInterface, WalletStatus},
     BlockHeight,
 };
 use json::JsonValue;
@@ -123,15 +119,8 @@ pub fn current_block_height() -> Result<BlockHeight> {
     new_node_interface().current_block_height()
 }
 
-pub fn get_wallet_change_address() -> Result<Address> {
-    let status = new_node_interface().wallet_status()?;
-    let address_encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
-    // TODO: change_address can be empty if wallet is locked or not initialized
-    // TODO: handle address parsing error
-    let address = address_encoder
-        .parse_address_from_str(&status.change_address.unwrap())
-        .unwrap();
-    Ok(address)
+pub fn get_wallet_status() -> Result<WalletStatus> {
+    new_node_interface().wallet_status()
 }
 
 /// Sign an `UnsignedTransaction` and then submit it to the mempool.

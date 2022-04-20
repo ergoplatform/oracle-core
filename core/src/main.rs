@@ -30,12 +30,15 @@ mod templates;
 mod wallet;
 
 use actions::execute_action;
+use anyhow::anyhow;
 use anyhow::Error;
 use commands::build_action;
 use crossbeam::channel::bounded;
+use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::info;
 use node_interface::current_block_height;
-use node_interface::get_wallet_change_address;
+use node_interface::get_wallet_status;
 use oracle_config::PoolParameters;
 use state::process;
 use state::PoolState;
@@ -109,7 +112,11 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
     let parameters = oracle_config::PoolParameters::new();
     let height = current_block_height()?;
     let wallet = WalletData {};
-    let change_address = get_wallet_change_address()?;
+    let change_address_str = get_wallet_status()?.change_address.ok_or(anyhow!(
+        "failed to get wallet's change address (locked wallet?)"
+    ))?;
+    let change_address =
+        AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     // TODO: extract the check from print_into()
     // Check if properly synced.
     if let Err(e) = print_info(op.clone(), height, &parameters) {
