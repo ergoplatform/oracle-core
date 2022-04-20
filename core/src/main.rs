@@ -112,9 +112,9 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
     let parameters = oracle_config::PoolParameters::new();
     let height = current_block_height()?;
     let wallet = WalletData {};
-    let change_address_str = get_wallet_status()?.change_address.ok_or(anyhow!(
-        "failed to get wallet's change address (locked wallet?)"
-    ))?;
+    let change_address_str = get_wallet_status()?
+        .change_address
+        .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
     let change_address =
         AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     // TODO: extract the check from print_into()
