@@ -1,6 +1,7 @@
 // This files relates to the state of the oracle/oracle pool.
 use crate::box_kind::{
-    OracleBoxWrapper, PoolBox, PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
+    OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox, PoolBoxError, PoolBoxWrapper,
+    RefreshBoxError, RefreshBoxWrapper,
 };
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
@@ -35,6 +36,8 @@ pub enum StageError {
     PoolBoxError(PoolBoxError),
     #[error("refresh box error: {0}")]
     RefreshBoxError(RefreshBoxError),
+    #[error("oracle box error: {0}")]
+    OracleBoxError(OracleBoxError),
 }
 
 pub trait StageDataSource {
@@ -66,6 +69,10 @@ pub trait RefreshBoxSource {
 
 pub trait DatapointBoxesSource {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>>;
+}
+
+pub trait LocalDatapointBoxSource {
+    fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper>;
 }
 
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
@@ -308,23 +315,21 @@ impl OraclePool {
 
     /// Get the current state of the local oracle's datapoint
     pub fn get_datapoint_state(&self) -> Result<DatapointState> {
-        todo!()
-        // let datapoint_box = self.local_oracle_datapoint_scan.get_box()?;
-        // let datapoint_box_regs = datapoint_box.additional_registers.get_ordered_values();
+        let datapoint_box = self
+            .local_oracle_datapoint_scan
+            .get_local_oracle_datapoint_box()?;
 
-        // // The Live Epoch box id of the epoch the datapoint was posted in (which is held in R5)
-        // let origin_epoch_id = unwrap_hex_encoded_string(&datapoint_box_regs[1])?;
+        let origin_epoch_id = datapoint_box.epoch_counter();
 
-        // // Oracle datapoint held in R6
-        // let datapoint = unwrap_long(&datapoint_box_regs[2])?;
+        let datapoint = datapoint_box.rate();
 
-        // let datapoint_state = DatapointState {
-        //     datapoint: datapoint as u64,
-        //     origin_epoch_id: origin_epoch_id.clone(),
-        //     creation_height: datapoint_box.creation_height as u64,
-        // };
+        let datapoint_state = DatapointState {
+            datapoint,
+            origin_epoch_id,
+            creation_height: datapoint_box.get_box().creation_height as u64,
+        };
 
-        // Ok(datapoint_state)
+        Ok(datapoint_state)
     }
 
     /// Get the current state of all of the pool deposit boxes
@@ -361,6 +366,12 @@ impl PoolBoxSource for Scan {
 
 impl RefreshBoxSource for Scan {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
+        Ok(self.get_box()?.try_into()?)
+    }
+}
+
+impl LocalDatapointBoxSource for Scan {
+    fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
         Ok(self.get_box()?.try_into()?)
     }
 }
