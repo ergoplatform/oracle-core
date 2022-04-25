@@ -293,20 +293,23 @@ mod tests {
 
     use super::*;
 
-    // TODO: split into pool box and refresh box source mocks
     #[derive(Clone)]
-    struct LiveEpochStageMock {
+    struct RefreshBoxMock {
         refresh_box: RefreshBoxWrapper,
+    }
+
+    #[derive(Clone)]
+    struct PoolBoxMock {
         pool_box: PoolBoxWrapper,
     }
 
-    impl PoolBoxSource for LiveEpochStageMock {
+    impl PoolBoxSource for PoolBoxMock {
         fn get_pool_box(&self) -> std::result::Result<PoolBoxWrapper, StageError> {
             Ok(self.pool_box.clone())
         }
     }
 
-    impl RefreshBoxSource for LiveEpochStageMock {
+    impl RefreshBoxSource for RefreshBoxMock {
         fn get_refresh_box(&self) -> std::result::Result<RefreshBoxWrapper, StageError> {
             Ok(self.refresh_box.clone())
         }
@@ -527,10 +530,13 @@ mod tests {
             height - 9,
         );
 
-        let live_epoch_stage_mock = LiveEpochStageMock {
-            refresh_box: in_refresh_box,
+        let pool_box_mock = PoolBoxMock {
             pool_box: in_pool_box,
         };
+        let refresh_box_mock = RefreshBoxMock {
+            refresh_box: in_refresh_box,
+        };
+
         let change_address =
             AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
@@ -547,8 +553,8 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
         };
         let action = build_refresh_action(
-            &live_epoch_stage_mock,
-            &live_epoch_stage_mock,
+            &pool_box_mock,
+            &refresh_box_mock,
             datapoint_stage_mock.clone(),
             wallet_mock.clone(),
             height,
@@ -557,8 +563,8 @@ mod tests {
         .unwrap();
 
         let mut possible_input_boxes = vec![
-            live_epoch_stage_mock.get_pool_box().unwrap().get_box(),
-            live_epoch_stage_mock.get_refresh_box().unwrap().get_box(),
+            pool_box_mock.get_pool_box().unwrap().get_box(),
+            refresh_box_mock.get_refresh_box().unwrap().get_box(),
         ];
         let mut in_oracle_boxes_raw: Vec<ErgoBox> =
             in_oracle_boxes.into_iter().map(Into::into).collect();
