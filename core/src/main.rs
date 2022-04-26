@@ -111,7 +111,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
     let height = current_block_height()?;
-    let wallet = WalletData {};
+    let wallet = WalletData::new();
     let change_address_str = get_wallet_status()?
         .change_address
         .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
@@ -142,8 +142,8 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
                 cmd,
                 op.get_pool_box_source(),
                 op.get_refresh_box_source(),
-                op.datapoint_stage.clone(),
-                wallet,
+                op.get_datapoint_boxes_source(),
+                &wallet,
                 height as u32,
                 change_address,
             )?;

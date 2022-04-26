@@ -9,6 +9,12 @@ pub trait WalletDataSource {
 
 pub struct WalletData {}
 
+impl WalletData {
+    pub fn new() -> Self {
+        WalletData {}
+    }
+}
+
 impl WalletDataSource for WalletData {
     fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
         node_interface::get_unspent_wallet_boxes()

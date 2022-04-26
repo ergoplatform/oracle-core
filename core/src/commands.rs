@@ -29,12 +29,12 @@ pub enum PoolCommandError {
     RefrechActionError(RefrechActionError),
 }
 
-pub fn build_action<B: DatapointBoxesSource, C: WalletDataSource>(
+pub fn build_action(
     cmd: PoolCommand,
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
-    datapoint_stage_src: B,
-    wallet: C,
+    datapoint_stage_src: &dyn DatapointBoxesSource,
+    wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {

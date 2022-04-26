@@ -50,11 +50,11 @@ pub enum RefrechActionError {
     ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
 }
 
-pub fn build_refresh_action<B: DatapointBoxesSource, C: WalletDataSource>(
+pub fn build_refresh_action(
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
-    datapoint_stage_src: B,
-    wallet: C,
+    datapoint_stage_src: &dyn DatapointBoxesSource,
+    wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
 ) -> Result<RefreshAction, RefrechActionError> {
@@ -555,8 +555,8 @@ mod tests {
         let action = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
-            datapoint_stage_mock.clone(),
-            wallet_mock.clone(),
+            &datapoint_stage_mock,
+            &wallet_mock,
             height,
             change_address,
         )

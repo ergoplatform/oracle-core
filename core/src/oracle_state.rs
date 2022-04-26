@@ -356,6 +356,10 @@ impl OraclePool {
     pub fn get_refresh_box_source(&self) -> &dyn RefreshBoxSource {
         &self.refresh_box_scan as &dyn RefreshBoxSource
     }
+
+    pub fn get_datapoint_boxes_source(&self) -> &dyn DatapointBoxesSource {
+        &self.datapoint_stage as &dyn DatapointBoxesSource
+    }
 }
 
 impl PoolBoxSource for Scan {
