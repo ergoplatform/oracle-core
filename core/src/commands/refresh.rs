@@ -1,5 +1,6 @@
 use crate::actions::RefreshAction;
 use crate::box_kind::OracleBox;
+use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBox;
 use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::RefreshBox;
@@ -62,16 +63,18 @@ pub fn build_refresh_action(
 
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
-    let in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
     let refresh_contract = RefreshContract::new();
     let deviation_range = refresh_contract.max_deviation_percent();
-    let valid_in_oracle_boxes = filtered_oracle_boxes(
-        in_oracle_boxes
-            .iter()
-            .map(|b| b as &dyn OracleBox)
-            .collect(),
+    in_oracle_boxes.sort_by_key(|b| b.rate());
+    let valid_in_oracle_boxes_indices = filtered_oracle_boxes_indices(
+        in_oracle_boxes.iter().map(|b| b.rate()).collect(),
         deviation_range,
     )?;
+    let valid_in_oracle_boxes = valid_in_oracle_boxes_indices
+        .iter()
+        .map(|i| in_oracle_boxes[*i].clone())
+        .collect::<Vec<_>>();
     if (valid_in_oracle_boxes.len() as u32) < RefreshContract::new().min_data_points() {
         return Err(RefrechActionError::FailedToReachConsensus {
             found: valid_in_oracle_boxes.len() as u32,
@@ -130,45 +133,55 @@ pub fn build_refresh_action(
     Ok(RefreshAction { tx })
 }
 
-fn filtered_oracle_boxes(
-    oracle_boxes: Vec<&dyn OracleBox>,
+fn filtered_oracle_boxes_indices(
+    oracle_boxes: Vec<u64>,
     deviation_range: u32,
-) -> Result<Vec<&dyn OracleBox>, RefrechActionError> {
+) -> Result<Vec<usize>, RefrechActionError> {
     // The oracle boxes must be arranged in increasing order of their R6 values (rate).
+    // TODO: assert!(oracle_boxes.is_sorted());
     let mut successful_boxes = oracle_boxes.clone();
-    successful_boxes.sort_by_key(|b| b.rate());
+    dbg!(&successful_boxes);
+    let mut indices_to_remove = Vec::new();
     // The first oracle box's rate must be within deviation_range(5%) of that of the last, and must be > 0
     while !deviation_check(deviation_range, &successful_boxes) {
         // Removing largest deviation outlier
-        remove_largest_local_deviation_datapoint(&mut successful_boxes)?;
+        let index_to_remove = remove_largest_local_deviation_datapoint(&successful_boxes)?;
+        dbg!(&successful_boxes);
+        dbg!(index_to_remove);
+        successful_boxes.remove(index_to_remove);
+        // TODO: this is not the index in the oracle_boxes vector, but the index in the successful_boxes vector
+        indices_to_remove.push(index_to_remove);
     }
-    Ok(successful_boxes)
+    dbg!(&indices_to_remove);
+    Ok(successful_boxes
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !indices_to_remove.contains(i))
+        .map(|(i, _)| i)
+        .collect())
 }
 
-fn deviation_check(deviation_range: u32, datapoint_boxes: &Vec<&dyn OracleBox>) -> bool {
+fn deviation_check(deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool {
     let num = datapoint_boxes.len();
     // expected sorted datapoint_boxes
-    let max_datapoint = datapoint_boxes[0].rate();
-    let min_datapoint = datapoint_boxes[num - 1].rate();
+    let min_datapoint = datapoint_boxes[0];
+    let max_datapoint = datapoint_boxes[num - 1];
     let deviation_delta = max_datapoint * (deviation_range as u64) / 100;
-    min_datapoint >= max_datapoint - deviation_delta
+    dbg!(min_datapoint >= max_datapoint - deviation_delta)
 }
 
 /// Finds whether the first or the last value in a list of sorted Datapoint boxes
 /// deviates more compared to their adjacted datapoint, and then removes
 /// said datapoint which deviates further.
 fn remove_largest_local_deviation_datapoint(
-    datapoint_boxes: &mut Vec<&dyn OracleBox>,
-) -> Result<(), RefrechActionError> {
+    datapoint_boxes: &Vec<u64>,
+) -> Result<usize, RefrechActionError> {
     let dp_len = datapoint_boxes.len();
     // Check if sufficient number of datapoint boxes to start removing
     if dp_len <= 2 {
         Err(RefrechActionError::NotEnoughDatapoints)
     } else {
-        let datapoints: Vec<i64> = datapoint_boxes
-            .iter()
-            .map(|_| datapoint_boxes[0].rate() as i64)
-            .collect();
+        let datapoints: Vec<i64> = datapoint_boxes.iter().map(|d| *d as i64).collect();
         // Check deviation by subtracting largest value by 2nd largest
         let front_deviation = datapoints[0] - datapoints[1];
         // Check deviation by subtracting 2nd smallest value by smallest
@@ -176,13 +189,14 @@ fn remove_largest_local_deviation_datapoint(
 
         // Remove largest datapoint if front deviation is greater
         if front_deviation >= back_deviation {
-            datapoint_boxes.drain(0..1);
+            Ok(0)
+            // datapoint_boxes.drain(0..1);
         }
         // Remove smallest datapoint if back deviation is greater
         else {
-            datapoint_boxes.pop();
+            Ok(dp_len - 1)
+            // datapoint_boxes.pop();
         }
-        Ok(())
     }
 }
 
@@ -233,7 +247,7 @@ fn build_out_refresh_box(
 }
 
 fn build_out_oracle_boxes(
-    valid_oracle_boxes: &Vec<&dyn OracleBox>,
+    valid_oracle_boxes: &Vec<OracleBoxWrapper>,
     creation_height: u32,
 ) -> Result<Vec<ErgoBoxCandidate>, RefrechActionError> {
     valid_oracle_boxes
@@ -587,5 +601,13 @@ mod tests {
         .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+    }
+
+    #[test]
+    fn test_oracle_deviation_check() {
+        assert_eq!(
+            filtered_oracle_boxes_indices(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
+            vec![0, 1, 2, 3, 4]
+        );
     }
 }
