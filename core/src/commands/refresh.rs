@@ -436,7 +436,7 @@ mod tests {
     }
 
     fn make_datapoint_boxes(
-        pub_key: EcPoint,
+        pub_keys: Vec<EcPoint>,
         datapoints: Vec<i64>,
         epoch_counter: i32,
         oracle_token_id: TokenId,
@@ -446,7 +446,8 @@ mod tests {
     ) -> Vec<OracleBoxWrapper> {
         datapoints
             .into_iter()
-            .map(|datapoint| {
+            .zip(pub_keys)
+            .map(|(datapoint, pub_key)| {
                 make_datapoint_box(
                     pub_key.clone(),
                     datapoint,
@@ -518,9 +519,16 @@ mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
-        // TODO: make a key for each oracle
-        let in_oracle_boxes = make_datapoint_boxes(
+        let oracle_pub_keys = vec![
             *oracle_pub_key,
+            force_any_val::<EcPoint>(),
+            force_any_val::<EcPoint>(),
+            force_any_val::<EcPoint>(),
+            force_any_val::<EcPoint>(),
+            force_any_val::<EcPoint>(),
+        ];
+        let in_oracle_boxes = make_datapoint_boxes(
+            oracle_pub_keys,
             // TODO: filtering out outliers does not work
             vec![195, 196, 197, 198, 199, 200],
             1,
