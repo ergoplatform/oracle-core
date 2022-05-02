@@ -67,13 +67,13 @@ pub fn build_refresh_action(
     let refresh_contract = RefreshContract::new();
     let deviation_range = refresh_contract.max_deviation_percent();
     in_oracle_boxes.sort_by_key(|b| b.rate());
-    let valid_in_oracle_boxes_indices = filtered_oracle_boxes_indices(
+    let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes(
         in_oracle_boxes.iter().map(|b| b.rate()).collect(),
         deviation_range,
     )?;
-    let valid_in_oracle_boxes = valid_in_oracle_boxes_indices
-        .iter()
-        .map(|i| in_oracle_boxes[*i].clone())
+    let valid_in_oracle_boxes = in_oracle_boxes
+        .into_iter()
+        .filter(|b| valid_in_oracle_boxes_datapoints.contains(&b.rate()))
         .collect::<Vec<_>>();
     if (valid_in_oracle_boxes.len() as u32) < RefreshContract::new().min_data_points() {
         return Err(RefrechActionError::FailedToReachConsensus {
@@ -133,69 +133,54 @@ pub fn build_refresh_action(
     Ok(RefreshAction { tx })
 }
 
-fn filtered_oracle_boxes_indices(
+fn filtered_oracle_boxes(
     oracle_boxes: Vec<u64>,
     deviation_range: u32,
-) -> Result<Vec<usize>, RefrechActionError> {
-    // The oracle boxes must be arranged in increasing order of their R6 values (rate).
-    // TODO: assert!(oracle_boxes.is_sorted());
+) -> Result<Vec<u64>, RefrechActionError> {
     let mut successful_boxes = oracle_boxes.clone();
-    dbg!(&successful_boxes);
-    let mut indices_to_remove = Vec::new();
-    // The first oracle box's rate must be within deviation_range(5%) of that of the last, and must be > 0
+    // The min oracle box's rate must be within deviation_range(5%) of that of the max
     while !deviation_check(deviation_range, &successful_boxes) {
         // Removing largest deviation outlier
-        let index_to_remove = remove_largest_local_deviation_datapoint(&successful_boxes)?;
-        dbg!(&successful_boxes);
-        dbg!(index_to_remove);
-        successful_boxes.remove(index_to_remove);
-        // TODO: this is not the index in the oracle_boxes vector, but the index in the successful_boxes vector
-        indices_to_remove.push(index_to_remove);
+        successful_boxes = remove_largest_local_deviation_datapoint(successful_boxes)?;
     }
-    dbg!(&indices_to_remove);
-    Ok(successful_boxes
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| !indices_to_remove.contains(i))
-        .map(|(i, _)| i)
-        .collect())
+    dbg!(&successful_boxes);
+    Ok(successful_boxes)
 }
 
-fn deviation_check(deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool {
-    let num = datapoint_boxes.len();
-    // expected sorted datapoint_boxes
-    let min_datapoint = datapoint_boxes[0];
-    let max_datapoint = datapoint_boxes[num - 1];
-    let deviation_delta = max_datapoint * (deviation_range as u64) / 100;
-    dbg!(min_datapoint >= max_datapoint - deviation_delta)
+fn deviation_check(max_deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool {
+    let min_datapoint = datapoint_boxes.iter().min().unwrap();
+    let max_datapoint = datapoint_boxes.iter().max().unwrap();
+    let deviation_delta = max_datapoint * (max_deviation_range as u64) / 100;
+    max_datapoint - min_datapoint <= deviation_delta
 }
 
-/// Finds whether the first or the last value in a list of sorted Datapoint boxes
+/// Finds whether the max or the min value in a list of sorted Datapoint boxes
 /// deviates more compared to their adjacted datapoint, and then removes
 /// said datapoint which deviates further.
 fn remove_largest_local_deviation_datapoint(
-    datapoint_boxes: &Vec<u64>,
-) -> Result<usize, RefrechActionError> {
-    let dp_len = datapoint_boxes.len();
+    datapoint_boxes: Vec<u64>,
+) -> Result<Vec<u64>, RefrechActionError> {
     // Check if sufficient number of datapoint boxes to start removing
-    if dp_len <= 2 {
+    if datapoint_boxes.len() <= 2 {
         Err(RefrechActionError::NotEnoughDatapoints)
     } else {
-        let datapoints: Vec<i64> = datapoint_boxes.iter().map(|d| *d as i64).collect();
-        // Check deviation by subtracting largest value by 2nd largest
-        let front_deviation = datapoints[0] - datapoints[1];
-        // Check deviation by subtracting 2nd smallest value by smallest
-        let back_deviation = datapoints[dp_len - 2] - datapoints[dp_len - 1];
-
-        // Remove largest datapoint if front deviation is greater
+        let mean = (datapoint_boxes.iter().sum::<u64>() as f32) / datapoint_boxes.len() as f32;
+        let min_datapoint = *datapoint_boxes.iter().min().unwrap();
+        let max_datapoint = *datapoint_boxes.iter().max().unwrap();
+        let front_deviation = max_datapoint as f32 - mean;
+        let back_deviation = mean - min_datapoint as f32;
         if front_deviation >= back_deviation {
-            Ok(0)
-            // datapoint_boxes.drain(0..1);
-        }
-        // Remove smallest datapoint if back deviation is greater
-        else {
-            Ok(dp_len - 1)
-            // datapoint_boxes.pop();
+            // Remove largest datapoint if front deviation is greater
+            Ok(datapoint_boxes
+                .into_iter()
+                .filter(|dp| *dp != max_datapoint)
+                .collect())
+        } else {
+            // Remove smallest datapoint if back deviation is greater
+            Ok(datapoint_boxes
+                .into_iter()
+                .filter(|dp| *dp != min_datapoint)
+                .collect())
         }
     }
 }
@@ -543,8 +528,7 @@ mod tests {
         ];
         let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_keys,
-            // TODO: filtering out outliers does not work
-            vec![195, 196, 197, 198, 199, 200],
+            vec![194, 70, 196, 197, 198, 200],
             1,
             refresh_contract.oracle_nft_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
@@ -606,8 +590,24 @@ mod tests {
     #[test]
     fn test_oracle_deviation_check() {
         assert_eq!(
-            filtered_oracle_boxes_indices(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
-            vec![0, 1, 2, 3, 4]
+            filtered_oracle_boxes(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
+            vec![95, 96, 97, 98, 99]
+        );
+        assert_eq!(
+            filtered_oracle_boxes(vec![70, 95, 96, 97, 98, 99, 200], 5).unwrap(),
+            vec![95, 96, 97, 98, 99]
+        );
+        assert_eq!(
+            filtered_oracle_boxes(vec![70, 95, 96, 97, 98, 99], 5).unwrap(),
+            vec![95, 96, 97, 98, 99]
+        );
+        assert_eq!(
+            filtered_oracle_boxes(vec![70, 70, 95, 96, 97, 98, 99], 5).unwrap(),
+            vec![95, 96, 97, 98, 99]
+        );
+        assert_eq!(
+            filtered_oracle_boxes(vec![95, 96, 97, 98, 99, 200, 200], 5).unwrap(),
+            vec![95, 96, 97, 98, 99]
         );
     }
 }
