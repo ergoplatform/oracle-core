@@ -48,6 +48,10 @@ pub fn start_post_api() {
                     else if difference < 0.50 {
                          op.action_commit_datapoint(datapoint)
                     }
+                    // TODO: remove 0.5% cap, kushti asked on TG:
+                    // >Lets run 2.0 with no delay in data update in the default data provider
+                    // >No, data provider currently cap oracle price change at 0.5 percent per epoch
+                    //
                     // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
                     else if difference < 0.9951 {
                         let new_datapoint = (old_datapoint as f64 * 0.9951) as u64;
