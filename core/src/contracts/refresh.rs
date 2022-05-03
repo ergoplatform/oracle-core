@@ -6,11 +6,6 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
-    min_data_points: u32,
-    max_deviation_percent: u32,
-    pool_nft_token_id: TokenId,
-    oracle_nft_token_id: TokenId,
-    pub epoch_length: u32,
 }
 
 impl RefreshContract {
@@ -19,23 +14,30 @@ impl RefreshContract {
     //
     const P2S: &'static str = "8A4xmqigjVZ8W4bEnZq84GtTqbTmaF9QFTR51uC8rPc66MFbHVZvh8i8C4L2Cdfezg3UtcCpMdzVCtDGpQ41nJNgvWfxrvpyRiaA8fLYqgFhZrda976SR9Znx9UYJfdRyeBrU8bqyZ5QYKuUTXs1TE2YLAyUG6jyYqPA48Nb8J6XfPytGfdX2rxHYA9rppaD3SXaxGSjFZwqM3Cn6k72jqesWA12vSrwW7PavWKjPkVxJRvtW3eTJjnDGw4GZ2BgGjCV1NXYsy4itq3W8M2DWCox1wgoz5viYVKqgALCK8Bgxj2R5u83w8x9EHKee4ZbakhwT3oF5cZ97RokgR8N2fKPbNVDDJUMctuuKt1juHAAkquiu6pqmXtuAXbWZCKz1mUUfYHNBGkhU84h1FCZWv6JAofJinVd6F3S8V8uMY1ZTeSSfwhykAiSBriGkACGo3vNr1RXDLSLCR73NwPdNJeCC4n11xsjdV19nvjg9ToLTaxUW3DaW8KdLyge1Pe6zy5phq8ohriSz5G5ib6XPNfZvmooBVFpxG66dm8V9KQNqVHeAqJ7kDForYqQYq7y1iEJRTJ5kmi9s93KksDJxk6E3Xe42BgYUBUAvp7mxfqojxJQ9B8a2xgu8niZ3W7fTprPMvzSpRtjE7sXBWwBEqAAdLU6PQuRwxreDnU2QDvX3LkaHP8PuFyqeRYQouAMPoEn3dF5RW5MYHYqgaPshubRrHJCSYBv5LW6ywdNzf7t8t5uZNhR";
 
+    pub const POOL_NFT_INDEX: usize = 17;
+    pub const ORACLE_NFT_INDEX: usize = 3;
+    pub const MIN_DATA_POINTS_INDEX: usize = 19;
+    pub const MAX_DEVIATION_PERCENT_INDEX: usize = 14;
+    pub const EPOCH_LENGTH_INDEX: usize = 0;
+
     pub fn new() -> Self {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
         dbg!(ergo_tree.get_constants().unwrap());
         let pool_nft_token_id: TokenId = ergo_tree
-            .get_constant(17)
+            .get_constant(Self::POOL_NFT_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap();
+        // check if the parsed value is the same as the one in the contract
         assert_eq!(
             pool_nft_token_id,
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
         );
         let oracle_nft_token_id: TokenId = ergo_tree
-            .get_constant(3)
+            .get_constant(Self::ORACLE_NFT_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
@@ -47,7 +49,7 @@ impl RefreshContract {
 
         // TODO: there is two (with the same value 4) constants
         let min_data_points = ergo_tree
-            .get_constant(19)
+            .get_constant(Self::MIN_DATA_POINTS_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
@@ -55,7 +57,7 @@ impl RefreshContract {
         assert_eq!(min_data_points, 4);
 
         let max_deviation_percent = ergo_tree
-            .get_constant(14)
+            .get_constant(Self::MAX_DEVIATION_PERCENT_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
@@ -63,40 +65,70 @@ impl RefreshContract {
         assert_eq!(max_deviation_percent, 5);
 
         let epoch_length = ergo_tree
-            .get_constant(0)
+            .get_constant(Self::EPOCH_LENGTH_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
             .unwrap() as u32;
         assert_eq!(epoch_length, 30);
 
-        Self {
-            ergo_tree,
-            min_data_points,
-            max_deviation_percent,
-            pool_nft_token_id,
-            oracle_nft_token_id,
-            epoch_length,
-        }
+        Self { ergo_tree }
     }
 
     pub fn ergo_tree(&self) -> ErgoTree {
         self.ergo_tree.clone()
     }
 
+    pub fn epoch_length(&self) -> u32 {
+        self.ergo_tree
+            .get_constant(Self::EPOCH_LENGTH_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32
+    }
+
     pub fn min_data_points(&self) -> u32 {
-        self.min_data_points
+        self.ergo_tree
+            .get_constant(Self::MIN_DATA_POINTS_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32
     }
 
     pub fn max_deviation_percent(&self) -> u32 {
-        self.max_deviation_percent
+        self.ergo_tree
+            .get_constant(Self::MAX_DEVIATION_PERCENT_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32
     }
 
     pub fn oracle_nft_token_id(&self) -> TokenId {
-        self.oracle_nft_token_id.clone()
+        self.ergo_tree
+            .get_constant(Self::ORACLE_NFT_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap()
     }
 
     pub fn pool_nft_token_id(&self) -> TokenId {
-        self.pool_nft_token_id.clone()
+        self.ergo_tree
+            .get_constant(Self::POOL_NFT_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap()
+    }
+
+    pub fn with_pool_nft_token_id(self, token_id: TokenId) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::POOL_NFT_INDEX, token_id.clone().into())
+            .unwrap();
+        Self { ergo_tree: tree }
     }
 }

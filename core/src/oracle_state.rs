@@ -281,7 +281,7 @@ impl OraclePool {
         let latest_pool_datapoint = pool_box.rate();
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = pool_box.get_box().creation_height + RefreshContract::new().epoch_length;
+        let epoch_ends = pool_box.get_box().creation_height + RefreshContract::new().epoch_length();
 
         let epoch_state = LiveEpochState {
             epoch_id,
