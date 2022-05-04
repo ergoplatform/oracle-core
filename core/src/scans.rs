@@ -1,39 +1,56 @@
+use crate::contracts::pool::PoolContract;
+use crate::contracts::refresh::RefreshContract;
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
     address_to_bytes, address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box,
     serialize_boxes,
 };
 use crate::print_and_log;
-use crate::Result;
-use anyhow::anyhow;
-use ergo_lib::chain::ergo_box::ErgoBox;
 
+use derive_more::From;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_node_interface::node_interface::NodeError;
 use json::JsonValue;
 use log::info;
+use thiserror::Error;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;
 
+pub type Result<T> = std::result::Result<T, ScanError>;
+
+#[derive(Debug, From, Error)]
+pub enum ScanError {
+    #[error("node error: {0}")]
+    NodeError(NodeError),
+    #[error("no boxes found")]
+    NoBoxesFound,
+    #[error("failed to register scan")]
+    FailedToRegister,
+    #[error("IO error: {0}")]
+    IoError(std::io::Error),
+}
+
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
 #[derive(Debug, Clone)]
 pub struct Scan {
-    name: String,
+    name: &'static str,
     id: ScanID,
 }
 
 impl Scan {
     /// Create a new `Scan` with provided name & scan_id
-    pub fn new(name: &String, scan_id: &String) -> Scan {
+    pub fn new(name: &'static str, scan_id: &String) -> Scan {
         Scan {
-            name: name.clone(),
+            name,
             id: scan_id.clone(),
         }
     }
 
     /// Registers a scan in the node and returns a `Scan` as a result
-    pub fn register(name: &String, tracking_rule: JsonValue) -> Result<Scan> {
+    pub fn register(name: &'static str, tracking_rule: JsonValue) -> Result<Scan> {
         let scan_json = object! {
-        scanName: name.clone(),
+        scanName: name,
         trackingRule: tracking_rule.clone(),
         };
 
@@ -56,7 +73,7 @@ impl Scan {
         self.get_boxes()?
             .into_iter()
             .next()
-            .ok_or_else(|| anyhow!("No Boxes Found For {}", self.name))
+            .ok_or(ScanError::NoBoxesFound)
     }
 
     /// Returns all boxes found by the scan
@@ -79,7 +96,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
     let mut id_json = object! {};
     for scan in scans {
         if &scan.id == "null" {
-            return Err(anyhow!("Failed to register {}", scan.name));
+            return Err(ScanError::FailedToRegister);
         }
         id_json[scan.name] = scan.id.into();
     }
@@ -87,13 +104,10 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
     Ok(true)
 }
 
-/// This function registers scanning for the Live Epoch stage box
-pub fn register_live_epoch_scan(
-    oracle_pool_nft: &String,
-    live_epoch_address: &String,
-) -> Result<Scan> {
+/// This function registers scanning for the pool box
+pub fn register_pool_box_scan(oracle_pool_nft: &String) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let live_epoch_bytes = address_to_bytes(live_epoch_address)?;
+    let pool_box_tree_bytes = PoolContract::new().ergo_tree().to_base16_bytes().unwrap();
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = object! {
@@ -105,12 +119,38 @@ pub fn register_live_epoch_scan(
             },
             {
             "predicate": "equals",
-            "value": live_epoch_bytes.clone(),
+            "value": pool_box_tree_bytes.clone(),
             }
         ]
     };
 
-    Scan::register(&"Live Epoch Scan".to_string(), scan_json)
+    Scan::register("Pool Box Scan", scan_json)
+}
+
+/// This function registers scanning for the refresh box
+pub fn register_refresh_box_scan(scan_name: &'static str, refresh_nft: &String) -> Result<Scan> {
+    // ErgoTree bytes of the P2S address/script
+    let tree_bytes = RefreshContract::new()
+        .ergo_tree()
+        .to_base16_bytes()
+        .unwrap();
+
+    // Scan for NFT id + Oracle Pool Epoch address
+    let scan_json = object! {
+        "predicate": "and",
+        "args": [
+            {
+            "predicate": "containsAsset",
+            "assetId": refresh_nft.clone(),
+            },
+            {
+            "predicate": "equals",
+            "value": tree_bytes.clone(),
+            }
+        ]
+    };
+
+    Scan::register(scan_name, scan_json)
 }
 
 /// This function registers scanning for the Epoch Preparation stage box
@@ -136,7 +176,7 @@ pub fn register_epoch_preparation_scan(
         ]
     };
 
-    Scan::register(&"Epoch Preparation Scan".to_string(), scan_json)
+    Scan::register("Epoch Preparation Scan", scan_json)
 }
 
 /// This function registers scanning for the oracle's personal Datapoint box
@@ -171,7 +211,7 @@ pub fn register_local_oracle_datapoint_scan(
         ]
     };
 
-    Scan::register(&"Local Oracle Datapoint Scan".to_string(), scan_json)
+    Scan::register("Local Oracle Datapoint Scan", scan_json)
 }
 
 /// This function registers scanning for all of the pools oracles' Datapoint boxes for datapoint collection
@@ -197,7 +237,7 @@ pub fn register_datapoint_scan(
         ]
     };
 
-    Scan::register(&"All Datapoints Scan".to_string(), scan_json)
+    Scan::register("All Datapoints Scan", scan_json)
 }
 
 /// This function registers scanning for any boxes in the Pool Deposit stage address
@@ -214,5 +254,5 @@ pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> Result<Scan>
     };
 
     println!("{:?}", scan_json.dump());
-    Scan::register(&"Pool Deposits Scan".to_string(), scan_json)
+    Scan::register("Pool Deposits Scan", scan_json)
 }

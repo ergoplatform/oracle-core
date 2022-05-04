@@ -1,8 +1,8 @@
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
-use crate::oracle_state::{OraclePool, PoolBoxState};
+use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::print_action_results;
-use anyhow::anyhow;
+use crate::state::PoolState;
 use crossbeam::Receiver;
 
 use std::env;
@@ -33,46 +33,47 @@ pub fn start_post_api() {
             // If the datapoint provided is a valid Integer
             if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
                 // Check if in Live Epoch stage
-                if let PoolBoxState::LiveEpoch = op.check_oracle_pool_stage() {
-                    if let Ok(epoch_state) = op.get_live_epoch_state() {
+                if let PoolState::LiveEpoch(epoch_state) = op.check_oracle_pool_stage() {
                     let old_datapoint = epoch_state.latest_pool_datapoint;
 
                     // Difference calc
                     let difference = datapoint as f64/old_datapoint as f64;
-                    #[allow(unused_assignments)]
-                    let mut action_result = Err(anyhow!("No datapoint has been submit."));
-
 
                     // If the new datapoint is twice as high, post the new datapoint
                     #[allow(clippy::if_same_then_else)]
-                    if difference > 2.00  {
-                        action_result = op.action_commit_datapoint(datapoint);
+                    let action_result = if difference > 2.00  {
+                         op.action_commit_datapoint(datapoint)
                     }
                     // If the new datapoint is half, post the new datapoint
                     else if difference < 0.50 {
-                        action_result = op.action_commit_datapoint(datapoint);
+                         op.action_commit_datapoint(datapoint)
                     }
+                    // TODO: remove 0.5% cap, kushti asked on TG:
+                    // >Lets run 2.0 with no delay in data update in the default data provider
+                    // >No, data provider currently cap oracle price change at 0.5 percent per epoch
+                    //
                     // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
                     else if difference < 0.9951 {
                         let new_datapoint = (old_datapoint as f64 * 0.9951) as u64;
-                        action_result = op.action_commit_datapoint(new_datapoint);
+                         op.action_commit_datapoint(new_datapoint)
                     }
                     // If the new datapoint is 0.49% to 100% higher, post 0.49% higher than old
                     else if difference > 1.0049 {
                         let new_datapoint = (old_datapoint as f64 * 1.0049) as u64;
-                        action_result = op.action_commit_datapoint(new_datapoint);
+                         op.action_commit_datapoint(new_datapoint)
                     }
                     // Else if the difference is within 0.49% either way, post the new datapoint
                     else {
-                        action_result = op.action_commit_datapoint(datapoint);
-                    }
+                        op.action_commit_datapoint(datapoint)
+                    };
 
 
                     // Print action
                     let action_name = "Submit Datapoint";
-                    print_action_results(&action_result, action_name);
+                    let action_result_anyhow: anyhow::Result<String> = action_result.map_err(Into::into);
+                    print_action_results(&action_result_anyhow, action_name);
                     // If transaction succeeded being posted
-                    if let Ok(res) = action_result{
+                    if let Ok(res) = action_result_anyhow {
                         let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
                         let resp_json = object! {tx_id: tx_id}.to_string();
 
@@ -87,23 +88,14 @@ pub fn start_post_api() {
                             .response
                             .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                     }
-                }
-                // Else if in Epoch Prep stage
-                else {
+            }
+            // If the datapoint provided is not a valid i32 Integer
+            else {
                     let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
 
                     context
                         .response
                         .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
-                }
-            }
-            // If the datapoint provided is not a valid i32 Integer
-            else {
-                let error_json = object! {error: "Invalid Datapoint Provided. Please ensure that your request includes a valid Integer i32 'datapoint' field."}.to_string();
-
-                context
-                    .response
-                    .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
                 }
             }
 
@@ -167,7 +159,6 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
         let response_json = object! {
             number_of_oracles: num_of_oracles,
-            live_epoch_address: op.live_epoch_stage.contract_address,
             epoch_prep_address: op.epoch_preparation_stage.contract_address,
             pool_deposits_address: op.pool_deposit_stage.contract_address,
             datapoint_address: op.datapoint_stage.contract_address,
@@ -219,7 +210,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
         // Get latest datapoint submit epoch
         let datapoint_epoch = match op.get_datapoint_state() {
             Ok(d) => d.origin_epoch_id,
-            Err(_) => "Null".to_string(),
+            Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_creation = match op.get_datapoint_state() {
@@ -244,34 +235,22 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Status of the oracle pool
     app.get("/poolStatus", move |context| {
         let op = OraclePool::new();
-        let parameters = PoolParameters::new();
 
         // Current stage of the oracle pool box
         let current_stage = match op.check_oracle_pool_stage() {
-            PoolBoxState::LiveEpoch => "Live Epoch",
-            PoolBoxState::Preparation => "Epoch Preparation",
+            PoolState::LiveEpoch(_) => "Live Epoch",
+            PoolState::NeedsBootstrap => "Needs bootstrap",
         };
 
-        let mut funded_percentage = 0;
         let mut latest_datapoint = 0;
         let mut current_epoch_id = "".to_string();
         let mut epoch_ends = 0;
         if let Ok(l) = op.get_live_epoch_state() {
-            // The percentage that the pool is funded
-            funded_percentage = (l.funds / parameters.minimum_pool_box_value) * 100;
             latest_datapoint = l.latest_pool_datapoint;
-            current_epoch_id = l.epoch_id;
+            current_epoch_id = l.epoch_id.to_string();
             epoch_ends = l.epoch_ends;
-        } else if let Ok(ep) = op.get_preparation_state() {
-            // The percentage that the pool is funded
-            funded_percentage = (ep.funds / parameters.minimum_pool_box_value) * 100;
-            latest_datapoint = ep.latest_pool_datapoint;
-            current_epoch_id = "Preparing Epoch Currently".to_string();
-            epoch_ends = ep.next_epoch_ends;
         }
-
         let response_json = object! {
-            funded_percentage: funded_percentage,
             current_pool_stage: current_stage,
             latest_datapoint: latest_datapoint,
             current_epoch_id : current_epoch_id,
