@@ -6,7 +6,6 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
 pub struct OracleContract {
     ergo_tree: ErgoTree,
-    pool_nft_token_id: TokenId,
 }
 
 impl OracleContract {
@@ -15,13 +14,15 @@ impl OracleContract {
     //
     const P2S: &'static str = "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr";
 
+    pub const POOL_NFT_INDEX: usize = 5;
+
     pub fn new() -> Self {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
         dbg!(ergo_tree.get_constants().unwrap());
         let pool_nft_token_id: TokenId = ergo_tree
-            .get_constant(5)
+            .get_constant(Self::POOL_NFT_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
@@ -32,13 +33,27 @@ impl OracleContract {
             TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
         );
 
-        Self {
-            ergo_tree,
-            pool_nft_token_id,
-        }
+        Self { ergo_tree }
     }
 
     pub fn ergo_tree(&self) -> ErgoTree {
         self.ergo_tree.clone()
+    }
+
+    pub fn pool_nft_token_id(&self) -> TokenId {
+        self.ergo_tree
+            .get_constant(Self::POOL_NFT_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap()
+    }
+
+    pub fn with_pool_nft_token_id(self, token_id: TokenId) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::POOL_NFT_INDEX, token_id.clone().into())
+            .unwrap();
+        Self { ergo_tree: tree }
     }
 }

@@ -131,4 +131,12 @@ impl RefreshContract {
             .unwrap();
         Self { ergo_tree: tree }
     }
+
+    pub fn with_oracle_nft_token_id(self, token_id: TokenId) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::ORACLE_NFT_INDEX, token_id.clone().into())
+            .unwrap();
+        Self { ergo_tree: tree }
+    }
 }
