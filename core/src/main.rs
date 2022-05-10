@@ -143,6 +143,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
                 op.get_pool_box_source(),
                 op.get_refresh_box_source(),
                 op.get_datapoint_boxes_source(),
+                op.get_local_datapoint_box_source(),
                 &wallet,
                 height as u32,
                 change_address,

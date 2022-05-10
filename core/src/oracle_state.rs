@@ -360,6 +360,10 @@ impl OraclePool {
     pub fn get_datapoint_boxes_source(&self) -> &dyn DatapointBoxesSource {
         &self.datapoint_stage as &dyn DatapointBoxesSource
     }
+
+    pub fn get_local_datapoint_box_source(&self) -> &dyn LocalDatapointBoxSource {
+        &self.local_oracle_datapoint_scan as &dyn LocalDatapointBoxSource
+    }
 }
 
 impl PoolBoxSource for Scan {

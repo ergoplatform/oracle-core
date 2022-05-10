@@ -36,6 +36,10 @@ pub fn process(
                 height >= live_epoch.epoch_ends && live_epoch.commit_datapoint_in_epoch;
             if epoch_is_over {
                 Ok(Some(PoolCommand::Refresh))
+            } else if !live_epoch.commit_datapoint_in_epoch {
+                // TODO: Poll for new datapoint
+
+                Ok(Some(PoolCommand::PublishDataPoint(0)))
             } else {
                 Ok(None)
             }

@@ -4,19 +4,24 @@ use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::oracle_state::DatapointBoxesSource;
+use crate::oracle_state::LocalDatapointBoxSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
 
+use self::publish_data_point::build_publish_datapoint_action;
+use self::publish_data_point::PublishDatapointActionError;
 use self::refresh::build_refresh_action;
 use self::refresh::RefrechActionError;
 
+mod publish_data_point;
 mod refresh;
 
 pub enum PoolCommand {
     Bootstrap,
     Refresh,
+    PublishDataPoint(i64),
 }
 
 #[derive(Debug, From, Error)]
@@ -27,6 +32,8 @@ pub enum PoolCommandError {
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
     RefrechActionError(RefrechActionError),
+    #[error("error on building PublishDatapointAction: {0}")]
+    PublishDatapointActionError(PublishDatapointActionError),
 }
 
 pub fn build_action(
@@ -34,6 +41,7 @@ pub fn build_action(
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: &dyn DatapointBoxesSource,
+    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
@@ -47,6 +55,16 @@ pub fn build_action(
             wallet,
             height,
             change_address,
+        )
+        .map_err(Into::into)
+        .map(Into::into),
+        PoolCommand::PublishDataPoint(new_datapoint) => build_publish_datapoint_action(
+            pool_box_source,
+            local_datapoint_box_source,
+            wallet,
+            height,
+            change_address,
+            new_datapoint,
         )
         .map_err(Into::into)
         .map(Into::into),

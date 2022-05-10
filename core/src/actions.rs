@@ -24,6 +24,7 @@ mod collect;
 pub enum PoolAction {
     Bootstrap(BootstrapAction),
     Refresh(RefreshAction),
+    PublishDatapoint(PublishDataPointAction),
 }
 
 #[derive(Debug)]
@@ -31,6 +32,11 @@ pub struct BootstrapAction {}
 
 #[derive(Debug)]
 pub struct RefreshAction {
+    pub tx: UnsignedTransaction,
+}
+
+#[derive(Debug)]
+pub struct PublishDataPointAction {
     pub tx: UnsignedTransaction,
 }
 
@@ -54,10 +60,16 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     match action {
         PoolAction::Bootstrap(_) => todo!(),
         PoolAction::Refresh(action) => execute_refresh_action(action),
+        PoolAction::PublishDatapoint(action) => execute_publish_datapoint_action(action),
     }
 }
 
 fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
+    let _tx_id = sign_and_submit_transaction(&action.tx)?;
+    Ok(())
+}
+
+fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<(), ActionExecError> {
     let _tx_id = sign_and_submit_transaction(&action.tx)?;
     Ok(())
 }
