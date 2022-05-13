@@ -6,12 +6,12 @@ use crate::actions::PoolAction;
 use crate::oracle_state::{OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
-use self::publish_data_point::build_publish_datapoint_action;
-use self::publish_data_point::PublishDatapointActionError;
+use self::publish_datapoint::build_publish_datapoint_action;
+use self::publish_datapoint::PublishDatapointActionError;
 use self::refresh::build_refresh_action;
 use self::refresh::RefrechActionError;
 
-mod publish_data_point;
+mod publish_datapoint;
 mod refresh;
 
 pub enum PoolCommand {
