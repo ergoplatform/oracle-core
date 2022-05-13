@@ -98,14 +98,6 @@ fn main() {
         })
         .ok();
 
-    // Start Oracle Core POST API Server
-    thread::Builder::new()
-        .name("Oracle Core POST API Thread".to_string())
-        .spawn(|| {
-            api::start_post_api();
-        })
-        .ok();
-
     loop {
         if let Err(_e) = main_loop_iteration(&args) {
             todo!()
