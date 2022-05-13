@@ -32,6 +32,7 @@ mod wallet;
 use actions::execute_action;
 use anyhow::anyhow;
 use anyhow::Error;
+use clap::Parser;
 use commands::build_action;
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
@@ -42,7 +43,6 @@ use node_interface::get_wallet_status;
 use oracle_config::PoolParameters;
 use state::process;
 use state::PoolState;
-use std::env;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
@@ -75,10 +75,19 @@ static ORACLE_CORE_ASCII: &str = r#"
   \____/|_|  \__,_|\___|_|\___|  \_____\___/|_|  \___|
 "#;
 
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(long = "Run oracle core in read-only mode")]
+    read_only: bool,
+    #[clap(long = "The name of the script which provides the datapoint value")]
+    datapoint_script_name: String,
+}
+
 fn main() {
     simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
     log_panics::init();
-    let args: Vec<String> = env::args().collect();
+    let args = Args::parse();
     let (_, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
@@ -97,9 +106,8 @@ fn main() {
         })
         .ok();
 
-    let is_readonly = args.len() > 1 && &args[1] == "--readonly";
     loop {
-        if let Err(_e) = main_loop_iteration(is_readonly) {
+        if let Err(_e) = main_loop_iteration(&args) {
             todo!()
         }
         // Delay loop restart
@@ -107,7 +115,7 @@ fn main() {
     }
 }
 
-fn main_loop_iteration(is_readonly: bool) -> Result<()> {
+fn main_loop_iteration(args: &Args) -> Result<()> {
     let op = oracle_state::OraclePool::new();
     let parameters = oracle_config::PoolParameters::new();
     let height = current_block_height()?;
@@ -128,7 +136,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
     }
 
     // If in `read only` mode
-    if is_readonly {
+    if args.read_only {
         print_and_log("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
     } else {
         // TODO: bootstrap should be initiated via command line option (or made manually by other means)
@@ -137,17 +145,8 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
             Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
             Err(_) => PoolState::NeedsBootstrap,
         };
-        if let Some(cmd) = process(pool_state, height)? {
-            let action = build_action(
-                cmd,
-                op.get_pool_box_source(),
-                op.get_refresh_box_source(),
-                op.get_datapoint_boxes_source(),
-                op.get_local_datapoint_box_source(),
-                &wallet,
-                height as u32,
-                change_address,
-            )?;
+        if let Some(cmd) = process(pool_state, &args.datapoint_script_name, height)? {
+            let action = build_action(cmd, op, &wallet, height as u32, change_address)?;
             execute_action(action)?;
         }
     }

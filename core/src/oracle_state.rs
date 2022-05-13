@@ -38,6 +38,12 @@ pub enum StageError {
     RefreshBoxError(RefreshBoxError),
     #[error("oracle box error: {0}")]
     OracleBoxError(OracleBoxError),
+    #[error("external data provider script error: {0}")]
+    DataProviderScript(std::io::Error),
+    #[error("String from bytes error: {0}")]
+    StringFromBytes(std::string::FromUtf8Error),
+    #[error("Parse i64 from string error: {0}")]
+    ParseInt(std::num::ParseIntError),
 }
 
 pub trait StageDataSource {

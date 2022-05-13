@@ -3,11 +3,7 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
-use crate::oracle_state::DatapointBoxesSource;
-use crate::oracle_state::LocalDatapointBoxSource;
-use crate::oracle_state::PoolBoxSource;
-use crate::oracle_state::RefreshBoxSource;
-use crate::oracle_state::StageError;
+use crate::oracle_state::{OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
 use self::publish_data_point::build_publish_datapoint_action;
@@ -38,14 +34,15 @@ pub enum PoolCommandError {
 
 pub fn build_action(
     cmd: PoolCommand,
-    pool_box_source: &dyn PoolBoxSource,
-    refresh_box_source: &dyn RefreshBoxSource,
-    datapoint_stage_src: &dyn DatapointBoxesSource,
-    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
+    op: OraclePool,
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {
+    let pool_box_source = op.get_pool_box_source();
+    let refresh_box_source = op.get_refresh_box_source();
+    let datapoint_stage_src = op.get_datapoint_boxes_source();
+    let local_datapoint_box_source = op.get_local_datapoint_box_source();
     match cmd {
         PoolCommand::Bootstrap => todo!(),
         PoolCommand::Refresh => build_refresh_action(

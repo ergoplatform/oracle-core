@@ -27,6 +27,7 @@ pub fn process(
     pool_state: PoolState,
     // op: OraclePool,
     // parameters: PoolParameters,
+    datapoint_script_name: &str,
     height: u64,
 ) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
@@ -37,9 +38,11 @@ pub fn process(
             if epoch_is_over {
                 Ok(Some(PoolCommand::Refresh))
             } else if !live_epoch.commit_datapoint_in_epoch {
-                // TODO: Poll for new datapoint
-
-                Ok(Some(PoolCommand::PublishDataPoint(0)))
+                // Poll for new datapoint
+                let script_output = std::process::Command::new(datapoint_script_name).output()?;
+                let datapoint_str = String::from_utf8(script_output.stdout)?;
+                let datapoint: i64 = datapoint_str.parse()?;
+                Ok(Some(PoolCommand::PublishDataPoint(datapoint)))
             } else {
                 Ok(None)
             }

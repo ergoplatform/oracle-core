@@ -27,6 +27,7 @@ ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "3ada03f6
 ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "49a998d92f541e0b6ac9108bf43b65bdb7cbce5e" }
 derive_more = "0.99"
 # bounded-vec = { version = "^0.5.0" }
+clap = {version = "^3", features = ["derive"]}
 
 [dev-dependencies]
 # sigma-test-util = { version = "^0.3.0", path = "../../sigma-rust/sigma-test-util" }
