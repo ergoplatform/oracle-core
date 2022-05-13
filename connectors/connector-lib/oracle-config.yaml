@@ -1,3 +1,0 @@
-
-# Port which you wish the Oracle Core API server to run on
-core_api_port: "9090"
