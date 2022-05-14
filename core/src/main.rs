@@ -21,6 +21,7 @@ mod api;
 mod box_kind;
 mod commands;
 mod contracts;
+mod datapoint_source;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
@@ -35,6 +36,9 @@ use anyhow::Error;
 use clap::Parser;
 use commands::build_action;
 use crossbeam::channel::bounded;
+use datapoint_source::DataPointSource;
+use datapoint_source::ExternalScript;
+use datapoint_source::NanoErgUsd;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::info;
@@ -80,8 +84,10 @@ static ORACLE_CORE_ASCII: &str = r#"
 struct Args {
     #[clap(long = "Run oracle core in read-only mode")]
     read_only: bool,
-    #[clap(long = "The name of the script which provides the datapoint value")]
-    datapoint_script_name: String,
+    #[clap(
+        long = "The name of the script which provides the datapoint value. Overrides data source in config file."
+    )]
+    datapoint_script_name: Option<String>,
 }
 
 fn main() {
@@ -137,7 +143,13 @@ fn main_loop_iteration(args: &Args) -> Result<()> {
             Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
             Err(_) => PoolState::NeedsBootstrap,
         };
-        if let Some(cmd) = process(pool_state, &args.datapoint_script_name, height)? {
+        let datapoint_source: Box<dyn DataPointSource> =
+            if let Some(external_script_name) = &args.datapoint_script_name {
+                Box::new(ExternalScript::new(external_script_name.clone()))
+            } else {
+                Box::new(NanoErgUsd)
+            };
+        if let Some(cmd) = process(pool_state, &*datapoint_source, height)? {
             let action = build_action(cmd, op, &wallet, height as u32, change_address)?;
             execute_action(action)?;
         }

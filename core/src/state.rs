@@ -2,6 +2,7 @@
 
 use crate::actions::CollectionError;
 use crate::commands::PoolCommand;
+use crate::datapoint_source::DataPointSource;
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::DatapointState;
 use crate::oracle_state::LiveEpochState;
@@ -27,7 +28,7 @@ pub fn process(
     pool_state: PoolState,
     // op: OraclePool,
     // parameters: PoolParameters,
-    datapoint_script_name: &str,
+    datapoint_source: &dyn DataPointSource,
     height: u64,
 ) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
@@ -38,11 +39,9 @@ pub fn process(
             if epoch_is_over {
                 Ok(Some(PoolCommand::Refresh))
             } else if !live_epoch.commit_datapoint_in_epoch {
-                // Poll for new datapoint
-                let script_output = std::process::Command::new(datapoint_script_name).output()?;
-                let datapoint_str = String::from_utf8(script_output.stdout)?;
-                let datapoint: i64 = datapoint_str.parse()?;
-                Ok(Some(PoolCommand::PublishDataPoint(datapoint)))
+                Ok(Some(PoolCommand::PublishDataPoint(
+                    datapoint_source.get_datapoint()?,
+                )))
             } else {
                 Ok(None)
             }

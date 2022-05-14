@@ -5,6 +5,7 @@ use crate::box_kind::{
 };
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
+use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_local_oracle_datapoint_scan,
@@ -38,12 +39,8 @@ pub enum StageError {
     RefreshBoxError(RefreshBoxError),
     #[error("oracle box error: {0}")]
     OracleBoxError(OracleBoxError),
-    #[error("external data provider script error: {0}")]
-    DataProviderScript(std::io::Error),
-    #[error("String from bytes error: {0}")]
-    StringFromBytes(std::string::FromUtf8Error),
-    #[error("Parse i64 from string error: {0}")]
-    ParseInt(std::num::ParseIntError),
+    #[error("datapoint source error: {0}")]
+    DataPointSource(DataPointSourceError),
 }
 
 pub trait StageDataSource {
