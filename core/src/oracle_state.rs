@@ -90,15 +90,17 @@ pub struct Stage {
 pub struct OraclePool {
     /// Address of the local oracle running the oracle core
     pub local_oracle_address: P2PKAddress,
+    pub on_mainnet: bool,
     /// Token IDs
     pub oracle_pool_nft: TokenID,
     pub oracle_pool_participant_token: TokenID,
+    pub reward_token: TokenID,
     /// Stages
     pub epoch_preparation_stage: Stage,
     pub datapoint_stage: Stage,
     pub pool_deposit_stage: Stage,
     // Local Oracle Datapoint Scan
-    pub local_oracle_datapoint_scan: Scan,
+    pub local_oracle_datapoint_scan: Option<Scan>,
     pool_box_scan: Scan,
     refresh_box_scan: Scan,
 }
@@ -144,8 +146,12 @@ impl OraclePool {
 
         let local_oracle_address = config["oracle_address"]
             .as_str()
-            .expect("No oracle_pool_nft specified in config file.")
+            .expect("No oracle_address specified in config file.")
             .to_string();
+
+        let on_mainnet = config["on_mainnet"]
+            .as_bool()
+            .expect("on_mainnet not specified in config file.");
 
         let oracle_pool_nft: String = RefreshContract::new().pool_nft_token_id().into();
         let refresh_nft: String = PoolContract::new().refresh_nft_token_id().into();
@@ -153,6 +159,11 @@ impl OraclePool {
         let oracle_pool_participant_token = config["oracle_pool_participant_token"]
             .as_str()
             .expect("No oracle_pool_participant_token specified in config file.")
+            .to_string();
+
+        let reward_token = config["reward_token"]
+            .as_str()
+            .expect("No reward_token specified in config file.")
             .to_string();
 
         let epoch_preparation_contract_address = config["epoch_preparation_contract_address"]
@@ -172,16 +183,10 @@ impl OraclePool {
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
-            let scans = vec![
+            let mut scans = vec![
                 register_epoch_preparation_scan(
                     &oracle_pool_nft,
                     &epoch_preparation_contract_address,
-                )
-                .unwrap(),
-                register_local_oracle_datapoint_scan(
-                    &oracle_pool_participant_token,
-                    &datapoint_contract_address,
-                    &local_oracle_address,
                 )
                 .unwrap(),
                 register_datapoint_scan(
@@ -193,6 +198,16 @@ impl OraclePool {
                 register_pool_box_scan(&oracle_pool_nft).unwrap(),
                 register_refresh_box_scan(refresh_box_scan_name, &refresh_nft).unwrap(),
             ];
+
+            // Local datapoint box may not exist yet.
+            if let Ok(local_scan) = register_local_oracle_datapoint_scan(
+                &oracle_pool_participant_token,
+                &datapoint_contract_address,
+                &local_oracle_address,
+            ) {
+                scans.push(local_scan);
+            }
+
             let res = save_scan_ids_locally(scans);
             if res.is_ok() {
                 // Congrats scans registered screen here
@@ -224,10 +239,14 @@ impl OraclePool {
             "All Oracle Datapoints Scan",
             &scan_json["All Datapoints Scan"].to_string(),
         );
-        let local_oracle_datapoint_scan = Scan::new(
-            "Local Oracle Datapoint Scan",
-            &scan_json["Local Oracle Datapoint Scan"].to_string(),
-        );
+        let local_scan_str = "Local Oracle Datapoint Scan";
+        let mut local_oracle_datapoint_scan = None;
+        if scan_json.has_key(local_scan_str) {
+            local_oracle_datapoint_scan = Some(Scan::new(
+                "Local Oracle Datapoint Scan",
+                &scan_json[local_scan_str].to_string(),
+            ));
+        };
         let pool_deposit_scan = Scan::new(
             "Pool Deposits Scan",
             &scan_json["Pool Deposits Scan"].to_string(),
@@ -243,8 +262,10 @@ impl OraclePool {
         // Create `OraclePool` struct
         OraclePool {
             local_oracle_address,
+            on_mainnet,
             oracle_pool_nft,
             oracle_pool_participant_token,
+            reward_token,
             epoch_preparation_stage: Stage {
                 contract_address: epoch_preparation_contract_address,
                 scan: epoch_preparation_scan,
@@ -278,8 +299,11 @@ impl OraclePool {
         // let epoch_box_id: String = epoch_box.box_id().into();
 
         // Whether datapoint was commit in the current Live Epoch
-        let datapoint_state = self.get_datapoint_state()?;
-        let commit_datapoint_in_epoch: bool = epoch_id == datapoint_state.origin_epoch_id;
+        let commit_datapoint_in_epoch = if let Some(datapoint_state) = self.get_datapoint_state()? {
+            epoch_id == datapoint_state.origin_epoch_id
+        } else {
+            false
+        };
 
         let latest_pool_datapoint = pool_box.rate();
 
@@ -317,22 +341,24 @@ impl OraclePool {
     // }
 
     /// Get the current state of the local oracle's datapoint
-    pub fn get_datapoint_state(&self) -> Result<DatapointState> {
-        let datapoint_box = self
-            .local_oracle_datapoint_scan
-            .get_local_oracle_datapoint_box()?;
+    pub fn get_datapoint_state(&self) -> Result<Option<DatapointState>> {
+        if let Some(local_box) = &self.local_oracle_datapoint_scan {
+            let datapoint_box = local_box.get_local_oracle_datapoint_box()?;
 
-        let origin_epoch_id = datapoint_box.epoch_counter();
+            let origin_epoch_id = datapoint_box.epoch_counter();
 
-        let datapoint = datapoint_box.rate();
+            let datapoint = datapoint_box.rate();
 
-        let datapoint_state = DatapointState {
-            datapoint,
-            origin_epoch_id,
-            creation_height: datapoint_box.get_box().creation_height as u64,
-        };
+            let datapoint_state = DatapointState {
+                datapoint,
+                origin_epoch_id,
+                creation_height: datapoint_box.get_box().creation_height as u64,
+            };
 
-        Ok(datapoint_state)
+            Ok(Some(datapoint_state))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the current state of all of the pool deposit boxes
@@ -364,8 +390,10 @@ impl OraclePool {
         &self.datapoint_stage as &dyn DatapointBoxesSource
     }
 
-    pub fn get_local_datapoint_box_source(&self) -> &dyn LocalDatapointBoxSource {
-        &self.local_oracle_datapoint_scan as &dyn LocalDatapointBoxSource
+    pub fn get_local_datapoint_box_source(&self) -> Option<&dyn LocalDatapointBoxSource> {
+        self.local_oracle_datapoint_scan
+            .as_ref()
+            .map(|s| s as &dyn LocalDatapointBoxSource)
     }
 }
 

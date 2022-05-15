@@ -228,8 +228,10 @@ fn print_info(
         info_string.push_str("\n========================================================\n");
     }
 
-    info_string.push_str(&format!("\nOracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
+    if let Some(datapoint_state) = datapoint_state {
+        info_string.push_str(&format!("\nOracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
         ));
+    }
     info_string.push_str("\n========================================================\n");
 
     // Prints and logs the info String

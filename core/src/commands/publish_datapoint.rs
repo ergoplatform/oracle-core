@@ -1,15 +1,19 @@
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use derive_more::From;
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
-    ergotree_ir::chain::{
-        address::Address,
-        ergo_box::{
-            box_value::BoxValue,
-            NonMandatoryRegisterId::{R4, R5, R6},
+    ergotree_ir::{
+        chain::{
+            address::Address,
+            ergo_box::{
+                box_value::BoxValue,
+                NonMandatoryRegisterId::{R4, R5, R6},
+            },
+            token::{Token, TokenAmount, TokenId},
         },
+        sigma_protocol::sigma_boolean::ProveDlog,
     },
     wallet::{
         box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
@@ -22,16 +26,23 @@ use thiserror::Error;
 use crate::{
     actions::PublishDataPointAction,
     box_kind::{OracleBox, PoolBox},
+    contracts::oracle::OracleContract,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
+
+use super::PublishDataPointCommandInputs;
 
 #[derive(Debug, Error, From)]
 pub enum PublishDatapointActionError {
     #[error("stage error: {0}")]
     StageError(StageError),
     #[error("Oracle box has no reward token")]
-    NoRewardToken,
+    NoRewardTokenInOracleBox,
+    #[error("Oracle wallet has no reward token")]
+    NoRewardTokenInOracleWallet,
+    #[error("Oracle wallet has no oracle token")]
+    NoOracleTokenInOracleWallet,
     #[error("tx builder error: {0}")]
     TxBuilder(TxBuilderError),
     #[error("box builder error: {0}")]
@@ -44,6 +55,41 @@ pub enum PublishDatapointActionError {
 
 pub fn build_publish_datapoint_action(
     pool_box_source: &dyn PoolBoxSource,
+    inputs: PublishDataPointCommandInputs,
+    wallet: &dyn WalletDataSource,
+    height: u32,
+    change_address: Address,
+    new_datapoint: i64,
+) -> Result<PublishDataPointAction, PublishDatapointActionError> {
+    match inputs {
+        PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source) => {
+            build_subsequent_publish_datapoint_action(
+                pool_box_source,
+                local_datapoint_box_source,
+                wallet,
+                height,
+                change_address,
+                new_datapoint,
+            )
+        }
+        PublishDataPointCommandInputs::FirstDataPoint {
+            oracle_token_id,
+            reward_token_id,
+            public_key,
+        } => build_publish_first_datapoint_action(
+            wallet,
+            height,
+            change_address,
+            new_datapoint,
+            oracle_token_id,
+            reward_token_id,
+            public_key,
+        ),
+    }
+}
+
+pub fn build_subsequent_publish_datapoint_action(
+    pool_box_source: &dyn PoolBoxSource,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     height: u32,
@@ -53,7 +99,7 @@ pub fn build_publish_datapoint_action(
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
-        return Err(PublishDatapointActionError::NoRewardToken);
+        return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
     }
 
     // Build the single output box
@@ -97,6 +143,71 @@ pub fn build_publish_datapoint_action(
         values: vec![(0, 0i32.into())].into_iter().collect(),
     };
     tx_builder.set_context_extension(in_oracle_box.get_box().box_id(), ctx_ext);
+    let tx = tx_builder.build()?;
+    Ok(PublishDataPointAction { tx })
+}
+
+pub fn build_publish_first_datapoint_action(
+    wallet: &dyn WalletDataSource,
+    height: u32,
+    change_address: Address,
+    new_datapoint: i64,
+    oracle_token_id: TokenId,
+    reward_token_id: TokenId,
+    public_key: ProveDlog,
+) -> Result<PublishDataPointAction, PublishDatapointActionError> {
+    // Build the single output box
+    let mut builder = ErgoBoxCandidateBuilder::new(
+        BoxValue::SAFE_USER_MIN,
+        OracleContract::new().ergo_tree(),
+        height,
+    );
+    builder.set_register_value(R4, public_key.into());
+    builder.set_register_value(R5, 1.into());
+    builder.set_register_value(R6, new_datapoint.into());
+
+    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    let tx_fee = BoxValue::SAFE_USER_MIN;
+    let box_selector = SimpleBoxSelector::new();
+    let wallet_boxes_selection = box_selector.select(unspent_boxes.clone(), tx_fee, &[])?;
+
+    let oracle_token = Token {
+        token_id: oracle_token_id,
+        amount: TokenAmount::try_from(1).unwrap(),
+    };
+    let reward_token = Token {
+        token_id: reward_token_id,
+        amount: TokenAmount::try_from(1).unwrap(),
+    };
+
+    // Oracle and reward tokens should already exist in the wallet's unspent boxes, since they were
+    // minted during the boostrap phase.
+    let _ = box_selector
+        .select(unspent_boxes.clone(), tx_fee, &[oracle_token.clone()])
+        .map_err(|_| PublishDatapointActionError::NoOracleTokenInOracleWallet)?;
+    let _ = box_selector
+        .select(unspent_boxes, tx_fee, &[reward_token.clone()])
+        .map_err(|_| PublishDatapointActionError::NoRewardTokenInOracleWallet)?;
+    builder.add_token(oracle_token);
+    builder.add_token(reward_token);
+
+    let output_candidate = builder.build()?;
+
+    let box_id = wallet_boxes_selection.boxes.first().box_id();
+    let mut tx_builder = TxBuilder::new(
+        wallet_boxes_selection,
+        vec![output_candidate],
+        height,
+        tx_fee,
+        change_address,
+        BoxValue::MIN,
+    );
+
+    // The following context value ensures that `outIndex` in the oracle contract is properly set.
+    let ctx_ext = ContextExtension {
+        values: vec![(0, 0i32.into())].into_iter().collect(),
+    };
+    tx_builder.set_context_extension(box_id, ctx_ext);
     let tx = tx_builder.build()?;
     Ok(PublishDataPointAction { tx })
 }
@@ -202,7 +313,9 @@ mod tests {
         };
         let action = build_publish_datapoint_action(
             &pool_box_mock,
-            &local_datapoint_box_source,
+            PublishDataPointCommandInputs::LocalDataPointBoxExists(
+                &local_datapoint_box_source as &dyn LocalDatapointBoxSource,
+            ),
             &wallet_mock,
             height,
             change_address,

@@ -88,18 +88,18 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
         };
         // Get latest datapoint the local oracle produced/submit
         let self_datapoint = match op.get_datapoint_state() {
-            Ok(d) => d.datapoint,
-            Err(_) => 0,
+            Ok(Some(d)) => d.datapoint,
+            Ok(None) | Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_epoch = match op.get_datapoint_state() {
-            Ok(d) => d.origin_epoch_id,
-            Err(_) => 0,
+            Ok(Some(d)) => d.origin_epoch_id,
+            Ok(None) | Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_creation = match op.get_datapoint_state() {
-            Ok(d) => d.creation_height,
-            Err(_) => 0,
+            Ok(Some(d)) => d.creation_height,
+            Ok(None) | Err(_) => 0,
         };
 
         let response_json = object! {
