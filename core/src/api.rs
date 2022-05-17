@@ -1,124 +1,8 @@
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
 use crate::oracle_state::{OraclePool, StageDataSource};
-use crate::print_action_results;
 use crate::state::PoolState;
 use crossbeam::Receiver;
-
-use std::env;
-use std::str::from_utf8;
-
-/// Starts the POST API server which can be made publicly available without security risk
-pub fn start_post_api() {
-    let mut app = sincere::App::new();
-    let args: Vec<String> = env::args().collect();
-
-    // Accept a datapoint to be posted within a "Commit Datapoint" action tx
-    app.post("/submitDatapoint", move |context| {
-        let op = OraclePool::new();
-        let res_post_json = from_utf8(context.request.body()).map(json::parse);
-
-        // Check if oracle core is in `read only` mode
-        if args.len() > 1 && &args[1] == "--readonly" {
-            let error_json = object! {error: "Oracle Core is in `read only` mode."}.to_string();
-
-            context
-                .response
-                .header(("Access-Control-Allow-Origin", "*"))
-                .from_json(error_json).unwrap();
-        }
-
-        // If the post request body is valid json
-        if let Ok(Ok(post_json)) = res_post_json {
-            // If the datapoint provided is a valid Integer
-            if let Ok(datapoint) = post_json["datapoint"].to_string().parse() {
-                // Check if in Live Epoch stage
-                if let PoolState::LiveEpoch(epoch_state) = op.check_oracle_pool_stage() {
-                    let old_datapoint = epoch_state.latest_pool_datapoint;
-
-                    // Difference calc
-                    let difference = datapoint as f64/old_datapoint as f64;
-
-                    // If the new datapoint is twice as high, post the new datapoint
-                    #[allow(clippy::if_same_then_else)]
-                    let action_result = if difference > 2.00  {
-                         op.action_commit_datapoint(datapoint)
-                    }
-                    // If the new datapoint is half, post the new datapoint
-                    else if difference < 0.50 {
-                         op.action_commit_datapoint(datapoint)
-                    }
-                    // TODO: remove 0.5% cap, kushti asked on TG:
-                    // >Lets run 2.0 with no delay in data update in the default data provider
-                    // >No, data provider currently cap oracle price change at 0.5 percent per epoch
-                    //
-                    // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
-                    else if difference < 0.9951 {
-                        let new_datapoint = (old_datapoint as f64 * 0.9951) as u64;
-                         op.action_commit_datapoint(new_datapoint)
-                    }
-                    // If the new datapoint is 0.49% to 100% higher, post 0.49% higher than old
-                    else if difference > 1.0049 {
-                        let new_datapoint = (old_datapoint as f64 * 1.0049) as u64;
-                         op.action_commit_datapoint(new_datapoint)
-                    }
-                    // Else if the difference is within 0.49% either way, post the new datapoint
-                    else {
-                        op.action_commit_datapoint(datapoint)
-                    };
-
-
-                    // Print action
-                    let action_name = "Submit Datapoint";
-                    let action_result_anyhow: anyhow::Result<String> = action_result.map_err(Into::into);
-                    print_action_results(&action_result_anyhow, action_name);
-                    // If transaction succeeded being posted
-                    if let Ok(res) = action_result_anyhow {
-                        let tx_id: String = res.chars().filter(|&c| c != '\"').collect();
-                        let resp_json = object! {tx_id: tx_id}.to_string();
-
-                    context
-                        .response
-                        .header(("Access-Control-Allow-Origin", "*")).from_json(resp_json).unwrap();
-                    }
-                    // If transaction failed being posted
-                    else {
-                        let error_json = object! {error: "Failed to post 'Commit Datapoint' action transaction."}.to_string();
-                        context
-                            .response
-                            .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
-                    }
-            }
-            // If the datapoint provided is not a valid i32 Integer
-            else {
-                    let error_json = object! {error: "Unable to submit Datapoint. The Oracle Pool is currently in the Epoch Preparation Stage."}.to_string();
-
-                    context
-                        .response
-                        .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
-                }
-            }
-
-        }
-        // If the post request body is not valid json
-        else {
-            let error_json = object! {error: "Invalid JSON Request Body."}.to_string();
-
-            context
-                .response
-                .header(("Access-Control-Allow-Origin", "*")).from_json(error_json).unwrap();
-        }
-    });
-
-    // Start the POST API server with the port designated in the config + 1.
-    let port = ((get_core_api_port()
-        .parse::<u16>()
-        .expect("Failed to parse oracle core port from config to u16."))
-        + 1)
-    .to_string();
-    let address = "0.0.0.0:".to_string() + &port;
-    app.run(&address, 1).ok();
-}
 
 /// Starts the GET API server which can be made publicly available without security risk
 pub fn start_get_api(repost_receiver: Receiver<bool>) {
@@ -138,7 +22,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic oracle information
     app.get("/oracleInfo", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
         let response_json = object! {
             oracle_address: op.local_oracle_address,
         };
@@ -152,7 +36,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
         let parameters = PoolParameters::new();
 
         let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
@@ -195,7 +79,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Status of the oracle
     app.get("/oracleStatus", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
 
         // Check whether waiting for datapoint to be submit to oracle core
         let waiting_for_submit = match op.get_live_epoch_state() {
@@ -204,18 +88,18 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
         };
         // Get latest datapoint the local oracle produced/submit
         let self_datapoint = match op.get_datapoint_state() {
-            Ok(d) => d.datapoint,
-            Err(_) => 0,
+            Ok(Some(d)) => d.datapoint,
+            Ok(None) | Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_epoch = match op.get_datapoint_state() {
-            Ok(d) => d.origin_epoch_id,
-            Err(_) => 0,
+            Ok(Some(d)) => d.origin_epoch_id,
+            Ok(None) | Err(_) => 0,
         };
         // Get latest datapoint submit epoch
         let datapoint_creation = match op.get_datapoint_state() {
-            Ok(d) => d.creation_height,
-            Err(_) => 0,
+            Ok(Some(d)) => d.creation_height,
+            Ok(None) | Err(_) => 0,
         };
 
         let response_json = object! {
@@ -234,7 +118,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Status of the oracle pool
     app.get("/poolStatus", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
 
         // Current stage of the oracle pool box
         let current_stage = match op.check_oracle_pool_stage() {

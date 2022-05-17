@@ -2,6 +2,7 @@
 
 use crate::actions::CollectionError;
 use crate::commands::PoolCommand;
+use crate::datapoint_source::DataPointSource;
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::DatapointState;
 use crate::oracle_state::LiveEpochState;
@@ -27,6 +28,7 @@ pub fn process(
     pool_state: PoolState,
     // op: OraclePool,
     // parameters: PoolParameters,
+    datapoint_source: &dyn DataPointSource,
     height: u64,
 ) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
@@ -36,6 +38,10 @@ pub fn process(
                 height >= live_epoch.epoch_ends && live_epoch.commit_datapoint_in_epoch;
             if epoch_is_over {
                 Ok(Some(PoolCommand::Refresh))
+            } else if !live_epoch.commit_datapoint_in_epoch {
+                Ok(Some(PoolCommand::PublishDataPoint(
+                    datapoint_source.get_datapoint()?,
+                )))
             } else {
                 Ok(None)
             }

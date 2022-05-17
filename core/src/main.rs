@@ -21,6 +21,7 @@ mod api;
 mod box_kind;
 mod commands;
 mod contracts;
+mod datapoint_source;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
@@ -32,6 +33,7 @@ mod wallet;
 use actions::execute_action;
 use anyhow::anyhow;
 use anyhow::Error;
+use clap::Parser;
 use commands::build_action;
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
@@ -42,7 +44,6 @@ use node_interface::get_wallet_status;
 use oracle_config::PoolParameters;
 use state::process;
 use state::PoolState;
-use std::env;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
@@ -75,10 +76,17 @@ static ORACLE_CORE_ASCII: &str = r#"
   \____/|_|  \__,_|\___|_|\___|  \_____\___/|_|  \___|
 "#;
 
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(long = "Run oracle core in read-only mode")]
+    read_only: bool,
+}
+
 fn main() {
     simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
     log_panics::init();
-    let args: Vec<String> = env::args().collect();
+    let args = Args::parse();
     let (_, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
@@ -89,17 +97,8 @@ fn main() {
         })
         .ok();
 
-    // Start Oracle Core POST API Server
-    thread::Builder::new()
-        .name("Oracle Core POST API Thread".to_string())
-        .spawn(|| {
-            api::start_post_api();
-        })
-        .ok();
-
-    let is_readonly = args.len() > 1 && &args[1] == "--readonly";
     loop {
-        if let Err(_e) = main_loop_iteration(is_readonly) {
+        if let Err(_e) = main_loop_iteration(&args) {
             todo!()
         }
         // Delay loop restart
@@ -107,8 +106,8 @@ fn main() {
     }
 }
 
-fn main_loop_iteration(is_readonly: bool) -> Result<()> {
-    let op = oracle_state::OraclePool::new();
+fn main_loop_iteration(args: &Args) -> Result<()> {
+    let op = oracle_state::OraclePool::new()?;
     let parameters = oracle_config::PoolParameters::new();
     let height = current_block_height()?;
     let wallet = WalletData::new();
@@ -119,7 +118,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
         AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     // TODO: extract the check from print_into()
     // Check if properly synced.
-    if let Err(e) = print_info(op.clone(), height, &parameters) {
+    if let Err(e) = print_info(&op, height, &parameters) {
         let mess = format!(
             "\nThe UTXO-Set scans have not found all of the oracle pool boxes yet.\n\nError: {:?}",
             e
@@ -128,7 +127,7 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
     }
 
     // If in `read only` mode
-    if is_readonly {
+    if args.read_only {
         print_and_log("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
     } else {
         // TODO: bootstrap should be initiated via command line option (or made manually by other means)
@@ -137,16 +136,8 @@ fn main_loop_iteration(is_readonly: bool) -> Result<()> {
             Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
             Err(_) => PoolState::NeedsBootstrap,
         };
-        if let Some(cmd) = process(pool_state, height)? {
-            let action = build_action(
-                cmd,
-                op.get_pool_box_source(),
-                op.get_refresh_box_source(),
-                op.get_datapoint_boxes_source(),
-                &wallet,
-                height as u32,
-                change_address,
-            )?;
+        if let Some(cmd) = process(pool_state, &*op.data_point_source, height)? {
+            let action = build_action(cmd, op, &wallet, height as u32, change_address)?;
             execute_action(action)?;
         }
     }
@@ -190,7 +181,7 @@ fn print_action_response(message: &str) {
 
 /// Prints And Logs Information About The State Of The Protocol
 fn print_info(
-    op: oracle_state::OraclePool,
+    op: &oracle_state::OraclePool,
     height: BlockHeight,
     parameters: &PoolParameters,
 ) -> Result<bool> {
@@ -224,8 +215,10 @@ fn print_info(
         info_string.push_str("\n========================================================\n");
     }
 
-    info_string.push_str(&format!("\nOracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
+    if let Some(datapoint_state) = datapoint_state {
+        info_string.push_str(&format!("\nOracle Datapoint State\n--------------------\nYour Latest Datapoint: {}\nDatapoint Origin Epoch ID: {}\nSubmitted At: {}", datapoint_state.datapoint, datapoint_state.origin_epoch_id, datapoint_state.creation_height
         ));
+    }
     info_string.push_str("\n========================================================\n");
 
     // Prints and logs the info String

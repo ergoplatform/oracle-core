@@ -1,8 +1,4 @@
 [workspace]
 members = [
     "core",
-    "connectors/connector-lib",
-    "connectors/ada-usd-connector",
-    "connectors/erg-usd-connector",
-    "connectors/frontend-connector-lib",
 ]
