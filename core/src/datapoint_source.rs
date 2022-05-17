@@ -32,7 +32,7 @@ pub enum ExternalScriptError {
 
 pub struct ExternalScript(String);
 
-pub use ada_usd::LovelaceUsd;
+pub use ada_usd::NanoAdaUsd;
 pub use erg_usd::NanoErgUsd;
 
 impl ExternalScript {

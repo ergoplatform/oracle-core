@@ -68,41 +68,6 @@ fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<()
 }
 
 impl OraclePool {
-    // /// Generates and submits the "Commit Datapoint" action tx
-    // pub fn action_commit_datapoint(&self, datapoint: u64) -> Result<String, StageError> {
-    //     let parameters = PoolParameters::new();
-    //     let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();
-
-    //     // Defining the registers of the output box
-    //     let _live_epoch_id = self.get_live_epoch_state()?.epoch_id;
-    //     let registers = object! {
-    //         "R4": address_to_raw_for_register(&self.local_oracle_address)?,
-    //         // "R5": serialize_hex_encoded_string(&live_epoch_id)?.base16_str(),
-    //         "R6": Constant::from(datapoint as i64).base16_str().unwrap(),
-    //     };
-    //     // Defining the tokens to be spent
-    //     let token_json = object! {
-    //         "tokenId": self.oracle_pool_participant_token.to_string(),
-    //         "amount": 1
-    //     };
-
-    //     let mut inputs_raw = vec![self.local_oracle_datapoint_scan.get_serialized_box()?];
-    //     inputs_raw.append(&mut serialized_unspent_boxes_with_min_total(
-    //         parameters.base_fee,
-    //     )?);
-
-    //     // Filling out the json tx request template
-    //     req["requests"][0]["address"] = self.datapoint_stage.contract_address.clone().into();
-    //     req["requests"][0]["registers"] = registers;
-    //     req["requests"][0]["assets"] = vec![token_json].into();
-    //     req["inputsRaw"] = inputs_raw.into();
-    //     // req["dataInputsRaw"] = vec![self.live_epoch_stage.get_serialized_box()?].into();
-    //     req["fee"] = parameters.base_fee.into();
-
-    //     let result = send_transaction(&req)?;
-    //     Ok(result)
-    // }
-
     // /// Generates and submits the "Collect Funds" action tx
     // pub fn action_collect_funds(&self) -> Result<String, StageError> {
     //     let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();

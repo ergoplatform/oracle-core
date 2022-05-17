@@ -2,11 +2,11 @@
 
 use super::{DataPointSource, DataPointSourceError};
 
-pub struct LovelaceUsd;
+pub struct NanoAdaUsd;
 
-impl DataPointSource for LovelaceUsd {
+impl DataPointSource for NanoAdaUsd {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
-        get_lovelace_usd_price()
+        get_nanoada_usd_price()
     }
 }
 
@@ -23,7 +23,7 @@ pub fn generate_current_price(datapoint: u64) -> f64 {
 
 /// Acquires the price of Ada in USD from CoinGecko, convert it
 /// into Lovelaces per 1 USD, and return it.
-fn get_lovelace_usd_price() -> Result<i64, DataPointSourceError> {
+fn get_nanoada_usd_price() -> Result<i64, DataPointSourceError> {
     let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
     let price_json = json::parse(&resp.text()?)?;
     if let Some(p) = price_json["cardano"]["usd"].as_f64() {

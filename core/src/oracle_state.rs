@@ -88,6 +88,8 @@ pub struct Stage {
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug, Clone)]
 pub struct OraclePool {
+    pub data_point_source: String,
+    pub data_point_source_custom_script: Option<String>,
     /// Address of the local oracle running the oracle core
     pub local_oracle_address: P2PKAddress,
     pub on_mainnet: bool,
@@ -165,6 +167,15 @@ impl OraclePool {
             .as_str()
             .expect("No reward_token specified in config file.")
             .to_string();
+
+        let data_point_source = config["data_point_source"]
+            .as_str()
+            .expect("No data_point_source specified in config file.")
+            .to_string();
+
+        let data_point_source_custom_script = config["data_point_source_custom_script"]
+            .as_str()
+            .map(|s| s.to_owned());
 
         let epoch_preparation_contract_address = config["epoch_preparation_contract_address"]
             .as_str()
@@ -261,6 +272,8 @@ impl OraclePool {
 
         // Create `OraclePool` struct
         OraclePool {
+            data_point_source,
+            data_point_source_custom_script,
             local_oracle_address,
             on_mainnet,
             oracle_pool_nft,

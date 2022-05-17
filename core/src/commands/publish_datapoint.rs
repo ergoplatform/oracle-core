@@ -39,10 +39,6 @@ pub enum PublishDatapointActionError {
     StageError(StageError),
     #[error("Oracle box has no reward token")]
     NoRewardTokenInOracleBox,
-    #[error("Oracle wallet has no reward token")]
-    NoRewardTokenInOracleWallet,
-    #[error("Oracle wallet has no oracle token")]
-    NoOracleTokenInOracleWallet,
     #[error("tx builder error: {0}")]
     TxBuilder(TxBuilderError),
     #[error("box builder error: {0}")]
@@ -169,8 +165,6 @@ pub fn build_publish_first_datapoint_action(
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = BoxValue::SAFE_USER_MIN;
     let box_selector = SimpleBoxSelector::new();
-    let wallet_boxes_selection = box_selector.select(unspent_boxes.clone(), tx_fee, &[])?;
-
     let oracle_token = Token {
         token_id: oracle_token_id,
         amount: TokenAmount::try_from(1).unwrap(),
@@ -180,14 +174,16 @@ pub fn build_publish_first_datapoint_action(
         amount: TokenAmount::try_from(1).unwrap(),
     };
 
-    // Oracle and reward tokens should already exist in the wallet's unspent boxes, since they were
-    // minted during the boostrap phase.
-    let _ = box_selector
-        .select(unspent_boxes.clone(), tx_fee, &[oracle_token.clone()])
-        .map_err(|_| PublishDatapointActionError::NoOracleTokenInOracleWallet)?;
-    let _ = box_selector
-        .select(unspent_boxes, tx_fee, &[reward_token.clone()])
-        .map_err(|_| PublishDatapointActionError::NoRewardTokenInOracleWallet)?;
+    // We need to deduct `2*tx_fee` from the wallet. `fee` goes to the output box and the remaining
+    // for tx fees.
+    let target_balance = tx_fee.checked_mul_u32(2).unwrap();
+
+    let wallet_boxes_selection = box_selector.select(
+        unspent_boxes.clone(),
+        target_balance,
+        &[oracle_token.clone(), reward_token.clone()],
+    )?;
+
     builder.add_token(oracle_token);
     builder.add_token(reward_token);
 
@@ -254,16 +250,21 @@ mod tests {
     };
     use crate::contracts::refresh::RefreshContract;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
+    use ergo_lib::chain::transaction::{TxId, TxIoVec};
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
+    use ergo_lib::ergotree_ir::chain::ergo_box::{BoxTokens, ErgoBox, NonMandatoryRegisters};
     use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
+    use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
+    use ergo_lib::ergotree_ir::mir::constant::Constant;
+    use ergo_lib::ergotree_ir::mir::expr::Expr;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
     #[test]
-    fn test_publish_datapoint() {
+    fn test_subsequent_publish_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let refresh_contract = RefreshContract::new();
@@ -335,6 +336,81 @@ mod tests {
         let tx_context = TransactionContext::new(
             action.tx.clone(),
             find_input_boxes(action.tx, possible_input_boxes),
+            None,
+        )
+        .unwrap();
+
+        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+    }
+
+    #[test]
+    fn test_first_publish_datapoint() {
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = ctx.pre_header.height;
+
+        let reward_token_id =
+            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
+        let oracle_token_id =
+            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap();
+        let tokens = BoxTokens::from_vec(vec![
+            Token::from((reward_token_id.clone(), 1u64.try_into().unwrap())),
+            Token::from((oracle_token_id.clone(), 1u64.try_into().unwrap())),
+        ])
+        .unwrap();
+
+        let secret = force_any_val::<DlogProverInput>();
+        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let c: Constant = secret.public_image().into();
+        let expr: Expr = c.into();
+        let ergo_tree = ErgoTree::try_from(expr).unwrap();
+
+        let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
+        let box_with_tokens = ErgoBox::new(
+            value,
+            ergo_tree.clone(),
+            Some(tokens),
+            NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),
+            height - 30,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap();
+        let unspent_boxes = vec![
+            box_with_tokens.clone(),
+            ErgoBox::new(
+                BoxValue::SAFE_USER_MIN,
+                ergo_tree.clone(),
+                None,
+                NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),
+                height - 9,
+                force_any_val::<TxId>(),
+                0,
+            )
+            .unwrap(),
+        ];
+
+        let change_address =
+            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
+                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
+                .unwrap();
+
+        let action = build_publish_first_datapoint_action(
+            &WalletDataMock {
+                unspent_boxes: unspent_boxes.clone(),
+            },
+            height,
+            change_address,
+            100,
+            oracle_token_id,
+            reward_token_id,
+            secret.public_image(),
+        )
+        .unwrap();
+
+        let tx_context = TransactionContext::new(
+            action.tx.clone(),
+            //find_input_boxes(action.tx, unspent_boxes),
+            TxIoVec::from_vec(unspent_boxes).unwrap(),
             None,
         )
         .unwrap();

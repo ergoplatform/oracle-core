@@ -38,6 +38,7 @@ use commands::build_action;
 use crossbeam::channel::bounded;
 use datapoint_source::DataPointSource;
 use datapoint_source::ExternalScript;
+use datapoint_source::NanoAdaUsd;
 use datapoint_source::NanoErgUsd;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
@@ -84,10 +85,6 @@ static ORACLE_CORE_ASCII: &str = r#"
 struct Args {
     #[clap(long = "Run oracle core in read-only mode")]
     read_only: bool,
-    #[clap(
-        long = "The name of the script which provides the datapoint value. Overrides data source in config file."
-    )]
-    datapoint_script_name: Option<String>,
 }
 
 fn main() {
@@ -143,12 +140,18 @@ fn main_loop_iteration(args: &Args) -> Result<()> {
             Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
             Err(_) => PoolState::NeedsBootstrap,
         };
-        let datapoint_source: Box<dyn DataPointSource> =
-            if let Some(external_script_name) = &args.datapoint_script_name {
-                Box::new(ExternalScript::new(external_script_name.clone()))
-            } else {
-                Box::new(NanoErgUsd)
-            };
+        let datapoint_source: Box<dyn DataPointSource> = match &*op.data_point_source {
+            "NanoErgUsd" => Box::new(NanoErgUsd),
+            "NanoAdaUsd" => Box::new(NanoAdaUsd),
+            "CustomScript" => {
+                if let Some(external_script_name) = &op.data_point_source_custom_script {
+                    Box::new(ExternalScript::new(external_script_name.clone()))
+                } else {
+                    return Err(anyhow!("Custom script name not provided in config"));
+                }
+            }
+            _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoAdaUsd' or 'CustomScript'")),
+        };
         if let Some(cmd) = process(pool_state, &*datapoint_source, height)? {
             let action = build_action(cmd, op, &wallet, height as u32, change_address)?;
             execute_action(action)?;
