@@ -2,6 +2,7 @@
 
 use super::{DataPointSource, DataPointSourceError};
 
+#[derive(Debug, Clone)]
 pub struct NanoAdaUsd;
 
 impl DataPointSource for NanoAdaUsd {

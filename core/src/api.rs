@@ -22,7 +22,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic oracle information
     app.get("/oracleInfo", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
         let response_json = object! {
             oracle_address: op.local_oracle_address,
         };
@@ -36,7 +36,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
         let parameters = PoolParameters::new();
 
         let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
@@ -79,7 +79,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Status of the oracle
     app.get("/oracleStatus", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
 
         // Check whether waiting for datapoint to be submit to oracle core
         let waiting_for_submit = match op.get_live_epoch_state() {
@@ -118,7 +118,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Status of the oracle pool
     app.get("/poolStatus", move |context| {
-        let op = OraclePool::new();
+        let op = OraclePool::new().unwrap();
 
         // Current stage of the oracle pool box
         let current_stage = match op.check_oracle_pool_stage() {

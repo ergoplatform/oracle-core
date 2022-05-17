@@ -5,7 +5,9 @@ use crate::box_kind::{
 };
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
-use crate::datapoint_source::DataPointSourceError;
+use crate::datapoint_source::{
+    DataPointSource, DataPointSourceError, ExternalScript, NanoAdaUsd, NanoErgUsd,
+};
 use crate::oracle_config::get_config_yaml;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_local_oracle_datapoint_scan,
@@ -14,6 +16,8 @@ use crate::scans::{
 };
 use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
+use anyhow::anyhow;
+use anyhow::Error;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
@@ -86,10 +90,9 @@ pub struct Stage {
 }
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct OraclePool {
-    pub data_point_source: String,
-    pub data_point_source_custom_script: Option<String>,
+    pub data_point_source: Box<dyn DataPointSource>,
     /// Address of the local oracle running the oracle core
     pub local_oracle_address: P2PKAddress,
     pub on_mainnet: bool,
@@ -143,7 +146,7 @@ pub struct PoolDepositsState {
 
 impl OraclePool {
     /// Create a new `OraclePool` struct
-    pub fn new() -> OraclePool {
+    pub fn new() -> std::result::Result<OraclePool, Error> {
         let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
 
         let local_oracle_address = config["oracle_address"]
@@ -168,7 +171,7 @@ impl OraclePool {
             .expect("No reward_token specified in config file.")
             .to_string();
 
-        let data_point_source = config["data_point_source"]
+        let data_point_source_str = config["data_point_source"]
             .as_str()
             .expect("No data_point_source specified in config file.")
             .to_string();
@@ -176,6 +179,18 @@ impl OraclePool {
         let data_point_source_custom_script = config["data_point_source_custom_script"]
             .as_str()
             .map(|s| s.to_owned());
+
+        let data_point_source: Box<dyn DataPointSource> = if let Some(external_script_name) =
+            &data_point_source_custom_script
+        {
+            Box::new(ExternalScript::new(external_script_name.clone()))
+        } else {
+            match &*data_point_source_str {
+                "NanoErgUsd" => Box::new(NanoErgUsd),
+                "NanoAdaUsd" => Box::new(NanoAdaUsd),
+                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd' or 'NanoAdaUsd'")),
+            }
+        };
 
         let epoch_preparation_contract_address = config["epoch_preparation_contract_address"]
             .as_str()
@@ -271,9 +286,8 @@ impl OraclePool {
         );
 
         // Create `OraclePool` struct
-        OraclePool {
+        Ok(OraclePool {
             data_point_source,
-            data_point_source_custom_script,
             local_oracle_address,
             on_mainnet,
             oracle_pool_nft,
@@ -294,7 +308,7 @@ impl OraclePool {
             local_oracle_datapoint_scan,
             pool_box_scan,
             refresh_box_scan,
-        }
+        })
     }
 
     /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.

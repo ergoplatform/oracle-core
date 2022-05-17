@@ -4,7 +4,7 @@ mod erg_usd;
 use derive_more::From;
 use thiserror::Error;
 
-pub trait DataPointSource {
+pub trait DataPointSource: std::fmt::Debug {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
 }
 
@@ -30,6 +30,7 @@ pub enum ExternalScriptError {
     ParseInt(std::num::ParseIntError),
 }
 
+#[derive(Debug, Clone)]
 pub struct ExternalScript(String);
 
 pub use ada_usd::NanoAdaUsd;
