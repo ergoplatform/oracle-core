@@ -18,8 +18,8 @@ base16 = "0.2.1"
 blake2b_simd = "0.5.10"
 openssl = { version = "0.10", features = ["vendored"] }
 log = "0.4.11"
-simple-logging = "2.0.2"
 log-panics = "2.0.0"
+log4rs = "1.1.1"
 crossbeam = "0.7.3"
 # ergo-lib = { version = "^0.15.0", features = ["rest"] }
 # ergo-lib = { version = "^0.15.0", path = "../../sigma-rust/ergo-lib", features = ["rest"] }

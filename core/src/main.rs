@@ -39,6 +39,12 @@ use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::info;
+use log::LevelFilter;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::append::file::FileAppender;
+use log4rs::config::Appender;
+use log4rs::config::Root;
+use log4rs::Config;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use oracle_config::PoolParameters;
@@ -84,8 +90,8 @@ struct Args {
 }
 
 fn main() {
-    simple_logging::log_to_file("oracle-core.log", log::LevelFilter::Info).ok();
-    log_panics::init();
+    log_setup();
+
     let args = Args::parse();
     let (_, repost_receiver) = bounded(1);
 
@@ -228,7 +234,29 @@ fn print_info(
 }
 
 // Prints and logs a given message
+// TODO: use info! directly instead
 pub fn print_and_log(message: &str) {
-    println!("{}", message);
     info!("{}", message);
+}
+
+fn log_setup() {
+    let stdout = ConsoleAppender::builder().build();
+
+    let logfile = FileAppender::builder().build("oracle-core.log").unwrap();
+
+    // TODO: rotate log file
+    let config = Config::builder()
+        .appender(Appender::builder().build("stdout", Box::new(stdout)))
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(
+            Root::builder()
+                .appender("stdout")
+                .appender("logfile")
+                .build(LevelFilter::Info),
+        )
+        .unwrap();
+
+    let _ = log4rs::init_config(config).unwrap();
+
+    log_panics::init();
 }
