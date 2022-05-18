@@ -47,7 +47,7 @@ pub enum PoolCommandError {
 
 pub fn build_action(
     cmd: PoolCommand,
-    op: OraclePool,
+    op: &OraclePool,
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,

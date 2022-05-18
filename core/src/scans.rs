@@ -5,7 +5,6 @@ use crate::node_interface::{
     address_to_bytes, address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box,
     serialize_boxes,
 };
-use crate::print_and_log;
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -57,7 +56,7 @@ impl Scan {
         info!("Registering Scan:\n{}", scan_json.pretty(2));
 
         let scan_id = register_scan(&scan_json)?;
-        print_and_log(&format!("Scan Successfully Set.\nID: {}", scan_id));
+        info!("Scan Successfully Set.\nID: {}", scan_id);
 
         Ok(Scan::new(name, &scan_id))
     }
