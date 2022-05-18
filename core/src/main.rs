@@ -22,6 +22,7 @@ mod box_kind;
 mod commands;
 mod contracts;
 mod datapoint_source;
+mod logging;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
@@ -38,12 +39,6 @@ use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::error;
-use log::LevelFilter;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::Appender;
-use log4rs::config::Root;
-use log4rs::Config;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use oracle_state::OraclePool;
@@ -87,7 +82,7 @@ struct Args {
 }
 
 fn main() {
-    setup_log();
+    logging::setup_log();
     // TODO: log parsed config parameters
     // TODO: log contract parameters
 
@@ -108,7 +103,7 @@ fn main() {
     let op = OraclePool::new().unwrap();
     loop {
         if let Err(e) = main_loop_iteration(args.read_only, &op) {
-            error!("Error: {:?}", e);
+            error!("Fatal error: {:?}", e);
             std::process::exit(exitcode::SOFTWARE);
         }
         // Delay loop restart
@@ -138,27 +133,4 @@ fn main_loop_iteration(
         }
     }
     Ok(())
-}
-
-fn setup_log() {
-    let stdout = ConsoleAppender::builder().build();
-
-    let logfile = FileAppender::builder().build("oracle-core.log").unwrap();
-
-    // TODO: rotate log file
-    let config = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(stdout)))
-        .appender(Appender::builder().build("logfile", Box::new(logfile)))
-        .build(
-            Root::builder()
-                .appender("stdout")
-                .appender("logfile")
-                // TODO: read log level from environment variable or config file
-                .build(LevelFilter::Info),
-        )
-        .unwrap();
-
-    let _ = log4rs::init_config(config).unwrap();
-
-    log_panics::init();
 }
