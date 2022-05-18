@@ -7,6 +7,29 @@ use log4rs::append::rolling_file::RollingFileAppender;
 use log4rs::config::Appender;
 use log4rs::config::Root;
 use log4rs::Config;
+use yaml_rust::YamlLoader;
+
+use crate::oracle_config;
+
+fn load_log_level() -> Option<String> {
+    let config_file = std::fs::read_to_string(oracle_config::DEFAULT_CONFIG_FILE_NAME).ok()?;
+    YamlLoader::load_from_str(&config_file).ok()?.first()?["log_level"]
+        .as_str()
+        .map(|s| s.to_string())
+}
+
+fn get_level_filter() -> LevelFilter {
+    let log_level = load_log_level().unwrap_or_else(|| "info".to_string());
+    match log_level.to_lowercase().as_str() {
+        "trace" => LevelFilter::Trace,
+        "debug" => LevelFilter::Debug,
+        "info" => LevelFilter::Info,
+        "warn" => LevelFilter::Warn,
+        "error" => LevelFilter::Error,
+        "off" => LevelFilter::Off,
+        _ => LevelFilter::Info,
+    }
+}
 
 pub fn setup_log() {
     let stdout = ConsoleAppender::builder().build();
@@ -39,8 +62,7 @@ pub fn setup_log() {
             Root::builder()
                 .appender("stdout")
                 .appender("logfile")
-                // TODO: read log level from environment variable or config file
-                .build(LevelFilter::Info),
+                .build(get_level_filter()),
         )
         .unwrap();
 
