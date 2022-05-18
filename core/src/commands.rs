@@ -24,6 +24,7 @@ mod test_utils;
 pub enum PoolCommand {
     Bootstrap,
     Refresh,
+    // TODO: remove the data and fetch data point in build_*_action? (cleaner process())
     PublishDataPoint(i64),
 }
 

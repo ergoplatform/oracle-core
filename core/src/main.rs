@@ -37,6 +37,7 @@ use commands::build_action;
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+use log::error;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -68,8 +69,6 @@ pub type BlockDuration = u64;
 pub type EpochID = u32;
 /// A Base58 encoded String of a Token ID.
 pub type TokenID = String;
-// Anyhow Error used for the base Result return type.
-pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 static ORACLE_CORE_ASCII: &str = r#"
    ____                 _         _____
@@ -108,16 +107,19 @@ fn main() {
 
     let op = OraclePool::new().unwrap();
     loop {
-        if let Err(_e) = main_loop_iteration(args.read_only, &op) {
-            // TODO: set exit code
-            todo!()
+        if let Err(e) = main_loop_iteration(args.read_only, &op) {
+            error!("Error: {:?}", e);
+            std::process::exit(exitcode::SOFTWARE);
         }
         // Delay loop restart
         thread::sleep(Duration::new(30, 0));
     }
 }
 
-fn main_loop_iteration(is_read_only: bool, op: &OraclePool) -> Result<()> {
+fn main_loop_iteration(
+    is_read_only: bool,
+    op: &OraclePool,
+) -> std::result::Result<(), anyhow::Error> {
     let height = current_block_height()?;
     let wallet = WalletData::new();
     let change_address_str = get_wallet_status()?
