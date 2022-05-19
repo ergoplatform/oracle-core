@@ -18,6 +18,7 @@ extern crate json;
 
 mod actions;
 mod api;
+mod bootstrap;
 mod box_kind;
 mod commands;
 mod contracts;

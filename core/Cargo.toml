@@ -10,6 +10,8 @@ edition = "2018"
 yaml-rust = "0.4.4"
 json = "0.12.4"
 reqwest = { version = "0.10.8", features = ["blocking"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.8"
 serde_json = "1.0.57"
 sincere = "0.6.6"
 thiserror = "1.0.20"

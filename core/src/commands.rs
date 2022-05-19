@@ -19,7 +19,7 @@ use self::refresh::RefrechActionError;
 mod publish_datapoint;
 mod refresh;
 #[cfg(test)]
-mod test_utils;
+pub(crate) mod test_utils;
 
 pub enum PoolCommand {
     Bootstrap,
