@@ -83,8 +83,6 @@ struct Args {
 
 fn main() {
     logging::setup_log();
-    // TODO: log parsed config parameters
-    // TODO: log contract parameters
 
     let args = Args::parse();
     if args.read_only {
