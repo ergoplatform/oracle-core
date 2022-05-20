@@ -3,11 +3,17 @@ use std::convert::{TryFrom, TryInto};
 
 use derive_more::From;
 use ergo_lib::{
-    chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
+    chain::{
+        ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
+        transaction::Transaction,
+    },
     ergotree_ir::{
         chain::{
             address::Address,
-            ergo_box::{box_value::BoxValue, ErgoBox},
+            ergo_box::{
+                box_value::{BoxValue, BoxValueError},
+                ErgoBox,
+            },
             token::{Token, TokenId},
         },
         ergo_tree::ErgoTree,
@@ -72,6 +78,8 @@ pub enum BootstrapError {
     Node(NodeError),
     #[error("box selector error: {0}")]
     BoxSelector(BoxSelectorError),
+    #[error("box value error: {0}")]
+    BoxValue(BoxValueError),
 }
 
 pub struct MintTokensInput<'a> {
@@ -105,7 +113,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     let guard = ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
-    // constituent transaction to be only those are guarded by our wallet's key.
+    // constituent transaction to be only those that are guarded by our wallet's key.
     let filter_tx_outputs = move |outputs: Vec<ErgoBox>| -> Vec<ErgoBox> {
         outputs
             .clone()
@@ -115,229 +123,122 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     };
 
     let calc_target_balance = |num_transactions_left| {
-        let b = erg_value_per_box
-            .checked_mul_u32(num_transactions_left)
-            .unwrap();
-        let fees = tx_fee.checked_mul_u32(num_transactions_left).unwrap();
-        b.checked_add(&fees).unwrap()
+        let b = erg_value_per_box.checked_mul_u32(num_transactions_left)?;
+        let fees = tx_fee.checked_mul_u32(num_transactions_left)?;
+        b.checked_add(&fees)
     };
 
-    let mut builder =
-        ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
+    let mut mint_tokens = |input_boxes: Vec<ErgoBox>,
+                           num_transactions_left: &mut u32,
+                           token_name,
+                           token_desc,
+                           token_amount,
+                           build_box_for_remaining_funds|
+     -> Result<(Token, Transaction), BootstrapError> {
+        let target_balance = calc_target_balance(*num_transactions_left)?;
+        let box_selector = SimpleBoxSelector::new();
+        let box_selection = box_selector.select(input_boxes, target_balance, &[])?;
+        let token = Token {
+            token_id: box_selection.boxes.first().box_id().into(),
+            amount: token_amount,
+        };
+        let mut builder =
+            ErgoBoxCandidateBuilder::new(erg_value_per_box, ergo_tree.clone(), height);
+        builder.mint_token(token.clone(), token_name, token_desc, 1);
+        let mut output_candidates = vec![builder.build()?];
 
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let mut num_token_ids_to_mint = 6;
-    let target_balance = calc_target_balance(num_token_ids_to_mint);
-    let box_selector = SimpleBoxSelector::new();
-    let box_selection = box_selector.select(unspent_boxes, target_balance, &[])?;
+        if build_box_for_remaining_funds {
+            builder = ErgoBoxCandidateBuilder::new(
+                calc_target_balance(*num_transactions_left - 1)?,
+                ergo_tree.clone(),
+                height,
+            );
+            output_candidates.push(builder.build()?);
+        }
+        let tx_builder = TxBuilder::new(
+            box_selection,
+            output_candidates,
+            height,
+            tx_fee,
+            change_address.clone(),
+            BoxValue::MIN,
+        );
+        let mint_token_tx = tx_builder.build()?;
+        let signed_tx = wallet_sign.sign_transaction(&mint_token_tx)?;
+        *num_transactions_left -= 1;
+        Ok((token, signed_tx))
+    };
 
     // Mint pool NFT token --------------------------------------------------------------------------
-    let pool_nft_token = Token {
-        token_id: box_selection.boxes.first().box_id().into(),
-        amount: 1.try_into().unwrap(),
-    };
-    builder.mint_token(
-        pool_nft_token.clone(),
+    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    let mut num_token_ids_to_mint = 6;
+    let target_balance = calc_target_balance(num_token_ids_to_mint)?;
+    let box_selector = SimpleBoxSelector::new();
+    let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
+
+    let (pool_nft_token, signed_mint_pool_nft_tx) = mint_tokens(
+        box_selection.boxes.as_vec().clone(),
+        &mut num_token_ids_to_mint,
         state.pool_nft.name.clone(),
         state.pool_nft.description.clone(),
-        1,
-    );
-
-    let output_candidate_with_pool_nft = builder.build()?;
-
-    builder = ErgoBoxCandidateBuilder::new(
-        BoxValue::SAFE_USER_MIN
-            .checked_mul_u32(2 * (num_token_ids_to_mint - 1))
-            .unwrap(),
-        ergo_tree.clone(),
-        height,
-    );
-    let output_candidate = builder.build()?;
-    let tx_builder = TxBuilder::new(
-        box_selection,
-        vec![output_candidate_with_pool_nft, output_candidate],
-        height,
-        tx_fee,
-        change_address.clone(),
-        BoxValue::MIN,
-    );
-    let mint_pool_nft_tx = tx_builder.build()?;
-    let signed_mint_pool_nft_tx = wallet_sign.sign_transaction(&mint_pool_nft_tx)?;
-    num_token_ids_to_mint -= 1;
+        1.try_into().unwrap(),
+        true,
+    )?;
 
     // Mint refresh NFT token ----------------------------------------------------------------------
-    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
-    let box_selection = box_selector.select(inputs, target_balance, &[])?;
-
-    builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
-
-    let refresh_nft_token = Token {
-        token_id: box_selection.boxes.first().box_id().into(),
-        amount: 1.try_into().unwrap(),
-    };
-    builder.mint_token(
-        refresh_nft_token.clone(),
+    let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_tokens(
+        inputs,
+        &mut num_token_ids_to_mint,
         state.refresh_nft.name.clone(),
         state.refresh_nft.description.clone(),
-        1,
-    );
-    let output_candidate_with_refresh_nft = builder.build()?;
-    builder = ErgoBoxCandidateBuilder::new(
-        BoxValue::SAFE_USER_MIN
-            .checked_mul_u32(2 * (num_token_ids_to_mint - 1))
-            .unwrap(),
-        ergo_tree.clone(),
-        height,
-    );
-    let output_candidate = builder.build()?;
-    let tx_builder = TxBuilder::new(
-        box_selection,
-        vec![output_candidate_with_refresh_nft, output_candidate],
-        height,
-        tx_fee,
-        change_address.clone(),
-        BoxValue::MIN,
-    );
-    let mint_refresh_nft_tx = tx_builder.build()?;
-    let signed_mint_refresh_nft_tx = wallet_sign.sign_transaction(&mint_refresh_nft_tx)?;
-    num_token_ids_to_mint -= 1;
+        1.try_into().unwrap(),
+        true,
+    )?;
 
     // Mint update NFT token -----------------------------------------------------------------------
-    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
-    let box_selection = box_selector.select(inputs, target_balance, &[])?;
-    builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
-
-    let update_nft_token = Token {
-        token_id: box_selection.boxes.first().box_id().into(),
-        amount: 1.try_into().unwrap(),
-    };
-    builder.mint_token(
-        update_nft_token.clone(),
+    let (update_nft_token, signed_mint_update_nft_tx) = mint_tokens(
+        inputs,
+        &mut num_token_ids_to_mint,
         state.update_nft.name.clone(),
         state.update_nft.description.clone(),
-        1,
-    );
-    let output_candidate_with_update_nft = builder.build()?;
-    builder = ErgoBoxCandidateBuilder::new(
-        BoxValue::SAFE_USER_MIN
-            .checked_mul_u32(2 * (num_token_ids_to_mint - 1))
-            .unwrap(),
-        ergo_tree.clone(),
-        height,
-    );
-    let output_candidate = builder.build()?;
-    let tx_builder = TxBuilder::new(
-        box_selection,
-        vec![output_candidate_with_update_nft, output_candidate],
-        height,
-        tx_fee,
-        change_address.clone(),
-        BoxValue::MIN,
-    );
-    let mint_update_nft_tx = tx_builder.build()?;
-    let signed_mint_update_nft_tx = wallet_sign.sign_transaction(&mint_update_nft_tx)?;
-    num_token_ids_to_mint -= 1;
+        1.try_into().unwrap(),
+        true,
+    )?;
 
     // Mint oracle tokens --------------------------------------------------------------------------
-    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
-    let box_selection = box_selector.select(inputs, target_balance, &[])?;
-    builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
-    let oracle_token = Token {
-        token_id: box_selection.boxes.first().box_id().into(),
-        amount: state.oracle_tokens.quantity.try_into().unwrap(),
-    };
-    builder.mint_token(
-        oracle_token.clone(),
+    let (oracle_token, signed_mint_oracle_tokens_tx) = mint_tokens(
+        inputs,
+        &mut num_token_ids_to_mint,
         state.oracle_tokens.name.clone(),
         state.oracle_tokens.description.clone(),
-        1,
-    );
-    let output_candidate_with_oracle_tokens = builder.build()?;
-    builder = ErgoBoxCandidateBuilder::new(
-        BoxValue::SAFE_USER_MIN
-            .checked_mul_u32(2 * (num_token_ids_to_mint - 1))
-            .unwrap(),
-        ergo_tree.clone(),
-        height,
-    );
-    let output_candidate = builder.build()?;
-    let tx_builder = TxBuilder::new(
-        box_selection,
-        vec![output_candidate_with_oracle_tokens, output_candidate],
-        height,
-        tx_fee,
-        change_address.clone(),
-        BoxValue::MIN,
-    );
-    let mint_oracle_tokens_tx = tx_builder.build()?;
-    let signed_mint_oracle_tokens_tx = wallet_sign.sign_transaction(&mint_oracle_tokens_tx)?;
-    num_token_ids_to_mint -= 1;
+        state.oracle_tokens.quantity.try_into().unwrap(),
+        true,
+    )?;
 
     // Mint ballot tokens --------------------------------------------------------------------------
-    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
-    let box_selection = box_selector.select(inputs, target_balance, &[])?;
-    builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
-    let ballot_token = Token {
-        token_id: box_selection.boxes.first().box_id().into(),
-        amount: state.ballot_tokens.quantity.try_into().unwrap(),
-    };
-    builder.mint_token(
-        ballot_token.clone(),
+    let (ballot_token, signed_mint_ballot_tokens_tx) = mint_tokens(
+        inputs,
+        &mut num_token_ids_to_mint,
         state.ballot_tokens.name.clone(),
         state.ballot_tokens.description.clone(),
-        1,
-    );
-    let output_candidate_with_ballot_tokens = builder.build()?;
-    builder = ErgoBoxCandidateBuilder::new(
-        BoxValue::SAFE_USER_MIN
-            .checked_mul_u32(2 * (num_token_ids_to_mint - 1))
-            .unwrap(),
-        ergo_tree.clone(),
-        height,
-    );
-    let output_candidate = builder.build()?;
-    let tx_builder = TxBuilder::new(
-        box_selection,
-        vec![output_candidate_with_ballot_tokens, output_candidate],
-        height,
-        tx_fee,
-        change_address.clone(),
-        BoxValue::MIN,
-    );
-    let mint_ballot_tokens_tx = tx_builder.build()?;
-    let signed_mint_ballot_tokens_tx = wallet_sign.sign_transaction(&mint_ballot_tokens_tx)?;
-    num_token_ids_to_mint -= 1;
+        state.ballot_tokens.quantity.try_into().unwrap(),
+        true,
+    )?;
 
     // Mint reward tokens --------------------------------------------------------------------------
-    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
-    let box_selection = box_selector.select(inputs, target_balance, &[])?;
-    builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree, height);
-    let reward_token = Token {
-        token_id: box_selection.boxes.first().box_id().into(),
-        amount: state.reward_tokens.quantity.try_into().unwrap(),
-    };
-    builder.mint_token(
-        reward_token.clone(),
+    let (reward_token, signed_mint_reward_tokens_tx) = mint_tokens(
+        inputs,
+        &mut num_token_ids_to_mint,
         state.reward_tokens.name.clone(),
         state.reward_tokens.description.clone(),
-        1,
-    );
-    let output_candidate = builder.build()?;
-    let tx_builder = TxBuilder::new(
-        box_selection,
-        vec![output_candidate],
-        height,
-        tx_fee,
-        change_address,
-        BoxValue::MIN,
-    );
-    let mint_reward_tokens_tx = tx_builder.build()?;
-    let signed_mint_reward_tokens_tx = wallet_sign.sign_transaction(&mint_reward_tokens_tx)?;
+        state.reward_tokens.quantity.try_into().unwrap(),
+        false,
+    )?;
 
     submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
     submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
