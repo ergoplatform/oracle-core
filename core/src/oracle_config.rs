@@ -2,6 +2,8 @@ use crate::{BlockDuration, NanoErg};
 use reqwest::header::HeaderValue;
 use yaml_rust::{Yaml, YamlLoader};
 
+pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
+
 /// Pool Parameters as defined in the `oracle-config.yaml`
 pub struct PoolParameters {
     pub minimum_pool_box_value: u64,
@@ -78,7 +80,7 @@ pub fn get_core_api_port() -> String {
 
 /// Reads the `oracle-config.yaml` file
 pub fn get_config_yaml() -> String {
-    std::fs::read_to_string("oracle-config.yaml").expect("Failed to open oracle-config.yaml")
+    std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME).expect("Failed to open oracle-config.yaml")
 }
 
 /// Returns `http://ip:port` using `node_ip` and `node_port` from the config file
