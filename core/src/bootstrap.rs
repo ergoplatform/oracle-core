@@ -81,6 +81,7 @@ pub struct MintTokensInput<'a> {
     pub submit_tx: &'a dyn SubmitTransaction,
     pub wallet_pk: ProveDlog,
     pub tx_fee: BoxValue,
+    pub erg_value_per_box: BoxValue,
     pub change_address: Address,
     pub height: u32,
 }
@@ -94,6 +95,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
         submit_tx,
         wallet_pk,
         tx_fee,
+        erg_value_per_box,
         change_address,
         height,
     } = input;
@@ -112,12 +114,20 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
             .collect()
     };
 
+    let calc_target_balance = |num_transactions_left| {
+        let b = erg_value_per_box
+            .checked_mul_u32(num_transactions_left)
+            .unwrap();
+        let fees = tx_fee.checked_mul_u32(num_transactions_left).unwrap();
+        b.checked_add(&fees).unwrap()
+    };
+
     let mut builder =
         ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let mut num_token_ids_to_mint = 6;
-    let target_balance = tx_fee.checked_mul_u32(num_token_ids_to_mint * 2).unwrap();
+    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let box_selector = SimpleBoxSelector::new();
     let box_selection = box_selector.select(unspent_boxes, target_balance, &[])?;
 
@@ -156,9 +166,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     num_token_ids_to_mint -= 1;
 
     // Mint refresh NFT token ----------------------------------------------------------------------
-    let target_balance = BoxValue::SAFE_USER_MIN
-        .checked_mul_u32(2 * num_token_ids_to_mint)
-        .unwrap();
+    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
     let box_selection = box_selector.select(inputs, target_balance, &[])?;
 
@@ -196,9 +204,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     num_token_ids_to_mint -= 1;
 
     // Mint update NFT token -----------------------------------------------------------------------
-    let target_balance = BoxValue::SAFE_USER_MIN
-        .checked_mul_u32(2 * num_token_ids_to_mint)
-        .unwrap();
+    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
     let box_selection = box_selector.select(inputs, target_balance, &[])?;
     builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
@@ -235,9 +241,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     num_token_ids_to_mint -= 1;
 
     // Mint oracle tokens --------------------------------------------------------------------------
-    let target_balance = BoxValue::SAFE_USER_MIN
-        .checked_mul_u32(2 * num_token_ids_to_mint)
-        .unwrap();
+    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     let box_selection = box_selector.select(inputs, target_balance, &[])?;
     builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
@@ -273,9 +277,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     num_token_ids_to_mint -= 1;
 
     // Mint ballot tokens --------------------------------------------------------------------------
-    let target_balance = BoxValue::SAFE_USER_MIN
-        .checked_mul_u32(2 * num_token_ids_to_mint)
-        .unwrap();
+    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
     let box_selection = box_selector.select(inputs, target_balance, &[])?;
     builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree.clone(), height);
@@ -311,9 +313,7 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     num_token_ids_to_mint -= 1;
 
     // Mint reward tokens --------------------------------------------------------------------------
-    let target_balance = BoxValue::SAFE_USER_MIN
-        .checked_mul_u32(2 * num_token_ids_to_mint)
-        .unwrap();
+    let target_balance = calc_target_balance(num_token_ids_to_mint);
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
     let box_selection = box_selector.select(inputs, target_balance, &[])?;
     builder = ErgoBoxCandidateBuilder::new(BoxValue::SAFE_USER_MIN, ergo_tree, height);
@@ -490,6 +490,7 @@ mod tests {
             submit_tx: &SubmitTxMock {},
             wallet_pk: secret.public_image(),
             tx_fee: BoxValue::SAFE_USER_MIN,
+            erg_value_per_box: BoxValue::SAFE_USER_MIN,
             change_address,
             height,
         })
