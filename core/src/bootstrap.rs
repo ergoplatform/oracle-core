@@ -82,7 +82,7 @@ pub enum BootstrapError {
     BoxValue(BoxValueError),
 }
 
-pub struct MintTokensInput<'a> {
+pub struct BootstrapInput<'a> {
     pub state: BootstrapState,
     pub wallet: &'a dyn WalletDataSource,
     pub wallet_sign: &'a mut dyn WalletSign,
@@ -94,9 +94,13 @@ pub struct MintTokensInput<'a> {
     pub height: u32,
 }
 
-/// Mint the oracle-pool tokens as described in EIP-23: https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
-pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapError> {
-    let MintTokensInput {
+/// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
+/// mint the oracle-pool tokens then create the pool and refresh boxes as described in EIP-23:
+/// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
+pub fn perform_bootstrap_chained_transaction(
+    input: BootstrapInput,
+) -> Result<MintedTokenIds, BootstrapError> {
+    let BootstrapInput {
         state,
         wallet,
         wallet_sign,
@@ -107,6 +111,37 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
         change_address,
         height,
     } = input;
+
+    // We can calculate the amount of ERGs necessary to effect this chained-transaction upfront.
+    // We're going to mint 6 distinct types of tokens and create the pool and refresh boxes as
+    // described in EIP-23. The minting of each type of token requires a distinct transaction, so we
+    // need 8 transactions in total. We assume that the resulting token-holding boxes generated from
+    // these transactions each has a box value of `erg_value_per_box`. Similarly the pool and
+    // refresh boxes will also hold `erg_value_per_box`.
+    //
+    // Now define `E_i = i*(erg_value_per_box + tx_free)` for `i = 1,2,.., 8`. `E_i` represents the
+    // amount of ERGs necessary to effect `i` remaining transactions.
+    //
+    // So we require a total ERG value of `E_8 = 8*(erg_value_per_box + tx_free)`
+    //
+    // The chain transaction is structured as follows:
+    //   * First sweep the unspent boxes of the wallet for a target balance of `E_8`. Denote these
+    //     input boxes by `I_1`.
+    //
+    //   * Mint the first token with `I_1` as input, resulting in two output boxes:
+    //      - `B_1_token` containing the minted token and `ergo_value_per_box`
+    //      - `B_1_remaining` containing `E_7` in ERG value.
+    //
+    //   * Mint the second token with input boxes containing `B_1_remaining`, resulting in two
+    //     output boxes:
+    //      - `B_2_token` containing the minted token and `ergo_value_per_box`
+    //      - `B_2_remaining` containing `E_6` in ERG value.
+    //
+    // And so on.
+
+    // This variable represents the index `i` described above.
+    let mut num_transactions_left = 8;
+
     let c: Constant = wallet_pk.into();
     let expr: Expr = c.into();
     let ergo_tree = ErgoTree::try_from(expr).unwrap();
@@ -122,18 +157,20 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
             .collect()
     };
 
+    // This closure computes `E_{num_transactions_left}`.
     let calc_target_balance = |num_transactions_left| {
         let b = erg_value_per_box.checked_mul_u32(num_transactions_left)?;
         let fees = tx_fee.checked_mul_u32(num_transactions_left)?;
         b.checked_add(&fees)
     };
 
-    let mut mint_tokens = |input_boxes: Vec<ErgoBox>,
-                           num_transactions_left: &mut u32,
-                           token_name,
-                           token_desc,
-                           token_amount,
-                           build_box_for_remaining_funds|
+    // Effect a single transaction that mints a token with given details, as described in comments
+    // at the beginning.
+    let mut mint_token = |input_boxes: Vec<ErgoBox>,
+                          num_transactions_left: &mut u32,
+                          token_name,
+                          token_desc,
+                          token_amount|
      -> Result<(Token, Transaction), BootstrapError> {
         let target_balance = calc_target_balance(*num_transactions_left)?;
         let box_selector = SimpleBoxSelector::new();
@@ -147,14 +184,14 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
         builder.mint_token(token.clone(), token_name, token_desc, 1);
         let mut output_candidates = vec![builder.build()?];
 
-        if build_box_for_remaining_funds {
-            builder = ErgoBoxCandidateBuilder::new(
-                calc_target_balance(*num_transactions_left - 1)?,
-                ergo_tree.clone(),
-                height,
-            );
-            output_candidates.push(builder.build()?);
-        }
+        // Build box for remaining funds
+        builder = ErgoBoxCandidateBuilder::new(
+            calc_target_balance(*num_transactions_left - 1)?,
+            ergo_tree.clone(),
+            height,
+        );
+        output_candidates.push(builder.build()?);
+
         let tx_builder = TxBuilder::new(
             box_selection,
             output_candidates,
@@ -171,73 +208,66 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
 
     // Mint pool NFT token --------------------------------------------------------------------------
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let mut num_token_ids_to_mint = 6;
-    let target_balance = calc_target_balance(num_token_ids_to_mint)?;
+    let target_balance = calc_target_balance(num_transactions_left)?;
     let box_selector = SimpleBoxSelector::new();
     let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
 
-    let (pool_nft_token, signed_mint_pool_nft_tx) = mint_tokens(
+    let (pool_nft_token, signed_mint_pool_nft_tx) = mint_token(
         box_selection.boxes.as_vec().clone(),
-        &mut num_token_ids_to_mint,
+        &mut num_transactions_left,
         state.pool_nft.name.clone(),
         state.pool_nft.description.clone(),
         1.try_into().unwrap(),
-        true,
     )?;
 
     // Mint refresh NFT token ----------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
-    let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_tokens(
+    let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_token(
         inputs,
-        &mut num_token_ids_to_mint,
+        &mut num_transactions_left,
         state.refresh_nft.name.clone(),
         state.refresh_nft.description.clone(),
         1.try_into().unwrap(),
-        true,
     )?;
 
     // Mint update NFT token -----------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
-    let (update_nft_token, signed_mint_update_nft_tx) = mint_tokens(
+    let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
         inputs,
-        &mut num_token_ids_to_mint,
+        &mut num_transactions_left,
         state.update_nft.name.clone(),
         state.update_nft.description.clone(),
         1.try_into().unwrap(),
-        true,
     )?;
 
     // Mint oracle tokens --------------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
-    let (oracle_token, signed_mint_oracle_tokens_tx) = mint_tokens(
+    let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
-        &mut num_token_ids_to_mint,
+        &mut num_transactions_left,
         state.oracle_tokens.name.clone(),
         state.oracle_tokens.description.clone(),
         state.oracle_tokens.quantity.try_into().unwrap(),
-        true,
     )?;
 
     // Mint ballot tokens --------------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
-    let (ballot_token, signed_mint_ballot_tokens_tx) = mint_tokens(
+    let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
         inputs,
-        &mut num_token_ids_to_mint,
+        &mut num_transactions_left,
         state.ballot_tokens.name.clone(),
         state.ballot_tokens.description.clone(),
         state.ballot_tokens.quantity.try_into().unwrap(),
-        true,
     )?;
 
     // Mint reward tokens --------------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
-    let (reward_token, signed_mint_reward_tokens_tx) = mint_tokens(
+    let (reward_token, signed_mint_reward_tokens_tx) = mint_token(
         inputs,
-        &mut num_token_ids_to_mint,
+        &mut num_transactions_left,
         state.reward_tokens.name.clone(),
         state.reward_tokens.description.clone(),
         state.reward_tokens.quantity.try_into().unwrap(),
-        false,
     )?;
 
     submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
@@ -246,6 +276,9 @@ pub fn mint_tokens(input: MintTokensInput) -> Result<MintedTokenIds, BootstrapEr
     submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
     submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
     submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
+
+    // TODO: create pool and refresh boxes.
+
     Ok(MintedTokenIds {
         pool_nft: pool_nft_token.token_id,
         refresh_nft: refresh_nft_token.token_id,
@@ -321,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mint_tokens() {
+    fn test_bootstrap() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
@@ -341,10 +374,10 @@ mod tests {
             0,
         )
         .unwrap()];
-        let change_address = //Address::P2Pk(secret.public_image());
-        AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-            .unwrap();
+        let change_address =
+            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
+                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
+                .unwrap();
 
         let state = BootstrapState {
             oracle_pool_name_prefix: Some("".into()),
@@ -377,7 +410,7 @@ mod tests {
             },
         };
         let height = ctx.pre_header.height;
-        let _ = mint_tokens(MintTokensInput {
+        let _ = perform_bootstrap_chained_transaction(BootstrapInput {
             state,
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
