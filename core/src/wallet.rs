@@ -1,5 +1,5 @@
 use ergo_lib::{
-    chain::transaction::{unsigned::UnsignedTransaction, Transaction},
+    chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
     ergotree_ir::chain::ergo_box::ErgoBox,
 };
 use ergo_node_interface::node_interface::NodeError;
@@ -11,9 +11,11 @@ pub trait WalletDataSource {
 }
 
 pub trait WalletSign {
-    fn sign_transaction(
-        &mut self,
+    fn sign_transaction_with_inputs(
+        &self,
         unsigned_tx: &UnsignedTransaction,
+        inputs: TxIoVec<ErgoBox>,
+        data_boxes: Option<TxIoVec<ErgoBox>>,
     ) -> Result<Transaction, NodeError>;
 }
 
@@ -31,11 +33,13 @@ impl WalletDataSource for WalletData {
     }
 }
 
-impl WalletSign for WalletData {
-    fn sign_transaction(
-        &mut self,
-        unsigned_tx: &UnsignedTransaction,
-    ) -> Result<Transaction, NodeError> {
-        node_interface::sign_transaction(unsigned_tx)
-    }
-}
+//impl WalletSign for WalletData {
+//    fn sign_transaction_with_inputs(
+//        &mut self,
+//        unsigned_tx: &UnsignedTransaction,
+//        _inputs: TxIoVec<ErgoBox>,
+//        _data_inputs: Option<TxIoVec<ErgoBox>>,
+//    ) -> Result<Transaction, NodeError> {
+//        node_interface::sign_transaction(unsigned_tx)
+//    }
+//}

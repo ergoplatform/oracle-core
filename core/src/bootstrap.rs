@@ -30,6 +30,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
+    contracts::pool::PoolContract,
     node_interface::SubmitTransaction,
     wallet::{WalletDataSource, WalletSign},
 };
@@ -85,13 +86,14 @@ pub enum BootstrapError {
 pub struct BootstrapInput<'a> {
     pub state: BootstrapState,
     pub wallet: &'a dyn WalletDataSource,
-    pub wallet_sign: &'a mut dyn WalletSign,
+    pub wallet_sign: &'a dyn WalletSign,
     pub submit_tx: &'a dyn SubmitTransaction,
     pub wallet_pk: ProveDlog,
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
     pub height: u32,
+    pub initial_datapoint: i64,
 }
 
 /// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
@@ -110,6 +112,7 @@ pub fn perform_bootstrap_chained_transaction(
         erg_value_per_box,
         change_address,
         height,
+        initial_datapoint,
     } = input;
 
     // We can calculate the amount of ERGs necessary to effect this chained-transaction upfront.
@@ -166,11 +169,11 @@ pub fn perform_bootstrap_chained_transaction(
 
     // Effect a single transaction that mints a token with given details, as described in comments
     // at the beginning.
-    let mut mint_token = |input_boxes: Vec<ErgoBox>,
-                          num_transactions_left: &mut u32,
-                          token_name,
-                          token_desc,
-                          token_amount|
+    let mint_token = |input_boxes: Vec<ErgoBox>,
+                      num_transactions_left: &mut u32,
+                      token_name,
+                      token_desc,
+                      token_amount|
      -> Result<(Token, Transaction), BootstrapError> {
         let target_balance = calc_target_balance(*num_transactions_left)?;
         let box_selector = SimpleBoxSelector::new();
@@ -190,8 +193,10 @@ pub fn perform_bootstrap_chained_transaction(
             ergo_tree.clone(),
             height,
         );
-        output_candidates.push(builder.build()?);
+        let output_with_token = builder.build()?;
+        output_candidates.push(output_with_token.clone());
 
+        let inputs = box_selection.boxes.clone();
         let tx_builder = TxBuilder::new(
             box_selection,
             output_candidates,
@@ -201,7 +206,7 @@ pub fn perform_bootstrap_chained_transaction(
             BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
-        let signed_tx = wallet_sign.sign_transaction(&mint_token_tx)?;
+        let signed_tx = wallet_sign.sign_transaction_with_inputs(&mint_token_tx, inputs, None)?;
         *num_transactions_left -= 1;
         Ok((token, signed_tx))
     };
@@ -219,7 +224,6 @@ pub fn perform_bootstrap_chained_transaction(
         state.pool_nft.description.clone(),
         1.try_into().unwrap(),
     )?;
-
     // Mint refresh NFT token ----------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
     let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_token(
@@ -270,14 +274,71 @@ pub fn perform_bootstrap_chained_transaction(
         state.reward_tokens.quantity.try_into().unwrap(),
     )?;
 
+    // Create pool box -----------------------------------------------------------------------------
+    let pool_contract = PoolContract::new()
+        .with_refresh_nft_token_id(refresh_nft_token.token_id.clone())
+        .with_update_nft_token_id(update_nft_token.token_id.clone());
+
+    let mut builder =
+        ErgoBoxCandidateBuilder::new(erg_value_per_box, pool_contract.ergo_tree(), height);
+    use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::{R4, R5};
+    builder.set_register_value(R4, initial_datapoint.into());
+    builder.set_register_value(R5, 1_i64.into());
+    builder.add_token(pool_nft_token.clone());
+
+    let mut output_candidates = vec![builder.build()?];
+
+    // Build box for remaining funds
+    builder = ErgoBoxCandidateBuilder::new(
+        calc_target_balance(num_transactions_left - 1)?,
+        ergo_tree.clone(),
+        height,
+    );
+    output_candidates.push(builder.build()?);
+
+    let target_balance = calc_target_balance(num_transactions_left)?;
+    let box_selector = SimpleBoxSelector::new();
+    let mut inputs = filter_tx_outputs(signed_mint_reward_tokens_tx.outputs.clone());
+
+    // Need to find the box containing the pool NFT, and transfer this token to the pool box.
+    let box_with_pool_nft = signed_mint_pool_nft_tx
+        .outputs
+        .iter()
+        .find(|b| {
+            if let Some(tokens) = &b.tokens {
+                tokens.iter().any(|t| t.token_id == pool_nft_token.token_id)
+            } else {
+                false
+            }
+        })
+        .unwrap()
+        .clone();
+    inputs.push(box_with_pool_nft);
+
+    let box_selection = box_selector.select(inputs, target_balance, &[pool_nft_token.clone()])?;
+    let inputs = box_selection.boxes.clone();
+    let tx_builder = TxBuilder::new(
+        box_selection,
+        output_candidates,
+        height,
+        tx_fee,
+        change_address.clone(),
+        BoxValue::MIN,
+    );
+    let pool_box_tx = tx_builder.build()?;
+    let signed_pool_box_tx =
+        wallet_sign.sign_transaction_with_inputs(&pool_box_tx, inputs, None)?;
+    //num_transactions_left -= 1;
+
+    // Create refresh box --------------------------------------------------------------------------
+
     submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
     submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
     submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
     submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
     submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
     submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
-
-    // TODO: create pool and refresh boxes.
+    submit_tx.submit_transaction(&signed_pool_box_tx)?;
 
     Ok(MintedTokenIds {
         pool_nft: pool_nft_token.token_id,
@@ -322,32 +383,24 @@ mod tests {
 
     struct TestWallet {
         ctx: ErgoStateContext,
-        boxes_to_spend: TxIoVec<ErgoBox>,
         wallet: Wallet,
         guard: ErgoTree,
     }
 
     impl WalletSign for TestWallet {
-        fn sign_transaction(
-            &mut self,
+        fn sign_transaction_with_inputs(
+            &self,
             unsigned_tx: &UnsignedTransaction,
+            inputs: TxIoVec<ErgoBox>,
+            data_boxes: Option<TxIoVec<ErgoBox>>,
         ) -> Result<ergo_lib::chain::transaction::Transaction, NodeError> {
             let tx = self
                 .wallet
                 .sign_transaction(
-                    TransactionContext::new(unsigned_tx.clone(), self.boxes_to_spend.clone(), None)
-                        .unwrap(),
+                    TransactionContext::new(unsigned_tx.clone(), inputs, data_boxes).unwrap(),
                     &self.ctx,
                     None,
                 )
-                .unwrap();
-            self.boxes_to_spend = tx
-                .outputs
-                .clone()
-                .into_iter()
-                .filter(|b| b.ergo_tree == self.guard)
-                .collect::<Vec<_>>()
-                .try_into()
                 .unwrap();
             Ok(tx)
         }
@@ -417,7 +470,6 @@ mod tests {
             },
             wallet_sign: &mut TestWallet {
                 ctx,
-                boxes_to_spend: unspent_boxes.clone().try_into().unwrap(),
                 wallet,
                 guard: ergo_tree,
             },
@@ -427,6 +479,7 @@ mod tests {
             erg_value_per_box: BoxValue::SAFE_USER_MIN,
             change_address,
             height,
+            initial_datapoint: 200,
         })
         .unwrap();
     }
