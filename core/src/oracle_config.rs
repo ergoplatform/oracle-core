@@ -1,61 +1,76 @@
-use crate::{BlockDuration, NanoErg};
+use crate::BlockDuration;
 use reqwest::header::HeaderValue;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{ScanError, ScanError, Yaml, YamlLoader};
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
+/// Node Parameters as defined in the `oracle-config.yaml`
+pub struct NodeParameters {
+    pub node_ip: String,
+    pub node_port: String,
+    pub node_api_key: String,
+}
+
 /// Pool Parameters as defined in the `oracle-config.yaml`
 pub struct PoolParameters {
-    pub minimum_pool_box_value: u64,
-    pub oracle_payout_price: NanoErg,
-    pub live_epoch_length: BlockDuration,
-    pub epoch_preparation_length: BlockDuration,
+    pub epoch_length: BlockDuration,
     pub buffer_length: BlockDuration,
-    pub deviation_range: u64,
-    pub consensus_num: u64,
+    pub max_deviation_percent: u64,
+    pub min_data_points: u64,
     pub base_fee: u64,
 }
 
-impl PoolParameters {
-    pub fn new() -> PoolParameters {
-        let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-        PoolParameters::new_from_yaml_string(config)
-    }
+pub struct OracleConfig {
+    pub pool_parameters: PoolParameters,
+}
 
+impl OracleConfig {
+    pub fn load() -> Result<Self, ScanError> {
+        let yaml = YamlLoader::load_from_str(&get_config_yaml())?;
+        let yaml = yaml[0];
+
+        let pool_parameters = PoolParameters {
+            epoch_length: yaml["epoch_length"].as_i64()? as u64,
+            buffer_length: BlockDuration::from_seconds(yaml["buffer_length"].as_u64()?),
+            max_deviation_percent: yaml["max_deviation_percent"].as_u64()?,
+            min_data_points: yaml["min_data_points"].as_u64()?,
+            base_fee: yaml["base_fee"].as_u64()?,
+        };
+        Ok(OracleConfig { pool_parameters })
+    }
+}
+
+lazy_static! {
+    static ref MAYBE_CONFIG: OracleConfig = {
+        OracleConfig {
+            pool_parameters: PoolParameters::load(),
+        }
+    };
+}
+
+impl PoolParameters {
     /// Create a `PoolParameters` from a `&Yaml` string
     pub fn new_from_yaml_string(config: &Yaml) -> PoolParameters {
-        let lel = config["live_epoch_length"]
+        let lel = config["epoch_length"]
             .as_i64()
-            .expect("No live_epoch_length specified in config file.");
-        let epl = config["epoch_preparation_length"]
-            .as_i64()
-            .expect("No epoch_preparation_length specified in config file.");
+            .expect("No epoch_length specified in config file.");
         let buf = config["buffer_length"]
             .as_i64()
             .expect("No buffer_length specified in config file.");
-        let price = config["oracle_payout_price"]
+        let deviation_range = config["max_deviation_percent"]
             .as_i64()
-            .expect("No oracle_payout_price specified in config file.");
-        let num = config["minimum_pool_box_value"]
+            .expect("No max_deviation_percent specified in config file.");
+        let consensus_num = config["min_data_points"]
             .as_i64()
-            .expect("No minimum_pool_box_value specified in config file.");
-        let deviation_range = config["deviation_range"]
-            .as_i64()
-            .expect("No deviation_range specified in config file.");
-        let consensus_num = config["consensus_num"]
-            .as_i64()
-            .expect("No consensus_num specified in config file.");
+            .expect("No min_data_points specified in config file.");
         let base_fee = config["base_fee"]
             .as_i64()
             .expect("No base_fee specified in config file.");
         PoolParameters {
-            minimum_pool_box_value: num as u64,
-            oracle_payout_price: price as u64,
-            live_epoch_length: lel as u64,
-            epoch_preparation_length: epl as u64,
+            epoch_length: lel as u64,
             buffer_length: buf as u64,
-            deviation_range: deviation_range as u64,
-            consensus_num: consensus_num as u64,
+            max_deviation_percent: deviation_range as u64,
+            min_data_points: consensus_num as u64,
             base_fee: base_fee as u64,
         }
     }
@@ -137,22 +152,17 @@ mod tests {
     fn pool_parameter_parsing_works() {
         let yaml_string = "
             minimum_pool_box_value: 10000000
-            live_epoch_length: 20
-            epoch_preparation_length: 10
+            epoch_length: 20
             buffer_length: 4
-            deviation_range: 5
-            oracle_payout_price: 1000000
+            max_deviation_percent: 5
+            min_data_points: 4
             base_fee: 1000000
-            consensus_num: 3
             ";
         let config = &YamlLoader::load_from_str(yaml_string).unwrap()[0];
         let pool_params = PoolParameters::new_from_yaml_string(config);
-        assert_eq!(pool_params.live_epoch_length, 20);
-        assert_eq!(pool_params.epoch_preparation_length, 10);
+        assert_eq!(pool_params.epoch_length, 20);
         assert_eq!(pool_params.buffer_length, 4);
-        assert_eq!(pool_params.minimum_pool_box_value, 10000000);
-        assert_eq!(pool_params.deviation_range, 5);
-        assert_eq!(pool_params.oracle_payout_price, 1000000);
+        assert_eq!(pool_params.max_deviation_percent, 5);
         assert_eq!(pool_params.base_fee, 1000000);
     }
 }

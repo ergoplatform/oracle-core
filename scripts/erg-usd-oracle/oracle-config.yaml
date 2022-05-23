@@ -8,8 +8,6 @@ node_api_key: "hello"
 
 #### Core API Parameters ####
 # Port which you wish the Oracle Core GET API server to run on.
-# Note, the Oracle Core POST API server (to submit datapoints) will be on
-# `core_api_port` + 1.
 core_api_port: "9010"
 
 #### Local Oracle Parameters ####
@@ -25,34 +23,19 @@ oracle_pool_participant_token: "5579de48d16e54ddb34df789d418e1f10c119e15a824ea32
 # ID of the oracle pool NFT
 oracle_pool_nft: "008a94c8c76bbaa1f0a346697d1794eb31d94b37e5533af9cc0b6932bf159339"
 
-#### Pool Smart Contract Addresses ####
-# Address of the pool's "Live Epoch" contract
-live_epoch_contract_address: "NTkuk55NdwCVifH8NTWdK7o6Z4S6RcZPmprheumFHoc537SDnupXc6VNPGTYm1p93TRoSA1pqMkwuobnJERKJeQ42nbfQzsMgqzCLrme22aaBWSvRHJ9271WQ1ppgwUtHr2nHW7CHx4sTofjkQbYhW5z2u21fkuzLxhFj8AnHrDQJHn4gunx15jUBidNrADSGsinhnDc2GZWCtV3Zak6fdjr9PnCNyE5ZNNfyWRLxNc5KQaSQFfnBiFK7ThG2SnWWBkPhzAASaWa5LuD2KopZg2GPUyS48GRVJiBVo3DgkVGDeeqSoCRZ9266gE1bEZAydx2F4tjMEGyaETCy7qdR4Nm6TjAsxCYMxemH4MKAvfb73VCuuvfJ9k3ENcnXW4FkrVdjaZXrXHUHwPiXAJPLZYXBAuiTZpRuUrJNvY13f3iYSEwhAX5JucB1Kq3aJ2A8dSeJnatNYb7WfpqqLuKhygeweiexxt4ua8pxitynvDGx6yzNZ6EjEaxSMpP9ZpERhir2bKnrk2ym74VFLvb5XqhpRFRThqfEok1DVMEZD2Pz6v9mJGHCRTDfo"
-# Address of the pool's "Epoch Preparation" contract
-epoch_preparation_contract_address: "2Qgfhy6m7Exe9deGQMEBJqaeVKgSJJyvNU7kBAwyfjvqv1PMqg4SLh1aMDgobaqpqV6Bb8MfzyBVAMVHRw1aQGfyKXNwafriXH1GUmvKnR3uweks3F1u3rp9bPLfxykGKz81bniWeu5nYfjStHcwCJ2iGVqaKusTxbTPAJ38o2zpqKUgTyfovCbAYEtc2zX3A2efvSZdn2W5W1gKVACDTXC4oWzMAa9iqmCTSofwKxycJAV8sTMP94q3QeUpytckTdqsYatV5PhJxk8NeDaaPmsXbf4J6YNMqdyFwAHynggACv6gAL9xMqijxPt3KWiKV6XNwSDsViJRFkHeiLmX9LbYGiyQ1TYy2f6V7GfLjB5deg9gBbCcNNcRwUkhdH1WdRKnzkzmLUTiPQcFGu4JbHrFezgK9vaVd7uCxZJrTcgA871Aia6GrcFCcSSiXB5tDYXsTjE5BCULf2vbHJUgVWocWV5SV5qL6k368J"
-# Address of the pool's "Datapoint" contract
-datapoint_contract_address: "AucEQEJ3Y5Uhmu4o8dnoztRiAKKTErrhugq6EyACQ4SrK7NFAds5u9B93Xvb7heGC9oGL88F8muu6T6MARfqKpHS2ce1jZ6x8Ju6j9n4AvWkcQxBaLUq36wHGKmiCqRDtKT5tbhZ7hQbK7WuMAejKD7aW91yTBrBNHAXDVmZznmYjzJqDQGuPMsRHQSYGGyW5H2p"
-# Address of the "Pool Deposit" contract
-pool_deposit_contract_address: "3TVSZTMA5A3ApBRfyofswakiBTh5snekN1FmK2s8P8GKp7adEf1LdvZ9r2tPMkb7hNe652wgfcntJ4zXhKi1zdihxQLBHfnUBWN436HAaEurBMWBhH9me68o7LHMzbwd1PRgscVG6f3XLwd3kmN9DVFDjvKpAQhg766gdAy3L74kPwkAqZz7Ma9wpYPkoEMP44YaAirDU8XtahQNG6"
-
 #### Oracle Pool Parameters ####
-# The minimum amount of Ergs required for the oracle pool to be considered funded.
-minimum_pool_box_value: 14000000
-# The payout in Ergs that a single oracle earns on successful datapoint posting
-oracle_payout_price: 1000000
-# Length of the oracle pool's live epoch in blocks
-live_epoch_length: 4
-# Length of the oracle pool's epoch preparation stage in blocks
-epoch_preparation_length: 2
-# Buffer length in blocks that is the upper limit for an oracle pool to create a new epoch
+# The number of blocks for which a rate is locked in the pool box.
+# Each block is 2 mins on average
+# For a fast changing rate, use shorter value (such as 5)
+epoch_length: 4
+# The max error allowed in the declared start height of new a epoch
+# Ideally, this should be the height at which tx gets mined
+# However, due to congestion, we allow this error margin
 buffer_length: 2
-# The percentage range that the minimum datapoint can deviate from the maximum datapoint submit by oracles in the current epoch. Range: 1 to 100
-deviation_range: 5
-# Number of oracle who must be within deviation range of each other in order to reach consensus and finalize a new datapoint.
-consensus_num: 3
-
-#### Oracle Pool Features ####
-# Stake Slashing Config (Currently False, slated for future support)
-stake_slashing: False
-# Governance (Currently False, slated for future support)
-governance: False
+# Maximum allowed difference between the first and last data points
+# in terms of the first data point
+# Data points are sorted in increasing order
+max_deviation_percent: 5
+# The minimum number of fresh data points needed to refresh pool box
+# A data point is fresh if it has been posted in the last epochLength blocks
+min_data_points: 3
