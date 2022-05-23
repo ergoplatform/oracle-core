@@ -30,7 +30,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
-    contracts::pool::PoolContract,
+    contracts::{pool::PoolContract, refresh::RefreshContract},
     node_interface::SubmitTransaction,
     wallet::{WalletDataSource, WalletSign},
 };
@@ -94,6 +94,13 @@ pub struct BootstrapInput<'a> {
     pub change_address: Address,
     pub height: u32,
     pub initial_datapoint: i64,
+    pub epoch_length: u32,
+    pub buffer: u32,
+    pub total_oracles: u32,
+    pub min_data_points: u32,
+    pub max_deviation_percent: u32,
+    pub total_ballots: u32,
+    pub min_votes: u32,
 }
 
 /// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
@@ -113,6 +120,7 @@ pub fn perform_bootstrap_chained_transaction(
         change_address,
         height,
         initial_datapoint,
+        ..
     } = input;
 
     // We can calculate the amount of ERGs necessary to effect this chained-transaction upfront.
@@ -328,10 +336,78 @@ pub fn perform_bootstrap_chained_transaction(
     let pool_box_tx = tx_builder.build()?;
     let signed_pool_box_tx =
         wallet_sign.sign_transaction_with_inputs(&pool_box_tx, inputs, None)?;
-    //num_transactions_left -= 1;
+    num_transactions_left -= 1;
 
     // Create refresh box --------------------------------------------------------------------------
+    let BootstrapInput {
+        epoch_length,
+        buffer,
+        min_data_points,
+        max_deviation_percent,
+        ..
+    } = input;
 
+    let refresh_contract = RefreshContract::new()
+        .with_oracle_nft_token_id(oracle_token.token_id.clone())
+        .with_pool_nft_token_id(pool_nft_token.token_id.clone())
+        .with_epoch_length(epoch_length)
+        .with_buffer(buffer)
+        .with_min_data_points(min_data_points)
+        .with_max_deviation_percent(max_deviation_percent);
+
+    let mut builder =
+        ErgoBoxCandidateBuilder::new(erg_value_per_box, refresh_contract.ergo_tree(), height);
+
+    builder.add_token(refresh_nft_token.clone());
+
+    let single_reward_token = Token {
+        token_id: reward_token.token_id.clone(),
+        amount: 1.try_into().unwrap(),
+    };
+    builder.add_token(single_reward_token.clone());
+
+    let output_candidates = vec![builder.build()?];
+
+    let target_balance = calc_target_balance(num_transactions_left)?;
+    let box_selector = SimpleBoxSelector::new();
+    let mut inputs = filter_tx_outputs(signed_mint_reward_tokens_tx.outputs.clone());
+
+    // Need to find the box containing the refresh NFT, and transfer this token to the refresh box.
+    let box_with_refresh_nft = signed_mint_refresh_nft_tx
+        .outputs
+        .iter()
+        .find(|b| {
+            if let Some(tokens) = &b.tokens {
+                tokens
+                    .iter()
+                    .any(|t| t.token_id == refresh_nft_token.token_id)
+            } else {
+                false
+            }
+        })
+        .unwrap()
+        .clone();
+    inputs.push(box_with_refresh_nft);
+
+    let box_selection = box_selector.select(
+        inputs,
+        target_balance,
+        &[refresh_nft_token.clone(), single_reward_token],
+    )?;
+    let inputs = box_selection.boxes.clone();
+    let tx_builder = TxBuilder::new(
+        box_selection,
+        output_candidates,
+        height,
+        tx_fee,
+        change_address.clone(),
+        BoxValue::MIN,
+    );
+    let refresh_box_tx = tx_builder.build()?;
+    let signed_refresh_box_tx =
+        wallet_sign.sign_transaction_with_inputs(&refresh_box_tx, inputs, None)?;
+
+    // ---------------------------------------------------------------------------------------------
     submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
     submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
     submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
@@ -339,6 +415,7 @@ pub fn perform_bootstrap_chained_transaction(
     submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
     submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
     submit_tx.submit_transaction(&signed_pool_box_tx)?;
+    submit_tx.submit_transaction(&signed_refresh_box_tx)?;
 
     Ok(MintedTokenIds {
         pool_nft: pool_nft_token.token_id,
@@ -480,6 +557,13 @@ mod tests {
             change_address,
             height,
             initial_datapoint: 200,
+            epoch_length: 30,
+            buffer: 4,
+            total_oracles: 15,
+            min_data_points: 4,
+            max_deviation_percent: 5,
+            total_ballots: 15,
+            min_votes: 6,
         })
         .unwrap();
     }

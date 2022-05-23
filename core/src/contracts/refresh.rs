@@ -16,7 +16,12 @@ impl RefreshContract {
 
     pub const POOL_NFT_INDEX: usize = 17;
     pub const ORACLE_NFT_INDEX: usize = 3;
-    pub const MIN_DATA_POINTS_INDEX: usize = 19;
+
+    // Note: contract sets both `minDataPoints` and `buffer` to 4. Changing values in the script, we
+    // can confirm the following indices.
+    pub const MIN_DATA_POINTS_INDEX: usize = 12;
+    pub const BUFFER_INDEX: usize = 19;
+
     pub const MAX_DEVIATION_PERCENT_INDEX: usize = 14;
     pub const EPOCH_LENGTH_INDEX: usize = 0;
 
@@ -47,7 +52,6 @@ impl RefreshContract {
             TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap()
         );
 
-        // TODO: there is two (with the same value 4) constants
         let min_data_points = ergo_tree
             .get_constant(Self::MIN_DATA_POINTS_INDEX)
             .unwrap()
@@ -55,6 +59,14 @@ impl RefreshContract {
             .try_extract_into::<i32>()
             .unwrap() as u32;
         assert_eq!(min_data_points, 4);
+
+        let buffer = ergo_tree
+            .get_constant(Self::BUFFER_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32;
+        assert_eq!(buffer, 4);
 
         let max_deviation_percent = ergo_tree
             .get_constant(Self::MAX_DEVIATION_PERCENT_INDEX)
@@ -88,6 +100,31 @@ impl RefreshContract {
             .unwrap() as u32
     }
 
+    pub fn with_epoch_length(self, epoch_length: u32) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::EPOCH_LENGTH_INDEX, (epoch_length as i32).into())
+            .unwrap();
+        Self { ergo_tree: tree }
+    }
+
+    pub fn buffer(&self) -> u32 {
+        self.ergo_tree
+            .get_constant(Self::BUFFER_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<i32>()
+            .unwrap() as u32
+    }
+
+    pub fn with_buffer(self, buffer: u32) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::BUFFER_INDEX, (buffer as i32).into())
+            .unwrap();
+        Self { ergo_tree: tree }
+    }
+
     pub fn min_data_points(&self) -> u32 {
         self.ergo_tree
             .get_constant(Self::MIN_DATA_POINTS_INDEX)
@@ -95,6 +132,14 @@ impl RefreshContract {
             .unwrap()
             .try_extract_into::<i32>()
             .unwrap() as u32
+    }
+
+    pub fn with_min_data_points(self, min_data_points: u32) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::MIN_DATA_POINTS_INDEX, (min_data_points as i32).into())
+            .unwrap();
+        Self { ergo_tree: tree }
     }
 
     pub fn max_deviation_percent(&self) -> u32 {
@@ -106,6 +151,17 @@ impl RefreshContract {
             .unwrap() as u32
     }
 
+    pub fn with_max_deviation_percent(self, max_deviation_percent: u32) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(
+                Self::MAX_DEVIATION_PERCENT_INDEX,
+                (max_deviation_percent as i32).into(),
+            )
+            .unwrap();
+        Self { ergo_tree: tree }
+    }
+
     pub fn oracle_nft_token_id(&self) -> TokenId {
         self.ergo_tree
             .get_constant(Self::ORACLE_NFT_INDEX)
@@ -113,6 +169,14 @@ impl RefreshContract {
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap()
+    }
+
+    pub fn with_oracle_nft_token_id(self, token_id: TokenId) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::ORACLE_NFT_INDEX, token_id.clone().into())
+            .unwrap();
+        Self { ergo_tree: tree }
     }
 
     pub fn pool_nft_token_id(&self) -> TokenId {
@@ -128,14 +192,6 @@ impl RefreshContract {
         let tree = self
             .ergo_tree
             .with_constant(Self::POOL_NFT_INDEX, token_id.clone().into())
-            .unwrap();
-        Self { ergo_tree: tree }
-    }
-
-    pub fn with_oracle_nft_token_id(self, token_id: TokenId) -> Self {
-        let tree = self
-            .ergo_tree
-            .with_constant(Self::ORACLE_NFT_INDEX, token_id.clone().into())
             .unwrap();
         Self { ergo_tree: tree }
     }
