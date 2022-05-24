@@ -24,7 +24,7 @@ mod test_utils;
 pub enum PoolCommand {
     Bootstrap,
     Refresh,
-    PublishDataPoint(i64),
+    PublishDataPoint,
 }
 
 #[derive(Debug, From, Error)]
@@ -67,7 +67,7 @@ pub fn build_action(
         )
         .map_err(Into::into)
         .map(Into::into),
-        PoolCommand::PublishDataPoint(new_datapoint) => {
+        PoolCommand::PublishDataPoint => {
             let inputs = if let Some(local_datapoint_box_source) =
                 op.get_local_datapoint_box_source()
             {
@@ -95,9 +95,9 @@ pub fn build_action(
                 pool_box_source,
                 inputs,
                 wallet,
+                &*op.data_point_source,
                 height,
                 change_address,
-                new_datapoint,
             )
             .map_err(Into::into)
             .map(Into::into)

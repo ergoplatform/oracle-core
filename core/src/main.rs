@@ -124,7 +124,7 @@ fn main_loop_iteration(
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(_) => PoolState::NeedsBootstrap,
     };
-    if let Some(cmd) = process(pool_state, &*op.data_point_source, height)? {
+    if let Some(cmd) = process(pool_state, height)? {
         let action = build_action(cmd, op, &wallet, height as u32, change_address)?;
         if !is_read_only {
             execute_action(action)?;

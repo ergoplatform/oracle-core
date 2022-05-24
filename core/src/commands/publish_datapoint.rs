@@ -27,6 +27,7 @@ use crate::{
     actions::PublishDataPointAction,
     box_kind::{OracleBox, PoolBox},
     contracts::oracle::OracleContract,
+    datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -47,16 +48,19 @@ pub enum PublishDatapointActionError {
     Node(NodeError),
     #[error("box selector error: {0}")]
     BoxSelector(BoxSelectorError),
+    #[error("datapoint source error: {0}")]
+    DataPointSource(DataPointSourceError),
 }
 
 pub fn build_publish_datapoint_action(
     pool_box_source: &dyn PoolBoxSource,
     inputs: PublishDataPointCommandInputs,
     wallet: &dyn WalletDataSource,
+    datapoint_source: &dyn DataPointSource,
     height: u32,
     change_address: Address,
-    new_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
+    let new_datapoint = datapoint_source.get_datapoint()?;
     match inputs {
         PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source) => {
             build_subsequent_publish_datapoint_action(
@@ -249,6 +253,7 @@ mod tests {
         OracleBoxMock, PoolBoxMock, WalletDataMock,
     };
     use crate::contracts::refresh::RefreshContract;
+    use crate::datapoint_source::NanoErgUsd;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::{TxId, TxIoVec};
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -312,15 +317,17 @@ mod tests {
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
         };
+
+        let datapoint_source = NanoErgUsd {};
         let action = build_publish_datapoint_action(
             &pool_box_mock,
             PublishDataPointCommandInputs::LocalDataPointBoxExists(
                 &local_datapoint_box_source as &dyn LocalDatapointBoxSource,
             ),
             &wallet_mock,
+            &datapoint_source,
             height,
             change_address,
-            210,
         )
         .unwrap();
 
