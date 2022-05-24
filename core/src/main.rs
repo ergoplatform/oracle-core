@@ -34,9 +34,10 @@ mod wallet;
 
 use actions::execute_action;
 use anyhow::anyhow;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use commands::build_action;
 use crossbeam::channel::bounded;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::error;
@@ -78,17 +79,20 @@ static ORACLE_CORE_ASCII: &str = r#"
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(long = "Run oracle core in read-only mode")]
-    read_only: bool,
+    #[clap(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    Bootstrap { yaml_config_name: String },
+    Run,
 }
 
 fn main() {
     logging::setup_log();
 
     let args = Args::parse();
-    if args.read_only {
-        println!("\n===============\nREAD ONLY MODE\n===============\nThe oracle core is running in `read only` mode.\nThis means that no transactions will be created and posted by the core.\nThis mode is intended to be used for easily reading the current state of the oracle pool protocol.");
-    };
     let (_, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
@@ -99,28 +103,44 @@ fn main() {
         })
         .ok();
 
-    let op = OraclePool::new().unwrap();
-    loop {
-        if let Err(e) = main_loop_iteration(args.read_only, &op) {
-            error!("Fatal error: {:?}", e);
-            std::process::exit(exitcode::SOFTWARE);
+    match args.command {
+        Command::Bootstrap { yaml_config_name } => {
+            let wallet = WalletData {};
+            if let Err(e) = (|| -> Result<(), anyhow::Error> {
+                let _ = bootstrap::bootstrap(
+                    yaml_config_name,
+                    &wallet,
+                    &wallet,
+                    &wallet,
+                    get_change_address_from_node()?,
+                    current_block_height()? as u32,
+                    0,
+                )?;
+                Ok(())
+            })() {
+                {
+                    error!("Fatal bootstrap error: {:?}", e);
+                    std::process::exit(exitcode::SOFTWARE);
+                }
+            };
         }
-        // Delay loop restart
-        thread::sleep(Duration::new(30, 0));
+        Command::Run => {
+            let op = OraclePool::new().unwrap();
+            loop {
+                if let Err(e) = main_loop_iteration(&op) {
+                    error!("Fatal error: {:?}", e);
+                    std::process::exit(exitcode::SOFTWARE);
+                }
+                // Delay loop restart
+                thread::sleep(Duration::new(30, 0));
+            }
+        }
     }
 }
 
-fn main_loop_iteration(
-    is_read_only: bool,
-    op: &OraclePool,
-) -> std::result::Result<(), anyhow::Error> {
+fn main_loop_iteration(op: &OraclePool) -> std::result::Result<(), anyhow::Error> {
     let height = current_block_height()?;
     let wallet = WalletData::new();
-    let change_address_str = get_wallet_status()?
-        .change_address
-        .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
-    let change_address =
-        AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(_) => PoolState::NeedsBootstrap,
@@ -132,4 +152,13 @@ fn main_loop_iteration(
         }
     }
     Ok(())
+}
+
+fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
+    let change_address_str = get_wallet_status()?
+        .change_address
+        .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
+    let addr =
+        AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
+    Ok(addr)
 }

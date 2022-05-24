@@ -10,7 +10,7 @@ use ergo_node_interface::{
 use json::JsonValue;
 
 pub trait SubmitTransaction {
-    fn submit_transaction(&self, tx: &Transaction) -> Result<TxId>;
+    fn submit_transaction(&self, tx: &Transaction) -> Result<()>;
 }
 
 pub type Result<T> = std::result::Result<T, NodeError>;
