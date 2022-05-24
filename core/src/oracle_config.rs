@@ -1,10 +1,12 @@
 use crate::BlockDuration;
+use anyhow::anyhow;
 use reqwest::header::HeaderValue;
-use yaml_rust::{ScanError, ScanError, Yaml, YamlLoader};
+use yaml_rust::YamlLoader;
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 /// Node Parameters as defined in the `oracle-config.yaml`
+#[derive(Debug, Clone)]
 pub struct NodeParameters {
     pub node_ip: String,
     pub node_port: String,
@@ -12,6 +14,7 @@ pub struct NodeParameters {
 }
 
 /// Pool Parameters as defined in the `oracle-config.yaml`
+#[derive(Debug, Clone)]
 pub struct PoolParameters {
     pub epoch_length: BlockDuration,
     pub buffer_length: BlockDuration,
@@ -20,60 +23,49 @@ pub struct PoolParameters {
     pub base_fee: u64,
 }
 
+#[derive(Debug, Clone)]
 pub struct OracleConfig {
     pub pool_parameters: PoolParameters,
 }
 
 impl OracleConfig {
-    pub fn load() -> Result<Self, ScanError> {
-        let yaml = YamlLoader::load_from_str(&get_config_yaml())?;
-        let yaml = yaml[0];
+    pub fn load() -> Result<Self, anyhow::Error> {
+        Self::load_from_str(&get_config_yaml())
+    }
+
+    pub fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
+        let yaml = YamlLoader::load_from_str(config_str)?;
+        let yaml = yaml[0].clone();
 
         let pool_parameters = PoolParameters {
-            epoch_length: yaml["epoch_length"].as_i64()? as u64,
-            buffer_length: BlockDuration::from_seconds(yaml["buffer_length"].as_u64()?),
-            max_deviation_percent: yaml["max_deviation_percent"].as_u64()?,
-            min_data_points: yaml["min_data_points"].as_u64()?,
-            base_fee: yaml["base_fee"].as_u64()?,
+            epoch_length: yaml["epoch_length"]
+                .as_i64()
+                .ok_or_else(|| anyhow!("No epoch_length specified in config file."))?
+                as u64,
+            buffer_length: yaml["buffer_length"]
+                .as_i64()
+                .ok_or_else(|| anyhow!("No buffer_length specified in config file."))?
+                as u64,
+            max_deviation_percent: yaml["max_deviation_percent"]
+                .as_i64()
+                .ok_or_else(|| anyhow!("No max_deviation_percent specified in config file."))?
+                as u64,
+            min_data_points: yaml["min_data_points"]
+                .as_i64()
+                .ok_or_else(|| anyhow!("No min_data_points specified in config file."))?
+                as u64,
+            base_fee: yaml["base_fee"]
+                .as_i64()
+                .ok_or_else(|| anyhow!("No base_fee specified in config file."))?
+                as u64,
         };
         Ok(OracleConfig { pool_parameters })
     }
 }
 
 lazy_static! {
-    static ref MAYBE_CONFIG: OracleConfig = {
-        OracleConfig {
-            pool_parameters: PoolParameters::load(),
-        }
-    };
-}
-
-impl PoolParameters {
-    /// Create a `PoolParameters` from a `&Yaml` string
-    pub fn new_from_yaml_string(config: &Yaml) -> PoolParameters {
-        let lel = config["epoch_length"]
-            .as_i64()
-            .expect("No epoch_length specified in config file.");
-        let buf = config["buffer_length"]
-            .as_i64()
-            .expect("No buffer_length specified in config file.");
-        let deviation_range = config["max_deviation_percent"]
-            .as_i64()
-            .expect("No max_deviation_percent specified in config file.");
-        let consensus_num = config["min_data_points"]
-            .as_i64()
-            .expect("No min_data_points specified in config file.");
-        let base_fee = config["base_fee"]
-            .as_i64()
-            .expect("No base_fee specified in config file.");
-        PoolParameters {
-            epoch_length: lel as u64,
-            buffer_length: buf as u64,
-            max_deviation_percent: deviation_range as u64,
-            min_data_points: consensus_num as u64,
-            base_fee: base_fee as u64,
-        }
-    }
+    pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, anyhow::Error> = OracleConfig::load();
+    pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
 }
 
 pub fn get_pool_deposits_contract_address() -> String {
@@ -158,8 +150,8 @@ mod tests {
             min_data_points: 4
             base_fee: 1000000
             ";
-        let config = &YamlLoader::load_from_str(yaml_string).unwrap()[0];
-        let pool_params = PoolParameters::new_from_yaml_string(config);
+        let config = OracleConfig::load_from_str(yaml_string).unwrap();
+        let pool_params = config.pool_parameters;
         assert_eq!(pool_params.epoch_length, 20);
         assert_eq!(pool_params.buffer_length, 4);
         assert_eq!(pool_params.max_deviation_percent, 5);

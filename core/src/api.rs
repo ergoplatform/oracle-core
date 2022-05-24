@@ -1,5 +1,5 @@
 use crate::node_interface::current_block_height;
-use crate::oracle_config::{get_core_api_port, get_node_url, PoolParameters};
+use crate::oracle_config::{get_core_api_port, get_node_url, ORACLE_CONFIG};
 use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::state::PoolState;
 use crossbeam::Receiver;
@@ -37,7 +37,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
         let op = OraclePool::new().unwrap();
-        let parameters = PoolParameters::new();
+        let parameters = &ORACLE_CONFIG.pool_parameters;
 
         let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
 
