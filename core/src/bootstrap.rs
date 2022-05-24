@@ -16,6 +16,7 @@ use ergo_lib::{
             },
             token::{Token, TokenId},
         },
+        ergo_tree::ErgoTree,
         serialization::SigmaParsingError,
     },
     wallet::{
@@ -152,12 +153,14 @@ pub fn perform_bootstrap_chained_transaction(
     };
 
     // Effect a single transaction that mints a token with given details, as described in comments
-    // at the beginning.
+    // at the beginning. By default it uses `wallet_pk_ergo_tree` as the guard for the token box,
+    // but this can be overriden with `different_token_box_guard`.
     let mint_token = |input_boxes: Vec<ErgoBox>,
                       num_transactions_left: &mut u32,
                       token_name,
                       token_desc,
-                      token_amount|
+                      token_amount,
+                      different_token_box_guard: Option<ErgoTree>|
      -> Result<(Token, Transaction), BootstrapError> {
         let target_balance = calc_target_balance(*num_transactions_left)?;
         let box_selector = SimpleBoxSelector::new();
@@ -166,8 +169,9 @@ pub fn perform_bootstrap_chained_transaction(
             token_id: box_selection.boxes.first().box_id().into(),
             amount: token_amount,
         };
-        let mut builder =
-            ErgoBoxCandidateBuilder::new(erg_value_per_box, wallet_pk_ergo_tree.clone(), height);
+        let token_box_guard =
+            different_token_box_guard.unwrap_or_else(|| wallet_pk_ergo_tree.clone());
+        let mut builder = ErgoBoxCandidateBuilder::new(erg_value_per_box, token_box_guard, height);
         builder.mint_token(token.clone(), token_name, token_desc, 1);
         let mut output_candidates = vec![builder.build()?];
 
@@ -207,6 +211,7 @@ pub fn perform_bootstrap_chained_transaction(
         config.tokens_to_mint.pool_nft.name.clone(),
         config.tokens_to_mint.pool_nft.description.clone(),
         1.try_into().unwrap(),
+        None,
     )?;
 
     // Mint refresh NFT token ----------------------------------------------------------------------
@@ -217,6 +222,7 @@ pub fn perform_bootstrap_chained_transaction(
         config.tokens_to_mint.refresh_nft.name.clone(),
         config.tokens_to_mint.refresh_nft.description.clone(),
         1.try_into().unwrap(),
+        None,
     )?;
 
     // Mint update NFT token -----------------------------------------------------------------------
@@ -227,10 +233,12 @@ pub fn perform_bootstrap_chained_transaction(
         config.tokens_to_mint.update_nft.name.clone(),
         config.tokens_to_mint.update_nft.description.clone(),
         1.try_into().unwrap(),
+        None,
     )?;
 
     // Mint oracle tokens --------------------------------------------------------------------------
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
+    let oracle_tokens_pk_ergo_tree = config.addresses.address_for_oracle_tokens.script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -242,6 +250,7 @@ pub fn perform_bootstrap_chained_transaction(
             .quantity
             .try_into()
             .unwrap(),
+        Some(oracle_tokens_pk_ergo_tree),
     )?;
 
     // Mint ballot tokens --------------------------------------------------------------------------
@@ -257,6 +266,7 @@ pub fn perform_bootstrap_chained_transaction(
             .quantity
             .try_into()
             .unwrap(),
+        None,
     )?;
 
     // Mint reward tokens --------------------------------------------------------------------------
@@ -272,6 +282,7 @@ pub fn perform_bootstrap_chained_transaction(
             .quantity
             .try_into()
             .unwrap(),
+        None,
     )?;
 
     // Create pool box -----------------------------------------------------------------------------
@@ -452,7 +463,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         .parse_address_from_str(wallet_address_for_chain_transaction_str)?;
 
     let addresses = Addresses {
-        address_for_minted_tokens,
+        address_for_oracle_tokens: address_for_minted_tokens,
         wallet_address_for_chain_transaction,
     };
     let refresh_contract_parameters_str = yaml["refresh_contract_parameters"]
@@ -487,6 +498,8 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         addresses,
     })
 }
+
+/// An instance of this struct is created from an operator-provided YAML file.
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
     pub tokens_to_mint: TokensToMint,
@@ -498,7 +511,7 @@ pub struct BootstrapConfig {
 }
 
 pub struct Addresses {
-    pub address_for_minted_tokens: Address,
+    pub address_for_oracle_tokens: Address,
     pub wallet_address_for_chain_transaction: Address,
 }
 
@@ -712,7 +725,7 @@ mod tests {
                 min_votes: 6,
             },
             addresses: Addresses {
-                address_for_minted_tokens: address.clone(),
+                address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
             },
             node_ip: "127.0.0.1".into(),
@@ -721,18 +734,8 @@ mod tests {
             is_mainnet,
         };
 
-        let prefix = if is_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        println!(
-            "is_mainnet: {}, addressbase58 {}",
-            is_mainnet,
-            AddressEncoder::new(prefix).address_to_str(&address)
-        );
         let height = ctx.pre_header.height;
-        let m = perform_bootstrap_chained_transaction(BootstrapInput {
+        let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
             config: state,
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
@@ -751,9 +754,13 @@ mod tests {
         })
         .unwrap();
 
-        let bytes: Vec<u8> = m.ballot_token.clone().into();
+        let s = serde_yaml::to_string(&oracle_config).unwrap();
+        println!("{}", s);
+
+        // Quickly check an encoding
+        let bytes: Vec<u8> = oracle_config.ballot_token.clone().into();
         let encoded = base64::encode(bytes);
         let ballot_id = TokenId::from_base64(&encoded).unwrap();
-        assert_eq!(m.ballot_token, ballot_id);
+        assert_eq!(oracle_config.ballot_token, ballot_id);
     }
 }
