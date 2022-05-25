@@ -16,6 +16,7 @@ use self::publish_datapoint::PublishDatapointActionError;
 use self::refresh::build_refresh_action;
 use self::refresh::RefrechActionError;
 
+mod extract_reward_tokens;
 mod publish_datapoint;
 mod refresh;
 #[cfg(test)]
