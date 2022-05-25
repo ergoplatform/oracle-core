@@ -21,6 +21,7 @@ mod publish_datapoint;
 mod refresh;
 #[cfg(test)]
 pub(crate) mod test_utils;
+mod transfer_oracle_token;
 
 pub enum PoolCommand {
     Refresh,

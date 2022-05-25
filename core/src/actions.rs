@@ -33,6 +33,11 @@ pub struct PublishDataPointAction {
     pub tx: UnsignedTransaction,
 }
 
+#[derive(Debug)]
+pub struct TransferOracleTokenAction {
+    pub tx: UnsignedTransaction,
+}
+
 #[derive(Error, Debug)]
 pub enum CollectionError {
     #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted datapoints within the deviation range.")]
