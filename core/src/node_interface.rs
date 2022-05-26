@@ -1,12 +1,17 @@
 use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
 use ergo_lib::{
-    chain::transaction::unsigned::UnsignedTransaction, ergotree_ir::chain::ergo_box::ErgoBox,
+    chain::transaction::{unsigned::UnsignedTransaction, Transaction},
+    ergotree_ir::chain::ergo_box::ErgoBox,
 };
 use ergo_node_interface::{
     node_interface::{NodeError, NodeInterface, WalletStatus},
     BlockHeight,
 };
 use json::JsonValue;
+
+pub trait SubmitTransaction {
+    fn submit_transaction(&self, tx: &Transaction) -> Result<()>;
+}
 
 pub type Result<T> = std::result::Result<T, NodeError>;
 pub type ScanID = String;
@@ -121,6 +126,16 @@ pub fn current_block_height() -> Result<BlockHeight> {
 
 pub fn get_wallet_status() -> Result<WalletStatus> {
     new_node_interface().wallet_status()
+}
+
+/// Sign an `UnsignedTransaction`.
+pub fn sign_transaction(unsigned_tx: &UnsignedTransaction) -> Result<Transaction> {
+    new_node_interface().sign_transaction(unsigned_tx)
+}
+
+/// Submit a `Transaction` to the mempool.
+pub fn submit_transaction(signed_tx: &Transaction) -> Result<TxId> {
+    new_node_interface().submit_transaction(signed_tx)
 }
 
 /// Sign an `UnsignedTransaction` and then submit it to the mempool.

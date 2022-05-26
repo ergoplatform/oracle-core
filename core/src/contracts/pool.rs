@@ -14,6 +14,7 @@ impl PoolContract {
     const P2S: &'static str = "PViBL5acX6PoP6BQPsYtyNzW9aPXwxpRaUkXo4nE7RkxcBbZXJECUEBQm4g3MQCb2QsQALqPkrDN9TvsKuQkChF8sZSfnH5fifgKAkXhW8ifAcAE1qA67n9mabB3Mb2R8xT2v3SN49eN8mQ8HN95";
 
     const REFRESH_NFT_INDEX: usize = 2;
+    const UPDATE_NFT_INDEX: usize = 3;
 
     pub fn new() -> Self {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
@@ -32,6 +33,17 @@ impl PoolContract {
             TokenId::from_base64("VGpXblpyNHU3eCFBJUQqRy1LYU5kUmdVa1hwMnM1djg=").unwrap()
         );
 
+        let update_nft_token_id: TokenId = ergo_tree
+            .get_constant(Self::UPDATE_NFT_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap();
+
+        assert_eq!(
+            update_nft_token_id,
+            TokenId::from_base64("YlFlVGhXbVpxNHQ3dyF6JUMqRi1KQE5jUmZValhuMnI=").unwrap()
+        );
         Self { ergo_tree }
     }
 
@@ -52,6 +64,23 @@ impl PoolContract {
         let tree = self
             .ergo_tree
             .with_constant(Self::REFRESH_NFT_INDEX, token_id.clone().into())
+            .unwrap();
+        Self { ergo_tree: tree }
+    }
+
+    pub fn update_nft_token_id(&self) -> TokenId {
+        self.ergo_tree
+            .get_constant(Self::UPDATE_NFT_INDEX)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap()
+    }
+
+    pub fn with_update_nft_token_id(self, token_id: TokenId) -> Self {
+        let tree = self
+            .ergo_tree
+            .with_constant(Self::UPDATE_NFT_INDEX, token_id.clone().into())
             .unwrap();
         Self { ergo_tree: tree }
     }
