@@ -253,7 +253,6 @@ mod tests {
         OracleBoxMock, PoolBoxMock, WalletDataMock,
     };
     use crate::contracts::refresh::RefreshContract;
-    use crate::datapoint_source::NanoErgUsd;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::{TxId, TxIoVec};
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -267,6 +266,15 @@ mod tests {
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
+
+    #[derive(Debug)]
+    struct MockDatapointSource {}
+
+    impl DataPointSource for MockDatapointSource {
+        fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+            Ok(201)
+        }
+    }
 
     #[test]
     fn test_subsequent_publish_datapoint() {
@@ -318,7 +326,7 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
         };
 
-        let datapoint_source = NanoErgUsd {};
+        let datapoint_source = MockDatapointSource {};
         let action = build_publish_datapoint_action(
             &pool_box_mock,
             PublishDataPointCommandInputs::LocalDataPointBoxExists(
