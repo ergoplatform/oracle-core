@@ -85,8 +85,13 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
-    Bootstrap { yaml_config_name: String },
-    Run,
+    Bootstrap {
+        yaml_config_name: String,
+    },
+    Run {
+        #[clap(long)]
+        read_only: bool,
+    },
 }
 
 fn main() {
@@ -124,10 +129,10 @@ fn main() {
                 }
             };
         }
-        Command::Run => {
+        Command::Run { read_only } => {
             let op = OraclePool::new().unwrap();
             loop {
-                if let Err(e) = main_loop_iteration(&op) {
+                if let Err(e) = main_loop_iteration(&op, read_only) {
                     error!("Fatal error: {:?}", e);
                     std::process::exit(exitcode::SOFTWARE);
                 }
@@ -138,7 +143,7 @@ fn main() {
     }
 }
 
-fn main_loop_iteration(op: &OraclePool) -> std::result::Result<(), anyhow::Error> {
+fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
     let height = current_block_height()?;
     let wallet = WalletData::new();
     let pool_state = match op.get_live_epoch_state() {
@@ -146,8 +151,14 @@ fn main_loop_iteration(op: &OraclePool) -> std::result::Result<(), anyhow::Error
         Err(_) => PoolState::NeedsBootstrap,
     };
     if let Some(cmd) = process(pool_state, height)? {
-        let action = build_action(cmd, op, &wallet, height as u32, change_address)?;
-        if !is_read_only {
+        let action = build_action(
+            cmd,
+            op,
+            &wallet,
+            height as u32,
+            get_change_address_from_node()?,
+        )?;
+        if !read_only {
             execute_action(action)?;
         }
     }

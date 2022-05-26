@@ -106,10 +106,10 @@ pub fn perform_bootstrap_chained_transaction(
     // these transactions each has a box value of `erg_value_per_box`. Similarly the pool and
     // refresh boxes will also hold `erg_value_per_box`.
     //
-    // Now define `E_i = i*(erg_value_per_box + tx_free)` for `i = 1,2,.., 8`. `E_i` represents the
+    // Now define `E_i = i*(erg_value_per_box + tx_fee)` for `i = 1,2,.., 8`. `E_i` represents the
     // amount of ERGs necessary to effect `i` remaining transactions.
     //
-    // So we require a total ERG value of `E_8 = 8*(erg_value_per_box + tx_free)`
+    // So we require a total ERG value of `E_8 = 8*(erg_value_per_box + tx_fee)`
     //
     // The chain transaction is structured as follows:
     //   * First sweep the unspent boxes of the wallet for a target balance of `E_8`. Denote these
@@ -175,14 +175,13 @@ pub fn perform_bootstrap_chained_transaction(
         builder.mint_token(token.clone(), token_name, token_desc, 1);
         let mut output_candidates = vec![builder.build()?];
 
-        // Build box for remaining funds
-        builder = ErgoBoxCandidateBuilder::new(
+        let remaining_funds = ErgoBoxCandidateBuilder::new(
             calc_target_balance(*num_transactions_left - 1)?,
             wallet_pk_ergo_tree.clone(),
             height,
-        );
-        let output_with_token = builder.build()?;
-        output_candidates.push(output_with_token.clone());
+        )
+        .build()?;
+        output_candidates.push(remaining_funds.clone());
 
         let inputs = box_selection.boxes.clone();
         let tx_builder = TxBuilder::new(
