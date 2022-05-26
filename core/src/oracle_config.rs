@@ -1,6 +1,8 @@
 use crate::BlockDuration;
 use anyhow::anyhow;
+use log::LevelFilter;
 use reqwest::header::HeaderValue;
+use serde::{Deserialize, Serialize};
 use yaml_rust::YamlLoader;
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
@@ -14,7 +16,7 @@ pub struct NodeParameters {
 }
 
 /// Pool Parameters as defined in the `oracle-config.yaml`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolParameters {
     pub epoch_length: BlockDuration,
     pub buffer_length: BlockDuration,
@@ -23,9 +25,10 @@ pub struct PoolParameters {
     pub base_fee: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleConfig {
     pub pool_parameters: PoolParameters,
+    pub log_level: Option<LevelFilter>,
 }
 
 impl OracleConfig {
@@ -34,37 +37,40 @@ impl OracleConfig {
     }
 
     pub fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
-        let yaml = YamlLoader::load_from_str(config_str)?;
-        let yaml = yaml[0].clone();
+        serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
+        // let yaml = YamlLoader::load_from_str(config_str)?;
+        // let yaml = yaml[0].clone();
 
-        let pool_parameters = PoolParameters {
-            epoch_length: yaml["epoch_length"]
-                .as_i64()
-                .ok_or_else(|| anyhow!("No epoch_length specified in config file."))?
-                as u64,
-            buffer_length: yaml["buffer_length"]
-                .as_i64()
-                .ok_or_else(|| anyhow!("No buffer_length specified in config file."))?
-                as u64,
-            max_deviation_percent: yaml["max_deviation_percent"]
-                .as_i64()
-                .ok_or_else(|| anyhow!("No max_deviation_percent specified in config file."))?
-                as u64,
-            min_data_points: yaml["min_data_points"]
-                .as_i64()
-                .ok_or_else(|| anyhow!("No min_data_points specified in config file."))?
-                as u64,
-            base_fee: yaml["base_fee"]
-                .as_i64()
-                .ok_or_else(|| anyhow!("No base_fee specified in config file."))?
-                as u64,
-        };
-        Ok(OracleConfig { pool_parameters })
+        // let pool_parameters = PoolParameters {
+        //     epoch_length: yaml["epoch_length"]
+        //         .as_i64()
+        //         .ok_or_else(|| anyhow!("No epoch_length specified in config file."))?
+        //         as u64,
+        //     buffer_length: yaml["buffer_length"]
+        //         .as_i64()
+        //         .ok_or_else(|| anyhow!("No buffer_length specified in config file."))?
+        //         as u64,
+        //     max_deviation_percent: yaml["max_deviation_percent"]
+        //         .as_i64()
+        //         .ok_or_else(|| anyhow!("No max_deviation_percent specified in config file."))?
+        //         as u64,
+        //     min_data_points: yaml["min_data_points"]
+        //         .as_i64()
+        //         .ok_or_else(|| anyhow!("No min_data_points specified in config file."))?
+        //         as u64,
+        //     base_fee: yaml["base_fee"]
+        //         .as_i64()
+        //         .ok_or_else(|| anyhow!("No base_fee specified in config file."))?
+        //         as u64,
+        // };
+        // Ok(OracleConfig { pool_parameters })
     }
 }
 
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
+    pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
+        OracleConfig::load().map_err(|e| e.to_string());
 }
 
 /// Returns "core_api_port" from the config file
