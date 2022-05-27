@@ -18,15 +18,15 @@ extern crate json;
 
 mod actions;
 mod api;
-mod bootstrap;
 mod box_kind;
-mod commands;
+mod cli_commands;
 mod contracts;
 mod datapoint_source;
 mod logging;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
+mod pool_commands;
 mod scans;
 mod state;
 mod templates;
@@ -35,7 +35,6 @@ mod wallet;
 use actions::execute_action;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-use commands::build_action;
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
@@ -44,6 +43,7 @@ use log::error;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use oracle_state::OraclePool;
+use pool_commands::build_action;
 use state::process;
 use state::PoolState;
 use std::thread;
@@ -112,7 +112,7 @@ fn main() {
         Command::Bootstrap { yaml_config_name } => {
             let wallet = WalletData {};
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = bootstrap::bootstrap(
+                let _ = cli_commands::bootstrap::bootstrap(
                     yaml_config_name,
                     &wallet,
                     &wallet,

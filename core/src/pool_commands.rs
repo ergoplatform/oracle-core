@@ -16,14 +16,12 @@ use self::publish_datapoint::PublishDatapointActionError;
 use self::refresh::build_refresh_action;
 use self::refresh::RefrechActionError;
 
-mod extract_reward_tokens;
 mod publish_datapoint;
 mod refresh;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
 pub enum PoolCommand {
-    Bootstrap,
     Refresh,
     PublishDataPoint,
 }
@@ -57,7 +55,6 @@ pub fn build_action(
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
     match cmd {
-        PoolCommand::Bootstrap => todo!(),
         PoolCommand::Refresh => build_refresh_action(
             pool_box_source,
             refresh_box_source,

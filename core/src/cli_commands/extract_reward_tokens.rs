@@ -138,11 +138,11 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::commands::test_utils::{
+    use crate::contracts::refresh::RefreshContract;
+    use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_wallet_unspent_box, OracleBoxMock,
         WalletDataMock,
     };
-    use crate::contracts::refresh::RefreshContract;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
@@ -153,7 +153,7 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     #[test]
-    fn test_subsequent_publish_datapoint() {
+    fn test_extract_reward_tokens() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let refresh_contract = RefreshContract::new();
