@@ -2,7 +2,10 @@ use std::convert::TryInto;
 
 use derive_more::From;
 use ergo_lib::{
-    chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
+    chain::{
+        ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
+        transaction::unsigned::UnsignedTransaction,
+    },
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
         chain::{
@@ -24,7 +27,6 @@ use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
-    actions::ExtractRewardTokensAction,
     box_kind::OracleBox,
     oracle_state::{LocalDatapointBoxSource, StageError},
     wallet::WalletDataSource,
@@ -50,13 +52,13 @@ pub enum ExtractRewardTokensActionError {
     TxBuilder(TxBuilderError),
 }
 
-pub fn build_extract_reward_tokens_action(
+pub fn extract_reward_tokens(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     rewards_destination: Address,
     height: u32,
     change_address: Address,
-) -> Result<ExtractRewardTokensAction, ExtractRewardTokensActionError> {
+) -> Result<(UnsignedTransaction, u64), ExtractRewardTokensActionError> {
     let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
     let num_reward_tokens = *in_oracle_box.reward_token().amount.as_u64();
     if num_reward_tokens <= 1 {
@@ -127,7 +129,7 @@ pub fn build_extract_reward_tokens_action(
         };
         tx_builder.set_context_extension(in_oracle_box.get_box().box_id(), ctx_ext);
         let tx = tx_builder.build()?;
-        Ok(ExtractRewardTokensAction { tx })
+        Ok((tx, num_reward_tokens - 1))
     } else {
         Err(ExtractRewardTokensActionError::IncorrectDestinationAddress)
     }
@@ -164,12 +166,17 @@ mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
+        let num_reward_tokens_in_box = 5_u64;
+
         let oracle_box = make_datapoint_box(
             *oracle_pub_key,
             200,
             1,
             refresh_contract.oracle_nft_token_id(),
-            Token::from((reward_token_id, 5u64.try_into().unwrap())),
+            Token::from((
+                reward_token_id,
+                num_reward_tokens_in_box.try_into().unwrap(),
+            )),
             BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
             height - 9,
         )
@@ -189,7 +196,7 @@ mod tests {
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
         };
-        let action = build_extract_reward_tokens_action(
+        let (tx, num_reward_tokens) = extract_reward_tokens(
             &local_datapoint_box_source,
             &wallet_mock,
             change_address.clone(),
@@ -198,18 +205,16 @@ mod tests {
         )
         .unwrap();
 
+        assert_eq!(num_reward_tokens, num_reward_tokens_in_box - 1);
         let mut possible_input_boxes = vec![local_datapoint_box_source
             .get_local_oracle_datapoint_box()
             .unwrap()
             .get_box()];
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
-        let tx_context = TransactionContext::new(
-            action.tx.clone(),
-            find_input_boxes(action.tx, possible_input_boxes),
-            None,
-        )
-        .unwrap();
+        let tx_context =
+            TransactionContext::new(tx.clone(), find_input_boxes(tx, possible_input_boxes), None)
+                .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }

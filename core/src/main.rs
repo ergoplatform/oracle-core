@@ -34,6 +34,7 @@ mod wallet;
 
 use actions::execute_action;
 use anyhow::anyhow;
+use box_kind::OracleBox;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
@@ -92,9 +93,14 @@ enum Command {
         #[clap(long)]
         read_only: bool,
     },
+    ExtractRewardTokens {
+        rewards_address: String,
+    },
+    PrintRewardTokens,
 }
 
 fn main() {
+    println!("{}", ORACLE_CORE_ASCII);
     logging::setup_log();
 
     let args = Args::parse();
@@ -129,6 +135,7 @@ fn main() {
                 }
             };
         }
+
         Command::Run { read_only } => {
             let op = OraclePool::new().unwrap();
             loop {
@@ -138,6 +145,66 @@ fn main() {
                 }
                 // Delay loop restart
                 thread::sleep(Duration::new(30, 0));
+            }
+        }
+
+        Command::ExtractRewardTokens { rewards_address } => {
+            let wallet = WalletData {};
+            let op = OraclePool::new().unwrap();
+            if let Err(e) = (|| -> Result<(), anyhow::Error> {
+                if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+                    let prefix = if op.on_mainnet {
+                        NetworkPrefix::Mainnet
+                    } else {
+                        NetworkPrefix::Testnet
+                    };
+                    let (unsigned_tx, num_reward_tokens) =
+                        cli_commands::extract_reward_tokens::extract_reward_tokens(
+                            local_datapoint_box_source,
+                            &wallet,
+                            AddressEncoder::new(prefix).parse_address_from_str(&rewards_address)?,
+                            current_block_height()? as u32,
+                            get_change_address_from_node()?,
+                        )?;
+
+                    println!(
+                        "YOU WILL BE TRANSFERRING {} REWARD TOKENS TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
+                        num_reward_tokens, rewards_address
+                    );
+                    let mut input = String::new();
+                    std::io::stdin().read_line(&mut input)?;
+                    if input == "YES" {
+                        let _ = node_interface::sign_and_submit_transaction(&unsigned_tx)?;
+                    } else {
+                        println!("Aborting the transaction.")
+                    }
+
+                    Ok(())
+                } else {
+                    Err(anyhow!("No published databox, so no rewards to extract"))
+                }
+            })() {
+                error!("Fatal extract-rewards-token error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+
+        Command::PrintRewardTokens => {
+            let op = OraclePool::new().unwrap();
+            if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+                match local_datapoint_box_source.get_local_oracle_datapoint_box() {
+                    Ok(oracle_box) => {
+                        let num_tokens = *oracle_box.reward_token().amount.as_u64();
+                        if num_tokens == 0 {
+                            println!("Oracle box contains zero reward tokens");
+                        }
+                        println!("Number of claimable reward tokens: {}", num_tokens - 1);
+                    }
+                    Err(e) => {
+                        error!("Fatal print-rewards-token error: {:?}", e);
+                        std::process::exit(exitcode::SOFTWARE);
+                    }
+                }
             }
         }
     }
