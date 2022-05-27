@@ -49,6 +49,8 @@ pub fn bootstrap(
     let yaml = &YamlLoader::load_from_str(&s).unwrap()[0];
     let config = bootstrap_config_from_yaml(yaml)?;
 
+    // We can't call any functions from the `crate::node_interface` module because we don't have an
+    // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
     let prefix = if config.is_mainnet {
         NetworkPrefix::Mainnet

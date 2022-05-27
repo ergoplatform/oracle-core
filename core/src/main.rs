@@ -148,44 +148,9 @@ fn main() {
 
         Command::ExtractRewardTokens { rewards_address } => {
             let wallet = WalletData {};
-            let op = OraclePool::new().unwrap();
-            if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
-                    let prefix = if op.on_mainnet {
-                        NetworkPrefix::Mainnet
-                    } else {
-                        NetworkPrefix::Testnet
-                    };
-                    let (unsigned_tx, num_reward_tokens) =
-                        cli_commands::extract_reward_tokens::extract_reward_tokens(
-                            local_datapoint_box_source,
-                            &wallet,
-                            AddressEncoder::new(prefix).parse_address_from_str(&rewards_address)?,
-                            current_block_height()? as u32,
-                            get_change_address_from_node()?,
-                        )?;
-
-                    println!(
-                        "YOU WILL BE TRANSFERRING {} REWARD TOKENS TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
-                        num_reward_tokens, rewards_address
-                    );
-                    let mut input = String::new();
-                    std::io::stdin().read_line(&mut input)?;
-                    if input == "YES" {
-                        let tx_id_str = node_interface::sign_and_submit_transaction(&unsigned_tx)?;
-                        println!(
-                            "Transaction made. Check status here: {}",
-                            ergo_explorer_transaction_link(tx_id_str, prefix)
-                        );
-                    } else {
-                        println!("Aborting the transaction.")
-                    }
-
-                    Ok(())
-                } else {
-                    Err(anyhow!("No published databox, so no rewards to extract"))
-                }
-            })() {
+            if let Err(e) =
+                cli_commands::extract_reward_tokens::extract_reward_tokens(&wallet, rewards_address)
+            {
                 error!("Fatal extract-rewards-token error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
@@ -241,15 +206,4 @@ fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
     let addr =
         AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     Ok(addr)
-}
-
-fn ergo_explorer_transaction_link(tx_id_str: String, prefix: NetworkPrefix) -> String {
-    let prefix_str = match prefix {
-        NetworkPrefix::Mainnet => "explorer",
-        NetworkPrefix::Testnet => "testnet",
-    };
-    format!(
-        "https://{}.ergoplatform.com/en/transactions/{}",
-        prefix_str, tx_id_str
-    )
 }
