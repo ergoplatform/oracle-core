@@ -174,7 +174,11 @@ fn main() {
                     let mut input = String::new();
                     std::io::stdin().read_line(&mut input)?;
                     if input == "YES" {
-                        let _ = node_interface::sign_and_submit_transaction(&unsigned_tx)?;
+                        let tx_id_str = node_interface::sign_and_submit_transaction(&unsigned_tx)?;
+                        println!(
+                            "Transaction made. Check status here: {}",
+                            ergo_explorer_transaction_link(tx_id_str, prefix)
+                        );
                     } else {
                         println!("Aborting the transaction.")
                     }
@@ -239,4 +243,15 @@ fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
     let addr =
         AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     Ok(addr)
+}
+
+fn ergo_explorer_transaction_link(tx_id_str: String, prefix: NetworkPrefix) -> String {
+    let prefix_str = match prefix {
+        NetworkPrefix::Mainnet => "explorer",
+        NetworkPrefix::Testnet => "testnet",
+    };
+    format!(
+        "https://{}.ergoplatform.com/en/transactions/{}",
+        prefix_str, tx_id_str
+    )
 }
