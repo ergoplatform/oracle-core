@@ -276,14 +276,12 @@ mod tests {
 
     use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::RefreshBoxWrapper;
-    use crate::commands::test_utils::find_input_boxes;
-    use crate::commands::test_utils::make_datapoint_box;
-    use crate::commands::test_utils::make_pool_box;
-    use crate::commands::test_utils::make_wallet_unspent_box;
-    use crate::commands::test_utils::PoolBoxMock;
-    use crate::commands::test_utils::WalletDataMock;
     use crate::contracts::pool::PoolContract;
     use crate::oracle_state::StageError;
+    use crate::pool_commands::test_utils::{
+        find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
+        WalletDataMock,
+    };
 
     use super::*;
 

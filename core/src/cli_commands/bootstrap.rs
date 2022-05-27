@@ -619,7 +619,7 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::commands::test_utils::WalletDataMock;
+    use crate::pool_commands::test_utils::WalletDataMock;
 
     struct SubmitTxMock {}
 

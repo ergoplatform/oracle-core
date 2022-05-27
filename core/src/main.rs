@@ -18,15 +18,15 @@ extern crate json;
 
 mod actions;
 mod api;
-mod bootstrap;
 mod box_kind;
-mod commands;
+mod cli_commands;
 mod contracts;
 mod datapoint_source;
 mod logging;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
+mod pool_commands;
 mod scans;
 mod state;
 mod templates;
@@ -34,8 +34,8 @@ mod wallet;
 
 use actions::execute_action;
 use anyhow::anyhow;
+use box_kind::OracleBox;
 use clap::{Parser, Subcommand};
-use commands::build_action;
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
@@ -44,6 +44,7 @@ use log::error;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use oracle_state::OraclePool;
+use pool_commands::build_action;
 use state::process;
 use state::PoolState;
 use std::thread;
@@ -92,9 +93,14 @@ enum Command {
         #[clap(long)]
         read_only: bool,
     },
+    ExtractRewardTokens {
+        rewards_address: String,
+    },
+    PrintRewardTokens,
 }
 
 fn main() {
+    println!("{}", ORACLE_CORE_ASCII);
     logging::setup_log();
 
     let args = Args::parse();
@@ -112,7 +118,7 @@ fn main() {
         Command::Bootstrap { yaml_config_name } => {
             let wallet = WalletData {};
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = bootstrap::bootstrap(
+                let _ = cli_commands::bootstrap::bootstrap(
                     yaml_config_name,
                     &wallet,
                     &wallet,
@@ -129,6 +135,7 @@ fn main() {
                 }
             };
         }
+
         Command::Run { read_only } => {
             let op = OraclePool::new().unwrap();
             loop {
@@ -138,6 +145,70 @@ fn main() {
                 }
                 // Delay loop restart
                 thread::sleep(Duration::new(30, 0));
+            }
+        }
+
+        Command::ExtractRewardTokens { rewards_address } => {
+            let wallet = WalletData {};
+            let op = OraclePool::new().unwrap();
+            if let Err(e) = (|| -> Result<(), anyhow::Error> {
+                if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+                    let prefix = if op.on_mainnet {
+                        NetworkPrefix::Mainnet
+                    } else {
+                        NetworkPrefix::Testnet
+                    };
+                    let (unsigned_tx, num_reward_tokens) =
+                        cli_commands::extract_reward_tokens::extract_reward_tokens(
+                            local_datapoint_box_source,
+                            &wallet,
+                            AddressEncoder::new(prefix).parse_address_from_str(&rewards_address)?,
+                            current_block_height()? as u32,
+                            get_change_address_from_node()?,
+                        )?;
+
+                    println!(
+                        "YOU WILL BE TRANSFERRING {} REWARD TOKENS TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
+                        num_reward_tokens, rewards_address
+                    );
+                    let mut input = String::new();
+                    std::io::stdin().read_line(&mut input)?;
+                    if input == "YES" {
+                        let tx_id_str = node_interface::sign_and_submit_transaction(&unsigned_tx)?;
+                        println!(
+                            "Transaction made. Check status here: {}",
+                            ergo_explorer_transaction_link(tx_id_str, prefix)
+                        );
+                    } else {
+                        println!("Aborting the transaction.")
+                    }
+
+                    Ok(())
+                } else {
+                    Err(anyhow!("No published databox, so no rewards to extract"))
+                }
+            })() {
+                error!("Fatal extract-rewards-token error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+
+        Command::PrintRewardTokens => {
+            let op = OraclePool::new().unwrap();
+            if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+                match local_datapoint_box_source.get_local_oracle_datapoint_box() {
+                    Ok(oracle_box) => {
+                        let num_tokens = *oracle_box.reward_token().amount.as_u64();
+                        if num_tokens == 0 {
+                            println!("Oracle box contains zero reward tokens");
+                        }
+                        println!("Number of claimable reward tokens: {}", num_tokens - 1);
+                    }
+                    Err(e) => {
+                        error!("Fatal print-rewards-token error: {:?}", e);
+                        std::process::exit(exitcode::SOFTWARE);
+                    }
+                }
             }
         }
     }
@@ -172,4 +243,15 @@ fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
     let addr =
         AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
     Ok(addr)
+}
+
+fn ergo_explorer_transaction_link(tx_id_str: String, prefix: NetworkPrefix) -> String {
+    let prefix_str = match prefix {
+        NetworkPrefix::Mainnet => "explorer",
+        NetworkPrefix::Testnet => "testnet",
+    };
+    format!(
+        "https://{}.ergoplatform.com/en/transactions/{}",
+        prefix_str, tx_id_str
+    )
 }

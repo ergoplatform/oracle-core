@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 
 use crate::actions::CollectionError;
-use crate::commands::PoolCommand;
 use crate::datapoint_source::DataPointSource;
 use crate::oracle_config::PoolParameters;
 use crate::oracle_state::DatapointState;
@@ -10,6 +9,7 @@ use crate::oracle_state::OraclePool;
 use crate::oracle_state::PreparationState;
 use crate::oracle_state::Stage;
 use crate::oracle_state::StageError;
+use crate::pool_commands::PoolCommand;
 use crate::TokenID;
 use anyhow::Result;
 

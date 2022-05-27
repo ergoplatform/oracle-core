@@ -22,7 +22,6 @@ mod refresh;
 pub(crate) mod test_utils;
 
 pub enum PoolCommand {
-    Bootstrap,
     Refresh,
     PublishDataPoint,
 }
@@ -56,7 +55,6 @@ pub fn build_action(
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
     match cmd {
-        PoolCommand::Bootstrap => todo!(),
         PoolCommand::Refresh => build_refresh_action(
             pool_box_source,
             refresh_box_source,
