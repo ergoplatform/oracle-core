@@ -123,8 +123,6 @@ fn main() {
                     &wallet,
                     &wallet,
                     &wallet,
-                    get_change_address_from_node()?,
-                    current_block_height()? as u32,
                     0,
                 )?;
                 Ok(())

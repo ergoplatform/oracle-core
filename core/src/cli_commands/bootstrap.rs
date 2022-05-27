@@ -24,7 +24,7 @@ use ergo_lib::{
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
-use ergo_node_interface::node_interface::NodeError;
+use ergo_node_interface::{node_interface::NodeError, NodeInterface};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use yaml_rust::{Yaml, YamlLoader};
@@ -43,13 +43,24 @@ pub fn bootstrap(
     wallet: &dyn WalletDataSource,
     wallet_sign: &dyn WalletSign,
     submit_tx: &dyn SubmitTransaction,
-    change_address: Address,
-    height: u32,
     initial_datapoint: i64,
 ) -> Result<(), BootstrapError> {
     let s = std::fs::read_to_string(yaml_config_file_name)?;
     let yaml = &YamlLoader::load_from_str(&s).unwrap()[0];
     let config = bootstrap_config_from_yaml(yaml)?;
+
+    let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
+    let prefix = if config.is_mainnet {
+        NetworkPrefix::Mainnet
+    } else {
+        NetworkPrefix::Testnet
+    };
+    let change_address_str = node
+        .wallet_status()?
+        .change_address
+        .ok_or(BootstrapError::NoChangeAddressSetInNode)?;
+
+    let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
         wallet,
@@ -58,7 +69,7 @@ pub fn bootstrap(
         tx_fee: BoxValue::SAFE_USER_MIN,
         erg_value_per_box: BoxValue::SAFE_USER_MIN,
         change_address,
-        height,
+        height: node.current_block_height()? as u32,
         initial_datapoint,
     };
     let oracle_config = perform_bootstrap_chained_transaction(input)?;
@@ -589,6 +600,8 @@ pub enum BootstrapError {
     AddressEncoder(AddressEncoderError),
     #[error("SigmaParsing error: {0}")]
     SigmaParse(SigmaParsingError),
+    #[error("Node doesn't have a change address set")]
+    NoChangeAddressSetInNode,
 }
 
 fn token_id_as_base64_string<S>(value: &TokenId, serializer: S) -> Result<S::Ok, S::Error>
