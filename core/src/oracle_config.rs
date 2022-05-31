@@ -1,23 +1,29 @@
-use crate::BlockDuration;
+use crate::{
+    datapoint_source::{DataPointSource, NanoAdaUsd, NanoErgUsd},
+    BlockDuration,
+};
 use anyhow::anyhow;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::LevelFilter;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
-use yaml_rust::YamlLoader;
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 /// Node Parameters as defined in the `oracle-config.yaml`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeParameters {
     pub node_ip: String,
-    pub node_port: String,
+    pub node_port: u16,
     pub node_api_key: String,
 }
 
 /// Pool Parameters as defined in the `oracle-config.yaml`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolParameters {
+    pub oracle_pool_nft: TokenId,
+    pub refresh_nft: TokenId,
+    pub reward_token_id: TokenId,
     pub epoch_length: BlockDuration,
     pub buffer_length: BlockDuration,
     pub max_deviation_percent: u64,
@@ -27,8 +33,19 @@ pub struct PoolParameters {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleConfig {
-    pub pool_parameters: PoolParameters,
+    pub node: NodeParameters,
+    pub pool: PoolParameters,
     pub log_level: Option<LevelFilter>,
+    pub oracle_pool_participant_token_id: TokenId,
+    pub core_api_port: u16,
+    pub oracle_address: String,
+    pub on_mainnet: bool,
+    pub data_point_source: String,
+}
+
+pub enum DataPointSourceEnum {
+    NanoErgUsd(NanoErgUsd),
+    NanoAdaUsd(NanoAdaUsd),
 }
 
 impl OracleConfig {
@@ -38,32 +55,6 @@ impl OracleConfig {
 
     pub fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
-        // let yaml = YamlLoader::load_from_str(config_str)?;
-        // let yaml = yaml[0].clone();
-
-        // let pool_parameters = PoolParameters {
-        //     epoch_length: yaml["epoch_length"]
-        //         .as_i64()
-        //         .ok_or_else(|| anyhow!("No epoch_length specified in config file."))?
-        //         as u64,
-        //     buffer_length: yaml["buffer_length"]
-        //         .as_i64()
-        //         .ok_or_else(|| anyhow!("No buffer_length specified in config file."))?
-        //         as u64,
-        //     max_deviation_percent: yaml["max_deviation_percent"]
-        //         .as_i64()
-        //         .ok_or_else(|| anyhow!("No max_deviation_percent specified in config file."))?
-        //         as u64,
-        //     min_data_points: yaml["min_data_points"]
-        //         .as_i64()
-        //         .ok_or_else(|| anyhow!("No min_data_points specified in config file."))?
-        //         as u64,
-        //     base_fee: yaml["base_fee"]
-        //         .as_i64()
-        //         .ok_or_else(|| anyhow!("No base_fee specified in config file."))?
-        //         as u64,
-        // };
-        // Ok(OracleConfig { pool_parameters })
     }
 }
 
@@ -75,15 +66,11 @@ lazy_static! {
 
 /// Returns "core_api_port" from the config file
 pub fn get_core_api_port() -> String {
-    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["core_api_port"]
-        .as_str()
-        .expect("No core_api_port specified in config file.")
-        .to_string()
+    ORACLE_CONFIG.core_api_port.to_string()
 }
 
 /// Reads the `oracle-config.yaml` file
-pub fn get_config_yaml() -> String {
+fn get_config_yaml() -> String {
     std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME).expect("Failed to open oracle-config.yaml")
 }
 
@@ -95,19 +82,11 @@ pub fn get_node_url() -> String {
 }
 
 pub fn get_node_ip() -> String {
-    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["node_ip"]
-        .as_str()
-        .expect("No node_ip specified in config file.")
-        .to_string()
+    ORACLE_CONFIG.node.node_ip
 }
 
 pub fn get_node_port() -> String {
-    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["node_port"]
-        .as_str()
-        .expect("No node_port specified in config file.")
-        .to_string()
+    ORACLE_CONFIG.node.node_port.to_string()
 }
 
 /// Acquires the `node_api_key` and builds a `HeaderValue`
@@ -121,11 +100,7 @@ pub fn get_node_api_header() -> HeaderValue {
 
 /// Returns the `node_api_key`
 pub fn get_node_api_key() -> String {
-    let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-    config["node_api_key"]
-        .as_str()
-        .expect("No node_api_key specified in config file.")
-        .to_string()
+    ORACLE_CONFIG.node.node_api_key
 }
 
 #[cfg(test)]
@@ -148,7 +123,7 @@ mod tests {
             base_fee: 1000000
             ";
         let config = OracleConfig::load_from_str(yaml_string).unwrap();
-        let pool_params = config.pool_parameters;
+        let pool_params = config.pool;
         assert_eq!(pool_params.epoch_length, 20);
         assert_eq!(pool_params.buffer_length, 4);
         assert_eq!(pool_params.max_deviation_percent, 5);

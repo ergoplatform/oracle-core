@@ -8,7 +8,7 @@ use crate::contracts::refresh::RefreshContract;
 use crate::datapoint_source::{
     DataPointSource, DataPointSourceError, ExternalScript, NanoAdaUsd, NanoErgUsd,
 };
-use crate::oracle_config::get_config_yaml;
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_datapoint_scan, register_epoch_preparation_scan, register_local_oracle_datapoint_scan,
     register_pool_box_scan, register_pool_deposit_scan, register_refresh_box_scan,
@@ -147,30 +147,13 @@ pub struct PoolDepositsState {
 impl OraclePool {
     /// Create a new `OraclePool` struct
     pub fn new() -> std::result::Result<OraclePool, Error> {
-        let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-
-        let local_oracle_address = config["oracle_address"]
-            .as_str()
-            .expect("No oracle_address specified in config file.")
-            .to_string();
-
-        let on_mainnet = config["on_mainnet"]
-            .as_bool()
-            .expect("on_mainnet not specified in config file.");
-
+        let config = &ORACLE_CONFIG;
+        let local_oracle_address = config.oracle_address;
+        let on_mainnet = config.on_mainnet;
         let oracle_pool_nft: String = RefreshContract::new().pool_nft_token_id().into();
         let refresh_nft: String = PoolContract::new().refresh_nft_token_id().into();
-
-        let oracle_pool_participant_token = config["oracle_pool_participant_token"]
-            .as_str()
-            .expect("No oracle_pool_participant_token specified in config file.")
-            .to_string();
-
-        let reward_token = config["reward_token"]
-            .as_str()
-            .expect("No reward_token specified in config file.")
-            .to_string();
-
+        let oracle_pool_participant_token = config.oracle_pool_participant_token_id;
+        let reward_token = config.pool.reward_token_id;
         let data_point_source_str = config["data_point_source"]
             .as_str()
             .expect("No data_point_source specified in config file.")

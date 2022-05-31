@@ -37,7 +37,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
         let op = OraclePool::new().unwrap();
-        let parameters = &ORACLE_CONFIG.pool_parameters;
+        let parameters = &ORACLE_CONFIG.pool;
 
         let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
 
