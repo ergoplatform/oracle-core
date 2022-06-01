@@ -34,7 +34,6 @@ mod wallet;
 
 use actions::execute_action;
 use anyhow::anyhow;
-use box_kind::OracleBox;
 use clap::{Parser, Subcommand};
 //use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
@@ -151,20 +150,11 @@ fn main() {
 
         Command::PrintRewardTokens => {
             let op = OraclePool::new().unwrap();
-            if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
-                match local_datapoint_box_source.get_local_oracle_datapoint_box() {
-                    Ok(oracle_box) => {
-                        let num_tokens = *oracle_box.reward_token().amount.as_u64();
-                        if num_tokens == 0 {
-                            println!("Oracle box contains zero reward tokens");
-                        }
-                        println!("Number of claimable reward tokens: {}", num_tokens - 1);
-                    }
-                    Err(e) => {
-                        error!("Fatal print-rewards-token error: {:?}", e);
-                        std::process::exit(exitcode::SOFTWARE);
-                    }
-                }
+            if let Err(e) = cli_commands::print_reward_tokens::print_reward_tokens(
+                op.get_local_datapoint_box_source(),
+            ) {
+                error!("Fatal print-rewards-token error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
             }
         }
     }
