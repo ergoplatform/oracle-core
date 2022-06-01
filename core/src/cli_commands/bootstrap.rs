@@ -25,9 +25,10 @@ use ergo_lib::{
     },
 };
 use ergo_node_interface::{node_interface::NodeError, NodeInterface};
+use log::info;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::{
     contracts::{pool::PoolContract, refresh::RefreshContract},
@@ -35,20 +36,42 @@ use crate::{
     wallet::{WalletDataSource, WalletSign},
 };
 
+// Note that we need the following trait implementations for `NodeInterface` because we can't rely
+// on any of the functions in the `crate::node_interface` module since they all implicitly rely on
+// the existence of an oracle-pool `yaml` config file.
+
+impl SubmitTransaction for NodeInterface {
+    fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<String> {
+        self.submit_transaction(tx)
+    }
+}
+
+impl WalletSign for NodeInterface {
+    fn sign_transaction_with_inputs(
+        &self,
+        unsigned_tx: &ergo_lib::chain::transaction::unsigned::UnsignedTransaction,
+        _inputs: ergo_lib::chain::transaction::TxIoVec<ErgoBox>,
+        _data_boxes: Option<ergo_lib::chain::transaction::TxIoVec<ErgoBox>>,
+    ) -> Result<Transaction, NodeError> {
+        self.sign_transaction(unsigned_tx)
+    }
+}
+
+impl WalletDataSource for NodeInterface {
+    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
+        self.unspent_boxes()
+    }
+}
+
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
-pub fn bootstrap(
-    yaml_config_file_name: String,
-    wallet: &dyn WalletDataSource,
-    wallet_sign: &dyn WalletSign,
-    submit_tx: &dyn SubmitTransaction,
-    initial_datapoint: i64,
-) -> Result<(), BootstrapError> {
-    let s = std::fs::read_to_string(yaml_config_file_name)?;
+pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
+    let s = std::fs::read_to_string(yaml_config_file_name.clone())?;
     let yaml = &YamlLoader::load_from_str(&s).unwrap()[0];
     let config = bootstrap_config_from_yaml(yaml)?;
 
+    info!("{} loaded", yaml_config_file_name);
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
@@ -65,16 +88,16 @@ pub fn bootstrap(
     let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
-        wallet,
-        wallet_sign,
-        submit_tx,
+        wallet: &node,
+        wallet_sign: &node,
+        submit_tx: &node,
         tx_fee: BoxValue::SAFE_USER_MIN,
         erg_value_per_box: BoxValue::SAFE_USER_MIN,
         change_address,
         height: node.current_block_height()? as u32,
-        initial_datapoint,
     };
     let oracle_config = perform_bootstrap_chained_transaction(input)?;
+    info!("Bootstrap chain-transaction complete");
     let s = serde_yaml::to_string(&oracle_config)?;
     let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_CONFIG_FILE_NAME)?;
     file.write_all(s.as_bytes())?;
@@ -90,7 +113,6 @@ pub struct BootstrapInput<'a> {
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
     pub height: u32,
-    pub initial_datapoint: i64,
 }
 
 /// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
@@ -108,7 +130,6 @@ pub fn perform_bootstrap_chained_transaction(
         erg_value_per_box,
         change_address,
         height,
-        initial_datapoint,
         ..
     } = input;
 
@@ -212,6 +233,7 @@ pub fn perform_bootstrap_chained_transaction(
     };
 
     // Mint pool NFT token --------------------------------------------------------------------------
+    info!("Minting pool NFT tx");
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let target_balance = calc_target_balance(num_transactions_left)?;
     let box_selector = SimpleBoxSelector::new();
@@ -227,6 +249,7 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Mint refresh NFT token ----------------------------------------------------------------------
+    info!("Minting refresh NFT tx");
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
     let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_token(
         inputs,
@@ -238,6 +261,7 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Mint update NFT token -----------------------------------------------------------------------
+    info!("Minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
     let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
         inputs,
@@ -249,6 +273,7 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Mint oracle tokens --------------------------------------------------------------------------
+    info!("Minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     let oracle_tokens_pk_ergo_tree = config.addresses.address_for_oracle_tokens.script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
@@ -266,6 +291,7 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Mint ballot tokens --------------------------------------------------------------------------
+    info!("Minting ballot tokens tx");
     let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
     let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
         inputs,
@@ -282,6 +308,7 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Mint reward tokens --------------------------------------------------------------------------
+    info!("Minting reward tokens tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
     let (reward_token, signed_mint_reward_tokens_tx) = mint_token(
         inputs,
@@ -298,6 +325,7 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Create pool box -----------------------------------------------------------------------------
+    info!("Create pool box tx");
     let pool_contract = PoolContract::new()
         .with_refresh_nft_token_id(refresh_nft_token.token_id.clone())
         .with_update_nft_token_id(update_nft_token.token_id.clone());
@@ -305,7 +333,10 @@ pub fn perform_bootstrap_chained_transaction(
     let mut builder =
         ErgoBoxCandidateBuilder::new(erg_value_per_box, pool_contract.ergo_tree(), height);
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::{R4, R5};
-    builder.set_register_value(R4, initial_datapoint.into());
+
+    // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during
+    // bootstrap.
+    builder.set_register_value(R4, 0.into());
     builder.set_register_value(R5, 1_i64.into());
     builder.add_token(pool_nft_token.clone());
 
@@ -354,6 +385,7 @@ pub fn perform_bootstrap_chained_transaction(
     num_transactions_left -= 1;
 
     // Create refresh box --------------------------------------------------------------------------
+    info!("Create refresh box tx");
     let RefreshContractParameters {
         epoch_length,
         buffer,
@@ -423,14 +455,22 @@ pub fn perform_bootstrap_chained_transaction(
         wallet_sign.sign_transaction_with_inputs(&refresh_box_tx, inputs, None)?;
 
     // ---------------------------------------------------------------------------------------------
-    submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
-    submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
-    submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
-    submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
-    submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
-    submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
-    submit_tx.submit_transaction(&signed_pool_box_tx)?;
-    submit_tx.submit_transaction(&signed_refresh_box_tx)?;
+    let tx_id = submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
+    info!("Minting pool NFT TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
+    info!("Minting refresh NFT TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
+    info!("Minting update NFT TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
+    info!("Minting oracle tokens TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
+    info!("Minting ballot tokens TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
+    info!("Minting reward tokens TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_pool_box_tx)?;
+    info!("Creating initial pool box TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
+    info!("Creating initial refresh box TxId: {}", tx_id);
 
     Ok(OracleConfigFields {
         pool_nft: pool_nft_token.token_id,
@@ -456,12 +496,23 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         NetworkPrefix::Testnet
     };
 
-    let tokens_to_mint_str = yaml["tokens_to_mint"]
+    let tokens_to_mint: TokensToMint = {
+        // We'd like to use `serde_yaml` to deserialize `TokensToMint`. Since we're committed to
+        // using `yaml-rust` we extract out the contents of the `tokens_to_mint` field in the YAML
+        // file, convert it back to a YAML string, then pass it to `serde_yaml`.
+        let hash = yaml["tokens_to_mint"]
+            .as_hash()
+            .ok_or_else(|| BootstrapError::YamlRust("`tokens_to_mint` missing".into()))?
+            .clone();
+        let mut out = String::new();
+        let mut emitter = YamlEmitter::new(&mut out);
+        emitter.dump(&Yaml::Hash(hash)).unwrap();
+        serde_yaml::from_str(&out)?
+    };
+
+    let address_for_minted_tokens_str = yaml["addresses"]["address_for_oracle_tokens"]
         .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`tokens_to_mint` missing".into()))?;
-    let address_for_minted_tokens_str = yaml["addresses"]["address_for_minted_tokens"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`address_for_minted_tokens` missing".into()))?;
+        .ok_or_else(|| BootstrapError::YamlRust("`address_for_oracle_tokens` missing".into()))?;
     let address_for_minted_tokens = AddressEncoder::new(network_prefix)
         .parse_address_from_str(address_for_minted_tokens_str)?;
 
@@ -478,11 +529,20 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         address_for_oracle_tokens: address_for_minted_tokens,
         wallet_address_for_chain_transaction,
     };
-    let refresh_contract_parameters_str = yaml["refresh_contract_parameters"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`refresh_contract_parameters` missing".into()))?;
-    let refresh_contract_parameters: RefreshContractParameters =
-        serde_yaml::from_str(refresh_contract_parameters_str)?;
+
+    let refresh_contract_parameters: RefreshContractParameters = {
+        // The struct is created via the same process as `tokens_to_mint` above.
+        let hash = yaml["refresh_contract_parameters"]
+            .as_hash()
+            .ok_or_else(|| {
+                BootstrapError::YamlRust("`refresh_contract_parameters` missing".into())
+            })?
+            .clone();
+        let mut out = String::new();
+        let mut emitter = YamlEmitter::new(&mut out);
+        emitter.dump(&Yaml::Hash(hash)).unwrap();
+        serde_yaml::from_str(&out)?
+    };
     let node_ip = yaml["node_ip"]
         .as_str()
         .ok_or_else(|| BootstrapError::YamlRust("`node_ip` missing".into()))?
@@ -498,8 +558,6 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         .ok_or_else(|| BootstrapError::YamlRust("`node_api_key` missing".into()))?
         .into();
 
-    let tokens_to_mint: TokensToMint = serde_yaml::from_str(tokens_to_mint_str)?;
-
     Ok(BootstrapConfig {
         refresh_contract_parameters,
         tokens_to_mint,
@@ -511,7 +569,9 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
     })
 }
 
-/// An instance of this struct is created from an operator-provided YAML file.
+/// An instance of this struct is created from an operator-provided YAML file. Note that we don't
+/// derive `Deserialize` here since we need to verify the address types against the `is_mainnet`
+/// field.
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
     pub tokens_to_mint: TokensToMint,
@@ -642,9 +702,9 @@ mod tests {
         fn submit_transaction(
             &self,
             _: &ergo_lib::chain::transaction::Transaction,
-        ) -> crate::node_interface::Result<()> {
-            // No-op
-            Ok(())
+        ) -> crate::node_interface::Result<String> {
+            // Return empty string as TxId
+            Ok("".into())
         }
     }
 
@@ -764,7 +824,6 @@ mod tests {
             erg_value_per_box: BoxValue::SAFE_USER_MIN,
             change_address,
             height,
-            initial_datapoint: 200,
         })
         .unwrap();
 

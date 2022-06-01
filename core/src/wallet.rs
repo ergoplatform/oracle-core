@@ -45,8 +45,7 @@ impl WalletSign for WalletData {
 }
 
 impl SubmitTransaction for WalletData {
-    fn submit_transaction(&self, tx: &Transaction) -> Result<(), NodeError> {
-        let _ = node_interface::submit_transaction(tx)?;
-        Ok(())
+    fn submit_transaction(&self, tx: &Transaction) -> Result<String, NodeError> {
+        node_interface::submit_transaction(tx)
     }
 }

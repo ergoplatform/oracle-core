@@ -36,7 +36,7 @@ use actions::execute_action;
 use anyhow::anyhow;
 use box_kind::OracleBox;
 use clap::{Parser, Subcommand};
-use crossbeam::channel::bounded;
+//use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
@@ -104,27 +104,20 @@ fn main() {
     logging::setup_log();
 
     let args = Args::parse();
-    let (_, repost_receiver) = bounded(1);
+    //let (_, repost_receiver) = bounded(1);
 
     // Start Oracle Core GET API Server
-    thread::Builder::new()
-        .name("Oracle Core GET API Thread".to_string())
-        .spawn(|| {
-            api::start_get_api(repost_receiver);
-        })
-        .ok();
+    //thread::Builder::new()
+    //    .name("Oracle Core GET API Thread".to_string())
+    //    .spawn(|| {
+    //        api::start_get_api(repost_receiver);
+    //    })
+    //    .ok();
 
     match args.command {
         Command::Bootstrap { yaml_config_name } => {
-            let wallet = WalletData {};
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = cli_commands::bootstrap::bootstrap(
-                    yaml_config_name,
-                    &wallet,
-                    &wallet,
-                    &wallet,
-                    0,
-                )?;
+                let _ = cli_commands::bootstrap::bootstrap(yaml_config_name)?;
                 Ok(())
             })() {
                 {
