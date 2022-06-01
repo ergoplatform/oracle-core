@@ -67,8 +67,6 @@ pub type BlockHeight = u64;
 pub type BlockDuration = u64;
 /// The epoch counter
 pub type EpochID = u32;
-/// A Base58 encoded String of a Token ID.
-pub type TokenID = String;
 
 static ORACLE_CORE_ASCII: &str = r#"
    ____                 _         _____

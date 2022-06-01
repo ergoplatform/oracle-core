@@ -43,9 +43,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
         let response_json = object! {
             number_of_oracles: num_of_oracles,
-            epoch_prep_address: op.epoch_preparation_stage.contract_address,
-            pool_deposits_address: op.pool_deposit_stage.contract_address,
-            datapoint_address: op.datapoint_stage.contract_address,
+            datapoint_address: op.datapoint_stage.contract_address.to_base16_bytes().unwrap(),
             live_epoch_length: parameters.epoch_length,
             deviation_range: parameters.max_deviation_percent,
             consensus_num: parameters.min_data_points,

@@ -2,12 +2,13 @@ use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
-    address_to_bytes, address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box,
-    serialize_boxes,
+    address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
 };
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_node_interface::node_interface::NodeError;
 use json::JsonValue;
 use log::info;
@@ -104,7 +105,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 }
 
 /// This function registers scanning for the pool box
-pub fn register_pool_box_scan(oracle_pool_nft: &String) -> Result<Scan> {
+pub fn register_pool_box_scan(oracle_pool_nft: &TokenId) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
     let pool_box_tree_bytes = PoolContract::new().ergo_tree().to_base16_bytes().unwrap();
 
@@ -127,7 +128,7 @@ pub fn register_pool_box_scan(oracle_pool_nft: &String) -> Result<Scan> {
 }
 
 /// This function registers scanning for the refresh box
-pub fn register_refresh_box_scan(scan_name: &'static str, refresh_nft: &String) -> Result<Scan> {
+pub fn register_refresh_box_scan(scan_name: &'static str, refresh_nft: &TokenId) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
     let tree_bytes = RefreshContract::new()
         .ergo_tree()
@@ -152,41 +153,12 @@ pub fn register_refresh_box_scan(scan_name: &'static str, refresh_nft: &String) 
     Scan::register(scan_name, scan_json)
 }
 
-/// This function registers scanning for the Epoch Preparation stage box
-pub fn register_epoch_preparation_scan(
-    oracle_pool_nft: &String,
-    epoch_preparation_address: &String,
-) -> Result<Scan> {
-    // ErgoTree bytes of the P2S address/script
-    let epoch_prep_bytes = address_to_bytes(epoch_preparation_address)?;
-
-    // Scan for NFT id + Epoch Preparation address
-    let scan_json = object! {
-        "predicate": "and",
-        "args": [
-            {
-            "predicate": "containsAsset",
-            "assetId": oracle_pool_nft.clone(),
-            },
-            {
-            "predicate": "equals",
-            "value": epoch_prep_bytes.clone(),
-            }
-        ]
-    };
-
-    Scan::register("Epoch Preparation Scan", scan_json)
-}
-
 /// This function registers scanning for the oracle's personal Datapoint box
 pub fn register_local_oracle_datapoint_scan(
-    oracle_pool_participant_token: &String,
-    datapoint_address: &String,
+    oracle_pool_participant_token: &TokenId,
+    datapoint_address: &ErgoTree,
     oracle_address: &String,
 ) -> Result<Scan> {
-    // ErgoTree bytes of the datapoint P2S address/script
-    let datapoint_add_bytes = address_to_bytes(datapoint_address)?;
-
     // Raw EC bytes + type identifier
     let oracle_add_bytes = address_to_raw_for_register(oracle_address)?;
 
@@ -200,7 +172,7 @@ pub fn register_local_oracle_datapoint_scan(
             },
             {
             "predicate": "equals",
-            "value": datapoint_add_bytes.clone(),
+            "value": datapoint_address.to_base16_bytes().unwrap(),
             },
             {
             "predicate": "equals",
@@ -215,12 +187,9 @@ pub fn register_local_oracle_datapoint_scan(
 
 /// This function registers scanning for all of the pools oracles' Datapoint boxes for datapoint collection
 pub fn register_datapoint_scan(
-    oracle_pool_participant_token: &String,
-    datapoint_address: &String,
+    oracle_pool_participant_token: &TokenId,
+    datapoint_address: &ErgoTree,
 ) -> Result<Scan> {
-    // ErgoTree bytes of the datapoint P2S address/script
-    let datapoint_add_bytes = address_to_bytes(datapoint_address)?;
-
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = object! {
         "predicate": "and",
@@ -231,27 +200,10 @@ pub fn register_datapoint_scan(
             },
             {
             "predicate": "equals",
-            "value": datapoint_add_bytes.clone(),
+            "value": datapoint_address.to_base16_bytes().unwrap(),
             }
         ]
     };
 
     Scan::register("All Datapoints Scan", scan_json)
-}
-
-/// This function registers scanning for any boxes in the Pool Deposit stage address
-pub fn register_pool_deposit_scan(pool_deposit_address: &String) -> Result<Scan> {
-    // ErgoTree bytes of the datapoint P2S address/script
-    let pool_dep_add_bytes = address_to_bytes(pool_deposit_address)
-        .expect("Failed to access node to use addressToBytes.");
-    println!("Pool Dep Bytes: {}", pool_dep_add_bytes);
-
-    // Scan for boxes at pool deposit address
-    let scan_json = object! {
-                "predicate": "equals",
-                "value": pool_dep_add_bytes.clone(),
-    };
-
-    println!("{:?}", scan_json.dump());
-    Scan::register("Pool Deposits Scan", scan_json)
 }

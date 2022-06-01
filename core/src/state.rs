@@ -28,6 +28,7 @@ pub fn process(
     pool_state: PoolState,
     // op: OraclePool,
     // parameters: PoolParameters,
+    datapoint_source: &dyn DataPointSource,
     height: u64,
 ) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
@@ -38,7 +39,9 @@ pub fn process(
             if epoch_is_over {
                 Ok(Some(PoolCommand::Refresh))
             } else if !live_epoch.commit_datapoint_in_epoch {
-                Ok(Some(PoolCommand::PublishDataPoint))
+                Ok(Some(PoolCommand::PublishDataPoint(
+                    datapoint_source.get_datapoint()?,
+                )))
             } else {
                 Ok(None)
             }

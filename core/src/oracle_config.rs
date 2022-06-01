@@ -1,5 +1,5 @@
 use crate::{
-    datapoint_source::{DataPointSource, NanoAdaUsd, NanoErgUsd},
+    datapoint_source::{DataPointSource, ExternalScript, NanoAdaUsd, NanoErgUsd},
     BlockDuration,
 };
 use anyhow::anyhow;
@@ -41,11 +41,7 @@ pub struct OracleConfig {
     pub oracle_address: String,
     pub on_mainnet: bool,
     pub data_point_source: String,
-}
-
-pub enum DataPointSourceEnum {
-    NanoErgUsd(NanoErgUsd),
-    NanoAdaUsd(NanoAdaUsd),
+    pub data_point_source_custom_script: Option<String>,
 }
 
 impl OracleConfig {
@@ -55,6 +51,21 @@ impl OracleConfig {
 
     pub fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
+    }
+
+    pub fn data_point_source(&self) -> Result<Box<dyn DataPointSource>, anyhow::Error> {
+        let data_point_source: Box<dyn DataPointSource> = if let Some(external_script_name) =
+            self.data_point_source_custom_script
+        {
+            Box::new(ExternalScript::new(external_script_name.clone()))
+        } else {
+            match &*self.data_point_source {
+                "NanoErgUsd" => Box::new(NanoErgUsd),
+                "NanoAdaUsd" => Box::new(NanoAdaUsd),
+                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd' or 'NanoAdaUsd'")),
+            }
+        };
+        Ok(data_point_source)
     }
 }
 
