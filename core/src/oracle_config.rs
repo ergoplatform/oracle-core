@@ -5,10 +5,9 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::LevelFilter;
-use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
+const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 /// Node Parameters as defined in the `oracle-config.yaml`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,11 +44,14 @@ pub struct OracleConfig {
 }
 
 impl OracleConfig {
-    pub fn load() -> Result<Self, anyhow::Error> {
-        Self::load_from_str(&get_config_yaml())
+    fn load() -> Result<Self, anyhow::Error> {
+        Self::load_from_str(
+            &std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)
+                .expect("Failed to open oracle-config.yaml"),
+        )
     }
 
-    pub fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
+    fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
     }
 
@@ -80,33 +82,12 @@ pub fn get_core_api_port() -> String {
     ORACLE_CONFIG.core_api_port.to_string()
 }
 
-/// Reads the `oracle-config.yaml` file
-fn get_config_yaml() -> String {
-    std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME).expect("Failed to open oracle-config.yaml")
-}
-
-/// Returns `http://ip:port` using `node_ip` and `node_port` from the config file
-pub fn get_node_url() -> String {
-    let ip = get_node_ip();
-    let port = get_node_port();
-    "http://".to_string() + &ip + ":" + &port
-}
-
 pub fn get_node_ip() -> String {
     ORACLE_CONFIG.node.node_ip.clone()
 }
 
 pub fn get_node_port() -> String {
     ORACLE_CONFIG.node.node_port.to_string()
-}
-
-/// Acquires the `node_api_key` and builds a `HeaderValue`
-pub fn get_node_api_header() -> HeaderValue {
-    let api_key = get_node_api_key();
-    match HeaderValue::from_str(&api_key) {
-        Ok(k) => k,
-        _ => HeaderValue::from_static("None"),
-    }
 }
 
 /// Returns the `node_api_key`

@@ -1,5 +1,5 @@
 use crate::node_interface::current_block_height;
-use crate::oracle_config::{get_core_api_port, get_node_url, ORACLE_CONFIG};
+use crate::oracle_config::{get_core_api_port, get_node_ip, get_node_port, ORACLE_CONFIG};
 use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::state::PoolState;
 use crossbeam::Receiver;
@@ -63,7 +63,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Basic information about node the oracle core is using
     app.get("/nodeInfo", move |context| {
         let response_json = json! ( {
-            "node_url": get_node_url(),
+            "node_url": "http://".to_string() + &get_node_ip() + ":" + &get_node_port(),
         } );
 
         context
