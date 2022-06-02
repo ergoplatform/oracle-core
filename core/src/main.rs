@@ -35,7 +35,7 @@ mod wallet;
 use actions::execute_action;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-//use crossbeam::channel::bounded;
+use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
@@ -103,15 +103,6 @@ fn main() {
     logging::setup_log();
 
     let args = Args::parse();
-    //let (_, repost_receiver) = bounded(1);
-
-    // Start Oracle Core GET API Server
-    //thread::Builder::new()
-    //    .name("Oracle Core GET API Thread".to_string())
-    //    .spawn(|| {
-    //        api::start_get_api(repost_receiver);
-    //    })
-    //    .ok();
 
     match args.command {
         Command::Bootstrap { yaml_config_name } => {
@@ -127,6 +118,15 @@ fn main() {
         }
 
         Command::Run { read_only } => {
+            let (_, repost_receiver) = bounded(1);
+
+            // Start Oracle Core GET API Server
+            thread::Builder::new()
+                .name("Oracle Core GET API Thread".to_string())
+                .spawn(|| {
+                    api::start_get_api(repost_receiver);
+                })
+                .ok();
             let op = OraclePool::new().unwrap();
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
