@@ -8,6 +8,8 @@ use serde_json::json;
 /// Starts the GET API server which can be made publicly available without security risk
 pub fn start_get_api(repost_receiver: Receiver<bool>) {
     let mut app = sincere::App::new();
+    let op = OraclePool::new().unwrap();
+    let datapoint_stage = op.datapoint_stage;
 
     // Basic welcome endpoint
     app.get("/", move |context| {
@@ -23,9 +25,8 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic oracle information
     app.get("/oracleInfo", move |context| {
-        let op = OraclePool::new().unwrap();
         let response_json = json! ( {
-            "oracle_address": op.local_oracle_address,
+            "oracle_address": &ORACLE_CONFIG.oracle_address,
         } );
 
         context
@@ -37,19 +38,17 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
-        let op = OraclePool::new().unwrap();
-        let parameters = &ORACLE_CONFIG.pool;
-
-        let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
+        let parameters = &ORACLE_CONFIG;
+        let num_of_oracles = datapoint_stage.number_of_boxes().unwrap_or(10);
 
         let response_json = json! ({
             "number_of_oracles": num_of_oracles,
-            "datapoint_address": op.datapoint_stage.contract_address.to_base16_bytes().unwrap(),
+            "datapoint_address": datapoint_stage.contract_address,
             "live_epoch_length": parameters.epoch_length,
             "deviation_range": parameters.max_deviation_percent,
             "consensus_num": parameters.min_data_points,
-            "oracle_pool_nft_id": op.oracle_pool_nft,
-            "oracle_pool_participant_token_id": op.oracle_pool_participant_token,
+            "oracle_pool_nft_id": parameters.oracle_pool_nft,
+            "oracle_pool_participant_token_id": parameters.oracle_pool_participant_token_id,
 
         });
 

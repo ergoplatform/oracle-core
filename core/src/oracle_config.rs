@@ -17,9 +17,9 @@ pub struct NodeParameters {
     pub node_api_key: String,
 }
 
-/// Pool Parameters as defined in the `oracle-config.yaml`
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PoolParameters {
+pub struct OracleConfig {
+    pub node: NodeParameters,
     pub oracle_pool_nft: TokenId,
     pub refresh_nft: TokenId,
     pub reward_token_id: TokenId,
@@ -28,12 +28,6 @@ pub struct PoolParameters {
     pub max_deviation_percent: u64,
     pub min_data_points: u64,
     pub base_fee: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OracleConfig {
-    pub node: NodeParameters,
-    pub pool: PoolParameters,
     pub log_level: Option<LevelFilter>,
     pub oracle_pool_participant_token_id: TokenId,
     pub core_api_port: u16,
@@ -111,7 +105,7 @@ mod tests {
             base_fee: 1000000
             ";
         let config = OracleConfig::load_from_str(yaml_string).unwrap();
-        let pool_params = config.pool;
+        let pool_params = config;
         assert_eq!(pool_params.epoch_length, 20);
         assert_eq!(pool_params.buffer_length, 4);
         assert_eq!(pool_params.max_deviation_percent, 5);

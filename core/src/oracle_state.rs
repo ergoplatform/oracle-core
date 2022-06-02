@@ -13,12 +13,10 @@ use crate::scans::{
     register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
-use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress};
+use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
 use std::convert::TryInto;
@@ -83,7 +81,7 @@ pub trait LocalDatapointBoxSource {
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
 #[derive(Debug, Clone)]
 pub struct Stage {
-    pub contract_address: ErgoTree,
+    pub contract_address: String,
     pub scan: Scan,
 }
 
@@ -91,13 +89,6 @@ pub struct Stage {
 #[derive(Debug)]
 pub struct OraclePool {
     pub data_point_source: Box<dyn DataPointSource>,
-    /// Address of the local oracle running the oracle core
-    pub local_oracle_address: P2PKAddress,
-    pub on_mainnet: bool,
-    /// Token IDs
-    pub oracle_pool_nft: TokenId,
-    pub oracle_pool_participant_token: TokenId,
-    pub reward_token: TokenId,
     /// Stages
     pub datapoint_stage: Stage,
     // Local Oracle Datapoint Scan
@@ -145,11 +136,9 @@ impl OraclePool {
     pub fn new() -> std::result::Result<OraclePool, Error> {
         let config = &ORACLE_CONFIG;
         let local_oracle_address = config.oracle_address.clone();
-        let on_mainnet = config.on_mainnet;
         let oracle_pool_nft = RefreshContract::new().pool_nft_token_id();
         let refresh_nft = PoolContract::new().refresh_nft_token_id();
-        let oracle_pool_participant_token = config.oracle_pool_participant_token_id.clone();
-        let reward_token = config.pool.reward_token_id.clone();
+        let oracle_pool_participant_token_id = config.oracle_pool_participant_token_id.clone();
         let data_point_source = config.data_point_source()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
@@ -159,7 +148,7 @@ impl OraclePool {
         if !Path::new("scanIDs.json").exists() {
             let mut scans = vec![
                 register_datapoint_scan(
-                    &oracle_pool_participant_token,
+                    &oracle_pool_participant_token_id,
                     &datapoint_contract_address,
                 )
                 .unwrap(),
@@ -169,7 +158,7 @@ impl OraclePool {
 
             // Local datapoint box may not exist yet.
             if let Ok(local_scan) = register_local_oracle_datapoint_scan(
-                &oracle_pool_participant_token,
+                &oracle_pool_participant_token_id,
                 &datapoint_contract_address,
                 &local_oracle_address,
             ) {
@@ -222,13 +211,8 @@ impl OraclePool {
         // Create `OraclePool` struct
         Ok(OraclePool {
             data_point_source,
-            local_oracle_address,
-            on_mainnet,
-            oracle_pool_nft,
-            oracle_pool_participant_token,
-            reward_token,
             datapoint_stage: Stage {
-                contract_address: datapoint_contract_address.clone(),
+                contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
                 scan: datapoint_scan,
             },
             local_oracle_datapoint_scan,

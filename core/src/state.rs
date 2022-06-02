@@ -2,7 +2,6 @@
 
 use crate::actions::CollectionError;
 use crate::datapoint_source::DataPointSource;
-use crate::oracle_config::PoolParameters;
 use crate::oracle_state::DatapointState;
 use crate::oracle_state::LiveEpochState;
 use crate::oracle_state::OraclePool;
