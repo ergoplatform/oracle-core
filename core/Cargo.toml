@@ -33,8 +33,6 @@ derive_more = "0.99"
 clap = {version = "^3", features = ["derive"]}
 exitcode = "1.1.2"
 lazy_static = "1.4.0"
-serde_yaml = "0.8.24"
-serde = { version = "1.0", features = ["derive"]}
 
 [dev-dependencies]
 # sigma-test-util = { version = "^0.3.0", path = "../../sigma-rust/sigma-test-util" }

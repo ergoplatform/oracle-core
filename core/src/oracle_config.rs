@@ -7,7 +7,7 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
+pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 /// Node Parameters as defined in the `oracle-config.yaml`
 #[derive(Debug, Clone, Serialize, Deserialize)]
