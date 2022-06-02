@@ -12,6 +12,7 @@ use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_node_interface::node_interface::NodeError;
 use json::JsonValue;
 use log::info;
+use serde_json::json;
 use thiserror::Error;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
@@ -49,10 +50,10 @@ impl Scan {
 
     /// Registers a scan in the node and returns a `Scan` as a result
     pub fn register(name: &'static str, tracking_rule: JsonValue) -> Result<Scan> {
-        let scan_json = object! {
-        scanName: name,
-        trackingRule: tracking_rule.clone(),
-        };
+        let scan_json = json! ( {
+            "scanName": name,
+            "trackingRule": tracking_rule.clone(),
+        } );
 
         info!("Registering Scan:\n{}", scan_json.pretty(2));
 
@@ -93,7 +94,7 @@ impl Scan {
 
 /// Saves UTXO-set scans (specifically id) to scanIDs.json
 pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
-    let mut id_json = object! {};
+    let mut id_json = json!({});
     for scan in scans {
         if &scan.id == "null" {
             return Err(ScanError::FailedToRegister);
@@ -110,19 +111,19 @@ pub fn register_pool_box_scan(oracle_pool_nft: &TokenId) -> Result<Scan> {
     let pool_box_tree_bytes = PoolContract::new().ergo_tree().to_base16_bytes().unwrap();
 
     // Scan for NFT id + Oracle Pool Epoch address
-    let scan_json = object! {
+    let scan_json = json! ( {
         "predicate": "and",
         "args": [
-            {
+        {
             "predicate": "containsAsset",
             "assetId": oracle_pool_nft.clone(),
-            },
-            {
+        },
+        {
             "predicate": "equals",
             "value": pool_box_tree_bytes.clone(),
-            }
-        ]
-    };
+        }
+    ]
+    } );
 
     Scan::register("Pool Box Scan", scan_json)
 }
@@ -136,19 +137,19 @@ pub fn register_refresh_box_scan(scan_name: &'static str, refresh_nft: &TokenId)
         .unwrap();
 
     // Scan for NFT id + Oracle Pool Epoch address
-    let scan_json = object! {
+    let scan_json = json! ( {
         "predicate": "and",
         "args": [
-            {
+        {
             "predicate": "containsAsset",
             "assetId": refresh_nft.clone(),
-            },
-            {
+        },
+        {
             "predicate": "equals",
             "value": tree_bytes.clone(),
-            }
-        ]
-    };
+        }
+    ]
+    } );
 
     Scan::register(scan_name, scan_json)
 }
@@ -163,24 +164,24 @@ pub fn register_local_oracle_datapoint_scan(
     let oracle_add_bytes = address_to_raw_for_register(oracle_address)?;
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
-    let scan_json = object! {
+    let scan_json = json! ( {
         "predicate": "and",
         "args": [
-            {
+        {
             "predicate": "containsAsset",
             "assetId": oracle_pool_participant_token.clone(),
-            },
-            {
+        },
+        {
             "predicate": "equals",
             "value": datapoint_address.to_base16_bytes().unwrap(),
-            },
-            {
+        },
+        {
             "predicate": "equals",
             "register": "R4",
             "value": oracle_add_bytes.clone(),
-            }
-        ]
-    };
+        }
+    ]
+    } );
 
     Scan::register("Local Oracle Datapoint Scan", scan_json)
 }
@@ -191,19 +192,19 @@ pub fn register_datapoint_scan(
     datapoint_address: &ErgoTree,
 ) -> Result<Scan> {
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
-    let scan_json = object! {
+    let scan_json = json! ( {
         "predicate": "and",
         "args": [
-            {
+        {
             "predicate": "containsAsset",
             "assetId": oracle_pool_participant_token.clone(),
-            },
-            {
+        },
+        {
             "predicate": "equals",
             "value": datapoint_address.to_base16_bytes().unwrap(),
-            }
-        ]
-    };
+        }
+    ]
+    } );
 
     Scan::register("All Datapoints Scan", scan_json)
 }

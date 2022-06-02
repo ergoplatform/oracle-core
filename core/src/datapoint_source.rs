@@ -14,8 +14,8 @@ pub enum DataPointSourceError {
     ExternalScript(ExternalScriptError),
     #[error("Reqwest error: {0}")]
     Reqwest(reqwest::Error),
-    #[error("JSON parse error: {0}")]
-    JsonParse(json::Error),
+    // #[error("JSON parse error: {0}")]
+    // JsonParse(json::Error),
     #[error("Missing JSON field")]
     JsonMissingField,
 }

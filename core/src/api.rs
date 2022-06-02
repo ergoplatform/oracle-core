@@ -3,6 +3,7 @@ use crate::oracle_config::{get_core_api_port, get_node_url, ORACLE_CONFIG};
 use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::state::PoolState;
 use crossbeam::Receiver;
+use serde_json::json;
 
 /// Starts the GET API server which can be made publicly available without security risk
 pub fn start_get_api(repost_receiver: Receiver<bool>) {
@@ -23,14 +24,14 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Basic oracle information
     app.get("/oracleInfo", move |context| {
         let op = OraclePool::new().unwrap();
-        let response_json = object! {
-            oracle_address: op.local_oracle_address,
-        };
+        let response_json = json! ( {
+            "oracle_address": op.local_oracle_address,
+        } );
 
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))
-            .from_json(response_json.dump())
+            .from_json(response_json)
             .unwrap();
     });
 
@@ -41,34 +42,34 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
         let num_of_oracles = op.datapoint_stage.number_of_boxes().unwrap_or(10);
 
-        let response_json = object! {
-            number_of_oracles: num_of_oracles,
-            datapoint_address: op.datapoint_stage.contract_address.to_base16_bytes().unwrap(),
-            live_epoch_length: parameters.epoch_length,
-            deviation_range: parameters.max_deviation_percent,
-            consensus_num: parameters.min_data_points,
-            oracle_pool_nft_id: op.oracle_pool_nft,
-            oracle_pool_participant_token_id: op.oracle_pool_participant_token,
+        let response_json = json! ({
+            "number_of_oracles": num_of_oracles,
+            "datapoint_address": op.datapoint_stage.contract_address.to_base16_bytes().unwrap(),
+            "live_epoch_length": parameters.epoch_length,
+            "deviation_range": parameters.max_deviation_percent,
+            "consensus_num": parameters.min_data_points,
+            "oracle_pool_nft_id": op.oracle_pool_nft,
+            "oracle_pool_participant_token_id": op.oracle_pool_participant_token,
 
-        };
+        });
 
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))
-            .from_json(response_json.dump())
+            .from_json(response_json)
             .unwrap();
     });
 
     // Basic information about node the oracle core is using
     app.get("/nodeInfo", move |context| {
-        let response_json = object! {
-            node_url: get_node_url(),
-        };
+        let response_json = json! ( {
+            "node_url": get_node_url(),
+        } );
 
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))
-            .from_json(response_json.dump())
+            .from_json(response_json)
             .unwrap();
     });
 
@@ -97,17 +98,17 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             Ok(None) | Err(_) => 0,
         };
 
-        let response_json = object! {
-            waiting_for_datapoint_submit: waiting_for_submit,
-            latest_datapoint: self_datapoint,
-            latest_datapoint_epoch: datapoint_epoch,
-            latest_datapoint_creation_height: datapoint_creation,
-        };
+        let response_json = json! ( {
+            "waiting_for_datapoint_submit": waiting_for_submit,
+            "latest_datapoint": self_datapoint,
+            "latest_datapoint_epoch": datapoint_epoch,
+            "latest_datapoint_creation_height": datapoint_creation,
+        } );
 
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))
-            .from_json(response_json.dump())
+            .from_json(response_json)
             .unwrap();
     });
 
@@ -129,17 +130,17 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             current_epoch_id = l.epoch_id.to_string();
             epoch_ends = l.epoch_ends;
         }
-        let response_json = object! {
-            current_pool_stage: current_stage,
-            latest_datapoint: latest_datapoint,
-            current_epoch_id : current_epoch_id,
-            epoch_ends: epoch_ends,
-        };
+        let response_json = json! ( {
+            "current_pool_stage": current_stage,
+            "latest_datapoint": latest_datapoint,
+            "current_epoch_id" : current_epoch_id,
+            "epoch_ends": epoch_ends,
+        } );
 
         context
             .response
             .header(("Access-Control-Allow-Origin", "*"))
-            .from_json(response_json.dump())
+            .from_json(response_json)
             .unwrap();
     });
 

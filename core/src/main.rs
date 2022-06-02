@@ -14,9 +14,6 @@
 #![deny(clippy::unimplemented)]
 
 #[macro_use]
-extern crate json;
-
-#[macro_use]
 extern crate lazy_static;
 
 mod actions;
