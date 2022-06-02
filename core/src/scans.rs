@@ -10,7 +10,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_node_interface::node_interface::NodeError;
-use json::JsonValue;
 use log::info;
 use serde_json::json;
 use thiserror::Error;
@@ -49,13 +48,16 @@ impl Scan {
     }
 
     /// Registers a scan in the node and returns a `Scan` as a result
-    pub fn register(name: &'static str, tracking_rule: JsonValue) -> Result<Scan> {
-        let scan_json = json! ( {
+    pub fn register(name: &'static str, tracking_rule: serde_json::Value) -> Result<Scan> {
+        let scan_json = json!({
             "scanName": name,
-            "trackingRule": tracking_rule.clone(),
-        } );
+            "trackingRule": tracking_rule,
+        });
 
-        info!("Registering Scan:\n{}", scan_json.pretty(2));
+        info!(
+            "Registering Scan:\n{}",
+            serde_json::to_string_pretty(&scan_json).unwrap()
+        );
 
         let scan_id = register_scan(&scan_json)?;
         info!("Scan Successfully Set.\nID: {}", scan_id);
@@ -101,7 +103,10 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
         }
         id_json[scan.name] = scan.id.into();
     }
-    std::fs::write("scanIDs.json", json::stringify_pretty(id_json, 4))?;
+    std::fs::write(
+        "scanIDs.json",
+        serde_json::to_string_pretty(&id_json).unwrap(),
+    )?;
     Ok(true)
 }
 

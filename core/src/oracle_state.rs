@@ -144,12 +144,12 @@ impl OraclePool {
     /// Create a new `OraclePool` struct
     pub fn new() -> std::result::Result<OraclePool, Error> {
         let config = &ORACLE_CONFIG;
-        let local_oracle_address = config.oracle_address;
+        let local_oracle_address = config.oracle_address.clone();
         let on_mainnet = config.on_mainnet;
         let oracle_pool_nft = RefreshContract::new().pool_nft_token_id();
         let refresh_nft = PoolContract::new().refresh_nft_token_id();
-        let oracle_pool_participant_token = config.oracle_pool_participant_token_id;
-        let reward_token = config.pool.reward_token_id;
+        let oracle_pool_participant_token = config.oracle_pool_participant_token_id.clone();
+        let reward_token = config.pool.reward_token_id.clone();
         let data_point_source = config.data_point_source()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
@@ -199,10 +199,6 @@ impl OraclePool {
         .expect("Failed to parse scanIDs.json");
 
         // Create all `Scan` structs for protocol
-        let epoch_preparation_scan = Scan::new(
-            "Epoch Preparation Scan",
-            &scan_json["Epoch Preparation Scan"].to_string(),
-        );
         let datapoint_scan = Scan::new(
             "All Oracle Datapoints Scan",
             &scan_json["All Datapoints Scan"].to_string(),
@@ -215,10 +211,6 @@ impl OraclePool {
                 &scan_json[local_scan_str].to_string(),
             ));
         };
-        let pool_deposit_scan = Scan::new(
-            "Pool Deposits Scan",
-            &scan_json["Pool Deposits Scan"].to_string(),
-        );
 
         let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
 

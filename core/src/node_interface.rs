@@ -24,7 +24,8 @@ pub fn new_node_interface() -> NodeInterface {
 
 /// Registers a scan with the node and either returns the `scan_id` or an error
 pub fn register_scan(scan_json: &serde_json::Value) -> Result<ScanID> {
-    new_node_interface().register_scan(scan_json)
+    let scan_json_t = json::parse(&serde_json::to_string(scan_json).unwrap()).unwrap();
+    new_node_interface().register_scan(&scan_json_t)
 }
 
 /// Acquires unspent boxes from the node wallet

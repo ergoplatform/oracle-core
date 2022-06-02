@@ -79,8 +79,8 @@ pub fn build_action(
                 let address = address_encoder.parse_address_from_str(&op.local_oracle_address)?;
                 if let Address::P2Pk(public_key) = address {
                     PublishDataPointCommandInputs::FirstDataPoint {
-                        oracle_token_id: op.oracle_pool_participant_token,
-                        reward_token_id: op.reward_token,
+                        oracle_token_id: op.oracle_pool_participant_token.clone(),
+                        reward_token_id: op.reward_token.clone(),
                         public_key,
                     }
                 } else {
