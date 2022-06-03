@@ -9,7 +9,7 @@ use ergo_lib::{
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
         chain::{
-            address::Address,
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
             ergo_box::{
                 box_value::BoxValue,
                 NonMandatoryRegisterId::{R4, R5, R6},
@@ -28,7 +28,8 @@ use thiserror::Error;
 
 use crate::{
     box_kind::OracleBox,
-    oracle_state::{LocalDatapointBoxSource, StageError},
+    node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
+    oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
     wallet::WalletDataSource,
 };
 
@@ -50,9 +51,77 @@ pub enum ExtractRewardTokensActionError {
     SigmaParse(SigmaParsingError),
     #[error("tx builder error: {0}")]
     TxBuilder(TxBuilderError),
+    #[error("No local datapoint box")]
+    NoLocalDatapointBox,
+    #[error("AddressEncoder error: {0}")]
+    AddressEncoder(AddressEncoderError),
+    #[error("Node doesn't have a change address set")]
+    NoChangeAddressSetInNode,
+    #[error("IO error: {0}")]
+    Io(std::io::Error),
 }
 
 pub fn extract_reward_tokens(
+    wallet: &dyn WalletDataSource,
+    rewards_destination_str: String,
+) -> Result<(), ExtractRewardTokensActionError> {
+    let op = OraclePool::new().unwrap();
+    if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+        let prefix = if op.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let rewards_destination =
+            AddressEncoder::new(prefix).parse_address_from_str(&rewards_destination_str)?;
+
+        let change_address_str = get_wallet_status()?
+            .change_address
+            .ok_or(ExtractRewardTokensActionError::NoChangeAddressSetInNode)?;
+
+        let change_address =
+            AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
+        let (unsigned_tx, num_reward_tokens) = build_extract_reward_tokens_tx(
+            local_datapoint_box_source,
+            wallet,
+            rewards_destination,
+            current_block_height()? as u32,
+            change_address,
+        )?;
+
+        println!(
+            "YOU WILL BE TRANSFERRING {} REWARD TOKENS TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
+            num_reward_tokens, rewards_destination_str
+        );
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        if input == "YES" {
+            let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
+            println!(
+                "Transaction made. Check status here: {}",
+                ergo_explorer_transaction_link(tx_id_str, prefix)
+            );
+        } else {
+            println!("Aborting the transaction.")
+        }
+        Ok(())
+    } else {
+        Err(ExtractRewardTokensActionError::NoLocalDatapointBox)
+    }
+}
+
+fn ergo_explorer_transaction_link(tx_id_str: String, prefix: NetworkPrefix) -> String {
+    let prefix_str = match prefix {
+        NetworkPrefix::Mainnet => "explorer",
+        NetworkPrefix::Testnet => "testnet",
+    };
+    format!(
+        "https://{}.ergoplatform.com/en/transactions/{}",
+        prefix_str, tx_id_str
+    )
+}
+
+fn build_extract_reward_tokens_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     rewards_destination: Address,
@@ -196,7 +265,7 @@ mod tests {
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
         };
-        let (tx, num_reward_tokens) = extract_reward_tokens(
+        let (tx, num_reward_tokens) = build_extract_reward_tokens_tx(
             &local_datapoint_box_source,
             &wallet_mock,
             change_address.clone(),
