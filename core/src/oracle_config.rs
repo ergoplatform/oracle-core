@@ -9,17 +9,11 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
-/// Node Parameters as defined in the `oracle-config.yaml`
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeParameters {
+pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
     pub node_api_key: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OracleConfig {
-    pub node: NodeParameters,
     pub oracle_pool_nft: TokenId,
     pub refresh_nft: TokenId,
     pub reward_token_id: TokenId,
@@ -77,16 +71,16 @@ pub fn get_core_api_port() -> String {
 }
 
 pub fn get_node_ip() -> String {
-    ORACLE_CONFIG.node.node_ip.clone()
+    ORACLE_CONFIG.node_ip.clone()
 }
 
 pub fn get_node_port() -> String {
-    ORACLE_CONFIG.node.node_port.to_string()
+    ORACLE_CONFIG.node_port.to_string()
 }
 
 /// Returns the `node_api_key`
 pub fn get_node_api_key() -> String {
-    ORACLE_CONFIG.node.node_api_key.clone()
+    ORACLE_CONFIG.node_api_key.clone()
 }
 
 #[cfg(test)]
