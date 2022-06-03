@@ -29,6 +29,7 @@ use thiserror::Error;
 use crate::{
     box_kind::OracleBox,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
+    oracle_config::ORACLE_CONFIG,
     oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
     wallet::WalletDataSource,
 };
@@ -67,7 +68,7 @@ pub fn extract_reward_tokens(
 ) -> Result<(), ExtractRewardTokensActionError> {
     let op = OraclePool::new().unwrap();
     if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
-        let prefix = if op.on_mainnet {
+        let prefix = if ORACLE_CONFIG.on_mainnet {
             NetworkPrefix::Mainnet
         } else {
             NetworkPrefix::Testnet

@@ -50,8 +50,6 @@ use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
 
-use crate::oracle_config::ORACLE_CONFIG;
-
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
 /// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
