@@ -7,7 +7,6 @@ use ergo_node_interface::{
     node_interface::{NodeError, NodeInterface, WalletStatus},
     BlockHeight,
 };
-use json::JsonValue;
 
 pub trait SubmitTransaction {
     fn submit_transaction(&self, tx: &Transaction) -> Result<String>;
@@ -24,8 +23,9 @@ pub fn new_node_interface() -> NodeInterface {
 }
 
 /// Registers a scan with the node and either returns the `scan_id` or an error
-pub fn register_scan(scan_json: &JsonValue) -> Result<ScanID> {
-    new_node_interface().register_scan(scan_json)
+pub fn register_scan(scan_json: &serde_json::Value) -> Result<ScanID> {
+    let scan_json_t = json::parse(&serde_json::to_string(scan_json).unwrap()).unwrap();
+    new_node_interface().register_scan(&scan_json_t)
 }
 
 /// Acquires unspent boxes from the node wallet
@@ -62,9 +62,9 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
 /// Input must be a json formatted request with rawInputs (and rawDataInputs)
 /// manually selected or will be automatically selected by wallet.
 /// Returns the resulting `TxId`.
-pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
-    new_node_interface().generate_and_submit_transaction(&tx_request_json.dump())
-}
+// pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
+//     new_node_interface().generate_and_submit_transaction(&tx_request_json.dump())
+// }
 
 /// Given a P2S Ergo address, extract the hex-encoded serialized ErgoTree (script)
 pub fn address_to_tree(address: &P2SAddressString) -> Result<String> {

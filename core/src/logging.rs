@@ -7,28 +7,29 @@ use log4rs::append::rolling_file::RollingFileAppender;
 use log4rs::config::Appender;
 use log4rs::config::Root;
 use log4rs::Config;
-use yaml_rust::YamlLoader;
 
-use crate::oracle_config;
+use crate::oracle_config::MAYBE_ORACLE_CONFIG;
 
-fn load_log_level() -> Option<String> {
-    let config_file = std::fs::read_to_string(oracle_config::DEFAULT_CONFIG_FILE_NAME).ok()?;
-    YamlLoader::load_from_str(&config_file).ok()?.first()?["log_level"]
-        .as_str()
-        .map(|s| s.to_string())
+fn load_log_level() -> Option<LevelFilter> {
+    MAYBE_ORACLE_CONFIG.clone().ok()?.log_level
+    // let config_file = std::fs::read_to_string(oracle_config::DEFAULT_CONFIG_FILE_NAME).ok()?;
+    // YamlLoader::load_from_str(&config_file).ok()?.first()?["log_level"]
+    //     .as_str()
+    //     .map(|s| s.to_string())
 }
 
 fn get_level_filter() -> LevelFilter {
-    let log_level = load_log_level().unwrap_or_else(|| "info".to_string());
-    match log_level.to_lowercase().as_str() {
-        "trace" => LevelFilter::Trace,
-        "debug" => LevelFilter::Debug,
-        "info" => LevelFilter::Info,
-        "warn" => LevelFilter::Warn,
-        "error" => LevelFilter::Error,
-        "off" => LevelFilter::Off,
-        _ => LevelFilter::Info,
-    }
+    load_log_level().unwrap_or(LevelFilter::Info)
+    // let log_level = load_log_level().unwrap_or_else(|| "info".to_string());
+    // match log_level.to_lowercase().as_str() {
+    //     "trace" => LevelFilter::Trace,
+    //     "debug" => LevelFilter::Debug,
+    //     "info" => LevelFilter::Info,
+    //     "warn" => LevelFilter::Warn,
+    //     "error" => LevelFilter::Error,
+    //     "off" => LevelFilter::Off,
+    //     _ => LevelFilter::Info,
+    // }
 }
 
 pub fn setup_log() {

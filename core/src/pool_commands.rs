@@ -8,6 +8,7 @@ use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
@@ -71,18 +72,17 @@ pub fn build_action(
             {
                 PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source)
             } else {
-                let oracle_token_id = TokenId::from_base64(&op.oracle_pool_participant_token)?;
-                let reward_token_id = TokenId::from_base64(&op.reward_token)?;
-                let address_encoder = if op.on_mainnet {
+                let address_encoder = if ORACLE_CONFIG.on_mainnet {
                     AddressEncoder::new(NetworkPrefix::Mainnet)
                 } else {
                     AddressEncoder::new(NetworkPrefix::Testnet)
                 };
-                let address = address_encoder.parse_address_from_str(&op.local_oracle_address)?;
+                let address =
+                    address_encoder.parse_address_from_str(&ORACLE_CONFIG.oracle_address)?;
                 if let Address::P2Pk(public_key) = address {
                     PublishDataPointCommandInputs::FirstDataPoint {
-                        oracle_token_id,
-                        reward_token_id,
+                        oracle_token_id: ORACLE_CONFIG.oracle_pool_participant_token_id.clone(),
+                        reward_token_id: ORACLE_CONFIG.reward_token_id.clone(),
                         public_key,
                     }
                 } else {

@@ -3,20 +3,17 @@ use crate::box_kind::{
     OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox, PoolBoxError, PoolBoxWrapper,
     RefreshBoxError, RefreshBoxWrapper,
 };
+use crate::contracts::oracle::OracleContract;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
-use crate::datapoint_source::{
-    DataPointSource, DataPointSourceError, ExternalScript, NanoAdaUsd, NanoErgUsd,
-};
-use crate::oracle_config::get_config_yaml;
+use crate::datapoint_source::{DataPointSource, DataPointSourceError};
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
-    register_datapoint_scan, register_epoch_preparation_scan, register_local_oracle_datapoint_scan,
-    register_pool_box_scan, register_pool_deposit_scan, register_refresh_box_scan,
-    save_scan_ids_locally, Scan, ScanError,
+    register_datapoint_scan, register_local_oracle_datapoint_scan, register_pool_box_scan,
+    register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
-use crate::{BlockHeight, EpochID, NanoErg, P2PKAddress, TokenID};
-use anyhow::anyhow;
+use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -25,7 +22,6 @@ use ergo_node_interface::node_interface::NodeError;
 use std::convert::TryInto;
 use std::path::Path;
 use thiserror::Error;
-use yaml_rust::YamlLoader;
 
 pub type Result<T> = std::result::Result<T, StageError>;
 
@@ -93,17 +89,8 @@ pub struct Stage {
 #[derive(Debug)]
 pub struct OraclePool {
     pub data_point_source: Box<dyn DataPointSource>,
-    /// Address of the local oracle running the oracle core
-    pub local_oracle_address: P2PKAddress,
-    pub on_mainnet: bool,
-    /// Token IDs
-    pub oracle_pool_nft: TokenID,
-    pub oracle_pool_participant_token: TokenID,
-    pub reward_token: TokenID,
     /// Stages
-    pub epoch_preparation_stage: Stage,
     pub datapoint_stage: Stage,
-    pub pool_deposit_stage: Stage,
     // Local Oracle Datapoint Scan
     pub local_oracle_datapoint_scan: Option<Scan>,
     pool_box_scan: Scan,
@@ -147,87 +134,31 @@ pub struct PoolDepositsState {
 impl OraclePool {
     /// Create a new `OraclePool` struct
     pub fn new() -> std::result::Result<OraclePool, Error> {
-        let config = &YamlLoader::load_from_str(&get_config_yaml()).unwrap()[0];
-
-        let local_oracle_address = config["oracle_address"]
-            .as_str()
-            .expect("No oracle_address specified in config file.")
-            .to_string();
-
-        let on_mainnet = config["on_mainnet"]
-            .as_bool()
-            .expect("on_mainnet not specified in config file.");
-
-        let oracle_pool_nft: String = RefreshContract::new().pool_nft_token_id().into();
-        let refresh_nft: String = PoolContract::new().refresh_nft_token_id().into();
-
-        let oracle_pool_participant_token = config["oracle_pool_participant_token"]
-            .as_str()
-            .expect("No oracle_pool_participant_token specified in config file.")
-            .to_string();
-
-        let reward_token = config["reward_token"]
-            .as_str()
-            .expect("No reward_token specified in config file.")
-            .to_string();
-
-        let data_point_source_str = config["data_point_source"]
-            .as_str()
-            .expect("No data_point_source specified in config file.")
-            .to_string();
-
-        let data_point_source_custom_script = config["data_point_source_custom_script"]
-            .as_str()
-            .map(|s| s.to_owned());
-
-        let data_point_source: Box<dyn DataPointSource> = if let Some(external_script_name) =
-            &data_point_source_custom_script
-        {
-            Box::new(ExternalScript::new(external_script_name.clone()))
-        } else {
-            match &*data_point_source_str {
-                "NanoErgUsd" => Box::new(NanoErgUsd),
-                "NanoAdaUsd" => Box::new(NanoAdaUsd),
-                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd' or 'NanoAdaUsd'")),
-            }
-        };
-
-        let epoch_preparation_contract_address = config["epoch_preparation_contract_address"]
-            .as_str()
-            .expect("No epoch_preparation_contract_address specified in config file.")
-            .to_string();
-        let datapoint_contract_address = config["datapoint_contract_address"]
-            .as_str()
-            .expect("No datapoint_contract_address specified in config file.")
-            .to_string();
-        let pool_deposit_contract_address = config["pool_deposit_contract_address"]
-            .as_str()
-            .expect("No pool_deposit_contract_address specified in config file.")
-            .to_string();
+        let config = &ORACLE_CONFIG;
+        let local_oracle_address = config.oracle_address.clone();
+        let oracle_pool_nft = RefreshContract::new().pool_nft_token_id();
+        let refresh_nft = PoolContract::new().refresh_nft_token_id();
+        let oracle_pool_participant_token_id = config.oracle_pool_participant_token_id.clone();
+        let data_point_source = config.data_point_source()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
+        let datapoint_contract_address = OracleContract::new().ergo_tree();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
             let mut scans = vec![
-                register_epoch_preparation_scan(
-                    &oracle_pool_nft,
-                    &epoch_preparation_contract_address,
-                )
-                .unwrap(),
                 register_datapoint_scan(
-                    &oracle_pool_participant_token,
+                    &oracle_pool_participant_token_id,
                     &datapoint_contract_address,
                 )
                 .unwrap(),
-                register_pool_deposit_scan(&pool_deposit_contract_address).unwrap(),
                 register_pool_box_scan(&oracle_pool_nft).unwrap(),
                 register_refresh_box_scan(refresh_box_scan_name, &refresh_nft).unwrap(),
             ];
 
             // Local datapoint box may not exist yet.
             if let Ok(local_scan) = register_local_oracle_datapoint_scan(
-                &oracle_pool_participant_token,
+                &oracle_pool_participant_token_id,
                 &datapoint_contract_address,
                 &local_oracle_address,
             ) {
@@ -257,10 +188,6 @@ impl OraclePool {
         .expect("Failed to parse scanIDs.json");
 
         // Create all `Scan` structs for protocol
-        let epoch_preparation_scan = Scan::new(
-            "Epoch Preparation Scan",
-            &scan_json["Epoch Preparation Scan"].to_string(),
-        );
         let datapoint_scan = Scan::new(
             "All Oracle Datapoints Scan",
             &scan_json["All Datapoints Scan"].to_string(),
@@ -273,10 +200,6 @@ impl OraclePool {
                 &scan_json[local_scan_str].to_string(),
             ));
         };
-        let pool_deposit_scan = Scan::new(
-            "Pool Deposits Scan",
-            &scan_json["Pool Deposits Scan"].to_string(),
-        );
 
         let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
 
@@ -288,22 +211,9 @@ impl OraclePool {
         // Create `OraclePool` struct
         Ok(OraclePool {
             data_point_source,
-            local_oracle_address,
-            on_mainnet,
-            oracle_pool_nft,
-            oracle_pool_participant_token,
-            reward_token,
-            epoch_preparation_stage: Stage {
-                contract_address: epoch_preparation_contract_address,
-                scan: epoch_preparation_scan,
-            },
             datapoint_stage: Stage {
-                contract_address: datapoint_contract_address.clone(),
+                contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
                 scan: datapoint_scan,
-            },
-            pool_deposit_stage: Stage {
-                contract_address: pool_deposit_contract_address,
-                scan: pool_deposit_scan,
             },
             local_oracle_datapoint_scan,
             pool_box_scan,
@@ -389,21 +299,21 @@ impl OraclePool {
     }
 
     /// Get the current state of all of the pool deposit boxes
-    pub fn get_pool_deposits_state(&self) -> Result<PoolDepositsState> {
-        let deposits_box_list = self.pool_deposit_stage.get_boxes()?;
+    // pub fn get_pool_deposits_state(&self) -> Result<PoolDepositsState> {
+    //     let deposits_box_list = self.pool_deposit_stage.get_boxes()?;
 
-        // Sum up all Ergs held in pool deposit boxes
-        let sum_ergs = deposits_box_list
-            .iter()
-            .fold(0, |acc, b| acc + *b.value.as_u64());
+    //     // Sum up all Ergs held in pool deposit boxes
+    //     let sum_ergs = deposits_box_list
+    //         .iter()
+    //         .fold(0, |acc, b| acc + *b.value.as_u64());
 
-        let deposits_state = PoolDepositsState {
-            number_of_boxes: deposits_box_list.len() as u64,
-            total_nanoergs: sum_ergs,
-        };
+    //     let deposits_state = PoolDepositsState {
+    //         number_of_boxes: deposits_box_list.len() as u64,
+    //         total_nanoergs: sum_ergs,
+    //     };
 
-        Ok(deposits_state)
-    }
+    //     Ok(deposits_state)
+    // }
 
     pub fn get_pool_box_source(&self) -> &dyn PoolBoxSource {
         &self.pool_box_scan as &dyn PoolBoxSource

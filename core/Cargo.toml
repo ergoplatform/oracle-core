@@ -8,10 +8,10 @@ edition = "2018"
 
 [dependencies]
 yaml-rust = "0.4.4"
-json = "0.12.4"
 reqwest = { version = "0.10.8", features = ["blocking"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
+json = "0.12.4"
 serde_json = "1.0.57"
 sincere = "0.6.6"
 thiserror = "1.0.20"
@@ -32,6 +32,7 @@ derive_more = "0.99"
 # bounded-vec = { version = "^0.5.0" }
 clap = {version = "^3", features = ["derive"]}
 exitcode = "1.1.2"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 # sigma-test-util = { version = "^0.3.0", path = "../../sigma-rust/sigma-test-util" }
