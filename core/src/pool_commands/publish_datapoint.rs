@@ -289,6 +289,7 @@ mod tests {
             200,
             1,
             pool_nft_token_id,
+            Token::from((reward_token_id.clone(), 50u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
         );

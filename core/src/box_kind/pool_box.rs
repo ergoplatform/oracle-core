@@ -11,6 +11,7 @@ use crate::contracts::refresh::RefreshContract;
 
 pub trait PoolBox {
     fn pool_nft_token(&self) -> Token;
+    fn reward_token(&self) -> Token;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> u64;
     fn get_box(&self) -> ErgoBox;
@@ -26,6 +27,10 @@ pub enum PoolBoxError {
     NoDataPoint,
     #[error("pool box: no epoch counter in R5")]
     NoEpochCounter,
+    #[error("refresh box: incorrect reward token id: {0:?}")]
+    IncorrectRewardTokenId(TokenId),
+    #[error("refresh box: no reward token found")]
+    NoRewardToken,
 }
 
 #[derive(Clone)]
@@ -50,6 +55,10 @@ impl PoolBox for PoolBoxWrapper {
             .unwrap()
             .try_extract_into::<i64>()
             .unwrap() as u64
+    }
+
+    fn reward_token(&self) -> Token {
+        self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
     }
 
     fn get_box(&self) -> ErgoBox {
@@ -90,6 +99,19 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
             return Err(PoolBoxError::NoEpochCounter);
         }
 
+        let reward_token_id = b
+            .tokens
+            .as_ref()
+            .ok_or(PoolBoxError::NoTokens)?
+            .get(1)
+            .ok_or(PoolBoxError::NoRewardToken)?
+            .token_id
+            .clone();
+        if reward_token_id
+            != TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
+        {
+            return Err(PoolBoxError::IncorrectRewardTokenId(reward_token_id));
+        }
         Ok(Self(b))
     }
 }

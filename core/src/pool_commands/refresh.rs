@@ -83,8 +83,8 @@ pub fn build_refresh_action(
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
-    let out_pool_box = build_out_pool_box(&in_pool_box, height, rate)?;
-    let out_refresh_box = build_out_refresh_box(&in_refresh_box, height, reward_decrement)?;
+    let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement)?;
+    let out_refresh_box = build_out_refresh_box(&in_refresh_box, height)?;
     let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -194,6 +194,7 @@ fn build_out_pool_box(
     in_pool_box: &PoolBoxWrapper,
     creation_height: u32,
     rate: u64,
+    reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
     let mut builder = ErgoBoxCandidateBuilder::new(
         in_pool_box.get_box().value,
@@ -202,23 +203,7 @@ fn build_out_pool_box(
     );
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
     builder.add_token(in_pool_box.pool_nft_token().clone());
-    builder.set_register_value(R4, (rate as i64).into());
-    builder.set_register_value(R5, new_epoch_counter.into());
-    builder.build().map_err(Into::into)
-}
-
-fn build_out_refresh_box(
-    in_refresh_box: &RefreshBoxWrapper,
-    creation_height: u32,
-    reward_decrement: u64,
-) -> Result<ErgoBoxCandidate, RefrechActionError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(
-        in_refresh_box.get_box().value,
-        in_refresh_box.get_box().ergo_tree.clone(),
-        creation_height,
-    );
-    builder.add_token(in_refresh_box.refresh_nft_token().clone());
-    let reward_token = in_refresh_box.reward_token();
+    let reward_token = in_pool_box.reward_token();
     let new_reward_token: Token = (
         reward_token.token_id,
         reward_token
@@ -228,6 +213,21 @@ fn build_out_refresh_box(
     )
         .into();
     builder.add_token(new_reward_token);
+    builder.set_register_value(R4, (rate as i64).into());
+    builder.set_register_value(R5, new_epoch_counter.into());
+    builder.build().map_err(Into::into)
+}
+
+fn build_out_refresh_box(
+    in_refresh_box: &RefreshBoxWrapper,
+    creation_height: u32,
+) -> Result<ErgoBoxCandidate, RefrechActionError> {
+    let mut builder = ErgoBoxCandidateBuilder::new(
+        in_refresh_box.get_box().value,
+        in_refresh_box.get_box().ergo_tree.clone(),
+        creation_height,
+    );
+    builder.add_token(in_refresh_box.refresh_nft_token().clone());
     builder.build().map_err(Into::into)
 }
 
@@ -311,16 +311,12 @@ mod tests {
 
     fn make_refresh_box(
         refresh_nft: &TokenId,
-        reward_token: Token,
         value: BoxValue,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
-        let tokens = vec![
-            Token::from((refresh_nft.clone(), 1u64.try_into().unwrap())),
-            reward_token,
-        ]
-        .try_into()
-        .unwrap();
+        let tokens = vec![Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))]
+            .try_into()
+            .unwrap();
         ErgoBox::new(
             value,
             RefreshContract::new().ergo_tree(),
@@ -374,16 +370,12 @@ mod tests {
         let pool_nft_token_id = refresh_contract.pool_nft_token_id();
         let refresh_nft = pool_contract.refresh_nft_token_id();
         dbg!(&reward_token_id);
-        let in_refresh_box = make_refresh_box(
-            &refresh_nft,
-            Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
-            BoxValue::SAFE_USER_MIN,
-            height - 32,
-        );
+        let in_refresh_box = make_refresh_box(&refresh_nft, BoxValue::SAFE_USER_MIN, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,
             pool_nft_token_id,
+            Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
         );

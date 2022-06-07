@@ -9,7 +9,6 @@ use crate::contracts::pool::PoolContract;
 
 pub trait RefreshBox {
     fn refresh_nft_token(&self) -> Token;
-    fn reward_token(&self) -> Token;
     fn get_box(&self) -> ErgoBox;
 }
 
@@ -33,10 +32,6 @@ impl RefreshBox for RefreshBoxWrapper {
         self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
     }
 
-    fn reward_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
-    }
-
     fn get_box(&self) -> ErgoBox {
         self.0.clone()
     }
@@ -57,19 +52,6 @@ impl TryFrom<ErgoBox> for RefreshBoxWrapper {
             .clone();
         if refresh_token_id != pool_contract.refresh_nft_token_id() {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
-        }
-        let reward_token_id = b
-            .tokens
-            .as_ref()
-            .ok_or(RefreshBoxError::NoTokens)?
-            .get(1)
-            .ok_or(RefreshBoxError::NoRewardToken)?
-            .token_id
-            .clone();
-        if reward_token_id
-            != TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
-        {
-            return Err(RefreshBoxError::IncorrectRewardTokenId(reward_token_id));
         }
 
         Ok(Self(b))
