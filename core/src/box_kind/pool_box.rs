@@ -1,12 +1,17 @@
 use std::convert::TryFrom;
 
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
+use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
 
 pub trait PoolBox {
@@ -114,4 +119,22 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
         }
         Ok(Self(b))
     }
+}
+
+pub fn make_pool_box_candidate(
+    contract: &PoolContract,
+    datapoint: i64,
+    epoch_counter: i32,
+    pool_nft_token: &Token,
+    reward_token: &Token,
+    value: BoxValue,
+    creation_height: u32,
+) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
+    use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::{R4, R5};
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    builder.set_register_value(R4, datapoint.into());
+    builder.set_register_value(R5, epoch_counter.into());
+    builder.add_token(pool_nft_token.clone());
+    builder.add_token(reward_token.clone());
+    builder.build()
 }

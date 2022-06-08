@@ -31,6 +31,7 @@ use thiserror::Error;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::{
+    box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{pool::PoolContract, refresh::RefreshContract},
     node_interface::SubmitTransaction,
     wallet::{WalletDataSource, WalletSign},
@@ -330,20 +331,28 @@ pub fn perform_bootstrap_chained_transaction(
         .with_refresh_nft_token_id(refresh_nft_token.token_id.clone())
         .with_update_nft_token_id(update_nft_token.token_id.clone());
 
-    let mut builder =
-        ErgoBoxCandidateBuilder::new(erg_value_per_box, pool_contract.ergo_tree(), height);
-    use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::{R4, R5};
-
-    // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during
-    // bootstrap.
-    builder.set_register_value(R4, 0.into());
-    builder.set_register_value(R5, 1_i64.into());
-    builder.add_token(pool_nft_token.clone());
-
-    let mut output_candidates = vec![builder.build()?];
+    let reward_tokens_for_pool_box = Token {
+        token_id: reward_token.token_id.clone(),
+        amount: reward_token
+            .amount
+            // we must leave one reward token per oracle for their first datapoint box
+            .checked_sub(&oracle_token.amount)
+            .unwrap(),
+    };
+    let pool_box_candidate = make_pool_box_candidate(
+        &pool_contract,
+        // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during bootstrap.
+        0,
+        1,
+        &pool_nft_token,
+        &reward_tokens_for_pool_box,
+        erg_value_per_box,
+        height,
+    )?;
+    let mut output_candidates = vec![pool_box_candidate];
 
     // Build box for remaining funds
-    builder = ErgoBoxCandidateBuilder::new(
+    let builder = ErgoBoxCandidateBuilder::new(
         calc_target_balance(num_transactions_left - 1)?,
         wallet_pk_ergo_tree.clone(),
         height,
@@ -369,7 +378,11 @@ pub fn perform_bootstrap_chained_transaction(
         .clone();
     inputs.push(box_with_pool_nft);
 
-    let box_selection = box_selector.select(inputs, target_balance, &[pool_nft_token.clone()])?;
+    let box_selection = box_selector.select(
+        inputs,
+        target_balance,
+        &[pool_nft_token.clone(), reward_token.clone()],
+    )?;
     let inputs = box_selection.boxes.clone();
     let tx_builder = TxBuilder::new(
         box_selection,
@@ -402,18 +415,14 @@ pub fn perform_bootstrap_chained_transaction(
         .with_min_data_points(min_data_points)
         .with_max_deviation_percent(max_deviation_percent);
 
-    let mut builder =
-        ErgoBoxCandidateBuilder::new(erg_value_per_box, refresh_contract.ergo_tree(), height);
+    let refresh_box_candidate = make_refresh_box_candidate(
+        &refresh_contract,
+        &refresh_nft_token,
+        erg_value_per_box,
+        height,
+    )?;
 
-    builder.add_token(refresh_nft_token.clone());
-
-    let single_reward_token = Token {
-        token_id: reward_token.token_id.clone(),
-        amount: 1.try_into().unwrap(),
-    };
-    builder.add_token(single_reward_token.clone());
-
-    let output_candidates = vec![builder.build()?];
+    let output_candidates = vec![refresh_box_candidate];
 
     let target_balance = calc_target_balance(num_transactions_left)?;
     let box_selector = SimpleBoxSelector::new();
@@ -436,11 +445,8 @@ pub fn perform_bootstrap_chained_transaction(
         .clone();
     inputs.push(box_with_refresh_nft);
 
-    let box_selection = box_selector.select(
-        inputs,
-        target_balance,
-        &[refresh_nft_token.clone(), single_reward_token],
-    )?;
+    let box_selection =
+        box_selector.select(inputs, target_balance, &[refresh_nft_token.clone()])?;
     let inputs = box_selection.boxes.clone();
     let tx_builder = TxBuilder::new(
         box_selection,

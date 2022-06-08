@@ -1,6 +1,10 @@
 use std::convert::TryFrom;
 
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
@@ -8,6 +12,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
 use thiserror::Error;
 
+use crate::contracts::oracle::OracleContract;
 use crate::contracts::refresh::RefreshContract;
 
 pub trait OracleBox {
@@ -146,4 +151,24 @@ impl From<OracleBoxWrapper> for ErgoBox {
     fn from(w: OracleBoxWrapper) -> Self {
         w.0.clone()
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn make_oracle_box_candidate(
+    contract: &OracleContract,
+    public_key: &EcPoint,
+    datapoint: i64,
+    epoch_counter: i32,
+    oracle_token: &Token,
+    reward_token: &Token,
+    value: BoxValue,
+    creation_height: u32,
+) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    builder.set_register_value(NonMandatoryRegisterId::R4, public_key.clone().into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
+    builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
+    builder.add_token(oracle_token.clone());
+    builder.add_token(reward_token.clone());
+    builder.build()
 }
