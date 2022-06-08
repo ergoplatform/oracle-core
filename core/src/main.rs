@@ -74,8 +74,17 @@ static ORACLE_CORE_ASCII: &str = r#"
   \____/|_|  \__,_|\___|_|\___|  \_____\___/|_|  \___|
 "#;
 
+const ORACLE_VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    " commit: ",
+    env!("GIT_COMMIT_HASH"),
+    " (",
+    env!("GIT_COMMIT_DATE"),
+    ")"
+);
+
 #[derive(Parser)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version = ORACLE_VERSION, about, long_about = None)]
 struct Args {
     #[clap(subcommand)]
     command: Command,
@@ -99,6 +108,7 @@ enum Command {
 fn main() {
     println!("{}", ORACLE_CORE_ASCII);
     logging::setup_log();
+    log::info!("{}", ORACLE_VERSION);
 
     let args = Args::parse();
 
