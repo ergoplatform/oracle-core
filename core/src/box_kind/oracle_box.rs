@@ -10,15 +10,18 @@ use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
+use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::OracleContractError;
 use crate::contracts::refresh::RefreshContract;
 
 pub trait OracleBox {
+    fn contract(&self) -> &OracleContract;
     fn oracle_token(&self) -> Token;
     fn reward_token(&self) -> Token;
-    fn public_key(&self) -> EcPoint;
+    fn public_key(&self) -> ProveDlog;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> u64;
     fn get_box(&self) -> ErgoBox;
@@ -40,10 +43,12 @@ pub enum OracleBoxError {
     NoEpochCounter,
     #[error("oracle box: no data point in R6")]
     NoDataPoint,
+    #[error("oracle contract: {0:?}")]
+    OracleContractError(#[from] OracleContractError),
 }
 
 #[derive(Clone)]
-pub struct OracleBoxWrapper(ErgoBox);
+pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
 impl OracleBoxWrapper {
     pub fn new(b: ErgoBox) -> Result<Self, OracleBoxError> {
@@ -97,7 +102,9 @@ impl OracleBoxWrapper {
             return Err(OracleBoxError::NoDataPoint);
         }
 
-        Ok(Self(b))
+        let contract = OracleContract::from_ergo_tree(b.ergo_tree.clone())?;
+
+        Ok(Self(b, contract))
     }
 }
 
@@ -110,12 +117,13 @@ impl OracleBox for OracleBoxWrapper {
         self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
     }
 
-    fn public_key(&self) -> EcPoint {
+    fn public_key(&self) -> ProveDlog {
         self.0
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
             .unwrap()
+            .into()
     }
 
     fn epoch_counter(&self) -> u32 {
@@ -137,6 +145,10 @@ impl OracleBox for OracleBoxWrapper {
     fn get_box(&self) -> ErgoBox {
         self.0.clone()
     }
+
+    fn contract(&self) -> &OracleContract {
+        &self.1
+    }
 }
 
 impl TryFrom<ErgoBox> for OracleBoxWrapper {
@@ -156,7 +168,7 @@ impl From<OracleBoxWrapper> for ErgoBox {
 #[allow(clippy::too_many_arguments)]
 pub fn make_oracle_box_candidate(
     contract: &OracleContract,
-    public_key: &EcPoint,
+    public_key: &ProveDlog,
     datapoint: i64,
     epoch_counter: i32,
     oracle_token: &Token,

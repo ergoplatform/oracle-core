@@ -2,15 +2,12 @@ use std::convert::{TryFrom, TryInto};
 
 use derive_more::From;
 use ergo_lib::{
-    chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
+    chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
         chain::{
             address::Address,
-            ergo_box::{
-                box_value::BoxValue,
-                NonMandatoryRegisterId::{R4, R5, R6},
-            },
+            ergo_box::box_value::BoxValue,
             token::{Token, TokenAmount, TokenId},
         },
         sigma_protocol::sigma_boolean::ProveDlog,
@@ -25,7 +22,7 @@ use thiserror::Error;
 
 use crate::{
     actions::PublishDataPointAction,
-    box_kind::{OracleBox, PoolBox},
+    box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
     contracts::oracle::OracleContract,
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
@@ -101,23 +98,18 @@ pub fn build_subsequent_publish_datapoint_action(
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
     }
+    let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
 
-    // Build the single output box
-    let mut builder = ErgoBoxCandidateBuilder::new(
+    let output_candidate = make_oracle_box_candidate(
+        in_oracle_box.contract(),
+        &in_oracle_box.public_key(),
+        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64),
+        new_epoch_counter,
+        &in_oracle_box.oracle_token(),
+        &in_oracle_box.reward_token(),
         in_oracle_box.get_box().value,
-        in_oracle_box.get_box().ergo_tree.clone(),
         height,
-    );
-    let new_epoch_counter: i32 = (epoch_counter + 1) as i32;
-    builder.set_register_value(R4, in_oracle_box.public_key().into());
-    builder.set_register_value(R5, new_epoch_counter.into());
-    builder.set_register_value(
-        R6,
-        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64).into(),
-    );
-    builder.add_token(in_oracle_box.oracle_token().clone());
-    builder.add_token(in_oracle_box.reward_token().clone());
-    let output_candidate = builder.build()?;
+    )?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = BoxValue::SAFE_USER_MIN;
@@ -156,16 +148,6 @@ pub fn build_publish_first_datapoint_action(
     reward_token_id: TokenId,
     public_key: ProveDlog,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    // Build the single output box
-    let mut builder = ErgoBoxCandidateBuilder::new(
-        BoxValue::SAFE_USER_MIN,
-        OracleContract::new().ergo_tree(),
-        height,
-    );
-    builder.set_register_value(R4, public_key.into());
-    builder.set_register_value(R5, 1.into());
-    builder.set_register_value(R6, new_datapoint.into());
-
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = BoxValue::SAFE_USER_MIN;
     let box_selector = SimpleBoxSelector::new();
@@ -188,10 +170,16 @@ pub fn build_publish_first_datapoint_action(
         &[oracle_token.clone(), reward_token.clone()],
     )?;
 
-    builder.add_token(oracle_token);
-    builder.add_token(reward_token);
-
-    let output_candidate = builder.build()?;
+    let output_candidate = make_oracle_box_candidate(
+        &OracleContract::new(),
+        &public_key,
+        new_datapoint,
+        1,
+        &oracle_token,
+        &reward_token,
+        BoxValue::SAFE_USER_MIN,
+        height,
+    )?;
 
     let box_id = wallet_boxes_selection.boxes.first().box_id();
     let mut tx_builder = TxBuilder::new(

@@ -4,8 +4,17 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
+use thiserror::Error;
+
+#[derive(Clone)]
 pub struct OracleContract {
     ergo_tree: ErgoTree,
+}
+
+#[derive(Debug, Error)]
+pub enum OracleContractError {
+    #[error("oracle contract: failed to get pool NFT from constants")]
+    NoPoolNftId,
 }
 
 impl OracleContract {
@@ -20,20 +29,22 @@ impl OracleContract {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
+        Self::from_ergo_tree(ergo_tree).unwrap()
+    }
+
+    pub fn from_ergo_tree(ergo_tree: ErgoTree) -> Result<Self, OracleContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
-        let pool_nft_token_id: TokenId = ergo_tree
+
+        if ergo_tree
             .get_constant(Self::POOL_NFT_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| OracleContractError::NoPoolNftId)?
+            .ok_or(OracleContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()
-            .unwrap();
-
-        assert_eq!(
-            pool_nft_token_id,
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
-        );
-
-        Self { ergo_tree }
+            .is_err()
+        {
+            return Err(OracleContractError::NoPoolNftId);
+        }
+        Ok(Self { ergo_tree })
     }
 
     pub fn ergo_tree(&self) -> ErgoTree {

@@ -243,7 +243,7 @@ fn build_out_oracle_boxes(
                 in_ob.get_box().ergo_tree.clone(),
                 creation_height,
             );
-            builder.set_register_value(R4, in_ob.public_key().into());
+            builder.set_register_value(R4, (*in_ob.public_key().h).into());
             builder.add_token(in_ob.oracle_token().clone());
             let mut reward_token_new = in_ob.reward_token();
             reward_token_new.amount = reward_token_new
