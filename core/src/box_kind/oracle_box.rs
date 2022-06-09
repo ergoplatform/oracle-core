@@ -47,6 +47,7 @@ pub enum OracleBoxError {
     OracleContractError(#[from] OracleContractError),
 }
 
+// TODO: convert this one and others to named structs
 #[derive(Clone)]
 pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
@@ -61,7 +62,7 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoTokens)?
             .token_id
             .clone();
-        if oracle_token_id != refresh_contract.oracle_nft_token_id() {
+        if oracle_token_id != refresh_contract.oracle_token_id() {
             return Err(OracleBoxError::IncorrectOracleTokenId(oracle_token_id));
         }
         let reward_token_id = b

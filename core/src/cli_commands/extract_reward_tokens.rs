@@ -232,7 +232,7 @@ mod tests {
             *oracle_pub_key,
             200,
             1,
-            refresh_contract.oracle_nft_token_id(),
+            refresh_contract.oracle_token_id(),
             Token::from((
                 reward_token_id,
                 num_reward_tokens_in_box.try_into().unwrap(),

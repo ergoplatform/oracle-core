@@ -408,7 +408,7 @@ pub fn perform_bootstrap_chained_transaction(
     } = config.refresh_contract_parameters;
 
     let refresh_contract = RefreshContract::new()
-        .with_oracle_nft_token_id(oracle_token.token_id.clone())
+        .with_oracle_token_id(oracle_token.token_id.clone())
         .with_pool_nft_token_id(pool_nft_token.token_id.clone())
         .with_epoch_length(epoch_length)
         .with_buffer(buffer)

@@ -96,3 +96,21 @@ impl PoolContract {
         Self { ergo_tree: tree }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constant_parsing() {
+        let c = PoolContract::new();
+        assert_eq!(
+            c.refresh_nft_token_id(),
+            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
+        );
+        assert_eq!(
+            c.update_nft_token_id(),
+            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap()
+        );
+    }
+}

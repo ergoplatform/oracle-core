@@ -1,6 +1,7 @@
 use crate::actions::RefreshAction;
 use crate::box_kind::make_collected_oracle_box_candidate;
 use crate::box_kind::make_pool_box_candidate;
+use crate::box_kind::make_refresh_box_candidate;
 use crate::box_kind::OracleBox;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBox;
@@ -15,7 +16,6 @@ use crate::oracle_state::StageError;
 use crate::wallet::WalletDataSource;
 
 use derive_more::From;
-use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
@@ -226,13 +226,13 @@ fn build_out_refresh_box(
     in_refresh_box: &RefreshBoxWrapper,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(
+    make_refresh_box_candidate(
+        in_refresh_box.contract(),
+        in_refresh_box.refresh_nft_token(),
         in_refresh_box.get_box().value,
-        in_refresh_box.get_box().ergo_tree.clone(),
         creation_height,
-    );
-    builder.add_token(in_refresh_box.refresh_nft_token().clone());
-    builder.build().map_err(Into::into)
+    )
+    .map_err(Into::into)
 }
 
 fn build_out_oracle_boxes(
@@ -399,7 +399,7 @@ mod tests {
             oracle_pub_keys,
             vec![194, 70, 196, 197, 198, 200],
             1,
-            refresh_contract.oracle_nft_token_id(),
+            refresh_contract.oracle_token_id(),
             Token::from((reward_token_id, 5u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
             height - 9,

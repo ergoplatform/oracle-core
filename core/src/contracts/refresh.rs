@@ -4,8 +4,28 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
+use thiserror::Error;
+
+#[derive(Clone)]
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
+}
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Error)]
+pub enum RefreshContractError {
+    #[error("refresh contract: failed to get pool NFT from constants")]
+    NoPoolNftId,
+    #[error("refresh contract: failed to get oracle token id from constants")]
+    NoOracleTokenId,
+    #[error("refresh contract: failed to get min data points from constants")]
+    NoMinDataPoints,
+    #[error("refresh contract: failed to get buffer from constants")]
+    NoBuffer,
+    #[error("refresh contract: failed to get max deviation percent from constants")]
+    NoMaxDeviationPercent,
+    #[error("refresh contract: failed to get epoch length from constants")]
+    NoEpochLength,
 }
 
 impl RefreshContract {
@@ -16,7 +36,7 @@ impl RefreshContract {
     const P2S: &'static str = "oq3jWGvabYxVYtceq1RGzFD4UdcdHcqY861G7H4mDiEnYQHya17A2w5r7u45moTpjAqfsNTm2XyhRNvYHiZhDTpmnfVa9XHSsbs5zjEw5UmgQfuP5d3NdFVy7oiAvLP1sjZN8qiHryzFoenLgtsxV8wLAeBaRChy73dd3rgyVfZipVL5LCXQyXMqp9oFFzPtTPkBw3ha7gJ4Bs5KjeUkVXJRVQ2Tdhg51Sdb6fEkHRtRuvCpynxYokQXP6SNif1M6mPcBR3B4zMLcFvmGxwNkZ3mRFzqHVzHV8Syu5AzueJEmMTrvWAXnhpYE7WcFbmDt3dqyXq7x9DNyKq1VwRwgFscLYDenAHqqHKd3jsJ6Grs8uFvvvJGKdqzdoJ3qCcCRXeDcZAKmExJMH4hJbsk8b1ct5YDBcNrq3LUr319XkS8miZDbHdHa88MSpCJQJmE51hmWVAV1yXrpyxqXqAXXPpSaGCP38BwCv8hYFK37DyA4mQd5r7vF9vNo5DEXwQ5wA2EivwRtNqpKUxXtKuZWTNC7Pu7NmvEHSuJPnaoCUujCiPtLM4dR64u8Gp7X3Ujo3o9zuMc6npemx3hf8rQS18QXgKJLwfeSqVYkicbVcGZRHsPsGxwrf1Wixp45E8d5e97MsKTCuqSskPKaHUdQYW1JZ8djcr4dxg1qQN81m7u2q8dwW6AK32mwRSS3nj27jkjML6n6GBpNZk9AtB2uMx3CHo6pZSaxgeCXuu3amrdeYmbuSqHUNZHU";
 
     pub const POOL_NFT_INDEX: usize = 17;
-    pub const ORACLE_NFT_INDEX: usize = 3;
+    pub const ORACLE_TOKEN_ID_INDEX: usize = 3;
 
     // Note: contract sets both `minDataPoints` and `buffer` to 4. Changing values in the script, we
     // can confirm the following indices.
@@ -30,62 +50,75 @@ impl RefreshContract {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
+
+        Self::from_ergo_tree(ergo_tree).unwrap()
+    }
+
+    // TODO: switch to `TryFrom`
+    pub fn from_ergo_tree(ergo_tree: ErgoTree) -> Result<Self, RefreshContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
-        let pool_nft_token_id: TokenId = ergo_tree
+
+        if ergo_tree
             .get_constant(Self::POOL_NFT_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| RefreshContractError::NoPoolNftId)?
+            .ok_or(RefreshContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()
-            .unwrap();
-        // check if the parsed value is the same as the one in the contract
-        assert_eq!(
-            pool_nft_token_id,
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
-        );
-        let oracle_nft_token_id: TokenId = ergo_tree
-            .get_constant(Self::ORACLE_NFT_INDEX)
-            .unwrap()
-            .unwrap()
-            .try_extract_into::<TokenId>()
-            .unwrap();
-        assert_eq!(
-            oracle_nft_token_id,
-            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap()
-        );
+            .is_err()
+        {
+            return Err(RefreshContractError::NoPoolNftId);
+        }
 
-        let min_data_points = ergo_tree
+        if ergo_tree
+            .get_constant(Self::ORACLE_TOKEN_ID_INDEX)
+            .map_err(|_| RefreshContractError::NoOracleTokenId)?
+            .ok_or(RefreshContractError::NoOracleTokenId)?
+            .try_extract_into::<TokenId>()
+            .is_err()
+        {
+            return Err(RefreshContractError::NoOracleTokenId);
+        }
+
+        if ergo_tree
             .get_constant(Self::MIN_DATA_POINTS_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| RefreshContractError::NoMinDataPoints)?
+            .ok_or(RefreshContractError::NoMinDataPoints)?
             .try_extract_into::<i32>()
-            .unwrap() as u32;
-        assert_eq!(min_data_points, 4);
+            .is_err()
+        {
+            return Err(RefreshContractError::NoMinDataPoints);
+        }
 
-        let buffer = ergo_tree
+        if ergo_tree
             .get_constant(Self::BUFFER_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| RefreshContractError::NoBuffer)?
+            .ok_or(RefreshContractError::NoBuffer)?
             .try_extract_into::<i32>()
-            .unwrap() as u32;
-        assert_eq!(buffer, 4);
+            .is_err()
+        {
+            return Err(RefreshContractError::NoBuffer);
+        }
 
-        let max_deviation_percent = ergo_tree
+        if ergo_tree
             .get_constant(Self::MAX_DEVIATION_PERCENT_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| RefreshContractError::NoMaxDeviationPercent)?
+            .ok_or(RefreshContractError::NoMaxDeviationPercent)?
             .try_extract_into::<i32>()
-            .unwrap() as u32;
-        assert_eq!(max_deviation_percent, 5);
+            .is_err()
+        {
+            return Err(RefreshContractError::NoMaxDeviationPercent);
+        }
 
-        let epoch_length = ergo_tree
+        if ergo_tree
             .get_constant(Self::EPOCH_LENGTH_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| RefreshContractError::NoEpochLength)?
+            .ok_or(RefreshContractError::NoEpochLength)?
             .try_extract_into::<i32>()
-            .unwrap() as u32;
-        assert_eq!(epoch_length, 30);
+            .is_err()
+        {
+            return Err(RefreshContractError::NoEpochLength);
+        }
 
-        Self { ergo_tree }
+        Ok(Self { ergo_tree })
     }
 
     pub fn ergo_tree(&self) -> ErgoTree {
@@ -163,19 +196,19 @@ impl RefreshContract {
         Self { ergo_tree: tree }
     }
 
-    pub fn oracle_nft_token_id(&self) -> TokenId {
+    pub fn oracle_token_id(&self) -> TokenId {
         self.ergo_tree
-            .get_constant(Self::ORACLE_NFT_INDEX)
+            .get_constant(Self::ORACLE_TOKEN_ID_INDEX)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap()
     }
 
-    pub fn with_oracle_nft_token_id(self, token_id: TokenId) -> Self {
+    pub fn with_oracle_token_id(self, token_id: TokenId) -> Self {
         let tree = self
             .ergo_tree
-            .with_constant(Self::ORACLE_NFT_INDEX, token_id.clone().into())
+            .with_constant(Self::ORACLE_TOKEN_ID_INDEX, token_id.clone().into())
             .unwrap();
         Self { ergo_tree: tree }
     }
@@ -195,5 +228,27 @@ impl RefreshContract {
             .with_constant(Self::POOL_NFT_INDEX, token_id.clone().into())
             .unwrap();
         Self { ergo_tree: tree }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constant_parsing() {
+        let c = RefreshContract::new();
+        assert_eq!(
+            c.pool_nft_token_id(),
+            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
+        );
+        assert_eq!(
+            c.oracle_token_id(),
+            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap()
+        );
+        assert_eq!(c.min_data_points(), 4);
+        assert_eq!(c.buffer(), 4);
+        assert_eq!(c.max_deviation_percent(), 5);
+        assert_eq!(c.epoch_length(), 30);
     }
 }

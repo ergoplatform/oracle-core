@@ -68,3 +68,17 @@ impl OracleContract {
         Self { ergo_tree: tree }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constant_parsing() {
+        let c = OracleContract::new();
+        assert_eq!(
+            c.pool_nft_token_id(),
+            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
+        );
+    }
+}

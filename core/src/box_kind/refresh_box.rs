@@ -11,8 +11,10 @@ use thiserror::Error;
 
 use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
+use crate::contracts::refresh::RefreshContractError;
 
 pub trait RefreshBox {
+    fn contract(&self) -> &RefreshContract;
     fn refresh_nft_token(&self) -> Token;
     fn get_box(&self) -> &ErgoBox;
 }
@@ -27,10 +29,12 @@ pub enum RefreshBoxError {
     IncorrectRewardTokenId(TokenId),
     #[error("refresh box: no reward token found")]
     NoRewardToken,
+    #[error("refresh box: refresh contract error: {0:?}")]
+    RefreshContractError(#[from] RefreshContractError),
 }
 
 #[derive(Clone)]
-pub struct RefreshBoxWrapper(ErgoBox);
+pub struct RefreshBoxWrapper(ErgoBox, RefreshContract);
 
 impl RefreshBox for RefreshBoxWrapper {
     fn refresh_nft_token(&self) -> Token {
@@ -39,6 +43,10 @@ impl RefreshBox for RefreshBoxWrapper {
 
     fn get_box(&self) -> &ErgoBox {
         &self.0
+    }
+
+    fn contract(&self) -> &RefreshContract {
+        &self.1
     }
 }
 
@@ -59,7 +67,8 @@ impl TryFrom<ErgoBox> for RefreshBoxWrapper {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
         }
 
-        Ok(Self(b))
+        let contract = RefreshContract::from_ergo_tree(b.ergo_tree.clone())?;
+        Ok(Self(b, contract))
     }
 }
 
