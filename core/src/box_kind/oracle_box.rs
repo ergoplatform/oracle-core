@@ -170,8 +170,8 @@ impl From<OracleBoxWrapper> for ErgoBox {
 pub fn make_oracle_box_candidate(
     contract: &OracleContract,
     public_key: ProveDlog,
-    datapoint: i64,
-    epoch_counter: i32,
+    datapoint: u64,
+    epoch_counter: u32,
     oracle_token: Token,
     reward_token: Token,
     value: BoxValue,
@@ -179,8 +179,8 @@ pub fn make_oracle_box_candidate(
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
-    builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
-    builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
+    builder.set_register_value(NonMandatoryRegisterId::R6, (datapoint as i64).into());
     builder.add_token(oracle_token.clone());
     builder.add_token(reward_token.clone());
     builder.build()

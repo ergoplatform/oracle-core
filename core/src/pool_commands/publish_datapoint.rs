@@ -78,7 +78,7 @@ pub fn build_publish_datapoint_action(
             wallet,
             height,
             change_address,
-            new_datapoint,
+            new_datapoint as u64,
             oracle_token_id,
             reward_token_id,
             public_key,
@@ -98,12 +98,12 @@ pub fn build_subsequent_publish_datapoint_action(
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
     }
-    let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
+    let new_epoch_counter: u32 = in_pool_box.epoch_counter() + 1;
 
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
         in_oracle_box.public_key(),
-        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64),
+        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64) as u64,
         new_epoch_counter,
         in_oracle_box.oracle_token(),
         in_oracle_box.reward_token(),
@@ -143,7 +143,7 @@ pub fn build_publish_first_datapoint_action(
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
-    new_datapoint: i64,
+    new_datapoint: u64,
     oracle_token_id: TokenId,
     reward_token_id: TokenId,
     public_key: ProveDlog,

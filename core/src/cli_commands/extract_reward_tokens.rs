@@ -10,10 +10,7 @@ use ergo_lib::{
     ergotree_ir::{
         chain::{
             address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
-            ergo_box::{
-                box_value::BoxValue,
-                NonMandatoryRegisterId::{R4, R5, R6},
-            },
+            ergo_box::box_value::BoxValue,
             token::Token,
         },
         serialization::SigmaParsingError,
@@ -27,8 +24,7 @@ use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
-    box_kind::OracleBox,
-    cli_commands::ergo_explorer_transaction_link,
+    box_kind::{make_oracle_box_candidate, OracleBox},
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::ORACLE_CONFIG,
     oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
@@ -129,26 +125,23 @@ fn build_extract_reward_tokens_tx(
         );
     }
     if let Address::P2Pk(_) = &rewards_destination {
-        // Build the new oracle box
-        let mut builder = ErgoBoxCandidateBuilder::new(
-            in_oracle_box.get_box().value,
-            in_oracle_box.get_box().ergo_tree.clone(),
-            height,
-        );
-        builder.set_register_value(R4, in_oracle_box.public_key().into());
-        builder.set_register_value(R5, (in_oracle_box.epoch_counter() as i32).into());
-        builder.set_register_value(R6, (in_oracle_box.rate() as i64).into());
-        builder.add_token(in_oracle_box.oracle_token().clone());
-
         let single_reward_token = Token {
             token_id: in_oracle_box.reward_token().token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
-        builder.add_token(single_reward_token);
-        let oracle_box_candidate = builder.build()?;
+        let oracle_box_candidate = make_oracle_box_candidate(
+            in_oracle_box.contract(),
+            in_oracle_box.public_key(),
+            in_oracle_box.rate(),
+            in_oracle_box.epoch_counter(),
+            in_oracle_box.oracle_token(),
+            single_reward_token,
+            in_oracle_box.get_box().value,
+            height,
+        )?;
 
         // Build box to hold extracted tokens
-        builder = ErgoBoxCandidateBuilder::new(
+        let mut builder = ErgoBoxCandidateBuilder::new(
             BoxValue::SAFE_USER_MIN,
             rewards_destination.script()?,
             height,
