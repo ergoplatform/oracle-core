@@ -169,7 +169,7 @@ fn build_extract_reward_tokens_tx(
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
-        let mut input_boxes = vec![in_oracle_box.get_box()];
+        let mut input_boxes = vec![in_oracle_box.get_box().clone()];
         input_boxes.append(selection.boxes.as_vec().clone().as_mut());
         let box_selection = BoxSelection {
             boxes: input_boxes.try_into().unwrap(),
@@ -269,7 +269,8 @@ mod tests {
         let mut possible_input_boxes = vec![local_datapoint_box_source
             .get_local_oracle_datapoint_box()
             .unwrap()
-            .get_box()];
+            .get_box()
+            .clone()];
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
         let tx_context =

@@ -24,7 +24,7 @@ pub trait OracleBox {
     fn public_key(&self) -> ProveDlog;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> u64;
-    fn get_box(&self) -> ErgoBox;
+    fn get_box(&self) -> &ErgoBox;
 }
 
 #[derive(Debug, Error)]
@@ -142,8 +142,8 @@ impl OracleBox for OracleBoxWrapper {
             .unwrap() as u64
     }
 
-    fn get_box(&self) -> ErgoBox {
-        self.0.clone()
+    fn get_box(&self) -> &ErgoBox {
+        &self.0
     }
 
     fn contract(&self) -> &OracleContract {
@@ -168,11 +168,11 @@ impl From<OracleBoxWrapper> for ErgoBox {
 #[allow(clippy::too_many_arguments)]
 pub fn make_oracle_box_candidate(
     contract: &OracleContract,
-    public_key: &ProveDlog,
+    public_key: ProveDlog,
     datapoint: i64,
     epoch_counter: i32,
-    oracle_token: &Token,
-    reward_token: &Token,
+    oracle_token: Token,
+    reward_token: Token,
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {

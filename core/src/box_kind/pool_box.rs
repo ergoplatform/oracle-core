@@ -12,14 +12,16 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
 use crate::contracts::pool::PoolContract;
+use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContract;
 
 pub trait PoolBox {
+    fn contract(&self) -> &PoolContract;
     fn pool_nft_token(&self) -> Token;
     fn reward_token(&self) -> Token;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> u64;
-    fn get_box(&self) -> ErgoBox;
+    fn get_box(&self) -> &ErgoBox;
 }
 
 #[derive(Debug, Error)]
@@ -36,10 +38,12 @@ pub enum PoolBoxError {
     IncorrectRewardTokenId(TokenId),
     #[error("refresh box: no reward token found")]
     NoRewardToken,
+    #[error("pool contract: {0:?}")]
+    PoolContractError(#[from] PoolContractError),
 }
 
 #[derive(Clone)]
-pub struct PoolBoxWrapper(ErgoBox);
+pub struct PoolBoxWrapper(ErgoBox, PoolContract);
 
 impl PoolBox for PoolBoxWrapper {
     fn pool_nft_token(&self) -> Token {
@@ -66,8 +70,12 @@ impl PoolBox for PoolBoxWrapper {
         self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
     }
 
-    fn get_box(&self) -> ErgoBox {
-        self.0.clone()
+    fn get_box(&self) -> &ErgoBox {
+        &self.0
+    }
+
+    fn contract(&self) -> &PoolContract {
+        &self.1
     }
 }
 
@@ -117,7 +125,9 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
         {
             return Err(PoolBoxError::IncorrectRewardTokenId(reward_token_id));
         }
-        Ok(Self(b))
+
+        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone())?;
+        Ok(Self(b, contract))
     }
 }
 
@@ -125,15 +135,14 @@ pub fn make_pool_box_candidate(
     contract: &PoolContract,
     datapoint: i64,
     epoch_counter: i32,
-    pool_nft_token: &Token,
-    reward_token: &Token,
+    pool_nft_token: Token,
+    reward_token: Token,
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::{R4, R5};
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
-    builder.set_register_value(R4, datapoint.into());
-    builder.set_register_value(R5, epoch_counter.into());
+    builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
     builder.add_token(pool_nft_token.clone());
     builder.add_token(reward_token.clone());
     builder.build()

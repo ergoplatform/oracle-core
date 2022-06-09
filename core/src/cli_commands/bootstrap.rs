@@ -344,8 +344,8 @@ pub fn perform_bootstrap_chained_transaction(
         // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during bootstrap.
         0,
         1,
-        &pool_nft_token,
-        &reward_tokens_for_pool_box,
+        pool_nft_token.clone(),
+        reward_tokens_for_pool_box,
         erg_value_per_box,
         height,
     )?;
@@ -417,7 +417,7 @@ pub fn perform_bootstrap_chained_transaction(
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,
-        &refresh_nft_token,
+        refresh_nft_token.clone(),
         erg_value_per_box,
         height,
     )?;

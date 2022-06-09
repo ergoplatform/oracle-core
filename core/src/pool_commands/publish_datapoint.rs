@@ -102,11 +102,11 @@ pub fn build_subsequent_publish_datapoint_action(
 
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
-        &in_oracle_box.public_key(),
+        in_oracle_box.public_key(),
         compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64),
         new_epoch_counter,
-        &in_oracle_box.oracle_token(),
-        &in_oracle_box.reward_token(),
+        in_oracle_box.oracle_token(),
+        in_oracle_box.reward_token(),
         in_oracle_box.get_box().value,
         height,
     )?;
@@ -115,7 +115,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let tx_fee = BoxValue::SAFE_USER_MIN;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
-    let mut input_boxes = vec![in_oracle_box.get_box()];
+    let mut input_boxes = vec![in_oracle_box.get_box().clone()];
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
@@ -172,11 +172,11 @@ pub fn build_publish_first_datapoint_action(
 
     let output_candidate = make_oracle_box_candidate(
         &OracleContract::new(),
-        &public_key,
+        public_key,
         new_datapoint,
         1,
-        &oracle_token,
-        &reward_token,
+        oracle_token,
+        reward_token,
         BoxValue::SAFE_USER_MIN,
         height,
     )?;
@@ -329,11 +329,12 @@ mod tests {
         .unwrap();
 
         let mut possible_input_boxes = vec![
-            pool_box_mock.get_pool_box().unwrap().get_box(),
+            pool_box_mock.get_pool_box().unwrap().get_box().clone(),
             local_datapoint_box_source
                 .get_local_oracle_datapoint_box()
                 .unwrap()
-                .get_box(),
+                .get_box()
+                .clone(),
         ];
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 

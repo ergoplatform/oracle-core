@@ -14,7 +14,7 @@ use crate::contracts::refresh::RefreshContract;
 
 pub trait RefreshBox {
     fn refresh_nft_token(&self) -> Token;
-    fn get_box(&self) -> ErgoBox;
+    fn get_box(&self) -> &ErgoBox;
 }
 
 #[derive(Debug, Error)]
@@ -37,8 +37,8 @@ impl RefreshBox for RefreshBoxWrapper {
         self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
     }
 
-    fn get_box(&self) -> ErgoBox {
-        self.0.clone()
+    fn get_box(&self) -> &ErgoBox {
+        &self.0
     }
 }
 
@@ -65,7 +65,7 @@ impl TryFrom<ErgoBox> for RefreshBoxWrapper {
 
 pub fn make_refresh_box_candidate(
     contract: &RefreshContract,
-    refresh_nft: &Token,
+    refresh_nft: Token,
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {

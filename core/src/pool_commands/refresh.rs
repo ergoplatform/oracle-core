@@ -1,4 +1,5 @@
 use crate::actions::RefreshAction;
+use crate::box_kind::make_pool_box_candidate;
 use crate::box_kind::OracleBox;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBox;
@@ -20,7 +21,6 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4;
-use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R5;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
@@ -91,11 +91,14 @@ pub fn build_refresh_action(
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
-    let mut input_boxes = vec![in_pool_box.get_box(), in_refresh_box.get_box()];
+    let mut input_boxes = vec![
+        in_pool_box.get_box().clone(),
+        in_refresh_box.get_box().clone(),
+    ];
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
         .clone()
         .into_iter()
-        .map(|ob| ob.get_box())
+        .map(|ob| ob.get_box().clone())
         .collect();
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
@@ -196,13 +199,7 @@ fn build_out_pool_box(
     rate: u64,
     reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefrechActionError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(
-        in_pool_box.get_box().value,
-        in_pool_box.get_box().ergo_tree.clone(),
-        creation_height,
-    );
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
-    builder.add_token(in_pool_box.pool_nft_token().clone());
     let reward_token = in_pool_box.reward_token();
     let new_reward_token: Token = (
         reward_token.token_id,
@@ -212,10 +209,17 @@ fn build_out_pool_box(
             .unwrap(),
     )
         .into();
-    builder.add_token(new_reward_token);
-    builder.set_register_value(R4, (rate as i64).into());
-    builder.set_register_value(R5, new_epoch_counter.into());
-    builder.build().map_err(Into::into)
+
+    make_pool_box_candidate(
+        in_pool_box.contract(),
+        rate as i64,
+        new_epoch_counter,
+        in_pool_box.pool_nft_token().clone(),
+        new_reward_token,
+        in_pool_box.get_box().value,
+        creation_height,
+    )
+    .map_err(Into::into)
 }
 
 fn build_out_refresh_box(
@@ -434,8 +438,12 @@ mod tests {
         .unwrap();
 
         let mut possible_input_boxes = vec![
-            pool_box_mock.get_pool_box().unwrap().get_box(),
-            refresh_box_mock.get_refresh_box().unwrap().get_box(),
+            pool_box_mock.get_pool_box().unwrap().get_box().clone(),
+            refresh_box_mock
+                .get_refresh_box()
+                .unwrap()
+                .get_box()
+                .clone(),
         ];
         let mut in_oracle_boxes_raw: Vec<ErgoBox> =
             in_oracle_boxes.into_iter().map(Into::into).collect();

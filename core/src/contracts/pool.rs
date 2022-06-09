@@ -4,8 +4,19 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
+use thiserror::Error;
+
+#[derive(Clone)]
 pub struct PoolContract {
     ergo_tree: ErgoTree,
+}
+
+#[derive(Debug, Error)]
+pub enum PoolContractError {
+    #[error("pool contract: failed to get update NFT from constants")]
+    NoUpdateNftId,
+    #[error("pool contract: failed to get refresh NFT from constants")]
+    NoRefreshNftId,
 }
 
 impl PoolContract {
@@ -20,31 +31,31 @@ impl PoolContract {
         let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
         let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
         let ergo_tree = addr.script().unwrap();
+        Self::from_ergo_tree(ergo_tree).unwrap()
+    }
+
+    pub fn from_ergo_tree(ergo_tree: ErgoTree) -> Result<Self, PoolContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
-        let refresh_nft_token_id: TokenId = ergo_tree
+        if ergo_tree
             .get_constant(Self::REFRESH_NFT_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| PoolContractError::NoRefreshNftId)?
+            .ok_or(PoolContractError::NoRefreshNftId)?
             .try_extract_into::<TokenId>()
-            .unwrap();
+            .is_err()
+        {
+            return Err(PoolContractError::NoRefreshNftId);
+        };
 
-        assert_eq!(
-            refresh_nft_token_id,
-            TokenId::from_base64("VGpXblpyNHU3eCFBJUQqRy1LYU5kUmdVa1hwMnM1djg=").unwrap()
-        );
-
-        let update_nft_token_id: TokenId = ergo_tree
+        if ergo_tree
             .get_constant(Self::UPDATE_NFT_INDEX)
-            .unwrap()
-            .unwrap()
+            .map_err(|_| PoolContractError::NoUpdateNftId)?
+            .ok_or(PoolContractError::NoUpdateNftId)?
             .try_extract_into::<TokenId>()
-            .unwrap();
-
-        assert_eq!(
-            update_nft_token_id,
-            TokenId::from_base64("YlFlVGhXbVpxNHQ3dyF6JUMqRi1KQE5jUmZValhuMnI=").unwrap()
-        );
-        Self { ergo_tree }
+            .is_err()
+        {
+            return Err(PoolContractError::NoUpdateNftId);
+        };
+        Ok(Self { ergo_tree })
     }
 
     pub fn ergo_tree(&self) -> ErgoTree {
