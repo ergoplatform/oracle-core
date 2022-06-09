@@ -1,4 +1,5 @@
 use crate::actions::RefreshAction;
+use crate::box_kind::make_collected_oracle_box_candidate;
 use crate::box_kind::make_pool_box_candidate;
 use crate::box_kind::OracleBox;
 use crate::box_kind::OracleBoxWrapper;
@@ -20,7 +21,6 @@ use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
-use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
@@ -242,20 +242,20 @@ fn build_out_oracle_boxes(
     valid_oracle_boxes
         .iter()
         .map(|in_ob| {
-            let mut builder = ErgoBoxCandidateBuilder::new(
-                in_ob.get_box().value,
-                in_ob.get_box().ergo_tree.clone(),
-                creation_height,
-            );
-            builder.set_register_value(R4, (*in_ob.public_key().h).into());
-            builder.add_token(in_ob.oracle_token().clone());
             let mut reward_token_new = in_ob.reward_token();
             reward_token_new.amount = reward_token_new
                 .amount
                 .checked_add(&1u64.try_into().unwrap())
                 .unwrap();
-            builder.add_token(reward_token_new.clone());
-            builder.build().map_err(Into::into)
+            make_collected_oracle_box_candidate(
+                in_ob.contract(),
+                in_ob.public_key(),
+                in_ob.oracle_token(),
+                reward_token_new,
+                in_ob.get_box().value,
+                creation_height,
+            )
+            .map_err(Into::into)
         })
         .collect::<Result<Vec<ErgoBoxCandidate>, RefrechActionError>>()
 }

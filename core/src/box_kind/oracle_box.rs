@@ -177,9 +177,26 @@ pub fn make_oracle_box_candidate(
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
-    builder.set_register_value(NonMandatoryRegisterId::R4, public_key.clone().into());
+    builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
     builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
+    builder.add_token(oracle_token.clone());
+    builder.add_token(reward_token.clone());
+    builder.build()
+}
+
+/// Make an ergo box candidate to be an output box on data point colection (refresh action)
+/// Without data point and epoch counter to prevent it to be used as input on next collection
+pub fn make_collected_oracle_box_candidate(
+    contract: &OracleContract,
+    public_key: ProveDlog,
+    oracle_token: Token,
+    reward_token: Token,
+    value: BoxValue,
+    creation_height: u32,
+) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.add_token(oracle_token.clone());
     builder.add_token(reward_token.clone());
     builder.build()
