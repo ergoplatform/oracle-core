@@ -28,6 +28,7 @@ use thiserror::Error;
 
 use crate::{
     box_kind::OracleBox,
+    cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::ORACLE_CONFIG,
     oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
@@ -109,17 +110,6 @@ pub fn extract_reward_tokens(
     } else {
         Err(ExtractRewardTokensActionError::NoLocalDatapointBox)
     }
-}
-
-fn ergo_explorer_transaction_link(tx_id_str: String, prefix: NetworkPrefix) -> String {
-    let prefix_str = match prefix {
-        NetworkPrefix::Mainnet => "explorer",
-        NetworkPrefix::Testnet => "testnet",
-    };
-    format!(
-        "https://{}.ergoplatform.com/en/transactions/{}",
-        prefix_str, tx_id_str
-    )
 }
 
 fn build_extract_reward_tokens_tx(
