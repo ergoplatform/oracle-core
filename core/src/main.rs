@@ -94,6 +94,9 @@ enum Command {
         rewards_address: String,
     },
     PrintRewardTokens,
+    TransferOracleToken {
+        oracle_token_address: String,
+    },
 }
 
 fn main() {
@@ -152,6 +155,19 @@ fn main() {
                 op.get_local_datapoint_box_source(),
             ) {
                 error!("Fatal print-rewards-token error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+
+        Command::TransferOracleToken {
+            oracle_token_address,
+        } => {
+            let wallet = WalletData {};
+            if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
+                &wallet,
+                oracle_token_address,
+            ) {
+                error!("Fatal transfer-oracle-token error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
