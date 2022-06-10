@@ -61,12 +61,13 @@ pub fn build_publish_datapoint_action(
     change_address: Address,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint()?;
+    let epoch_counter = pool_box_source.get_pool_box()?.epoch_counter();
     match inputs {
         PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source) => {
             build_subsequent_publish_datapoint_action(
-                pool_box_source,
                 local_datapoint_box_source,
                 wallet,
+                epoch_counter,
                 height,
                 change_address,
                 new_datapoint,
@@ -89,14 +90,13 @@ pub fn build_publish_datapoint_action(
 }
 
 pub fn build_subsequent_publish_datapoint_action(
-    pool_box_source: &dyn PoolBoxSource,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
+    epoch_counter: u32,
     height: u32,
     change_address: Address,
     new_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    let in_pool_box = pool_box_source.get_pool_box()?;
     let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
@@ -108,7 +108,7 @@ pub fn build_subsequent_publish_datapoint_action(
         in_oracle_box.get_box().ergo_tree.clone(),
         height,
     );
-    let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
+    let new_epoch_counter: i32 = (epoch_counter + 1) as i32;
     builder.set_register_value(R4, in_oracle_box.public_key().into());
     builder.set_register_value(R5, new_epoch_counter.into());
     builder.set_register_value(
