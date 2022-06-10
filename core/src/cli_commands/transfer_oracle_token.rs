@@ -14,7 +14,6 @@ use ergo_lib::{
                 box_value::BoxValue,
                 NonMandatoryRegisterId::{R4, R5, R6},
             },
-            token::Token,
         },
         serialization::SigmaParsingError,
     },
@@ -139,12 +138,7 @@ fn build_transfer_oracle_token_tx(
         builder.set_register_value(R5, (in_oracle_box.epoch_counter() as i32).into());
         builder.set_register_value(R6, (in_oracle_box.rate() as i64).into());
         builder.add_token(in_oracle_box.oracle_token().clone());
-
-        let single_reward_token = Token {
-            token_id: in_oracle_box.reward_token().token_id.clone(),
-            amount: 1.try_into().unwrap(),
-        };
-        builder.add_token(single_reward_token);
+        builder.add_token(in_oracle_box.reward_token());
         let oracle_box_candidate = builder.build()?;
 
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
