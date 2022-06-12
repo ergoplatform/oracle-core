@@ -1,42 +1,35 @@
 use std::error::Error;
 use std::process::Command;
 
-fn get_commit_hash() -> Result<String, Box<dyn Error>> {
-    let command = Command::new("git").arg("rev-parse").arg("HEAD").output()?;
+fn run_command(bin: &str, args: &[&str]) -> Result<String, Box<dyn Error>> {
+    let command = Command::new(bin).args(args).output()?;
     if command.status.success() {
         String::from_utf8(command.stdout).map_err(|e| e.into())
     } else {
-        Err("Git rev-parse HEAD failed".into())
-    }
-}
-
-fn get_commit_date() -> Result<String, Box<dyn Error>> {
-    let command = Command::new("git")
-        .arg("log")
-        .arg("-1")
-        .arg("--format=%cd")
-        .output()?;
-    if command.status.success() {
-        // this can be simplified after ExitStatus::exit_ok is stabillized
-        String::from_utf8(command.stdout).map_err(|e| e.into())
-    } else {
-        Err("Git log failed".into())
+        Err(format!("{bin} {:?} failed", args).into())
     }
 }
 
 fn main() {
-    match get_commit_hash() {
-        Ok(hash) => println!("cargo:rustc-env=GIT_COMMIT_HASH={}", hash),
-        Err(e) => {
-            println!("cargo:rustc-env=GIT_COMMIT_HASH=");
-            println!("cargo:warning=Error getting commit hash, error: {}", e)
+    println!("cargo:rustc-env=GIT_COMMIT_INFO=");
+    if let Ok(git_path) = run_command("git", &["rev-parse", "--show-cdup"]) {
+        // Check whether .git repository belongs to oracle-core, since GitHub releases do not include .git
+        if git_path.trim_end() == "../" {
+            let mut commit_hash = String::new();
+            let mut commit_date = String::new();
+            match run_command("git", &["rev-parse", "HEAD"]) {
+                Ok(hash) => commit_hash = hash,
+                Err(e) => {
+                    println!("cargo:warning=Error getting commit hash, error: {}", e)
+                }
+            }
+            match run_command("git", &["log", "-1", "--format=%cd"]) {
+                Ok(date) => commit_date = date,
+                Err(e) => {
+                    println!("cargo:warning=Error getting commit hash, error: {}", e)
+                }
+            }
+            println!("cargo:rustc-env=GIT_COMMIT_INFO=commit: {commit_hash} {commit_date}");
         }
-    }
-    match get_commit_date() {
-        Ok(date) => println!("cargo:rustc-env=GIT_COMMIT_DATE={}", date),
-        Err(e) => {
-            println!("cargo:rustc-env=GIT_COMMIT_HASH=");
-            println!("cargo:warning=Error getting commit hash, error: {}", e)
-        }
-    }
+    };
 }

@@ -74,14 +74,7 @@ static ORACLE_CORE_ASCII: &str = r#"
   \____/|_|  \__,_|\___|_|\___|  \_____\___/|_|  \___|
 "#;
 
-const ORACLE_VERSION: &str = concat!(
-    env!("CARGO_PKG_VERSION"),
-    " commit: ",
-    env!("GIT_COMMIT_HASH"),
-    " (",
-    env!("GIT_COMMIT_DATE"),
-    ")"
-);
+const ORACLE_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " ", env!("GIT_COMMIT_INFO"));
 
 #[derive(Parser)]
 #[clap(author, version = ORACLE_VERSION, about, long_about = None)]
@@ -108,9 +101,9 @@ enum Command {
 fn main() {
     println!("{}", ORACLE_CORE_ASCII);
     logging::setup_log();
-    log::info!("{}", ORACLE_VERSION);
 
     let args = Args::parse();
+    log::info!("{}", ORACLE_VERSION);
 
     match args.command {
         Command::Bootstrap { yaml_config_name } => {
