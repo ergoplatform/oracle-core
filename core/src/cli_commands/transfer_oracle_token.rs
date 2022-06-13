@@ -3,17 +3,14 @@ use std::convert::TryInto;
 use derive_more::From;
 use ergo_lib::{
     chain::{
-        ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
+        ergo_box::box_builder::ErgoBoxCandidateBuilderError,
         transaction::unsigned::UnsignedTransaction,
     },
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
         chain::{
             address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
-            ergo_box::{
-                box_value::BoxValue,
-                NonMandatoryRegisterId::{R4, R5, R6},
-            },
+            ergo_box::box_value::BoxValue,
         },
         serialization::SigmaParsingError,
     },
@@ -26,7 +23,7 @@ use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
-    box_kind::OracleBox,
+    box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::ORACLE_CONFIG,
@@ -126,20 +123,17 @@ fn build_transfer_oracle_token_tx(
             ),
         );
     }
-    if let Address::P2Pk(p) = &oracle_token_destination {
-        // Build the new oracle box
-        let mut builder = ErgoBoxCandidateBuilder::new(
+    if let Address::P2Pk(p2pk_dest) = &oracle_token_destination {
+        let oracle_box_candidate = make_oracle_box_candidate(
+            in_oracle_box.contract(),
+            p2pk_dest.clone(),
+            in_oracle_box.rate(),
+            in_oracle_box.epoch_counter(),
+            in_oracle_box.oracle_token(),
+            in_oracle_box.reward_token(),
             in_oracle_box.get_box().value,
-            in_oracle_box.get_box().ergo_tree.clone(),
             height,
-        );
-        let ec_point = *p.h.clone();
-        builder.set_register_value(R4, ec_point.into());
-        builder.set_register_value(R5, (in_oracle_box.epoch_counter() as i32).into());
-        builder.set_register_value(R6, (in_oracle_box.rate() as i64).into());
-        builder.add_token(in_oracle_box.oracle_token().clone());
-        builder.add_token(in_oracle_box.reward_token());
-        let oracle_box_candidate = builder.build()?;
+        )?;
 
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
 
@@ -147,7 +141,7 @@ fn build_transfer_oracle_token_tx(
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
-        let mut input_boxes = vec![in_oracle_box.get_box()];
+        let mut input_boxes = vec![in_oracle_box.get_box().clone()];
         input_boxes.append(selection.boxes.as_vec().clone().as_mut());
         let box_selection = BoxSelection {
             boxes: input_boxes.try_into().unwrap(),
@@ -208,7 +202,7 @@ mod tests {
             *oracle_pub_key,
             200,
             1,
-            refresh_contract.oracle_nft_token_id(),
+            refresh_contract.oracle_token_id(),
             Token::from((reward_token_id, 1u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
             height - 9,
@@ -241,7 +235,8 @@ mod tests {
         let mut possible_input_boxes = vec![local_datapoint_box_source
             .get_local_oracle_datapoint_box()
             .unwrap()
-            .get_box()];
+            .get_box()
+            .clone()];
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
         let tx_context =

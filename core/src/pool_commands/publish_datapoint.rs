@@ -89,7 +89,7 @@ pub fn build_publish_datapoint_action(
 pub fn build_subsequent_publish_datapoint_action(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
-    epoch_counter: u32,
+    current_epoch_counter: u32,
     height: u32,
     change_address: Address,
     new_datapoint: i64,
@@ -98,7 +98,7 @@ pub fn build_subsequent_publish_datapoint_action(
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
     }
-    let new_epoch_counter: u32 = in_pool_box.epoch_counter() + 1;
+    let new_epoch_counter: u32 = current_epoch_counter + 1;
 
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
