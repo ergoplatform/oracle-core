@@ -6,7 +6,7 @@ fn run_command(bin: &str, args: &[&str]) -> Result<String, Box<dyn Error>> {
     if command.status.success() {
         String::from_utf8(command.stdout).map_err(|e| e.into())
     } else {
-        Err(format!("{bin} {:?} failed", args).into())
+        Err(format!("{} {:?} failed", bin, args).into())
     }
 }
 
@@ -29,7 +29,7 @@ fn main() {
                     println!("cargo:warning=Error getting commit hash, error: {}", e)
                 }
             }
-            println!("cargo:rustc-env=GIT_COMMIT_INFO=commit: {commit_hash} {commit_date}");
+            println!("cargo:rustc-env=GIT_COMMIT_INFO=commit: {} {}", commit_hash, commit_date);
         }
     };
 }
