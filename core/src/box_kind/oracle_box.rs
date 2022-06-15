@@ -65,7 +65,7 @@ impl OracleBoxWrapper {
         if oracle_token_id != refresh_contract.oracle_token_id() {
             return Err(OracleBoxError::IncorrectOracleTokenId(oracle_token_id));
         }
-        let reward_token_id = b
+        let _reward_token_id = b
             .tokens
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
@@ -73,11 +73,6 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoRewardToken)?
             .token_id
             .clone();
-        if reward_token_id
-            != TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
-        {
-            return Err(OracleBoxError::IncorrectOracleTokenId(reward_token_id));
-        }
 
         if b.get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(OracleBoxError::NoPublicKey)?

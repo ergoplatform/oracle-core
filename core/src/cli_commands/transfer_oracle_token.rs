@@ -191,8 +191,7 @@ mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let refresh_contract = RefreshContract::new();
-        let reward_token_id =
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
+        let reward_token_id = force_any_val::<TokenId>();
         dbg!(&reward_token_id);
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);

@@ -269,8 +269,7 @@ mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let refresh_contract = RefreshContract::new();
-        let reward_token_id =
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
+        let reward_token_id = force_any_val::<TokenId>();
         let pool_nft_token_id = refresh_contract.pool_nft_token_id();
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
@@ -353,8 +352,7 @@ mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
 
-        let reward_token_id =
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
+        let reward_token_id = force_any_val::<TokenId>();
         let oracle_token_id =
             TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap();
         let tokens = BoxTokens::from_vec(vec![

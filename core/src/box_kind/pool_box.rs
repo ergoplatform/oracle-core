@@ -34,8 +34,6 @@ pub enum PoolBoxError {
     NoDataPoint,
     #[error("pool box: no epoch counter in R5")]
     NoEpochCounter,
-    #[error("refresh box: incorrect reward token id: {0:?}")]
-    IncorrectRewardTokenId(TokenId),
     #[error("refresh box: no reward token found")]
     NoRewardToken,
     #[error("pool contract: {0:?}")]
@@ -112,7 +110,7 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
             return Err(PoolBoxError::NoEpochCounter);
         }
 
-        let reward_token_id = b
+        let _reward_token_id = b
             .tokens
             .as_ref()
             .ok_or(PoolBoxError::NoTokens)?
@@ -120,11 +118,6 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
             .ok_or(PoolBoxError::NoRewardToken)?
             .token_id
             .clone();
-        if reward_token_id
-            != TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap()
-        {
-            return Err(PoolBoxError::IncorrectRewardTokenId(reward_token_id));
-        }
 
         let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone())?;
         Ok(Self(b, contract))
