@@ -7,13 +7,11 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
-use crate::contracts::refresh::RefreshContract;
 
 pub trait PoolBox {
     fn contract(&self) -> &PoolContract;
@@ -26,8 +24,6 @@ pub trait PoolBox {
 
 #[derive(Debug, Error)]
 pub enum PoolBoxError {
-    #[error("pool box: incorrect pool token id: {0:?}")]
-    IncorrectPoolTokenId(TokenId),
     #[error("pool box: no tokens found")]
     NoTokens,
     #[error("pool box: no data point in R4")]
@@ -81,8 +77,7 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
     type Error = PoolBoxError;
 
     fn try_from(b: ErgoBox) -> Result<Self, Self::Error> {
-        let refresh_contract = RefreshContract::new();
-        let pool_token_id = b
+        let _pool_token_id = b
             .tokens
             .as_ref()
             .ok_or(PoolBoxError::NoTokens)?
@@ -90,9 +85,6 @@ impl TryFrom<ErgoBox> for PoolBoxWrapper {
             .ok_or(PoolBoxError::NoTokens)?
             .token_id
             .clone();
-        if pool_token_id != refresh_contract.pool_nft_token_id() {
-            return Err(PoolBoxError::IncorrectPoolTokenId(pool_token_id));
-        }
 
         if b.get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(PoolBoxError::NoDataPoint)?

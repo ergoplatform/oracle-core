@@ -111,9 +111,18 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 }
 
 /// This function registers scanning for the pool box
-pub fn register_pool_box_scan(oracle_pool_nft: &TokenId, reward_token: &TokenId) -> Result<Scan> {
+pub fn register_pool_box_scan(
+    oracle_pool_nft: &TokenId,
+    refresh_token_nft: &TokenId,
+    update_token_nft: &TokenId,
+) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = PoolContract::new().ergo_tree().to_base16_bytes().unwrap();
+    let pool_box_tree_bytes = PoolContract::new()
+        .with_refresh_nft_token_id(refresh_token_nft.clone())
+        .with_update_nft_token_id(update_token_nft.clone())
+        .ergo_tree()
+        .to_base16_bytes()
+        .unwrap();
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {
@@ -122,10 +131,6 @@ pub fn register_pool_box_scan(oracle_pool_nft: &TokenId, reward_token: &TokenId)
         {
             "predicate": "containsAsset",
             "assetId": oracle_pool_nft.clone(),
-        },
-        {
-            "predicate": "containsAsset",
-            "assetId": reward_token.clone(),
         },
         {
             "predicate": "equals",
@@ -138,9 +143,16 @@ pub fn register_pool_box_scan(oracle_pool_nft: &TokenId, reward_token: &TokenId)
 }
 
 /// This function registers scanning for the refresh box
-pub fn register_refresh_box_scan(scan_name: &'static str, refresh_nft: &TokenId) -> Result<Scan> {
+pub fn register_refresh_box_scan(
+    scan_name: &'static str,
+    refresh_nft: &TokenId,
+    oracle_token_id: &TokenId,
+    pool_nft: &TokenId,
+) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
     let tree_bytes = RefreshContract::new()
+        .with_oracle_token_id(oracle_token_id.clone())
+        .with_pool_nft_token_id(pool_nft.clone())
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();

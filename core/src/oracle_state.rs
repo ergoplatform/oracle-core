@@ -4,7 +4,6 @@ use crate::box_kind::{
     RefreshBoxError, RefreshBoxWrapper,
 };
 use crate::contracts::oracle::OracleContract;
-use crate::contracts::refresh::RefreshContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
@@ -153,8 +152,14 @@ impl OraclePool {
                     &datapoint_contract_address,
                 )
                 .unwrap(),
-                register_pool_box_scan(&oracle_pool_nft, &config.reward_token_id).unwrap(),
-                register_refresh_box_scan(refresh_box_scan_name, &refresh_nft).unwrap(),
+                register_pool_box_scan(&oracle_pool_nft, &refresh_nft, &config.update_nft).unwrap(),
+                register_refresh_box_scan(
+                    refresh_box_scan_name,
+                    &refresh_nft,
+                    &oracle_pool_participant_token_id,
+                    &oracle_pool_nft,
+                )
+                .unwrap(),
             ];
 
             // Local datapoint box may not exist yet.
@@ -246,7 +251,7 @@ impl OraclePool {
         let latest_pool_datapoint = pool_box.rate();
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = pool_box.get_box().creation_height + RefreshContract::new().epoch_length();
+        let epoch_ends = pool_box.get_box().creation_height + ORACLE_CONFIG.epoch_length as u32;
 
         let epoch_state = LiveEpochState {
             epoch_id,

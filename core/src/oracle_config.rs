@@ -16,6 +16,7 @@ pub struct OracleConfig {
     pub node_api_key: String,
     pub oracle_pool_nft: TokenId,
     pub refresh_nft: TokenId,
+    pub update_nft: TokenId,
     pub reward_token_id: TokenId,
     pub epoch_length: BlockDuration,
     pub buffer_length: BlockDuration,
