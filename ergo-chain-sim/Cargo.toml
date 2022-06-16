@@ -1,0 +1,17 @@
+[package]
+name = "ergo-chain-sim"
+version = "0.1.0"
+license = "CC0-1.0"
+authors = ["Denys Zadorozhnyi <denys@zadorozhnyi.com>"]
+edition = "2021"
+description = "Simulator of the Ergo blockchain"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "3ada03f6a803a4541ae6d36c28a74efe87c2325b" }
+
+
+[dev-dependencies]
+pretty_assertions = "0.7.2"
