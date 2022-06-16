@@ -64,14 +64,16 @@ pub(crate) fn make_pool_box(
     datapoint: i64,
     epoch_counter: i32,
     pool_nft_token_id: TokenId,
+    reward_token: Token,
     value: BoxValue,
     creation_height: u32,
 ) -> PoolBoxWrapper {
-    let tokens = [Token::from((
-        pool_nft_token_id.clone(),
-        1u64.try_into().unwrap(),
-    ))]
-    .into();
+    let tokens = vec![
+        Token::from((pool_nft_token_id.clone(), 1u64.try_into().unwrap())),
+        reward_token,
+    ]
+    .try_into()
+    .unwrap();
     ErgoBox::new(
         value,
         PoolContract::new().ergo_tree(),
