@@ -4,7 +4,6 @@ use crate::box_kind::{
     RefreshBoxError, RefreshBoxWrapper,
 };
 use crate::contracts::oracle::OracleContract;
-use crate::contracts::pool::PoolContract;
 use crate::contracts::refresh::RefreshContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
@@ -136,13 +135,15 @@ impl OraclePool {
     pub fn new() -> std::result::Result<OraclePool, Error> {
         let config = &ORACLE_CONFIG;
         let local_oracle_address = config.oracle_address.clone();
-        let oracle_pool_nft = RefreshContract::new().pool_nft_token_id();
-        let refresh_nft = PoolContract::new().refresh_nft_token_id();
+        let oracle_pool_nft = config.oracle_pool_nft.clone();
+        let refresh_nft = config.refresh_nft.clone();
         let oracle_pool_participant_token_id = config.oracle_pool_participant_token_id.clone();
         let data_point_source = config.data_point_source()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
-        let datapoint_contract_address = OracleContract::new().ergo_tree();
+        let datapoint_contract_address = OracleContract::new()
+            .with_pool_nft_token_id(oracle_pool_nft.clone())
+            .ergo_tree();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
@@ -152,7 +153,7 @@ impl OraclePool {
                     &datapoint_contract_address,
                 )
                 .unwrap(),
-                register_pool_box_scan(&oracle_pool_nft).unwrap(),
+                register_pool_box_scan(&oracle_pool_nft, &config.reward_token_id).unwrap(),
                 register_refresh_box_scan(refresh_box_scan_name, &refresh_nft).unwrap(),
             ];
 

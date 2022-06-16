@@ -111,7 +111,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 }
 
 /// This function registers scanning for the pool box
-pub fn register_pool_box_scan(oracle_pool_nft: &TokenId) -> Result<Scan> {
+pub fn register_pool_box_scan(oracle_pool_nft: &TokenId, reward_token: &TokenId) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
     let pool_box_tree_bytes = PoolContract::new().ergo_tree().to_base16_bytes().unwrap();
 
@@ -122,6 +122,10 @@ pub fn register_pool_box_scan(oracle_pool_nft: &TokenId) -> Result<Scan> {
         {
             "predicate": "containsAsset",
             "assetId": oracle_pool_nft.clone(),
+        },
+        {
+            "predicate": "containsAsset",
+            "assetId": reward_token.clone(),
         },
         {
             "predicate": "equals",
