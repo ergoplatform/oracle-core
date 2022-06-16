@@ -1,6 +1,7 @@
 //! Datapoint sources for oracle-core
 mod ada_usd;
 mod erg_usd;
+mod erg_xau;
 use derive_more::From;
 use thiserror::Error;
 
@@ -35,6 +36,7 @@ pub struct ExternalScript(String);
 
 pub use ada_usd::NanoAdaUsd;
 pub use erg_usd::NanoErgUsd;
+pub use erg_xau::NanoErgXau;
 
 impl ExternalScript {
     pub fn new(script_name: String) -> Self {
