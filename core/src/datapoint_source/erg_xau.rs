@@ -1,4 +1,4 @@
-//! Obtains the nanoErg per 1 USD rate
+//! Obtains the nanoErg per 1 XAU (troy ounce of gold) rate
 
 use super::{DataPointSource, DataPointSourceError};
 
