@@ -74,6 +74,7 @@ pub fn build_publish_datapoint_action(
             oracle_token_id,
             reward_token_id,
             public_key,
+            pool_nft,
         } => build_publish_first_datapoint_action(
             wallet,
             height,
@@ -81,6 +82,7 @@ pub fn build_publish_datapoint_action(
             new_datapoint as u64,
             oracle_token_id,
             reward_token_id,
+            pool_nft,
             public_key,
         ),
     }
@@ -139,6 +141,7 @@ pub fn build_subsequent_publish_datapoint_action(
     Ok(PublishDataPointAction { tx })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_publish_first_datapoint_action(
     wallet: &dyn WalletDataSource,
     height: u32,
@@ -146,6 +149,7 @@ pub fn build_publish_first_datapoint_action(
     new_datapoint: u64,
     oracle_token_id: TokenId,
     reward_token_id: TokenId,
+    pool_nft: TokenId,
     public_key: ProveDlog,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -171,7 +175,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new(),
+        &OracleContract::new().with_pool_nft_token_id(pool_nft),
         public_key,
         new_datapoint,
         1,
@@ -353,6 +357,7 @@ mod tests {
         let height = ctx.pre_header.height;
 
         let reward_token_id = force_any_val::<TokenId>();
+        let pool_nft = force_any_val::<TokenId>();
         let oracle_token_id =
             TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap();
         let tokens = BoxTokens::from_vec(vec![
@@ -406,6 +411,7 @@ mod tests {
             100,
             oracle_token_id,
             reward_token_id,
+            pool_nft,
             secret.public_image(),
         )
         .unwrap();

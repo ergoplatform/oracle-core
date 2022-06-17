@@ -60,6 +60,8 @@ pub fn build_action(
             pool_box_source,
             refresh_box_source,
             datapoint_stage_src,
+            ORACLE_CONFIG.max_deviation_percent as u32,
+            ORACLE_CONFIG.min_data_points as u32,
             wallet,
             height,
             change_address,
@@ -83,6 +85,7 @@ pub fn build_action(
                     PublishDataPointCommandInputs::FirstDataPoint {
                         oracle_token_id: ORACLE_CONFIG.oracle_pool_participant_token_id.clone(),
                         reward_token_id: ORACLE_CONFIG.reward_token_id.clone(),
+                        pool_nft: ORACLE_CONFIG.oracle_pool_nft.clone(),
                         public_key,
                     }
                 } else {
@@ -111,6 +114,7 @@ pub enum PublishDataPointCommandInputs<'a> {
     FirstDataPoint {
         oracle_token_id: TokenId,
         reward_token_id: TokenId,
+        pool_nft: TokenId,
         public_key: ProveDlog,
     },
 }

@@ -7,7 +7,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
@@ -15,7 +14,6 @@ use thiserror::Error;
 
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
-use crate::contracts::refresh::RefreshContract;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
@@ -29,10 +27,6 @@ pub trait OracleBox {
 
 #[derive(Debug, Error)]
 pub enum OracleBoxError {
-    #[error("oracle box: incorrect oracle token id: {0:?}")]
-    IncorrectOracleTokenId(TokenId),
-    #[error("oracle box: incorrect reward token id: {0:?}")]
-    IncorrectRewardTokenId(TokenId),
     #[error("oracle box: no tokens found")]
     NoTokens,
     #[error("oracle box: no reward token found")]
@@ -53,8 +47,7 @@ pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
 impl OracleBoxWrapper {
     pub fn new(b: ErgoBox) -> Result<Self, OracleBoxError> {
-        let refresh_contract = RefreshContract::new();
-        let oracle_token_id = b
+        let _oracle_token_id = b
             .tokens
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
@@ -62,9 +55,6 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoTokens)?
             .token_id
             .clone();
-        if oracle_token_id != refresh_contract.oracle_token_id() {
-            return Err(OracleBoxError::IncorrectOracleTokenId(oracle_token_id));
-        }
         let _reward_token_id = b
             .tokens
             .as_ref()

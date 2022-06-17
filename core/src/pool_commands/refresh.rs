@@ -8,7 +8,6 @@ use crate::box_kind::PoolBox;
 use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
-use crate::contracts::refresh::RefreshContract;
 use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
@@ -51,10 +50,13 @@ pub enum RefrechActionError {
     ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_refresh_action(
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: &dyn DatapointBoxesSource,
+    max_deviation_percent: u32,
+    min_data_points: u32,
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
@@ -64,8 +66,7 @@ pub fn build_refresh_action(
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
     let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
-    let refresh_contract = RefreshContract::new();
-    let deviation_range = refresh_contract.max_deviation_percent();
+    let deviation_range = max_deviation_percent;
     in_oracle_boxes.sort_by_key(|b| b.rate());
     let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes(
         in_oracle_boxes.iter().map(|b| b.rate()).collect(),
@@ -75,10 +76,10 @@ pub fn build_refresh_action(
         .into_iter()
         .filter(|b| valid_in_oracle_boxes_datapoints.contains(&b.rate()))
         .collect::<Vec<_>>();
-    if (valid_in_oracle_boxes.len() as u32) < RefreshContract::new().min_data_points() {
+    if (valid_in_oracle_boxes.len() as u32) < min_data_points {
         return Err(RefrechActionError::FailedToReachConsensus {
             found: valid_in_oracle_boxes.len() as u32,
-            expected: RefreshContract::new().min_data_points(),
+            expected: min_data_points,
         });
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
@@ -281,6 +282,7 @@ mod tests {
     use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::RefreshBoxWrapper;
     use crate::contracts::pool::PoolContract;
+    use crate::contracts::refresh::RefreshContract;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
@@ -430,6 +432,8 @@ mod tests {
             &pool_box_mock,
             &refresh_box_mock,
             &datapoint_stage_mock,
+            5,
+            4,
             &wallet_mock,
             height,
             change_address,
