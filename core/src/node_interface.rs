@@ -1,6 +1,9 @@
-use crate::oracle_config::{get_node_api_key, get_node_ip, get_node_port};
+use crate::{
+    oracle_config::{get_node_api_key, get_node_ip, get_node_port},
+    wallet::WalletDataSource,
+};
 use ergo_lib::{
-    chain::transaction::{unsigned::UnsignedTransaction, Transaction},
+    chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
     ergotree_ir::chain::ergo_box::ErgoBox,
 };
 use ergo_node_interface::{
@@ -8,15 +11,51 @@ use ergo_node_interface::{
     BlockHeight,
 };
 
-pub trait SubmitTransaction {
-    fn submit_transaction(&self, tx: &Transaction) -> Result<String>;
-}
-
 pub type Result<T> = std::result::Result<T, NodeError>;
 pub type ScanID = String;
 pub type TxId = String;
 pub type P2PKAddressString = String;
 pub type P2SAddressString = String;
+
+pub trait SubmitTransaction {
+    fn submit_transaction(&self, tx: &Transaction) -> Result<String>;
+}
+
+pub trait SignTransaction {
+    fn sign_transaction_with_inputs(
+        &self,
+        unsigned_tx: &UnsignedTransaction,
+        inputs: TxIoVec<ErgoBox>,
+        data_boxes: Option<TxIoVec<ErgoBox>>,
+    ) -> Result<Transaction>;
+}
+
+// Note that we need the following trait implementations for `NodeInterface` because we can't rely
+// on any of the functions in the `crate::node_interface` module since they all implicitly rely on
+// the existence of an oracle-pool `yaml` config file.
+
+impl SubmitTransaction for NodeInterface {
+    fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<String> {
+        self.submit_transaction(tx)
+    }
+}
+
+impl SignTransaction for NodeInterface {
+    fn sign_transaction_with_inputs(
+        &self,
+        unsigned_tx: &ergo_lib::chain::transaction::unsigned::UnsignedTransaction,
+        _inputs: ergo_lib::chain::transaction::TxIoVec<ErgoBox>,
+        _data_boxes: Option<ergo_lib::chain::transaction::TxIoVec<ErgoBox>>,
+    ) -> Result<Transaction> {
+        self.sign_transaction(unsigned_tx)
+    }
+}
+
+impl WalletDataSource for NodeInterface {
+    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>> {
+        self.unspent_boxes()
+    }
+}
 
 pub fn new_node_interface() -> NodeInterface {
     NodeInterface::new(&get_node_api_key(), &get_node_ip(), &get_node_port())

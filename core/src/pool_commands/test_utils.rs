@@ -2,8 +2,10 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
+use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
+use ergo_lib::chain::transaction::TxIoVec;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -15,6 +17,8 @@ use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::mir::expr::Expr;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
+use ergo_lib::wallet::signing::TransactionContext;
+use ergo_lib::wallet::Wallet;
 use ergo_node_interface::node_interface::NodeError;
 use sigma_test_util::force_any_val;
 
@@ -22,6 +26,7 @@ use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::pool::PoolContract;
+use crate::node_interface::SignTransaction;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
 use super::*;
@@ -160,4 +165,28 @@ pub(crate) fn find_input_boxes(
         })
         .as_vec()
         .clone()
+}
+
+pub struct LocalTxSigner {
+    pub ctx: ErgoStateContext,
+    pub wallet: Wallet,
+}
+
+impl SignTransaction for LocalTxSigner {
+    fn sign_transaction_with_inputs(
+        &self,
+        unsigned_tx: &UnsignedTransaction,
+        inputs: TxIoVec<ErgoBox>,
+        data_boxes: Option<TxIoVec<ErgoBox>>,
+    ) -> Result<ergo_lib::chain::transaction::Transaction, NodeError> {
+        let tx = self
+            .wallet
+            .sign_transaction(
+                TransactionContext::new(unsigned_tx.clone(), inputs, data_boxes).unwrap(),
+                &self.ctx,
+                None,
+            )
+            .unwrap();
+        Ok(tx)
+    }
 }
