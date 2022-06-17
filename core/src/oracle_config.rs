@@ -1,5 +1,5 @@
 use crate::{
-    datapoint_source::{DataPointSource, ExternalScript, NanoAdaUsd, NanoErgUsd},
+    datapoint_source::{DataPointSource, ExternalScript, NanoAdaUsd, NanoErgUsd, NanoErgXau},
     BlockDuration,
 };
 use anyhow::anyhow;
@@ -52,8 +52,9 @@ impl OracleConfig {
         } else {
             match &*self.data_point_source {
                 "NanoErgUsd" => Box::new(NanoErgUsd),
+                "NanoErgXau" => Box::new(NanoErgXau),
                 "NanoAdaUsd" => Box::new(NanoAdaUsd),
-                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd' or 'NanoAdaUsd'")),
+                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
             }
         };
         Ok(data_point_source)

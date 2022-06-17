@@ -34,3 +34,14 @@ fn get_nanoada_usd_price() -> Result<i64, DataPointSourceError> {
         Err(DataPointSourceError::JsonMissingField)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ada_usd_price() {
+        let n = NanoAdaUsd {};
+        assert!(n.get_datapoint().unwrap() > 0);
+    }
+}
