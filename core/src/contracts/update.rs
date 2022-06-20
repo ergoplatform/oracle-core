@@ -18,8 +18,8 @@ pub enum UpdateContractError {
     NoPoolNftId,
     #[error("update contract: failed to get ballot token id from constants")]
     NoBallotTokenId,
-    #[error("update: failed to get minimum votes")]
-    NoMinVotes,
+    #[error("update: failed to get minimum votes (must be SInt)")]
+    MinVotesError,
 }
 
 impl UpdateContract {
@@ -58,12 +58,12 @@ impl UpdateContract {
         };
         if ergo_tree
             .get_constant(Self::MIN_VOTES_INDEX)
-            .map_err(|_| UpdateContractError::NoMinVotes)?
-            .ok_or(UpdateContractError::NoMinVotes)?
+            .map_err(|_| UpdateContractError::MinVotesError)?
+            .ok_or(UpdateContractError::MinVotesError)?
             .tpe
             != SType::SInt
         {
-            return Err(UpdateContractError::NoMinVotes);
+            return Err(UpdateContractError::MinVotesError);
         };
         Ok(Self { ergo_tree })
     }
@@ -76,11 +76,11 @@ impl UpdateContract {
             .unwrap();
         if let Literal::Int(votes) = vote_constant.v {
             votes
-        }
-        else {
+        } else {
             panic!(
                 "update: minimum votes is wrong type, expected SInt, found {:?}",
-                vote_constant.tpe);
+                vote_constant.tpe
+            );
         }
     }
     pub fn with_min_votes(self, min_votes: i32) -> Self {
