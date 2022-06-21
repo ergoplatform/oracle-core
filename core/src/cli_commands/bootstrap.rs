@@ -63,9 +63,9 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
     let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
-        wallet: &node,
-        tx_signer: &node,
-        submit_tx: &node,
+        wallet: &node as &dyn WalletDataSource,
+        tx_signer: &node as &dyn SignTransaction,
+        submit_tx: &node as &dyn SubmitTransaction,
         tx_fee: BoxValue::SAFE_USER_MIN,
         erg_value_per_box: BoxValue::SAFE_USER_MIN,
         change_address,
@@ -788,8 +788,11 @@ mod tests {
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
             },
-            tx_signer: &mut LocalTxSigner { ctx, wallet },
-            submit_tx: &SubmitTxMock {},
+            tx_signer: &mut LocalTxSigner {
+                ctx: &ctx,
+                wallet: &wallet,
+            },
+            submit_tx: &mut SubmitTxMock {},
             tx_fee: BoxValue::SAFE_USER_MIN,
             erg_value_per_box: BoxValue::SAFE_USER_MIN,
             change_address,

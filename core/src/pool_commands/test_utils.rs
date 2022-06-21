@@ -167,12 +167,12 @@ pub(crate) fn find_input_boxes(
         .clone()
 }
 
-pub struct LocalTxSigner {
-    pub ctx: ErgoStateContext,
-    pub wallet: Wallet,
+pub struct LocalTxSigner<'a> {
+    pub ctx: &'a ErgoStateContext,
+    pub wallet: &'a Wallet,
 }
 
-impl SignTransaction for LocalTxSigner {
+impl<'a> SignTransaction for LocalTxSigner<'a> {
     fn sign_transaction_with_inputs(
         &self,
         unsigned_tx: &UnsignedTransaction,
@@ -183,7 +183,7 @@ impl SignTransaction for LocalTxSigner {
             .wallet
             .sign_transaction(
                 TransactionContext::new(unsigned_tx.clone(), inputs, data_boxes).unwrap(),
-                &self.ctx,
+                self.ctx,
                 None,
             )
             .unwrap();

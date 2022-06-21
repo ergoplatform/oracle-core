@@ -14,7 +14,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(clippy::wildcard_enum_match_arm)]
 #![deny(clippy::expect_used)]
-#![deny(clippy::todo)]
+// #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
 #![deny(clippy::panic)]
 
