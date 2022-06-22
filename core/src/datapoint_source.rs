@@ -34,10 +34,6 @@ pub enum ExternalScriptError {
 #[derive(Debug, Clone)]
 pub struct ExternalScript(String);
 
-pub use ada_usd::NanoAdaUsd;
-pub use erg_usd::NanoErgUsd;
-pub use erg_xau::NanoErgXau;
-
 impl ExternalScript {
     pub fn new(script_name: String) -> Self {
         ExternalScript(script_name)
@@ -54,5 +50,27 @@ impl DataPointSource for ExternalScript {
         datapoint_str
             .parse()
             .map_err(|e| DataPointSourceError::from(ExternalScriptError::from(e)))
+    }
+}
+
+pub use ada_usd::NanoAdaUsd;
+pub use erg_usd::NanoErgUsd;
+pub use erg_xau::NanoErgXau;
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum DataSource {
+    NanoErgUsd,
+    NanoErgXau,
+    NanoAdaUsd,
+}
+
+impl DataPointSource for DataSource {
+    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+        match self {
+            DataSource::NanoAdaUsd => NanoAdaUsd.get_datapoint(),
+            DataSource::NanoErgUsd => NanoErgUsd.get_datapoint(),
+            DataSource::NanoErgXau => NanoErgXau.get_datapoint(),
+        }
     }
 }
