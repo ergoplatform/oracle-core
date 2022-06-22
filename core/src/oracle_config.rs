@@ -34,10 +34,7 @@ pub struct OracleConfig {
 
 impl OracleConfig {
     fn load() -> Result<Self, anyhow::Error> {
-        Self::load_from_str(
-            &std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)
-                .expect("Failed to open oracle-config.yaml"),
-        )
+        Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
