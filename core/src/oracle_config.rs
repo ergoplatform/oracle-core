@@ -1,5 +1,5 @@
 use crate::{
-    datapoint_source::{DataPointSource, DataSource, ExternalScript},
+    datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
     BlockDuration,
 };
 use anyhow::anyhow;
@@ -28,7 +28,7 @@ pub struct OracleConfig {
     pub core_api_port: u16,
     pub oracle_address: String,
     pub on_mainnet: bool,
-    pub data_point_source: Option<DataSource>,
+    pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
 }
 

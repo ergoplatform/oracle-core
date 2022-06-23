@@ -59,18 +59,18 @@ pub use erg_xau::NanoErgXau;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
 #[allow(clippy::enum_variant_names)]
-pub enum DataSource {
+pub enum PredefinedDataPointSource {
     NanoErgUsd,
     NanoErgXau,
     NanoAdaUsd,
 }
 
-impl DataPointSource for DataSource {
+impl DataPointSource for PredefinedDataPointSource {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
         match self {
-            DataSource::NanoAdaUsd => NanoAdaUsd.get_datapoint(),
-            DataSource::NanoErgUsd => NanoErgUsd.get_datapoint(),
-            DataSource::NanoErgXau => NanoErgXau.get_datapoint(),
+            PredefinedDataPointSource::NanoAdaUsd => NanoAdaUsd.get_datapoint(),
+            PredefinedDataPointSource::NanoErgUsd => NanoErgUsd.get_datapoint(),
+            PredefinedDataPointSource::NanoErgXau => NanoErgXau.get_datapoint(),
         }
     }
 }
