@@ -1,5 +1,5 @@
 use crate::{
-    datapoint_source::{DataPointSource, ExternalScript, NanoAdaUsd, NanoErgUsd, NanoErgXau},
+    datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
     BlockDuration,
 };
 use anyhow::anyhow;
@@ -28,7 +28,7 @@ pub struct OracleConfig {
     pub core_api_port: u16,
     pub oracle_address: String,
     pub on_mainnet: bool,
-    pub data_point_source: String,
+    pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
 }
 
@@ -47,10 +47,8 @@ impl OracleConfig {
         {
             Box::new(ExternalScript::new(external_script_name.clone()))
         } else {
-            match &*self.data_point_source {
-                "NanoErgUsd" => Box::new(NanoErgUsd),
-                "NanoErgXau" => Box::new(NanoErgXau),
-                "NanoAdaUsd" => Box::new(NanoAdaUsd),
+            match self.data_point_source {
+                Some(datasource) => Box::new(datasource),
                 _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
             }
         };
