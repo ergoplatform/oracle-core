@@ -267,6 +267,7 @@ mod tests {
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
+    use ergo_lib::ergo_chain_types::EcPoint;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
@@ -274,7 +275,6 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
     use ergo_lib::ergotree_ir::chain::token::TokenId;
-    use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
@@ -456,7 +456,7 @@ mod tests {
         let tx_context = TransactionContext::new(
             action.tx.clone(),
             find_input_boxes(action.tx, possible_input_boxes),
-            None,
+            Vec::new(),
         )
         .unwrap();
 

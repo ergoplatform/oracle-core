@@ -238,9 +238,12 @@ mod tests {
             .clone()];
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
-        let tx_context =
-            TransactionContext::new(tx.clone(), find_input_boxes(tx, possible_input_boxes), None)
-                .unwrap();
+        let tx_context = TransactionContext::new(
+            tx.clone(),
+            find_input_boxes(tx, possible_input_boxes),
+            Vec::new(),
+        )
+        .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }
