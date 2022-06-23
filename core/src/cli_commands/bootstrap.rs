@@ -730,7 +730,12 @@ mod tests {
             let tx = self
                 .wallet
                 .sign_transaction(
-                    TransactionContext::new(unsigned_tx.clone(), inputs, data_boxes).unwrap(),
+                    TransactionContext::new(
+                        unsigned_tx.clone(),
+                        inputs.as_vec().clone(),
+                        data_boxes.map_or(Vec::new(), |bv| bv.as_vec().clone()),
+                    )
+                    .unwrap(),
                     &self.ctx,
                     None,
                 )

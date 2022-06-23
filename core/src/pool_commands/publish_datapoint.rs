@@ -246,7 +246,7 @@ mod tests {
         OracleBoxMock, PoolBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
-    use ergo_lib::chain::transaction::{TxId, TxIoVec};
+    use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
@@ -344,7 +344,7 @@ mod tests {
         let tx_context = TransactionContext::new(
             action.tx.clone(),
             find_input_boxes(action.tx, possible_input_boxes),
-            None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -416,13 +416,8 @@ mod tests {
         )
         .unwrap();
 
-        let tx_context = TransactionContext::new(
-            action.tx.clone(),
-            //find_input_boxes(action.tx, unspent_boxes),
-            TxIoVec::from_vec(unspent_boxes).unwrap(),
-            None,
-        )
-        .unwrap();
+        let tx_context =
+            TransactionContext::new(action.tx.clone(), unspent_boxes, Vec::new()).unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }

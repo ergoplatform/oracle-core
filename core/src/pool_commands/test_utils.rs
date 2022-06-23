@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
-use ergo_lib::chain::transaction::TxIoVec;
+use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
@@ -14,7 +14,6 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::mir::expr::Expr;
-use ergo_lib::ergotree_ir::sigma_protocol::dlog_group::EcPoint;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_node_interface::node_interface::NodeError;
 use sigma_test_util::force_any_val;
@@ -150,12 +149,15 @@ pub(crate) fn make_wallet_unspent_box(pub_key: ProveDlog, value: BoxValue) -> Er
 pub(crate) fn find_input_boxes(
     tx: UnsignedTransaction,
     available_boxes: Vec<ErgoBox>,
-) -> TxIoVec<ErgoBox> {
-    tx.inputs.mapped(|i| {
-        available_boxes
-            .clone()
-            .into_iter()
-            .find(|b| b.box_id() == i.box_id)
-            .unwrap()
-    })
+) -> Vec<ErgoBox> {
+    tx.inputs
+        .mapped(|i| {
+            available_boxes
+                .clone()
+                .into_iter()
+                .find(|b| b.box_id() == i.box_id)
+                .unwrap()
+        })
+        .as_vec()
+        .clone()
 }
