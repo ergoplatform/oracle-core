@@ -39,21 +39,29 @@ impl ChainSim {
     }
 
     fn update_utxo(&mut self, tx: Transaction) {
-        let boxes_to_spend = tx
-            .inputs
-            .mapped(|i| self.get_unspent_box(&i.box_id).unwrap());
+        let boxes_to_spend = tx.inputs.mapped(|i| {
+            self.get_unspent_box(&i.box_id)
+                .ok_or(format!(
+                    "cannot find {:?} in unspent boxes: {:?}",
+                    &i.box_id, &self.unspent_boxes
+                ))
+                .unwrap()
+        });
         let _data_input_boxes = tx
             .data_inputs
             .map(|data_inputs| data_inputs.mapped(|i| self.get_box(&i.box_id)));
         // TODO: verify tx signatures
         // TODO: verify tx using all the checks from https://github.com/ergoplatform/ergo/blob/1935c95560a30b19cdb52c1a291e8a389ba63c97/src/main/scala/org/ergoplatform/modifiers/mempool/ErgoTransaction.scala#L80-L384
         //
+        dbg!("removing spent boxes from UTXO: {:?}", &boxes_to_spend);
         self.unspent_boxes = self
             .unspent_boxes
             .clone()
             .into_iter()
             .filter(|b| !boxes_to_spend.as_vec().contains(b))
             .collect();
+        dbg!("adding tx outputs to UTXO: {:?}", &tx.outputs);
+        self.unspent_boxes.append(tx.outputs.to_vec().as_mut());
         self.all_boxes.append(tx.outputs.to_vec().as_mut());
     }
 
@@ -70,7 +78,7 @@ impl ChainSim {
     /// Add a new block to the chain (head/latest)
     pub fn add_block(&mut self, block: Block) {
         block.txs.iter().for_each(|tx| {
-            dbg!(&tx);
+            // dbg!(&tx);
             self.update_utxo(tx.clone());
         });
         self.blocks.push(block);
