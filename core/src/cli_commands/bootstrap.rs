@@ -470,12 +470,12 @@ pub fn perform_bootstrap_chained_transaction(
     info!("Minting pool NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
     info!("Minting refresh NFT TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
+    info!("Minting ballot tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
     info!("Minting update NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
     info!("Minting oracle tokens TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
-    info!("Minting ballot tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
     info!("Minting reward tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_pool_box_tx)?;
