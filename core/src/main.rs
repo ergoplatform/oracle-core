@@ -72,6 +72,7 @@ pub type EpochID = u32;
 struct Args {
     #[clap(subcommand)]
     command: Command,
+    /// Increase the verbosity of the output to debug log level overriding the log level in the config file.
     #[clap(short, long)]
     verbose: bool,
 }
