@@ -9,7 +9,7 @@ use thiserror::Error;
 
 #[derive(Clone)]
 pub struct UpdateContract {
-    ergo_tree: ErgoTree,
+    pub ergo_tree: ErgoTree,
 }
 
 #[derive(Debug, Error)]

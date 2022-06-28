@@ -32,7 +32,7 @@ use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
-    contracts::{pool::PoolContract, refresh::RefreshContract},
+    contracts::{pool::PoolContract, refresh::RefreshContract, update::UpdateContract},
     node_interface::SubmitTransaction,
     wallet::{WalletDataSource, WalletSign},
 };
@@ -57,7 +57,6 @@ impl WalletSign for NodeInterface {
         self.sign_transaction(unsigned_tx)
     }
 }
-
 impl WalletDataSource for NodeInterface {
     fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
         self.unspent_boxes()
@@ -261,16 +260,39 @@ pub fn perform_bootstrap_chained_transaction(
         None,
     )?;
 
-    // Mint update NFT token -----------------------------------------------------------------------
-    info!("Minting update NFT tx");
+    // Mint ballot tokens --------------------------------------------------------------------------
+    info!("Minting ballot tokens tx");
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
+    let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
+        inputs,
+        &mut num_transactions_left,
+        config.tokens_to_mint.ballot_tokens.name.clone(),
+        config.tokens_to_mint.ballot_tokens.description.clone(),
+        config
+            .tokens_to_mint
+            .ballot_tokens
+            .quantity
+            .try_into()
+            .unwrap(),
+        None,
+    )?;
+
+    // Mint update NFT token -----------------------------------------------------------------------
+
+    let min_votes = config.refresh_contract_parameters.min_votes;
+    let update_contract = UpdateContract::new()
+        .with_min_votes(min_votes.try_into().unwrap())
+        .with_pool_nft_token_id(pool_nft_token.token_id.clone())
+        .with_ballot_token_id(ballot_token.token_id.clone());
+    info!("Minting update NFT tx");
+    let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
     let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
         config.tokens_to_mint.update_nft.name.clone(),
         config.tokens_to_mint.update_nft.description.clone(),
         1.try_into().unwrap(),
-        None,
+        Some(update_contract.ergo_tree),
     )?;
 
     // Mint oracle tokens --------------------------------------------------------------------------
@@ -289,23 +311,6 @@ pub fn perform_bootstrap_chained_transaction(
             .try_into()
             .unwrap(),
         Some(oracle_tokens_pk_ergo_tree),
-    )?;
-
-    // Mint ballot tokens --------------------------------------------------------------------------
-    info!("Minting ballot tokens tx");
-    let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
-    let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
-        inputs,
-        &mut num_transactions_left,
-        config.tokens_to_mint.ballot_tokens.name.clone(),
-        config.tokens_to_mint.ballot_tokens.description.clone(),
-        config
-            .tokens_to_mint
-            .ballot_tokens
-            .quantity
-            .try_into()
-            .unwrap(),
-        None,
     )?;
 
     // Mint reward tokens --------------------------------------------------------------------------
