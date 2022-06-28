@@ -278,7 +278,6 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Mint update NFT token -----------------------------------------------------------------------
-
     let min_votes = config.refresh_contract_parameters.min_votes;
     let update_contract = UpdateContract::new()
         .with_min_votes(min_votes.try_into().unwrap())
@@ -849,18 +848,17 @@ mod tests {
         })
         .unwrap();
 
-        // 3rd transaction submitted in bootstrap is minting the update NFT
-        let update_nft_tx = &submit_tx.transactions.borrow()[3];
         // Find output box guarding the Update NFT
-        let update_nft_box = update_nft_tx
-            .outputs
+        let txs = submit_tx.transactions.borrow();
+        let update_nft_box = txs
             .iter()
+            .flat_map(|tx| tx.outputs.iter())
             .find(|output| {
                 output
                     .tokens
                     .clone()
-                    .unwrap()
-                    .iter()
+                    .into_iter()
+                    .flatten()
                     .any(|token| token.token_id == oracle_config.update_nft)
             })
             .unwrap();
@@ -869,7 +867,7 @@ mod tests {
             update_nft_box.ergo_tree.clone(),
         )
         .unwrap();
-        assert!(update_contract.min_votes() as u32 == state.refresh_contract_parameters.min_votes); //&& update_contract.pool_nft_token_id()
+        assert!(update_contract.min_votes() as u32 == state.refresh_contract_parameters.min_votes);
         assert!(update_contract.pool_nft_token_id() == oracle_config.pool_nft);
         assert!(update_contract.ballot_token_id() == oracle_config.ballot_token);
         let s = serde_yaml::to_string(&oracle_config).unwrap();
