@@ -583,6 +583,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
 /// An instance of this struct is created from an operator-provided YAML file. Note that we don't
 /// derive `Deserialize` here since we need to verify the address types against the `is_mainnet`
 /// field.
+#[derive(Clone)]
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
     pub tokens_to_mint: TokensToMint,
@@ -592,13 +593,13 @@ pub struct BootstrapConfig {
     pub is_mainnet: bool,
     pub addresses: Addresses,
 }
-
+#[derive(Clone)]
 pub struct Addresses {
     pub address_for_oracle_tokens: Address,
     pub wallet_address_for_chain_transaction: Address,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct TokensToMint {
     pub pool_nft: NftMintDetails,
     pub refresh_nft: NftMintDetails,
@@ -608,7 +609,7 @@ pub struct TokensToMint {
     pub reward_tokens: TokenMintDetails,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct RefreshContractParameters {
     pub epoch_length: u32,
     pub buffer: u32,
@@ -619,14 +620,14 @@ pub struct RefreshContractParameters {
     pub min_votes: u32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct TokenMintDetails {
     pub name: String,
     pub description: String,
     pub quantity: u64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct NftMintDetails {
     pub name: String,
     pub description: String,
@@ -706,14 +707,18 @@ mod tests {
 
     use super::*;
     use crate::pool_commands::test_utils::WalletDataMock;
-
-    struct SubmitTxMock {}
+    use std::cell::RefCell;
+    #[derive(Default)]
+    struct SubmitTxMock {
+        transactions: RefCell<Vec<ergo_lib::chain::transaction::Transaction>>,
+    }
 
     impl SubmitTransaction for SubmitTxMock {
         fn submit_transaction(
             &self,
-            _: &ergo_lib::chain::transaction::Transaction,
+            tx: &ergo_lib::chain::transaction::Transaction,
         ) -> crate::node_interface::Result<String> {
+            self.transactions.borrow_mut().push(tx.clone());
             // Return empty string as TxId
             Ok("".into())
         }
@@ -825,8 +830,9 @@ mod tests {
         };
 
         let height = ctx.pre_header.height;
+        let submit_tx = SubmitTxMock::default();
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
-            config: state,
+            config: state.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
             },
@@ -835,7 +841,7 @@ mod tests {
                 wallet,
                 guard: ergo_tree,
             },
-            submit_tx: &SubmitTxMock {},
+            submit_tx: &submit_tx,
             tx_fee: BoxValue::SAFE_USER_MIN,
             erg_value_per_box: BoxValue::SAFE_USER_MIN,
             change_address,
@@ -843,6 +849,29 @@ mod tests {
         })
         .unwrap();
 
+        // 3rd transaction submitted in bootstrap is minting the update NFT
+        let update_nft_tx = &submit_tx.transactions.borrow()[3];
+        // Find output box guarding the Update NFT
+        let update_nft_box = update_nft_tx
+            .outputs
+            .iter()
+            .find(|output| {
+                output
+                    .tokens
+                    .clone()
+                    .unwrap()
+                    .iter()
+                    .any(|token| token.token_id == oracle_config.update_nft)
+            })
+            .unwrap();
+        // Check that Update NFT is guarded by UpdateContract, and parameters are correct
+        let update_contract = crate::contracts::update::UpdateContract::from_ergo_tree(
+            update_nft_box.ergo_tree.clone(),
+        )
+        .unwrap();
+        assert!(update_contract.min_votes() as u32 == state.refresh_contract_parameters.min_votes); //&& update_contract.pool_nft_token_id()
+        assert!(update_contract.pool_nft_token_id() == oracle_config.pool_nft);
+        assert!(update_contract.ballot_token_id() == oracle_config.ballot_token);
         let s = serde_yaml::to_string(&oracle_config).unwrap();
         println!("{}", s);
 
