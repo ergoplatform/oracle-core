@@ -94,6 +94,10 @@ impl BallotContract {
             .unwrap();
         Self { ergo_tree: tree }
     }
+
+    pub fn ergo_tree(&self) -> ErgoTree {
+        self.ergo_tree.clone()
+    }
 }
 
 #[cfg(test)]

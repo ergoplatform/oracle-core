@@ -1,14 +1,15 @@
 // This files relates to the state of the oracle/oracle pool.
 use crate::box_kind::{
-    OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox, PoolBoxError, PoolBoxWrapper,
-    RefreshBoxError, RefreshBoxWrapper,
+    BallotBoxError, BallotBoxWrapper, OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox,
+    PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
 };
+use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
-    register_datapoint_scan, register_local_oracle_datapoint_scan, register_pool_box_scan,
-    register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
+    register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
+    register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg};
@@ -33,6 +34,8 @@ pub enum StageError {
     ScanError(ScanError),
     #[error("pool box error: {0}")]
     PoolBoxError(PoolBoxError),
+    #[error("ballot box error: {0}")]
+    BallotBoxError(BallotBoxError),
     #[error("refresh box error: {0}")]
     RefreshBoxError(RefreshBoxError),
     #[error("oracle box error: {0}")]
@@ -64,6 +67,10 @@ pub trait PoolBoxSource {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper>;
 }
 
+pub trait BallotBoxSource {
+    fn get_ballot_box(&self) -> Result<BallotBoxWrapper>;
+}
+
 pub trait RefreshBoxSource {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper>;
 }
@@ -91,6 +98,8 @@ pub struct OraclePool {
     pub datapoint_stage: Stage,
     // Local Oracle Datapoint Scan
     pub local_oracle_datapoint_scan: Option<Scan>,
+    // Local ballot box Scan
+    pub local_ballot_box_scan: Option<Scan>,
     pool_box_scan: Scan,
     refresh_box_scan: Scan,
 }
@@ -171,6 +180,19 @@ impl OraclePool {
                 scans.push(local_scan);
             }
 
+            let ballot_contract_address = BallotContract::new()
+                .with_min_storage_rent(config.ballot_box_min_storage_rent)
+                .with_update_nft_token_id(config.update_nft.clone())
+                .ergo_tree();
+            // Local ballot box may not exist yet.
+            if let Ok(local_scan) = register_local_ballot_box_scan(
+                &ballot_contract_address,
+                &config.ballot_token_id,
+                &config.ballot_token_owner_address,
+            ) {
+                scans.push(local_scan);
+            }
+
             let res = save_scan_ids_locally(scans);
             if res.is_ok() {
                 // Congrats scans registered screen here
@@ -202,10 +224,19 @@ impl OraclePool {
         let mut local_oracle_datapoint_scan = None;
         if scan_json.has_key(local_scan_str) {
             local_oracle_datapoint_scan = Some(Scan::new(
-                "Local Oracle Datapoint Scan",
+                local_scan_str,
                 &scan_json[local_scan_str].to_string(),
             ));
         };
+
+        let local_scan_str = "Local Ballot Box Scan";
+        let mut local_ballot_box_scan = None;
+        if scan_json.has_key(local_scan_str) {
+            local_ballot_box_scan = Some(Scan::new(
+                local_scan_str,
+                &scan_json[local_scan_str].to_string(),
+            ));
+        }
 
         let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
 
@@ -222,6 +253,7 @@ impl OraclePool {
                 scan: datapoint_scan,
             },
             local_oracle_datapoint_scan,
+            local_ballot_box_scan,
             pool_box_scan,
             refresh_box_scan,
         })
@@ -342,6 +374,12 @@ impl OraclePool {
 
 impl PoolBoxSource for Scan {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
+        Ok(self.get_box()?.try_into()?)
+    }
+}
+
+impl BallotBoxSource for Scan {
+    fn get_ballot_box(&self) -> Result<BallotBoxWrapper> {
         Ok(self.get_box()?.try_into()?)
     }
 }
