@@ -116,10 +116,14 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
 #[test]
 fn test_bootstrap_and_run() {
     let mut chain = ChainSim::new();
-    chain.generate_unspent_box(100_000_000_u64.try_into().unwrap(), vec![]);
     let secret = force_any_val::<DlogProverInput>();
     let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
     let address = Address::P2Pk(secret.public_image());
+    chain.generate_unspent_box(
+        address.script().unwrap(),
+        100_000_000_u64.try_into().unwrap(),
+        None,
+    );
     let _oracle_config = bootstrap(&wallet, &address, &mut chain);
     assert_eq!(chain.height, 5);
 }

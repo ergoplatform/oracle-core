@@ -1,8 +1,10 @@
 use ergo_lib::chain::transaction::Transaction;
+use ergo_lib::chain::transaction::TxId;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxId;
+use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 
 use crate::Block;
@@ -68,6 +70,7 @@ impl ChainSim {
     /// Add a new block to the chain (head/latest)
     pub fn add_block(&mut self, block: Block) {
         block.txs.iter().for_each(|tx| {
+            dbg!(&tx);
             self.update_utxo(tx.clone());
         });
         self.blocks.push(block);
@@ -75,8 +78,24 @@ impl ChainSim {
     }
 
     /// Generates an unspent box guarded by a given ErgoTree holding a given assests
-    pub fn generate_unspent_box(&mut self, value: BoxValue, tokens: Vec<Token>) {
-        todo!()
+    pub fn generate_unspent_box(
+        &mut self,
+        ergo_tree: ErgoTree,
+        value: BoxValue,
+        tokens: Option<BoxTokens>,
+    ) {
+        let b = ErgoBox::new(
+            value,
+            ergo_tree,
+            tokens,
+            NonMandatoryRegisters::empty(),
+            0,
+            TxId::zero(),
+            0,
+        )
+        .unwrap();
+        self.unspent_boxes.push(b.clone());
+        self.all_boxes.push(b);
     }
 
     /// Returns unspent boxes guarder by the given ErgoTree
