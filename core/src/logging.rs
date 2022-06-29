@@ -32,7 +32,7 @@ fn get_level_filter() -> LevelFilter {
     // }
 }
 
-pub fn setup_log() {
+pub fn setup_log(override_log_level: Option<LevelFilter>) {
     let stdout = ConsoleAppender::builder().build();
 
     // via https://stackoverflow.com/questions/56345288/how-do-i-use-log4rs-rollingfileappender-to-incorporate-rolling-logging#
@@ -46,6 +46,8 @@ pub fn setup_log() {
 
     let compound_policy =
         CompoundPolicy::new(Box::new(size_trigger), Box::new(fixed_window_roller));
+
+    let log_level = override_log_level.unwrap_or_else(get_level_filter);
 
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
@@ -63,7 +65,7 @@ pub fn setup_log() {
             Root::builder()
                 .appender("stdout")
                 .appender("logfile")
-                .build(get_level_filter()),
+                .build(log_level),
         )
         .unwrap();
 
