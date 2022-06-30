@@ -1,5 +1,5 @@
 use crate::{
-    datapoint_source::{DataPointSource, ExternalScript, NanoAdaUsd, NanoErgUsd},
+    datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
     BlockDuration,
 };
 use anyhow::anyhow;
@@ -16,6 +16,7 @@ pub struct OracleConfig {
     pub node_api_key: String,
     pub oracle_pool_nft: TokenId,
     pub refresh_nft: TokenId,
+    pub update_nft: TokenId,
     pub reward_token_id: TokenId,
     pub epoch_length: BlockDuration,
     pub buffer_length: BlockDuration,
@@ -27,16 +28,13 @@ pub struct OracleConfig {
     pub core_api_port: u16,
     pub oracle_address: String,
     pub on_mainnet: bool,
-    pub data_point_source: String,
+    pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
 }
 
 impl OracleConfig {
     fn load() -> Result<Self, anyhow::Error> {
-        Self::load_from_str(
-            &std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)
-                .expect("Failed to open oracle-config.yaml"),
-        )
+        Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
@@ -49,10 +47,9 @@ impl OracleConfig {
         {
             Box::new(ExternalScript::new(external_script_name.clone()))
         } else {
-            match &*self.data_point_source {
-                "NanoErgUsd" => Box::new(NanoErgUsd),
-                "NanoAdaUsd" => Box::new(NanoAdaUsd),
-                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd' or 'NanoAdaUsd'")),
+            match self.data_point_source {
+                Some(datasource) => Box::new(datasource),
+                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
             }
         };
         Ok(data_point_source)

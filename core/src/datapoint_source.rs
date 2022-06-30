@@ -1,6 +1,7 @@
 //! Datapoint sources for oracle-core
 mod ada_usd;
 mod erg_usd;
+mod erg_xau;
 use derive_more::From;
 use thiserror::Error;
 
@@ -33,9 +34,6 @@ pub enum ExternalScriptError {
 #[derive(Debug, Clone)]
 pub struct ExternalScript(String);
 
-pub use ada_usd::NanoAdaUsd;
-pub use erg_usd::NanoErgUsd;
-
 impl ExternalScript {
     pub fn new(script_name: String) -> Self {
         ExternalScript(script_name)
@@ -52,5 +50,27 @@ impl DataPointSource for ExternalScript {
         datapoint_str
             .parse()
             .map_err(|e| DataPointSourceError::from(ExternalScriptError::from(e)))
+    }
+}
+
+pub use ada_usd::NanoAdaUsd;
+pub use erg_usd::NanoErgUsd;
+pub use erg_xau::NanoErgXau;
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum PredefinedDataPointSource {
+    NanoErgUsd,
+    NanoErgXau,
+    NanoAdaUsd,
+}
+
+impl DataPointSource for PredefinedDataPointSource {
+    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+        match self {
+            PredefinedDataPointSource::NanoAdaUsd => NanoAdaUsd.get_datapoint(),
+            PredefinedDataPointSource::NanoErgUsd => NanoErgUsd.get_datapoint(),
+            PredefinedDataPointSource::NanoErgXau => NanoErgXau.get_datapoint(),
+        }
     }
 }

@@ -30,3 +30,14 @@ fn get_nanoerg_usd_price() -> Result<i64, DataPointSourceError> {
         Err(DataPointSourceError::JsonMissingField)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_erg_usd_price() {
+        let n = NanoErgUsd {};
+        assert!(n.get_datapoint().unwrap() > 0);
+    }
+}
