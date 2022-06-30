@@ -190,3 +190,8 @@ impl<'a> SignTransaction for LocalTxSigner<'a> {
         Ok(tx)
     }
 }
+
+pub fn init_log_tests() {
+    // set log level via RUST_LOG=info env var
+    let _ = env_logger::builder().is_test(true).try_init().unwrap();
+}

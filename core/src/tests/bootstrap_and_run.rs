@@ -22,6 +22,7 @@ use crate::cli_commands::bootstrap::TokenMintDetails;
 use crate::cli_commands::bootstrap::TokensToMint;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
+use crate::pool_commands::test_utils::init_log_tests;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
 
@@ -34,7 +35,7 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
         self.chain
             .borrow_mut()
             .add_block(Block::new(vec![tx.clone()]));
-        Ok("".to_string())
+        Ok(tx.id().into())
     }
 }
 
@@ -115,6 +116,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
 
 #[test]
 fn test_bootstrap_and_run() {
+    init_log_tests();
     let mut chain = ChainSim::new();
     let secret = force_any_val::<DlogProverInput>();
     let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -125,5 +127,5 @@ fn test_bootstrap_and_run() {
         None,
     );
     let _oracle_config = bootstrap(&wallet, &address, &mut chain);
-    assert_eq!(chain.height, 5);
+    assert_eq!(chain.height, 8);
 }

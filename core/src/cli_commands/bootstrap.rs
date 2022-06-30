@@ -424,7 +424,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let target_balance = calc_target_balance(num_transactions_left)?;
     let box_selector = SimpleBoxSelector::new();
-    let mut inputs = filter_tx_outputs(signed_mint_reward_tokens_tx.outputs.clone());
+    let mut inputs = filter_tx_outputs(signed_pool_box_tx.outputs.clone());
 
     // Need to find the box containing the refresh NFT, and transfer this token to the refresh box.
     let box_with_refresh_nft = signed_mint_refresh_nft_tx
