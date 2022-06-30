@@ -67,7 +67,13 @@ pub type BlockDuration = u64;
 /// The epoch counter
 pub type EpochID = u32;
 
-const ORACLE_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " ", env!("GIT_COMMIT_INFO"));
+const ORACLE_VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    " ",
+    env!("GIT_COMMIT_HASH"),
+    " ",
+    env!("GIT_COMMIT_DATE")
+);
 
 #[derive(Debug, Parser)]
 #[clap(author, version = ORACLE_VERSION, about, long_about = None)]
