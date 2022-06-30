@@ -288,7 +288,10 @@ pub fn perform_bootstrap_chained_transaction(
             .unwrap(),
         None,
     )?;
-    debug!("signed_mint_ballot_tokens_tx: {:?}", signed_mint_ballot_tokens_tx);
+    debug!(
+        "signed_mint_ballot_tokens_tx: {:?}",
+        signed_mint_ballot_tokens_tx
+    );
 
     // Mint update NFT token -----------------------------------------------------------------------
     let min_votes = config.refresh_contract_parameters.min_votes;
