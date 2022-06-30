@@ -25,7 +25,7 @@ use ergo_lib::{
     },
 };
 use ergo_node_interface::{node_interface::NodeError, NodeInterface};
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
@@ -84,6 +84,7 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
         .wallet_status()?
         .change_address
         .ok_or(BootstrapError::NoChangeAddressSetInNode)?;
+    debug!("Change address: {}", change_address_str);
 
     let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
@@ -227,6 +228,7 @@ pub fn perform_bootstrap_chained_transaction(
             BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
+        debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
         let signed_tx = wallet_sign.sign_transaction_with_inputs(&mint_token_tx, inputs, None)?;
         *num_transactions_left -= 1;
         Ok((token, signed_tx))
@@ -235,9 +237,12 @@ pub fn perform_bootstrap_chained_transaction(
     // Mint pool NFT token --------------------------------------------------------------------------
     info!("Minting pool NFT tx");
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    debug!("unspent boxes: {:?}", unspent_boxes);
     let target_balance = calc_target_balance(num_transactions_left)?;
+    debug!("target_balance: {:?}", target_balance);
     let box_selector = SimpleBoxSelector::new();
     let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
+    debug!("box selection: {:?}", box_selection);
 
     let (pool_nft_token, signed_mint_pool_nft_tx) = mint_token(
         box_selection.boxes.as_vec().clone(),
@@ -247,10 +252,12 @@ pub fn perform_bootstrap_chained_transaction(
         1.try_into().unwrap(),
         None,
     )?;
+    debug!("signed_mint_pool_nft_tx: {:?}", signed_mint_pool_nft_tx);
 
     // Mint refresh NFT token ----------------------------------------------------------------------
     info!("Minting refresh NFT tx");
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
+    debug!("inputs for refresh NFT mint: {:?}", inputs);
     let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -259,10 +266,15 @@ pub fn perform_bootstrap_chained_transaction(
         1.try_into().unwrap(),
         None,
     )?;
+    debug!(
+        "signed_mint_refresh_nft_tx: {:?}",
+        signed_mint_refresh_nft_tx
+    );
 
     // Mint ballot tokens --------------------------------------------------------------------------
     info!("Minting ballot tokens tx");
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
+    debug!("inputs for ballot tokens mint: {:?}", inputs);
     let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -276,6 +288,7 @@ pub fn perform_bootstrap_chained_transaction(
             .unwrap(),
         None,
     )?;
+    debug!("signed_mint_ballot_tokens_tx: {:?}", signed_mint_ballot_tokens_tx);
 
     // Mint update NFT token -----------------------------------------------------------------------
     let min_votes = config.refresh_contract_parameters.min_votes;
@@ -285,6 +298,7 @@ pub fn perform_bootstrap_chained_transaction(
         .with_ballot_token_id(ballot_token.token_id.clone());
     info!("Minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
+    debug!("inputs for update NFT mint: {:?}", inputs);
     let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -293,10 +307,12 @@ pub fn perform_bootstrap_chained_transaction(
         1.try_into().unwrap(),
         Some(update_contract.ergo_tree),
     )?;
+    debug!("signed_mint_update_nft_tx: {:?}", signed_mint_update_nft_tx);
 
     // Mint oracle tokens --------------------------------------------------------------------------
     info!("Minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
+    debug!("inputs for oracle tokens mint: {:?}", inputs);
     let oracle_tokens_pk_ergo_tree = config.addresses.address_for_oracle_tokens.script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
@@ -311,10 +327,15 @@ pub fn perform_bootstrap_chained_transaction(
             .unwrap(),
         Some(oracle_tokens_pk_ergo_tree),
     )?;
+    debug!(
+        "signed_mint_oracle_tokens_tx: {:?}",
+        signed_mint_oracle_tokens_tx
+    );
 
     // Mint reward tokens --------------------------------------------------------------------------
     info!("Minting reward tokens tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
+    debug!("inputs for reward tokens mint: {:?}", inputs);
     let (reward_token, signed_mint_reward_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -397,6 +418,7 @@ pub fn perform_bootstrap_chained_transaction(
         BoxValue::MIN,
     );
     let pool_box_tx = tx_builder.build()?;
+    debug!("unsigned pool_box_tx: {:?}", pool_box_tx);
     let signed_pool_box_tx =
         wallet_sign.sign_transaction_with_inputs(&pool_box_tx, inputs, None)?;
     num_transactions_left -= 1;
@@ -461,6 +483,7 @@ pub fn perform_bootstrap_chained_transaction(
         BoxValue::MIN,
     );
     let refresh_box_tx = tx_builder.build()?;
+    debug!("unsigned refresh_box_tx: {:?}", refresh_box_tx);
     let signed_refresh_box_tx =
         wallet_sign.sign_transaction_with_inputs(&refresh_box_tx, inputs, None)?;
 

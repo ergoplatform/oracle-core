@@ -39,7 +39,9 @@ use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+use log::debug;
 use log::error;
+use log::LevelFilter;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use oracle_state::OraclePool;
@@ -65,23 +67,17 @@ pub type BlockDuration = u64;
 /// The epoch counter
 pub type EpochID = u32;
 
-static ORACLE_CORE_ASCII: &str = r#"
-   ____                 _         _____
-  / __ \               | |       / ____|
- | |  | |_ __ __ _  ___| | ___  | |     ___  _ __ ___
- | |  | | '__/ _` |/ __| |/ _ \ | |    / _ \| '__/ _ \
- | |__| | | | (_| | (__| |  __/ | |___| (_) | | |  __/
-  \____/|_|  \__,_|\___|_|\___|  \_____\___/|_|  \___|
-"#;
-
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(subcommand)]
     command: Command,
+    /// Increase the verbosity of the output to debug log level overriding the log level in the config file.
+    #[clap(short, long)]
+    verbose: bool,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum Command {
     Bootstrap {
         yaml_config_name: String,
@@ -100,10 +96,16 @@ enum Command {
 }
 
 fn main() {
-    println!("{}", ORACLE_CORE_ASCII);
-    logging::setup_log();
-
     let args = Args::parse();
+
+    let cmdline_log_level = if args.verbose {
+        Some(LevelFilter::Debug)
+    } else {
+        None
+    };
+    logging::setup_log(cmdline_log_level);
+
+    debug!("Args: {:?}", args);
 
     match args.command {
         Command::Bootstrap { yaml_config_name } => {
