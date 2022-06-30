@@ -44,10 +44,14 @@ impl SignTransaction for NodeInterface {
     fn sign_transaction_with_inputs(
         &self,
         unsigned_tx: &ergo_lib::chain::transaction::unsigned::UnsignedTransaction,
-        _inputs: ergo_lib::chain::transaction::TxIoVec<ErgoBox>,
-        _data_boxes: Option<ergo_lib::chain::transaction::TxIoVec<ErgoBox>>,
+        inputs: ergo_lib::chain::transaction::TxIoVec<ErgoBox>,
+        data_boxes: Option<ergo_lib::chain::transaction::TxIoVec<ErgoBox>>,
     ) -> Result<Transaction> {
-        self.sign_transaction(unsigned_tx)
+        self.sign_transaction(
+            unsigned_tx,
+            Some(inputs.as_vec().clone()),
+            data_boxes.map(|bs| bs.as_vec().clone()),
+        )
     }
 }
 
@@ -167,10 +171,10 @@ pub fn get_wallet_status() -> Result<WalletStatus> {
     new_node_interface().wallet_status()
 }
 
-/// Sign an `UnsignedTransaction`.
-pub fn sign_transaction(unsigned_tx: &UnsignedTransaction) -> Result<Transaction> {
-    new_node_interface().sign_transaction(unsigned_tx)
-}
+// /// Sign an `UnsignedTransaction`.
+// pub fn sign_transaction(unsigned_tx: &UnsignedTransaction) -> Result<Transaction> {
+//     new_node_interface().sign_transaction(unsigned_tx)
+// }
 
 /// Submit a `Transaction` to the mempool.
 pub fn submit_transaction(signed_tx: &Transaction) -> Result<TxId> {

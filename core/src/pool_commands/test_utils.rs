@@ -182,7 +182,12 @@ impl<'a> SignTransaction for LocalTxSigner<'a> {
         let tx = self
             .wallet
             .sign_transaction(
-                TransactionContext::new(unsigned_tx.clone(), inputs, data_boxes).unwrap(),
+                TransactionContext::new(
+                    unsigned_tx.clone(),
+                    inputs.as_vec().clone(),
+                    data_boxes.map(|bs| bs.as_vec().clone()).unwrap_or_default(),
+                )
+                .unwrap(),
                 self.ctx,
                 None,
             )
