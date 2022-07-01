@@ -30,6 +30,8 @@ mod pool_commands;
 mod scans;
 mod state;
 mod templates;
+#[cfg(test)]
+mod tests;
 mod wallet;
 
 use actions::execute_action;
@@ -56,8 +58,6 @@ use wallet::WalletData;
 pub type P2PKAddress = String;
 /// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2SAddress = String;
-/// Transaction ID
-pub type TxId = String;
 /// The smallest unit of the Erg currency.
 pub type NanoErg = u64;
 /// A block height of the chain.

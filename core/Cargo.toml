@@ -26,7 +26,7 @@ log4rs = "1.1.1"
 crossbeam = "0.7.3"
 ergo-lib = { version = "0.17.0" }
 # ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "3ada03f6a803a4541ae6d36c28a74efe87c2325b" }
-ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "a260923c4b14b2b08a330e0391f6b7f34eb57242" }
+ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "2263442a2722bebedfd2fdb3e230614efbb1c7f9" }
 derive_more = "0.99"
 # bounded-vec = { version = "^0.5.0" }
 clap = {version = "=3.1.18", features = ["derive"]}
@@ -39,4 +39,6 @@ lazy_static = "1.4.0"
 ergo-lib = { version = "0.17.0", features = ["arbitrary"]}
 proptest = {version = "1.0.0"}
 proptest-derive = {version = "0.3.0"}
-sigma-test-util = {version = "^0.3.0"}
+sigma-test-util = {version = "0.3.0"}
+ergo-chain-sim = {version = "0.1.0", path="../ergo-chain-sim"}
+env_logger = {version = "0.9.0"}
