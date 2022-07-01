@@ -33,35 +33,9 @@ use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{pool::PoolContract, refresh::RefreshContract, update::UpdateContract},
-    node_interface::SubmitTransaction,
-    wallet::{WalletDataSource, WalletSign},
+    node_interface::{SignTransaction, SubmitTransaction},
+    wallet::WalletDataSource,
 };
-
-// Note that we need the following trait implementations for `NodeInterface` because we can't rely
-// on any of the functions in the `crate::node_interface` module since they all implicitly rely on
-// the existence of an oracle-pool `yaml` config file.
-
-impl SubmitTransaction for NodeInterface {
-    fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<String> {
-        self.submit_transaction(tx)
-    }
-}
-
-impl WalletSign for NodeInterface {
-    fn sign_transaction_with_inputs(
-        &self,
-        unsigned_tx: &ergo_lib::chain::transaction::unsigned::UnsignedTransaction,
-        _inputs: ergo_lib::chain::transaction::TxIoVec<ErgoBox>,
-        _data_boxes: Option<ergo_lib::chain::transaction::TxIoVec<ErgoBox>>,
-    ) -> Result<Transaction, NodeError> {
-        self.sign_transaction(unsigned_tx)
-    }
-}
-impl WalletDataSource for NodeInterface {
-    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
-        self.unspent_boxes()
-    }
-}
 
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
@@ -89,9 +63,9 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
     let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
-        wallet: &node,
-        wallet_sign: &node,
-        submit_tx: &node,
+        wallet: &node as &dyn WalletDataSource,
+        tx_signer: &node as &dyn SignTransaction,
+        submit_tx: &node as &dyn SubmitTransaction,
         tx_fee: BoxValue::SAFE_USER_MIN,
         erg_value_per_box: BoxValue::SAFE_USER_MIN,
         change_address,
@@ -108,7 +82,7 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
 pub struct BootstrapInput<'a> {
     pub config: BootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
-    pub wallet_sign: &'a dyn WalletSign,
+    pub tx_signer: &'a dyn SignTransaction,
     pub submit_tx: &'a dyn SubmitTransaction,
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
@@ -119,13 +93,13 @@ pub struct BootstrapInput<'a> {
 /// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
 /// mint the oracle-pool tokens then create the pool and refresh boxes as described in EIP-23:
 /// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
-pub fn perform_bootstrap_chained_transaction(
+pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
 ) -> Result<OracleConfigFields, BootstrapError> {
     let BootstrapInput {
         config,
         wallet,
-        wallet_sign,
+        tx_signer: wallet_sign,
         submit_tx,
         tx_fee,
         erg_value_per_box,
@@ -455,7 +429,7 @@ pub fn perform_bootstrap_chained_transaction(
 
     let target_balance = calc_target_balance(num_transactions_left)?;
     let box_selector = SimpleBoxSelector::new();
-    let mut inputs = filter_tx_outputs(signed_mint_reward_tokens_tx.outputs.clone());
+    let mut inputs = filter_tx_outputs(signed_pool_box_tx.outputs.clone());
 
     // Need to find the box containing the refresh NFT, and transfer this token to the refresh box.
     let box_with_refresh_nft = signed_mint_refresh_nft_tx
@@ -714,24 +688,18 @@ where
 #[cfg(test)]
 mod tests {
     use ergo_lib::{
-        chain::{
-            ergo_state_context::ErgoStateContext,
-            transaction::{unsigned::UnsignedTransaction, TxId, TxIoVec},
-        },
+        chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
-        ergotree_ir::{
-            chain::{
-                address::AddressEncoder,
-                ergo_box::{ErgoBox, NonMandatoryRegisters},
-            },
-            ergo_tree::ErgoTree,
+        ergotree_ir::chain::{
+            address::AddressEncoder,
+            ergo_box::{ErgoBox, NonMandatoryRegisters},
         },
-        wallet::{signing::TransactionContext, Wallet},
+        wallet::Wallet,
     };
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::pool_commands::test_utils::WalletDataMock;
+    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
     use std::cell::RefCell;
     #[derive(Default)]
     struct SubmitTxMock {
@@ -746,36 +714,6 @@ mod tests {
             self.transactions.borrow_mut().push(tx.clone());
             // Return empty string as TxId
             Ok("".into())
-        }
-    }
-
-    struct TestWallet {
-        ctx: ErgoStateContext,
-        wallet: Wallet,
-        guard: ErgoTree,
-    }
-
-    impl WalletSign for TestWallet {
-        fn sign_transaction_with_inputs(
-            &self,
-            unsigned_tx: &UnsignedTransaction,
-            inputs: TxIoVec<ErgoBox>,
-            data_boxes: Option<TxIoVec<ErgoBox>>,
-        ) -> Result<ergo_lib::chain::transaction::Transaction, NodeError> {
-            let tx = self
-                .wallet
-                .sign_transaction(
-                    TransactionContext::new(
-                        unsigned_tx.clone(),
-                        inputs.as_vec().clone(),
-                        data_boxes.map_or(Vec::new(), |bv| bv.as_vec().clone()),
-                    )
-                    .unwrap(),
-                    &self.ctx,
-                    None,
-                )
-                .unwrap();
-            Ok(tx)
         }
     }
 
@@ -794,7 +732,7 @@ mod tests {
             value,
             ergo_tree.clone(),
             None,
-            NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),
+            NonMandatoryRegisters::empty(),
             height - 9,
             force_any_val::<TxId>(),
             0,
@@ -861,10 +799,9 @@ mod tests {
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
             },
-            wallet_sign: &mut TestWallet {
-                ctx,
-                wallet,
-                guard: ergo_tree,
+            tx_signer: &mut LocalTxSigner {
+                ctx: &ctx,
+                wallet: &wallet,
             },
             submit_tx: &submit_tx,
             tx_fee: BoxValue::SAFE_USER_MIN,
