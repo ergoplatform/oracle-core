@@ -93,6 +93,12 @@ enum Command {
     TransferOracleToken {
         oracle_token_address: String,
     },
+    VoteUpdatePool {
+        new_pool_box_address_hash_str: String,
+        reward_token_id_str: String,
+        reward_token_amount: u32,
+        update_box_creation_height: u32,
+    },
 }
 
 fn main() {
@@ -170,6 +176,25 @@ fn main() {
                 oracle_token_address,
             ) {
                 error!("Fatal transfer-oracle-token error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+
+        Command::VoteUpdatePool {
+            new_pool_box_address_hash_str,
+            reward_token_id_str,
+            reward_token_amount,
+            update_box_creation_height,
+        } => {
+            let wallet = WalletData {};
+            if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
+                &wallet,
+                new_pool_box_address_hash_str,
+                reward_token_id_str,
+                reward_token_amount,
+                update_box_creation_height,
+            ) {
+                error!("Fatal vote-update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }

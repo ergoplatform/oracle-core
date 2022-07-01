@@ -67,7 +67,7 @@ pub trait PoolBoxSource {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper>;
 }
 
-pub trait BallotBoxSource {
+pub trait LocalBallotBoxSource {
     fn get_ballot_box(&self) -> Result<BallotBoxWrapper>;
 }
 
@@ -357,6 +357,12 @@ impl OraclePool {
         &self.pool_box_scan as &dyn PoolBoxSource
     }
 
+    pub fn get_local_ballot_box_source(&self) -> Option<&dyn LocalBallotBoxSource> {
+        self.local_ballot_box_scan
+            .as_ref()
+            .map(|s| s as &dyn LocalBallotBoxSource)
+    }
+
     pub fn get_refresh_box_source(&self) -> &dyn RefreshBoxSource {
         &self.refresh_box_scan as &dyn RefreshBoxSource
     }
@@ -378,7 +384,7 @@ impl PoolBoxSource for Scan {
     }
 }
 
-impl BallotBoxSource for Scan {
+impl LocalBallotBoxSource for Scan {
     fn get_ballot_box(&self) -> Result<BallotBoxWrapper> {
         Ok(self.get_box()?.try_into()?)
     }
