@@ -311,7 +311,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Mint reward tokens --------------------------------------------------------------------------
     info!("Minting reward tokens tx");
-    let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
+    let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
     debug!("inputs for reward tokens mint: {:?}", inputs);
     let (reward_token, signed_mint_reward_tokens_tx) = mint_token(
         inputs,
