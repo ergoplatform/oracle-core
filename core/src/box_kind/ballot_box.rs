@@ -131,7 +131,7 @@ impl TryFrom<ErgoBox> for BallotBoxWrapper {
         if ergo_box
             .get_register(NonMandatoryRegisterId::R8.into())
             .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-            .try_extract_into::<TokenId>()
+            .try_extract_into::<i32>()
             .is_err()
         {
             return Err(BallotBoxError::NoRewardTokenQuantityInR8);

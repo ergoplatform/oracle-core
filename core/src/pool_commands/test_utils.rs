@@ -8,6 +8,7 @@ use ergo_lib::chain::transaction::TxId;
 use ergo_lib::chain::transaction::TxIoVec;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
+use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
@@ -22,11 +23,13 @@ use ergo_lib::wallet::Wallet;
 use ergo_node_interface::node_interface::NodeError;
 use sigma_test_util::force_any_val;
 
+use crate::box_kind::BallotBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::pool::PoolContract;
 use crate::node_interface::SignTransaction;
+use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
 use super::*;
@@ -50,6 +53,17 @@ pub(crate) struct OracleBoxMock {
 impl LocalDatapointBoxSource for OracleBoxMock {
     fn get_local_oracle_datapoint_box(&self) -> std::result::Result<OracleBoxWrapper, StageError> {
         Ok(self.oracle_box.clone())
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct BallotBoxMock {
+    pub ballot_box: BallotBoxWrapper,
+}
+
+impl LocalBallotBoxSource for BallotBoxMock {
+    fn get_ballot_box(&self) -> std::result::Result<BallotBoxWrapper, StageError> {
+        Ok(self.ballot_box.clone())
     }
 }
 
@@ -136,13 +150,17 @@ pub(crate) fn make_datapoint_box(
     .unwrap()
 }
 
-pub(crate) fn make_wallet_unspent_box(pub_key: ProveDlog, value: BoxValue) -> ErgoBox {
+pub(crate) fn make_wallet_unspent_box(
+    pub_key: ProveDlog,
+    value: BoxValue,
+    tokens: Option<BoxTokens>,
+) -> ErgoBox {
     let c: Constant = pub_key.into();
     let expr: Expr = c.into();
     ErgoBox::new(
         value,
         ErgoTree::try_from(expr).unwrap(),
-        None,
+        tokens,
         NonMandatoryRegisters::empty(),
         1,
         force_any_val::<TxId>(),

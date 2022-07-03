@@ -67,12 +67,13 @@ pub fn vote_update_pool(
         .change_address
         .ok_or(VoteUpdatePoolError::NoChangeAddressSetInNode)?;
 
-    let prefix = if ORACLE_CONFIG.on_mainnet {
+    let network_prefix = if ORACLE_CONFIG.on_mainnet {
         NetworkPrefix::Mainnet
     } else {
         NetworkPrefix::Testnet
     };
-    let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
+    let change_address =
+        AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
     let height = current_block_height()? as u32;
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let reward_token_id = TokenId::from_base64(&reward_token_id_str)?;
@@ -99,6 +100,11 @@ pub fn vote_update_pool(
             reward_token_id.clone(),
             reward_token_amount,
             update_box_creation_height,
+            network_prefix,
+            ORACLE_CONFIG.ballot_box_min_storage_rent,
+            ORACLE_CONFIG.update_nft.clone(),
+            ORACLE_CONFIG.ballot_token_id.clone(),
+            ORACLE_CONFIG.ballot_token_owner_address.clone(),
             height,
             change_address,
         )?
@@ -120,7 +126,7 @@ pub fn vote_update_pool(
         let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
         println!(
             "Transaction made. Check status here: {}",
-            ergo_explorer_transaction_link(tx_id_str, prefix)
+            ergo_explorer_transaction_link(tx_id_str, network_prefix)
         );
     } else {
         println!("Aborting the transaction.")
@@ -169,11 +175,11 @@ fn build_tx_with_existing_ballot_box(
         box_selection,
         vec![ballot_box_candidate],
         height,
-        target_balance,
+        BoxValue::SAFE_USER_MIN,
         change_address,
         BoxValue::MIN,
     );
-    // The following context value ensures that `outIndex` in the oracle contract is properly set.
+    // The following context value ensures that `outIndex` in the ballot contract is properly set.
     let ctx_ext = ContextExtension {
         values: vec![(0, 0i32.into())].into_iter().collect(),
     };
@@ -189,28 +195,27 @@ fn build_tx_for_first_ballot_box(
     reward_token_id: TokenId,
     reward_token_amount: u32,
     update_box_creation_height: u32,
+    network_prefix: NetworkPrefix,
+    ballot_box_min_storage_rent: u64,
+    update_nft_token_id: TokenId,
+    ballot_token_id: TokenId,
+    ballot_token_owner_address: String,
     height: u32,
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
-    let min_storage_rent = ORACLE_CONFIG.ballot_box_min_storage_rent;
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let target_balance = BoxValue::try_from(min_storage_rent).unwrap();
+    let target_balance = BoxValue::try_from(ballot_box_min_storage_rent).unwrap();
     let reward_token = Token {
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
     };
     let contract = BallotContract::new()
-        .with_min_storage_rent(min_storage_rent)
-        .with_update_nft_token_id(ORACLE_CONFIG.update_nft.clone());
-    let prefix = if ORACLE_CONFIG.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
-    let ballot_token_owner = AddressEncoder::new(prefix)
-        .parse_address_from_str(&ORACLE_CONFIG.ballot_token_owner_address)?;
+        .with_min_storage_rent(ballot_box_min_storage_rent)
+        .with_update_nft_token_id(update_nft_token_id);
+    let ballot_token_owner =
+        AddressEncoder::new(network_prefix).parse_address_from_str(&ballot_token_owner_address)?;
     let ballot_token = Token {
-        token_id: ORACLE_CONFIG.ballot_token_id.clone(),
+        token_id: ballot_token_id,
         amount: 1.try_into().unwrap(),
     };
     if let Address::P2Pk(ballot_token_owner) = &ballot_token_owner {
@@ -218,14 +223,18 @@ fn build_tx_for_first_ballot_box(
             &contract,
             ballot_token_owner.clone(),
             update_box_creation_height,
-            ballot_token,
+            ballot_token.clone(),
             new_pool_box_address_hash,
             reward_token,
             target_balance,
             height,
         )?;
         let box_selector = SimpleBoxSelector::new();
-        let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
+        let selection_target_balance = target_balance
+            .checked_add(&BoxValue::SAFE_USER_MIN)
+            .unwrap();
+        let selection =
+            box_selector.select(unspent_boxes, selection_target_balance, &[ballot_token])?;
         let box_selection = BoxSelection {
             boxes: selection.boxes.as_vec().clone().try_into().unwrap(),
             change_boxes: selection.change_boxes,
@@ -234,11 +243,11 @@ fn build_tx_for_first_ballot_box(
             box_selection,
             vec![ballot_box_candidate],
             height,
-            target_balance,
+            BoxValue::SAFE_USER_MIN,
             change_address,
             BoxValue::MIN,
         );
-        // The following context value ensures that `outIndex` in the oracle contract is properly set.
+        // The following context value ensures that `outIndex` in the ballot contract is properly set.
         let ctx_ext = ContextExtension {
             values: vec![(0, 0i32.into())].into_iter().collect(),
         };
@@ -247,5 +256,201 @@ fn build_tx_for_first_ballot_box(
         Ok(tx)
     } else {
         Err(VoteUpdatePoolError::IncorrectBallotTokenOwnerAddress)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::{TryFrom, TryInto};
+
+    use ergo_lib::{
+        chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
+        ergo_chain_types::Digest32,
+        ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
+        ergotree_ir::{
+            chain::{
+                address::AddressEncoder,
+                ergo_box::{
+                    box_value::BoxValue, BoxTokens, ErgoBox, NonMandatoryRegisterId,
+                    NonMandatoryRegisters,
+                },
+                token::{Token, TokenId},
+            },
+            mir::constant::Constant,
+        },
+        wallet::{signing::TransactionContext, Wallet},
+    };
+    use sigma_test_util::force_any_val;
+
+    use crate::{
+        box_kind::BallotBoxWrapper,
+        contracts::ballot::BallotContract,
+        pool_commands::test_utils::{
+            find_input_boxes, make_wallet_unspent_box, BallotBoxMock, WalletDataMock,
+        },
+        wallet::WalletDataSource,
+    };
+
+    use super::{build_tx_for_first_ballot_box, build_tx_with_existing_ballot_box};
+
+    #[test]
+    fn test_vote_update_pool_no_existing_ballot_box() {
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = ctx.pre_header.height;
+
+        let secret = force_any_val::<DlogProverInput>();
+        let new_pool_box_address_hash = force_any_val::<Digest32>();
+        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let network_prefix = ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet;
+        let change_address = AddressEncoder::new(network_prefix)
+            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
+            .unwrap();
+
+        let ballot_token_id = force_any_val::<TokenId>();
+        let ballot_token = Token {
+            token_id: ballot_token_id.clone(),
+            amount: 1.try_into().unwrap(),
+        };
+        let wallet_unspent_box = make_wallet_unspent_box(
+            secret.public_image(),
+            BoxValue::SAFE_USER_MIN
+                .checked_mul_u32(100_000_000)
+                .unwrap(),
+            Some(BoxTokens::from_vec(vec![ballot_token]).unwrap()),
+        );
+        let reward_token_id = force_any_val::<TokenId>();
+        let update_nft_token_id = force_any_val::<TokenId>();
+        let wallet_mock = WalletDataMock {
+            unspent_boxes: vec![wallet_unspent_box],
+        };
+        let unsigned_tx = build_tx_for_first_ballot_box(
+            &wallet_mock,
+            new_pool_box_address_hash,
+            reward_token_id,
+            100_000,
+            height - 3,
+            network_prefix,
+            10_000_000,
+            update_nft_token_id,
+            ballot_token_id,
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r".into(),
+            height,
+            change_address,
+        )
+        .unwrap();
+
+        let tx_context = TransactionContext::new(
+            unsigned_tx.clone(),
+            find_input_boxes(unsigned_tx, wallet_mock.get_unspent_wallet_boxes().unwrap()),
+            Vec::new(),
+        )
+        .unwrap();
+
+        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+    }
+
+    #[test]
+    fn test_vote_update_pool_with_existing_ballot_box() {
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = ctx.pre_header.height;
+
+        let secret = force_any_val::<DlogProverInput>();
+        let new_pool_box_address_hash = force_any_val::<Digest32>();
+        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let network_prefix = ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet;
+        let change_address = AddressEncoder::new(network_prefix)
+            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
+            .unwrap();
+
+        let reward_token_id = force_any_val::<TokenId>();
+        let ballot_token_id = force_any_val::<TokenId>();
+        let ballot_token = Token {
+            token_id: ballot_token_id.clone(),
+            amount: 1.try_into().unwrap(),
+        };
+        let tokens = BoxTokens::from_vec(vec![ballot_token]).unwrap();
+        let in_ballot_box = ErgoBox::new(
+            BoxValue::new(10_000_000).unwrap(),
+            BallotContract::new().ergo_tree(),
+            Some(tokens.clone()),
+            NonMandatoryRegisters::new(
+                vec![
+                    (
+                        NonMandatoryRegisterId::R4,
+                        Constant::from(*secret.public_image().h),
+                    ),
+                    (
+                        NonMandatoryRegisterId::R5,
+                        Constant::from((height - 2) as i32),
+                    ),
+                    (
+                        NonMandatoryRegisterId::R6,
+                        Constant::from(new_pool_box_address_hash.clone()),
+                    ),
+                    (
+                        NonMandatoryRegisterId::R7,
+                        Constant::from(reward_token_id.clone()),
+                    ),
+                    (NonMandatoryRegisterId::R8, Constant::from(100_000_i32)),
+                ]
+                .into_iter()
+                .collect(),
+            )
+            .unwrap(),
+            height - 2,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap();
+        let dummy_box = ErgoBox::new(
+            BoxValue::new(10_000_000).unwrap(),
+            BallotContract::new().ergo_tree(),
+            Some(tokens),
+            NonMandatoryRegisters::new(
+                vec![(
+                    NonMandatoryRegisterId::R4,
+                    Constant::from(*secret.public_image().h),
+                )]
+                .into_iter()
+                .collect(),
+            )
+            .unwrap(),
+            height - 2,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap();
+        let ballot_box_mock = BallotBoxMock {
+            ballot_box: BallotBoxWrapper::try_from(in_ballot_box.clone()).unwrap(),
+        };
+        let wallet_unspent_box = make_wallet_unspent_box(
+            secret.public_image(),
+            BoxValue::SAFE_USER_MIN
+                .checked_mul_u32(100_000_000)
+                .unwrap(),
+            None,
+        );
+        let wallet_mock = WalletDataMock {
+            unspent_boxes: vec![wallet_unspent_box],
+        };
+        let unsigned_tx = build_tx_with_existing_ballot_box(
+            &ballot_box_mock,
+            &wallet_mock,
+            new_pool_box_address_hash,
+            reward_token_id,
+            100_000,
+            height - 3,
+            height,
+            change_address,
+        )
+        .unwrap();
+
+        let mut input_boxes = vec![in_ballot_box, dummy_box];
+        input_boxes.append(wallet_mock.get_unspent_wallet_boxes().unwrap().as_mut());
+        let boxes_to_spend = find_input_boxes(unsigned_tx.clone(), input_boxes);
+        assert!(!boxes_to_spend.is_empty());
+        let tx_context = TransactionContext::new(unsigned_tx, boxes_to_spend, Vec::new()).unwrap();
+
+        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }
 }
