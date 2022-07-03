@@ -78,6 +78,8 @@ pub fn vote_update_pool(
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let reward_token_id = TokenId::from_base64(&reward_token_id_str)?;
     let unsigned_tx = if let Some(local_ballot_box_source) = op.get_local_ballot_box_source() {
+        // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
+        // which stipulates that the address in R4 is the 'owner' of the token
         build_tx_with_existing_ballot_box(
             local_ballot_box_source,
             wallet,
@@ -89,11 +91,7 @@ pub fn vote_update_pool(
             change_address,
         )?
     } else {
-        // ballot token is assumed to be in some unspent box of the node's wallet.
-
-        // note: the ballot box contains the ballot token, but the box is guarded by the contract,
-        // which stipulates that the address in R4 is the 'owner' of the token
-
+        // Ballot token is assumed to be in some unspent box of the node's wallet.
         build_tx_for_first_ballot_box(
             wallet,
             new_pool_box_address_hash.clone(),
@@ -402,24 +400,6 @@ mod tests {
             0,
         )
         .unwrap();
-        let dummy_box = ErgoBox::new(
-            BoxValue::new(10_000_000).unwrap(),
-            BallotContract::new().ergo_tree(),
-            Some(tokens),
-            NonMandatoryRegisters::new(
-                vec![(
-                    NonMandatoryRegisterId::R4,
-                    Constant::from(*secret.public_image().h),
-                )]
-                .into_iter()
-                .collect(),
-            )
-            .unwrap(),
-            height - 2,
-            force_any_val::<TxId>(),
-            0,
-        )
-        .unwrap();
         let ballot_box_mock = BallotBoxMock {
             ballot_box: BallotBoxWrapper::try_from(in_ballot_box.clone()).unwrap(),
         };
@@ -445,7 +425,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut input_boxes = vec![in_ballot_box, dummy_box];
+        let mut input_boxes = vec![in_ballot_box];
         input_boxes.append(wallet_mock.get_unspent_wallet_boxes().unwrap().as_mut());
         let boxes_to_spend = find_input_boxes(unsigned_tx.clone(), input_boxes);
         assert!(!boxes_to_spend.is_empty());
