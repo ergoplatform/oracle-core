@@ -9,7 +9,7 @@ use thiserror::Error;
 
 #[derive(Clone)]
 pub struct UpdateContract {
-    pub ergo_tree: ErgoTree,
+    ergo_tree: ErgoTree,
 }
 
 #[derive(Debug, Error)]
@@ -66,6 +66,10 @@ impl UpdateContract {
             return Err(UpdateContractError::MinVotesError);
         };
         Ok(Self { ergo_tree })
+    }
+
+    pub fn ergo_tree(&self) -> ErgoTree {
+        self.ergo_tree.clone()
     }
 
     pub fn min_votes(&self) -> i32 {

@@ -282,7 +282,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         config.tokens_to_mint.update_nft.name.clone(),
         config.tokens_to_mint.update_nft.description.clone(),
         1.try_into().unwrap(),
-        Some(update_contract.ergo_tree),
+        Some(update_contract.ergo_tree()),
     )?;
     debug!("signed_mint_update_nft_tx: {:?}", signed_mint_update_nft_tx);
 
