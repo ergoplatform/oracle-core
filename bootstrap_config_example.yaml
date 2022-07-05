@@ -28,7 +28,7 @@ tokens_to_mint:
   reward_tokens:
     name: reward token
     description: reward token
-   quantity: 100000000
+    quantity: 100000000
 addresses: # all base58 encoded
   # The address holding the oracle tokens need not belong to the node.
   address_for_oracle_tokens: 9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw
