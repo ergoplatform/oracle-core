@@ -68,6 +68,10 @@ impl UpdateContract {
         Ok(Self { ergo_tree })
     }
 
+    pub fn ergo_tree(&self) -> ErgoTree {
+        self.ergo_tree.clone()
+    }
+
     pub fn min_votes(&self) -> i32 {
         let vote_constant = self
             .ergo_tree
