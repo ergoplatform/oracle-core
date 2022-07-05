@@ -79,24 +79,33 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Bootstrap {
-        yaml_config_name: String,
-    },
+    /// Bootstrap a new oracle-pool
+    Bootstrap { yaml_config_name: String },
+
+    /// Run the oracle-pool
     Run {
         #[clap(long)]
         read_only: bool,
     },
-    ExtractRewardTokens {
-        rewards_address: String,
-    },
+
+    /// Extract reward tokens to a chosen address
+    ExtractRewardTokens { rewards_address: String },
+
+    /// Print the number of reward tokens earned by the oracle.
     PrintRewardTokens,
-    TransferOracleToken {
-        oracle_token_address: String,
-    },
+
+    /// Transfer an oracle token to a chosen address.
+    TransferOracleToken { oracle_token_address: String },
+
+    /// Vote to update the oracle pool
     VoteUpdatePool {
+        /// The Blake2 hash of the address for the new pool box.
         new_pool_box_address_hash_str: String,
+        /// The base-16 representation of the TokenId of the new reward tokens to be used.
         reward_token_id_str: String,
+        /// The reward token amount.
         reward_token_amount: u32,
+        /// The creation height of the update box.
         update_box_creation_height: u32,
     },
 }
