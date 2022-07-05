@@ -5,7 +5,7 @@ use derive_more::From;
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
-        transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
+        transaction::Transaction,
     },
     ergotree_ir::{
         chain::{
