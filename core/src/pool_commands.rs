@@ -8,7 +8,7 @@ use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
-use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::{OracleContractParameters, ORACLE_CONFIG};
 use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
@@ -85,7 +85,7 @@ pub fn build_action(
                     PublishDataPointCommandInputs::FirstDataPoint {
                         oracle_token_id: ORACLE_CONFIG.oracle_pool_participant_token_id.clone(),
                         reward_token_id: ORACLE_CONFIG.reward_token_id.clone(),
-                        pool_nft: ORACLE_CONFIG.oracle_pool_nft.clone(),
+                        oracle_contract_parameters: &ORACLE_CONFIG.oracle_contract_parameters,
                         public_key,
                     }
                 } else {
@@ -114,7 +114,7 @@ pub enum PublishDataPointCommandInputs<'a> {
     FirstDataPoint {
         oracle_token_id: TokenId,
         reward_token_id: TokenId,
-        pool_nft: TokenId,
+        oracle_contract_parameters: &'a OracleContractParameters,
         public_key: ProveDlog,
     },
 }

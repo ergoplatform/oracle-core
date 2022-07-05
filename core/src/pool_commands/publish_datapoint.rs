@@ -25,6 +25,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
     contracts::oracle::OracleContract,
     datapoint_source::{DataPointSource, DataPointSourceError},
+    oracle_config::OracleContractParameters,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -74,7 +75,7 @@ pub fn build_publish_datapoint_action(
             oracle_token_id,
             reward_token_id,
             public_key,
-            pool_nft,
+            oracle_contract_parameters,
         } => build_publish_first_datapoint_action(
             wallet,
             height,
@@ -82,7 +83,7 @@ pub fn build_publish_datapoint_action(
             new_datapoint as u64,
             oracle_token_id,
             reward_token_id,
-            pool_nft,
+            oracle_contract_parameters,
             public_key,
         ),
     }
@@ -149,7 +150,7 @@ pub fn build_publish_first_datapoint_action(
     new_datapoint: u64,
     oracle_token_id: TokenId,
     reward_token_id: TokenId,
-    pool_nft: TokenId,
+    oracle_contract_parameters: &OracleContractParameters,
     public_key: ProveDlog,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -175,7 +176,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new().with_pool_nft_token_id(pool_nft),
+        &OracleContract::new(oracle_contract_parameters),
         public_key,
         new_datapoint,
         1,
@@ -279,7 +280,7 @@ mod tests {
         let in_pool_box = make_pool_box(
             200,
             1,
-            pool_nft_token_id,
+            pool_nft_token_id.clone(),
             Token::from((reward_token_id.clone(), 50u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
@@ -292,17 +293,26 @@ mod tests {
             pool_box: in_pool_box,
         };
 
-        let oracle_box = make_datapoint_box(
-            *oracle_pub_key,
-            200,
-            1,
-            refresh_contract.oracle_token_id(),
-            Token::from((reward_token_id, 5u64.try_into().unwrap())),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
-            height - 9,
+        let oracle_contract_parameters = OracleContractParameters {
+            p2s: "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr".into(),
+            pool_nft_index: 5,
+            pool_nft_token_id: pool_nft_token_id.clone(),
+        };
+        let oracle_box = (
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                1,
+                refresh_contract.oracle_token_id(),
+                pool_nft_token_id,
+                Token::from((reward_token_id, 5u64.try_into().unwrap())),
+                BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                height - 9,
+            ),
+            &oracle_contract_parameters,
         )
-        .try_into()
-        .unwrap();
+            .try_into()
+            .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
         let change_address =
@@ -358,7 +368,7 @@ mod tests {
         let height = ctx.pre_header.height;
 
         let reward_token_id = force_any_val::<TokenId>();
-        let pool_nft = force_any_val::<TokenId>();
+        let pool_nft_token_id = force_any_val::<TokenId>();
         let oracle_token_id =
             TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap();
         let tokens = BoxTokens::from_vec(vec![
@@ -403,6 +413,11 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
+        let oracle_contract_parameters = OracleContractParameters {
+            p2s: "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr".into(),
+            pool_nft_index: 5,
+            pool_nft_token_id,
+        };
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
@@ -412,7 +427,7 @@ mod tests {
             100,
             oracle_token_id,
             reward_token_id,
-            pool_nft,
+            &oracle_contract_parameters,
             secret.public_image(),
         )
         .unwrap();

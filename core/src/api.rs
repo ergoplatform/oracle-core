@@ -39,15 +39,15 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
         let parameters = &ORACLE_CONFIG;
-        let num_of_oracles = datapoint_stage.number_of_boxes().unwrap_or(10);
+        let num_of_oracles = datapoint_stage.0.number_of_boxes().unwrap_or(10);
 
         let response_json = json! ({
             "number_of_oracles": num_of_oracles,
-            "datapoint_address": datapoint_stage.contract_address,
+            "datapoint_address": datapoint_stage.0.contract_address,
             "live_epoch_length": parameters.epoch_length,
             "deviation_range": parameters.max_deviation_percent,
             "consensus_num": parameters.min_data_points,
-            "oracle_pool_nft_id": parameters.oracle_pool_nft,
+            "oracle_pool_nft_id": parameters.oracle_contract_parameters.pool_nft_token_id,
             "oracle_pool_participant_token_id": parameters.oracle_pool_participant_token_id,
 
         });

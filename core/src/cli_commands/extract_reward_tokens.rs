@@ -195,6 +195,7 @@ mod tests {
 
     use super::*;
     use crate::contracts::refresh::RefreshContract;
+    use crate::oracle_config::OracleContractParameters;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_wallet_unspent_box, OracleBoxMock,
         WalletDataMock,
@@ -214,6 +215,7 @@ mod tests {
         let height = ctx.pre_header.height;
         let refresh_contract = RefreshContract::new();
         let reward_token_id = force_any_val::<TokenId>();
+        let pool_nft_token_id = force_any_val::<TokenId>();
         dbg!(&reward_token_id);
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -221,20 +223,30 @@ mod tests {
 
         let num_reward_tokens_in_box = 5_u64;
 
-        let oracle_box = make_datapoint_box(
-            *oracle_pub_key,
-            200,
-            1,
-            refresh_contract.oracle_token_id(),
-            Token::from((
-                reward_token_id,
-                num_reward_tokens_in_box.try_into().unwrap(),
-            )),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
-            height - 9,
+        let p2s = "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr".into();
+        let parameters = OracleContractParameters {
+            p2s,
+            pool_nft_index: 5,
+            pool_nft_token_id: pool_nft_token_id.clone(),
+        };
+        let oracle_box = (
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                1,
+                refresh_contract.oracle_token_id(),
+                pool_nft_token_id,
+                Token::from((
+                    reward_token_id,
+                    num_reward_tokens_in_box.try_into().unwrap(),
+                )),
+                BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                height - 9,
+            ),
+            &parameters,
         )
-        .try_into()
-        .unwrap();
+            .try_into()
+            .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
         let change_address =

@@ -14,7 +14,6 @@ pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
     pub node_api_key: String,
-    pub oracle_pool_nft: TokenId,
     pub refresh_nft: TokenId,
     pub update_nft: TokenId,
     pub reward_token_id: TokenId,
@@ -35,6 +34,7 @@ pub struct OracleConfig {
     pub on_mainnet: bool,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
+    pub oracle_contract_parameters: OracleContractParameters,
 }
 
 impl OracleConfig {
@@ -83,6 +83,13 @@ pub fn get_node_port() -> String {
 /// Returns the `node_api_key`
 pub fn get_node_api_key() -> String {
     ORACLE_CONFIG.node_api_key.clone()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OracleContractParameters {
+    pub p2s: String,
+    pub pool_nft_index: usize,
+    pub pool_nft_token_id: TokenId,
 }
 
 #[cfg(test)]

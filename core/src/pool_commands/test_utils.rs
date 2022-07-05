@@ -29,6 +29,7 @@ use crate::box_kind::PoolBoxWrapper;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::pool::PoolContract;
 use crate::node_interface::SignTransaction;
+use crate::oracle_config::OracleContractParameters;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
@@ -114,11 +115,13 @@ pub(crate) fn make_pool_box(
     .unwrap()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn make_datapoint_box(
     pub_key: EcPoint,
     datapoint: i64,
     epoch_counter: i32,
     oracle_token_id: TokenId,
+    pool_nft_token_id: TokenId,
     reward_token: Token,
     value: BoxValue,
     creation_height: u32,
@@ -129,9 +132,15 @@ pub(crate) fn make_datapoint_box(
     ]
     .try_into()
     .unwrap();
+    let p2s = "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr".into();
+    let parameters = OracleContractParameters {
+        p2s,
+        pool_nft_index: 5,
+        pool_nft_token_id,
+    };
     ErgoBox::new(
         value,
-        OracleContract::new().ergo_tree(),
+        OracleContract::new(&parameters).ergo_tree(),
         Some(tokens),
         NonMandatoryRegisters::new(
             vec![

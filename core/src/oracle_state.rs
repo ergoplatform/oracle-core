@@ -6,7 +6,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::{OracleContractParameters, ORACLE_CONFIG};
 use crate::scans::{
     register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
     register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
@@ -94,10 +94,19 @@ pub struct Stage {
 #[derive(Debug)]
 pub struct OraclePool {
     pub data_point_source: Box<dyn DataPointSource>,
-    /// Stages
-    pub datapoint_stage: Stage,
-    // Local Oracle Datapoint Scan
-    pub local_oracle_datapoint_scan: Option<Scan>,
+    /// Stages. Note it's defined as a tuple with `OracleContractParameters`. We need to do this
+    /// because the implementation of the `DatapointBoxesSource` trait requires both an ErgoBox and
+    /// oracle contract parameters. Now our codebase makes use of `&dyn DatapointBoxesSource`, and
+    /// trying to use an instance of `OracleContractParameters` within the implementation of the
+    /// trait leads to trouble with Rust's borrow checker.
+    ///
+    /// More specifically, using a separate `OracleContractParameters` instance within the trait
+    /// implementation results in the creation of a local variable whose reference is needed but
+    /// is immediately dropped. Type `rustc --explain E0515` on the command line for details.
+    pub datapoint_stage: (Stage, OracleContractParameters),
+    /// Local Oracle Datapoint Scan. Similarly to the `datapoint_stage` field, we must also have
+    /// an instance of `OracleContractParameters` alongside the `Scan` instance.
+    pub local_oracle_datapoint_scan: Option<(Scan, OracleContractParameters)>,
     // Local ballot box Scan
     pub local_ballot_box_scan: Option<Scan>,
     pool_box_scan: Scan,
@@ -143,15 +152,14 @@ impl OraclePool {
     pub fn new() -> std::result::Result<OraclePool, Error> {
         let config = &ORACLE_CONFIG;
         let local_oracle_address = config.oracle_address.clone();
-        let oracle_pool_nft = config.oracle_pool_nft.clone();
+        let oracle_pool_nft = config.oracle_contract_parameters.pool_nft_token_id.clone();
         let refresh_nft = config.refresh_nft.clone();
         let oracle_pool_participant_token_id = config.oracle_pool_participant_token_id.clone();
         let data_point_source = config.data_point_source()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
-        let datapoint_contract_address = OracleContract::new()
-            .with_pool_nft_token_id(oracle_pool_nft.clone())
-            .ergo_tree();
+        let datapoint_contract_address =
+            OracleContract::new(&config.oracle_contract_parameters).ergo_tree();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
@@ -223,9 +231,12 @@ impl OraclePool {
         let local_scan_str = "Local Oracle Datapoint Scan";
         let mut local_oracle_datapoint_scan = None;
         if scan_json.has_key(local_scan_str) {
-            local_oracle_datapoint_scan = Some(Scan::new(
-                local_scan_str,
-                &scan_json[local_scan_str].to_string(),
+            local_oracle_datapoint_scan = Some((
+                Scan::new(
+                    "Local Oracle Datapoint Scan",
+                    &scan_json[local_scan_str].to_string(),
+                ),
+                config.oracle_contract_parameters.clone(),
             ));
         };
 
@@ -248,10 +259,13 @@ impl OraclePool {
         // Create `OraclePool` struct
         Ok(OraclePool {
             data_point_source,
-            datapoint_stage: Stage {
-                contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
-                scan: datapoint_scan,
-            },
+            datapoint_stage: (
+                Stage {
+                    contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
+                    scan: datapoint_scan,
+                },
+                config.oracle_contract_parameters.clone(),
+            ),
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
             pool_box_scan,
@@ -396,9 +410,10 @@ impl RefreshBoxSource for Scan {
     }
 }
 
-impl LocalDatapointBoxSource for Scan {
+impl LocalDatapointBoxSource for (Scan, OracleContractParameters) {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
-        Ok(self.get_box()?.try_into()?)
+        let box_wrapper = OracleBoxWrapper::new(self.0.get_box()?, &self.1)?;
+        Ok(box_wrapper)
     }
 }
 
@@ -431,12 +446,13 @@ impl StageDataSource for Stage {
     }
 }
 
-impl DatapointBoxesSource for Stage {
+impl DatapointBoxesSource for (Stage, OracleContractParameters) {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>> {
         let res = self
+            .0
             .get_boxes()?
             .into_iter()
-            .map(|b| OracleBoxWrapper::new(b).unwrap())
+            .map(|b| OracleBoxWrapper::new(b, &self.1).unwrap())
             .collect();
         Ok(res)
     }
