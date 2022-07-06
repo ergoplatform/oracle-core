@@ -72,7 +72,7 @@ pub type EpochID = u32;
 struct Args {
     #[clap(subcommand)]
     command: Command,
-    /// Increase the verbosity of the output to debug log level overriding the log level in the config file.
+    /// Increase the verbosity of the output to trace log level overriding the log level in the config file.
     #[clap(short, long)]
     verbose: bool,
 }
@@ -99,7 +99,7 @@ fn main() {
     let args = Args::parse();
 
     let cmdline_log_level = if args.verbose {
-        Some(LevelFilter::Debug)
+        Some(LevelFilter::Trace)
     } else {
         None
     };
