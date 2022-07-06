@@ -159,7 +159,7 @@ impl OraclePool {
 
         let refresh_box_scan_name = "Refresh Box Scan";
         let datapoint_contract_address =
-            OracleContract::new(&config.oracle_contract_parameters).ergo_tree();
+            OracleContract::new(&config.oracle_contract_parameters)?.ergo_tree();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {

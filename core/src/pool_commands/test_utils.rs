@@ -140,7 +140,7 @@ pub(crate) fn make_datapoint_box(
     };
     ErgoBox::new(
         value,
-        OracleContract::new(&parameters).ergo_tree(),
+        OracleContract::new(&parameters).unwrap().ergo_tree(),
         Some(tokens),
         NonMandatoryRegisters::new(
             vec![

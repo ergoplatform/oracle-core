@@ -23,7 +23,7 @@ use thiserror::Error;
 use crate::{
     actions::PublishDataPointAction,
     box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
-    contracts::oracle::OracleContract,
+    contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::OracleContractParameters,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
@@ -48,6 +48,8 @@ pub enum PublishDatapointActionError {
     BoxSelector(BoxSelectorError),
     #[error("datapoint source error: {0}")]
     DataPointSource(DataPointSourceError),
+    #[error("oracle contract error: {0}")]
+    OracleContract(OracleContractError),
 }
 
 pub fn build_publish_datapoint_action(
@@ -176,7 +178,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new(oracle_contract_parameters),
+        &OracleContract::new(oracle_contract_parameters)?,
         public_key,
         new_datapoint,
         1,
