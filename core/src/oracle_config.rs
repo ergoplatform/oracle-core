@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use ergo_lib::ergotree_ir::chain::{
-    address::{NetworkAddress, NetworkPrefix},
+    address::{AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix},
     token::TokenId,
 };
 use log::LevelFilter;
@@ -110,20 +110,30 @@ struct OracleContractParametersYaml {
 }
 
 impl TryFrom<OracleContractParametersYaml> for OracleContractParameters {
-    type Error = String;
+    type Error = AddressEncoderError;
 
     fn try_from(p: OracleContractParametersYaml) -> Result<Self, Self::Error> {
-        todo!()
+        let prefix = if p.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
+        Ok(OracleContractParameters {
+            p2s: NetworkAddress::new(prefix, &address),
+            pool_nft_index: p.pool_nft_index,
+            pool_nft_token_id: p.pool_nft_token_id,
+        })
     }
 }
 
-impl Into<OracleContractParametersYaml> for OracleContractParameters {
-    fn into(self) -> OracleContractParametersYaml {
+impl From<OracleContractParameters> for OracleContractParametersYaml {
+    fn from(val: OracleContractParameters) -> Self {
         OracleContractParametersYaml {
-            p2s: self.p2s.to_base58(),
-            on_mainnet: self.p2s.network() == NetworkPrefix::Mainnet,
-            pool_nft_index: self.pool_nft_index,
-            pool_nft_token_id: self.pool_nft_token_id.clone(),
+            p2s: val.p2s.to_base58(),
+            on_mainnet: val.p2s.network() == NetworkPrefix::Mainnet,
+            pool_nft_index: val.pool_nft_index,
+            pool_nft_token_id: val.pool_nft_token_id.clone(),
         }
     }
 }
