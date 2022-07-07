@@ -1,6 +1,4 @@
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -40,9 +38,7 @@ impl OracleContract {
     //pub const POOL_NFT_INDEX: usize = 5;
 
     pub fn new(parameters: &OracleContractParameters) -> Result<Self, OracleContractError> {
-        let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
-        let addr = encoder.parse_address_from_str(&parameters.p2s).unwrap();
-        let ergo_tree = addr.script()?.with_constant(
+        let ergo_tree = parameters.p2s.address().script()?.with_constant(
             parameters.pool_nft_index,
             parameters.pool_nft_token_id.clone().into(),
         )?;
@@ -94,18 +90,14 @@ impl OracleContract {
 
 #[cfg(test)]
 mod tests {
+    use crate::pool_commands::test_utils::make_oracle_contract_parameters;
+
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let pool_nft_token_id =
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc=").unwrap();
-        let p2s = "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr".into();
-        let parameters = OracleContractParameters {
-            p2s,
-            pool_nft_index: 5,
-            pool_nft_token_id: pool_nft_token_id.clone(),
-        };
+        let parameters = make_oracle_contract_parameters();
+        let pool_nft_token_id = parameters.pool_nft_token_id.clone();
         let c = OracleContract::new(&parameters).unwrap();
         assert_eq!(c.pool_nft_token_id(), pool_nft_token_id,);
     }

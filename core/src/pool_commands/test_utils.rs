@@ -7,6 +7,7 @@ use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
 use ergo_lib::chain::transaction::TxIoVec;
 use ergo_lib::ergo_chain_types::EcPoint;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -132,12 +133,8 @@ pub(crate) fn make_datapoint_box(
     ]
     .try_into()
     .unwrap();
-    let p2s = "2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr".into();
-    let parameters = OracleContractParameters {
-        p2s,
-        pool_nft_index: 5,
-        pool_nft_token_id,
-    };
+    let mut parameters = make_oracle_contract_parameters();
+    parameters.pool_nft_token_id = pool_nft_token_id;
     ErgoBox::new(
         value,
         OracleContract::new(&parameters).unwrap().ergo_tree(),
@@ -226,4 +223,13 @@ impl<'a> SignTransaction for LocalTxSigner<'a> {
 pub fn init_log_tests() {
     // set log level via RUST_LOG=info env var
     let _ = env_logger::builder().is_test(true).try_init().unwrap();
+}
+
+pub fn make_oracle_contract_parameters() -> OracleContractParameters {
+    let address = AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str("2vTHJzWVd7ryXrP3fH9KfEFGzS8XFdVY99xXuxMPt664HurrUn3e8y3W1wTQDVZsDi9TDeZdun2XEr3pcipGmKdmciSADmKn32Cs8YuPLNp4zaBZNo6m6NG8tz3zznb56nRCrz5VDDjxYTsQ92DqhtQmG3m7H6zbtNHLzJjf7x9ZSD3vNWRL6e7usRjfm1diob8bdizsbJM7wNDzLZYhshHScEkWse9MQKgMDN4pYb1vQLR1PmvUnpsRAjRYwNBs3ZjJoqdSpN6jbjfSJsrgEhBANbnCZxP3dKBr").unwrap();
+    OracleContractParameters {
+        p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
+        pool_nft_index: 5,
+        pool_nft_token_id: force_any_val::<TokenId>(),
+    }
 }

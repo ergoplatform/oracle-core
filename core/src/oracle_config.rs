@@ -1,9 +1,14 @@
+use std::convert::TryFrom;
+
 use crate::{
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
     BlockDuration,
 };
 use anyhow::anyhow;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
+use ergo_lib::ergotree_ir::chain::{
+    address::{NetworkAddress, NetworkPrefix},
+    token::TokenId,
+};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -85,11 +90,42 @@ pub fn get_node_api_key() -> String {
     ORACLE_CONFIG.node_api_key.clone()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(
+    try_from = "OracleContractParametersYaml",
+    into = "OracleContractParametersYaml"
+)]
 pub struct OracleContractParameters {
-    pub p2s: String,
+    pub p2s: NetworkAddress,
     pub pool_nft_index: usize,
     pub pool_nft_token_id: TokenId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OracleContractParametersYaml {
+    p2s: String,
+    on_mainnet: bool,
+    pool_nft_index: usize,
+    pool_nft_token_id: TokenId,
+}
+
+impl TryFrom<OracleContractParametersYaml> for OracleContractParameters {
+    type Error = String;
+
+    fn try_from(p: OracleContractParametersYaml) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl Into<OracleContractParametersYaml> for OracleContractParameters {
+    fn into(self) -> OracleContractParametersYaml {
+        OracleContractParametersYaml {
+            p2s: self.p2s.to_base58(),
+            on_mainnet: self.p2s.network() == NetworkPrefix::Mainnet,
+            pool_nft_index: self.pool_nft_index,
+            pool_nft_token_id: self.pool_nft_token_id.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
