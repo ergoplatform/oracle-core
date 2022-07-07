@@ -229,3 +229,34 @@ pub fn register_datapoint_scan(
 
     Scan::register("All Datapoints Scan", scan_json)
 }
+
+/// This function registers scanning for the local ballot box
+pub fn register_local_ballot_box_scan(
+    ballot_contract_address: &ErgoTree,
+    ballot_token_id: &TokenId,
+    ballot_token_owner_address: &String,
+) -> Result<Scan> {
+    // Raw EC bytes + type identifier
+    let ballot_add_bytes = address_to_raw_for_register(ballot_token_owner_address)?;
+    // Scan for pool participant token id + datapoint contract address + oracle_address in R4
+    let scan_json = json! ( {
+        "predicate": "and",
+        "args": [
+        {
+            "predicate": "containsAsset",
+            "assetId": ballot_token_id.clone(),
+        },
+        {
+            "predicate": "equals",
+            "value": ballot_contract_address.to_base16_bytes().unwrap(),
+        },
+        {
+            "predicate": "equals",
+            "register": "R4",
+            "value": ballot_add_bytes.clone(),
+        }
+    ]
+    } );
+
+    Scan::register("Local Ballot Box Scan", scan_json)
+}

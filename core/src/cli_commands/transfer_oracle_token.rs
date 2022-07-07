@@ -218,6 +218,7 @@ mod tests {
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
             BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            None,
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
