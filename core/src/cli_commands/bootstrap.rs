@@ -37,9 +37,12 @@ use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
-    contracts::{pool::PoolContract, refresh::RefreshContract, update::UpdateContract},
+    contracts::{
+        pool::{PoolContract, PoolContractParameters},
+        refresh::RefreshContract,
+        update::UpdateContract,
+    },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::PoolContractParameters,
     wallet::WalletDataSource,
 };
 

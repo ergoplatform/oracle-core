@@ -29,9 +29,8 @@ use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::pool::PoolContract;
+use crate::contracts::pool::PoolContractParameters;
 use crate::node_interface::SignTransaction;
-use crate::oracle_config::OracleContractParameters;
-use crate::oracle_config::PoolContractParameters;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 

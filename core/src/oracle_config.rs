@@ -1,14 +1,10 @@
-use std::convert::TryFrom;
-
 use crate::{
+    contracts::{oracle::OracleContractParameters, pool::PoolContractParameters},
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
     BlockDuration,
 };
 use anyhow::anyhow;
-use ergo_lib::ergotree_ir::chain::{
-    address::{AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix},
-    token::TokenId,
-};
+use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -87,115 +83,6 @@ pub fn get_node_port() -> String {
 /// Returns the `node_api_key`
 pub fn get_node_api_key() -> String {
     ORACLE_CONFIG.node_api_key.clone()
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(
-    try_from = "OracleContractParametersYaml",
-    into = "OracleContractParametersYaml"
-)]
-
-/// Parameters for the oracle contract
-pub struct OracleContractParameters {
-    pub p2s: NetworkAddress,
-    pub pool_nft_index: usize,
-    pub pool_nft_token_id: TokenId,
-}
-
-/// Used to (de)serialize `OracleContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct OracleContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    pool_nft_index: usize,
-    pool_nft_token_id: TokenId,
-}
-
-impl TryFrom<OracleContractParametersYaml> for OracleContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: OracleContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(OracleContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            pool_nft_index: p.pool_nft_index,
-            pool_nft_token_id: p.pool_nft_token_id,
-        })
-    }
-}
-
-impl From<OracleContractParameters> for OracleContractParametersYaml {
-    fn from(val: OracleContractParameters) -> Self {
-        OracleContractParametersYaml {
-            p2s: val.p2s.to_base58(),
-            on_mainnet: val.p2s.network() == NetworkPrefix::Mainnet,
-            pool_nft_index: val.pool_nft_index,
-            pool_nft_token_id: val.pool_nft_token_id.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(
-    try_from = "PoolContractParametersYaml",
-    into = "PoolContractParametersYaml"
-)]
-/// Parameters for the pool contract
-pub struct PoolContractParameters {
-    pub p2s: NetworkAddress,
-    pub refresh_nft_index: usize,
-    pub refresh_nft_token_id: TokenId,
-    pub update_nft_index: usize,
-    pub update_nft_token_id: TokenId,
-}
-
-/// Used to (de)serialize `PoolContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PoolContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    pub refresh_nft_index: usize,
-    pub refresh_nft_token_id: TokenId,
-    pub update_nft_index: usize,
-    pub update_nft_token_id: TokenId,
-}
-
-impl TryFrom<PoolContractParametersYaml> for PoolContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: PoolContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(PoolContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            refresh_nft_index: p.refresh_nft_index,
-            refresh_nft_token_id: p.refresh_nft_token_id,
-            update_nft_index: p.update_nft_index,
-            update_nft_token_id: p.update_nft_token_id,
-        })
-    }
-}
-
-impl From<PoolContractParameters> for PoolContractParametersYaml {
-    fn from(val: PoolContractParameters) -> Self {
-        PoolContractParametersYaml {
-            p2s: val.p2s.to_base58(),
-            on_mainnet: val.p2s.network() == NetworkPrefix::Mainnet,
-            refresh_nft_index: val.refresh_nft_index,
-            refresh_nft_token_id: val.refresh_nft_token_id.clone(),
-            update_nft_index: val.update_nft_index,
-            update_nft_token_id: val.update_nft_token_id.clone(),
-        }
-    }
 }
 
 #[cfg(test)]

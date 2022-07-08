@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
-use crate::oracle_config::OracleContractParameters;
+use crate::contracts::oracle::OracleContractParameters;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;

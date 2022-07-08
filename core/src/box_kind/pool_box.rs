@@ -10,10 +10,10 @@ use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
+use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
-use crate::oracle_config::OracleContractParameters;
-use crate::oracle_config::PoolContractParameters;
+use crate::contracts::pool::PoolContractParameters;
 
 pub trait PoolBox {
     fn contract(&self) -> &PoolContract;

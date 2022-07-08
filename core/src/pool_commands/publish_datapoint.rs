@@ -23,9 +23,8 @@ use thiserror::Error;
 use crate::{
     actions::PublishDataPointAction,
     box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
-    contracts::oracle::{OracleContract, OracleContractError},
+    contracts::oracle::{OracleContract, OracleContractError, OracleContractParameters},
     datapoint_source::{DataPointSource, DataPointSourceError},
-    oracle_config::OracleContractParameters,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };

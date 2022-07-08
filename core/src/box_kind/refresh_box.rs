@@ -9,9 +9,9 @@ use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use thiserror::Error;
 
+use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
-use crate::oracle_config::PoolContractParameters;
 
 pub trait RefreshBox {
     fn contract(&self) -> &RefreshContract;

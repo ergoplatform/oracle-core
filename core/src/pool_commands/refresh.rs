@@ -281,9 +281,9 @@ mod tests {
 
     use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::RefreshBoxWrapper;
+    use crate::contracts::oracle::OracleContractParameters;
+    use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
-    use crate::oracle_config::OracleContractParameters;
-    use crate::oracle_config::PoolContractParameters;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::make_oracle_contract_parameters;
     use crate::pool_commands::test_utils::make_pool_contract_parameters;

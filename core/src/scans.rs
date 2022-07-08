@@ -1,10 +1,9 @@
-use crate::contracts::pool::PoolContract;
+use crate::contracts::pool::{PoolContract, PoolContractParameters};
 use crate::contracts::refresh::RefreshContract;
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
     address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
 };
-use crate::oracle_config::PoolContractParameters;
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;

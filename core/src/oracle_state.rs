@@ -4,9 +4,10 @@ use crate::box_kind::{
     PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
 };
 use crate::contracts::ballot::BallotContract;
-use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::{OracleContract, OracleContractParameters};
+use crate::contracts::pool::PoolContractParameters;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::{OracleContractParameters, PoolContractParameters, ORACLE_CONFIG};
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
     register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,

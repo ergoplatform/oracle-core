@@ -8,7 +8,8 @@ use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
-use crate::oracle_config::{OracleContractParameters, ORACLE_CONFIG};
+use crate::contracts::oracle::OracleContractParameters;
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
