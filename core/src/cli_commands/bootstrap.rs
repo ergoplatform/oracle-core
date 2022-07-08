@@ -668,6 +668,7 @@ impl From<BootstrapPoolContractParameters> for BootstrapPoolContractParametersYa
         }
     }
 }
+#[derive(Clone)]
 pub struct Addresses {
     pub address_for_oracle_tokens: Address,
     pub wallet_address_for_chain_transaction: Address,

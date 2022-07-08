@@ -189,7 +189,9 @@ impl OraclePool {
 
             let ballot_contract_address = BallotContract::new()
                 .with_min_storage_rent(config.ballot_box_min_storage_rent)
-                .with_update_nft_token_id(config.update_nft.clone())
+                .with_update_nft_token_id(
+                    config.pool_contract_parameters.update_nft_token_id.clone(),
+                )
                 .ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
@@ -248,7 +250,6 @@ impl OraclePool {
             ));
         }
 
-        let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
         let pool_box_scan = (
             Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
             config.pool_contract_parameters.clone(),
