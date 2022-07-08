@@ -19,7 +19,7 @@ pub struct OracleContract {
 pub enum OracleContractError {
     #[error("oracle contract: failed to get pool NFT from constants")]
     NoPoolNftId,
-    #[error("oracle contract: unknown pool NFT in box")]
+    #[error("oracle contract: unknown pool NFT defined in constant")]
     UnknownPoolNftId,
     #[error("oracle contract: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),

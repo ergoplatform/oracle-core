@@ -12,6 +12,8 @@ use thiserror::Error;
 
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
+use crate::oracle_config::OracleContractParameters;
+use crate::oracle_config::PoolContractParameters;
 
 pub trait PoolBox {
     fn contract(&self) -> &PoolContract;
@@ -34,10 +36,52 @@ pub enum PoolBoxError {
     NoRewardToken,
     #[error("pool contract: {0:?}")]
     PoolContractError(#[from] PoolContractError),
+    #[error("pool box: unknown pool NFT in box")]
+    UnknownPoolNftId,
 }
 
 #[derive(Clone)]
 pub struct PoolBoxWrapper(ErgoBox, PoolContract);
+
+impl PoolBoxWrapper {
+    pub fn new(
+        b: ErgoBox,
+        pool_contract_parameters: &PoolContractParameters,
+        oracle_contract_parameters: &OracleContractParameters,
+    ) -> Result<Self, PoolBoxError> {
+        if let Some(token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(0) {
+            if token.token_id != oracle_contract_parameters.pool_nft_token_id {
+                return Err(PoolBoxError::UnknownPoolNftId);
+            }
+        } else {
+            return Err(PoolBoxError::NoTokens);
+        }
+
+        if b.get_register(NonMandatoryRegisterId::R4.into())
+            .ok_or(PoolBoxError::NoDataPoint)?
+            .try_extract_into::<i64>()
+            .is_err()
+        {
+            return Err(PoolBoxError::NoDataPoint);
+        }
+
+        if b.get_register(NonMandatoryRegisterId::R5.into())
+            .ok_or(PoolBoxError::NoEpochCounter)?
+            .try_extract_into::<i32>()
+            .is_err()
+        {
+            return Err(PoolBoxError::NoEpochCounter);
+        }
+
+        if let Some(_token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(1) {
+            // TODO: check reward token id (need ballot contract parameters)
+        } else {
+            return Err(PoolBoxError::NoRewardToken);
+        }
+        let contract = PoolContract::new(pool_contract_parameters)?;
+        Ok(Self(b, contract))
+    }
+}
 
 impl PoolBox for PoolBoxWrapper {
     fn pool_nft_token(&self) -> Token {
@@ -73,46 +117,19 @@ impl PoolBox for PoolBoxWrapper {
     }
 }
 
-impl TryFrom<ErgoBox> for PoolBoxWrapper {
+impl<'a>
+    TryFrom<(
+        ErgoBox,
+        &'a PoolContractParameters,
+        &'a OracleContractParameters,
+    )> for PoolBoxWrapper
+{
     type Error = PoolBoxError;
 
-    fn try_from(b: ErgoBox) -> Result<Self, Self::Error> {
-        let _pool_token_id = b
-            .tokens
-            .as_ref()
-            .ok_or(PoolBoxError::NoTokens)?
-            .get(0)
-            .ok_or(PoolBoxError::NoTokens)?
-            .token_id
-            .clone();
-
-        if b.get_register(NonMandatoryRegisterId::R4.into())
-            .ok_or(PoolBoxError::NoDataPoint)?
-            .try_extract_into::<i64>()
-            .is_err()
-        {
-            return Err(PoolBoxError::NoDataPoint);
-        }
-
-        if b.get_register(NonMandatoryRegisterId::R5.into())
-            .ok_or(PoolBoxError::NoEpochCounter)?
-            .try_extract_into::<i32>()
-            .is_err()
-        {
-            return Err(PoolBoxError::NoEpochCounter);
-        }
-
-        let _reward_token_id = b
-            .tokens
-            .as_ref()
-            .ok_or(PoolBoxError::NoTokens)?
-            .get(1)
-            .ok_or(PoolBoxError::NoRewardToken)?
-            .token_id
-            .clone();
-
-        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone())?;
-        Ok(Self(b, contract))
+    fn try_from(
+        value: (ErgoBox, &PoolContractParameters, &OracleContractParameters),
+    ) -> Result<Self, Self::Error> {
+        PoolBoxWrapper::new(value.0, value.1, value.2)
     }
 }
 

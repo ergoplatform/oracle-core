@@ -6,7 +6,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::{OracleContractParameters, ORACLE_CONFIG};
+use crate::oracle_config::{OracleContractParameters, PoolContractParameters, ORACLE_CONFIG};
 use crate::scans::{
     register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
     register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
@@ -109,8 +109,8 @@ pub struct OraclePool {
     pub local_oracle_datapoint_scan: Option<(Scan, OracleContractParameters)>,
     // Local ballot box Scan
     pub local_ballot_box_scan: Option<Scan>,
-    pool_box_scan: Scan,
-    refresh_box_scan: Scan,
+    pool_box_scan: (Scan, PoolContractParameters, OracleContractParameters),
+    refresh_box_scan: (Scan, PoolContractParameters),
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -153,7 +153,6 @@ impl OraclePool {
         let config = &ORACLE_CONFIG;
         let local_oracle_address = config.oracle_address.clone();
         let oracle_pool_nft = config.oracle_contract_parameters.pool_nft_token_id.clone();
-        let refresh_nft = config.refresh_nft.clone();
         let oracle_pool_participant_token_id = config.oracle_pool_participant_token_id.clone();
         let data_point_source = config.data_point_source()?;
 
@@ -169,10 +168,10 @@ impl OraclePool {
                     &datapoint_contract_address,
                 )
                 .unwrap(),
-                register_pool_box_scan(&oracle_pool_nft, &refresh_nft, &config.update_nft).unwrap(),
+                register_pool_box_scan(&oracle_pool_nft, &config.pool_contract_parameters).unwrap(),
                 register_refresh_box_scan(
                     refresh_box_scan_name,
-                    &refresh_nft,
+                    &config.pool_contract_parameters.refresh_nft_token_id,
                     &oracle_pool_participant_token_id,
                     &oracle_pool_nft,
                 )
@@ -250,10 +249,18 @@ impl OraclePool {
         }
 
         let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
+        let pool_box_scan = (
+            Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
+            config.pool_contract_parameters.clone(),
+            config.oracle_contract_parameters.clone(),
+        );
 
-        let refresh_box_scan = Scan::new(
-            refresh_box_scan_name,
-            &scan_json[refresh_box_scan_name].to_string(),
+        let refresh_box_scan = (
+            Scan::new(
+                refresh_box_scan_name,
+                &scan_json[refresh_box_scan_name].to_string(),
+            ),
+            config.pool_contract_parameters.clone(),
         );
 
         // Create `OraclePool` struct
@@ -392,9 +399,10 @@ impl OraclePool {
     }
 }
 
-impl PoolBoxSource for Scan {
+impl PoolBoxSource for (Scan, PoolContractParameters, OracleContractParameters) {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
-        Ok(self.get_box()?.try_into()?)
+        let box_wrapper = PoolBoxWrapper::new(self.0.get_box()?, &self.1, &self.2)?;
+        Ok(box_wrapper)
     }
 }
 
@@ -404,9 +412,9 @@ impl LocalBallotBoxSource for Scan {
     }
 }
 
-impl RefreshBoxSource for Scan {
+impl RefreshBoxSource for (Scan, PoolContractParameters) {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        Ok(self.get_box()?.try_into()?)
+        Ok((self.0.get_box()?, &self.1).try_into()?)
     }
 }
 

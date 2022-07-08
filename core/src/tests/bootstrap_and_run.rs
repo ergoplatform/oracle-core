@@ -7,6 +7,9 @@ use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::Transaction;
 use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
 use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::wallet::Wallet;
 use sigma_test_util::force_any_val;
@@ -15,6 +18,7 @@ use crate::cli_commands::bootstrap::perform_bootstrap_chained_transaction;
 use crate::cli_commands::bootstrap::Addresses;
 use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
+use crate::cli_commands::bootstrap::BootstrapPoolContractParameters;
 use crate::cli_commands::bootstrap::NftMintDetails;
 use crate::cli_commands::bootstrap::OracleConfigFields;
 use crate::cli_commands::bootstrap::RefreshContractParameters;
@@ -46,6 +50,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
     let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
     let change_address = address;
 
+    let pool_box_address = AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str("PViBL5acX6PoP6BQPsYtyNzW9aPXwxpRaUkXo4nE7RkxcBbZXJECUEBQm4g3MQCb2QsQALqPkrDN9TvsKuQkChF8sZSfnH5fifgKAkXhW8ifAcAE1qA67n9mabB3Mb2R8xT2v3SN49eN8mQ8HN95").unwrap();
     let state = BootstrapConfig {
         tokens_to_mint: TokensToMint {
             pool_nft: NftMintDetails {
@@ -84,6 +89,11 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
             max_deviation_percent: 5,
             total_ballots: 15,
             min_votes: 6,
+        },
+        pool_contract_parameters: BootstrapPoolContractParameters {
+            p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &pool_box_address),
+            refresh_nft_index: 2,
+            update_nft_index: 3,
         },
         addresses: Addresses {
             address_for_oracle_tokens: address.clone(),

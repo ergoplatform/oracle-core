@@ -1,5 +1,8 @@
 //! Bootstrap a new oracle pool
-use std::{convert::TryInto, io::Write};
+use std::{
+    convert::{TryFrom, TryInto},
+    io::Write,
+};
 
 use derive_more::From;
 use ergo_lib::{
@@ -9,7 +12,9 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{
+                Address, AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
+            },
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -34,6 +39,7 @@ use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{pool::PoolContract, refresh::RefreshContract, update::UpdateContract},
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
+    oracle_config::PoolContractParameters,
     wallet::WalletDataSource,
 };
 
@@ -330,9 +336,14 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Create pool box -----------------------------------------------------------------------------
     info!("Create pool box tx");
-    let pool_contract = PoolContract::new()
-        .with_refresh_nft_token_id(refresh_nft_token.token_id.clone())
-        .with_update_nft_token_id(update_nft_token.token_id.clone());
+    let pool_contract_parameters = PoolContractParameters {
+        p2s: config.pool_contract_parameters.p2s,
+        refresh_nft_index: config.pool_contract_parameters.refresh_nft_index,
+        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
+        update_nft_index: config.pool_contract_parameters.update_nft_index,
+        update_nft_token_id: update_nft_token.token_id.clone(),
+    };
+    let pool_contract = PoolContract::new(&pool_contract_parameters).unwrap();
 
     let reward_tokens_for_pool_box = Token {
         token_id: reward_token.token_id.clone(),
@@ -554,6 +565,18 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         emitter.dump(&Yaml::Hash(hash)).unwrap();
         serde_yaml::from_str(&out)?
     };
+
+    let pool_contract_parameters: BootstrapPoolContractParameters = {
+        // The struct is created via the same process as `tokens_to_mint` above.
+        let hash = yaml["pool_contract_parameters"]
+            .as_hash()
+            .ok_or_else(|| BootstrapError::YamlRust("`pool_contract_parameters` missing".into()))?
+            .clone();
+        let mut out = String::new();
+        let mut emitter = YamlEmitter::new(&mut out);
+        emitter.dump(&Yaml::Hash(hash)).unwrap();
+        serde_yaml::from_str(&out)?
+    };
     let node_ip = yaml["node_ip"]
         .as_str()
         .ok_or_else(|| BootstrapError::YamlRust("`node_ip` missing".into()))?
@@ -571,6 +594,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
 
     Ok(BootstrapConfig {
         refresh_contract_parameters,
+        pool_contract_parameters,
         tokens_to_mint,
         node_ip,
         node_port,
@@ -586,6 +610,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
 #[derive(Clone)]
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
+    pub pool_contract_parameters: BootstrapPoolContractParameters,
     pub tokens_to_mint: TokensToMint,
     pub node_ip: String,
     pub node_port: String,
@@ -593,7 +618,56 @@ pub struct BootstrapConfig {
     pub is_mainnet: bool,
     pub addresses: Addresses,
 }
-#[derive(Clone)]
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(
+    try_from = "BootstrapPoolContractParametersYaml",
+    into = "BootstrapPoolContractParametersYaml"
+)]
+/// Parameters for the pool contract that are needed for oracle bootstrap.
+pub struct BootstrapPoolContractParameters {
+    pub p2s: NetworkAddress,
+    pub refresh_nft_index: usize,
+    pub update_nft_index: usize,
+}
+
+/// Used to (de)serialize `BootstrapPoolContractParameters` instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BootstrapPoolContractParametersYaml {
+    p2s: String,
+    on_mainnet: bool,
+    pub refresh_nft_index: usize,
+    pub update_nft_index: usize,
+}
+
+impl TryFrom<BootstrapPoolContractParametersYaml> for BootstrapPoolContractParameters {
+    type Error = AddressEncoderError;
+
+    fn try_from(p: BootstrapPoolContractParametersYaml) -> Result<Self, Self::Error> {
+        let prefix = if p.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
+        Ok(BootstrapPoolContractParameters {
+            p2s: NetworkAddress::new(prefix, &address),
+            refresh_nft_index: p.refresh_nft_index,
+            update_nft_index: p.update_nft_index,
+        })
+    }
+}
+
+impl From<BootstrapPoolContractParameters> for BootstrapPoolContractParametersYaml {
+    fn from(val: BootstrapPoolContractParameters) -> Self {
+        BootstrapPoolContractParametersYaml {
+            p2s: val.p2s.to_base58(),
+            on_mainnet: val.p2s.network() == NetworkPrefix::Mainnet,
+            refresh_nft_index: val.refresh_nft_index,
+            update_nft_index: val.update_nft_index,
+        }
+    }
+}
 pub struct Addresses {
     pub address_for_oracle_tokens: Address,
     pub wallet_address_for_chain_transaction: Address,
@@ -744,6 +818,17 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
+        let network_prefix = if is_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let p2s = NetworkAddress::new(
+            network_prefix,
+            &AddressEncoder::new(network_prefix)
+                .parse_address_from_str("PViBL5acX6PoP6BQPsYtyNzW9aPXwxpRaUkXo4nE7RkxcBbZXJECUEBQm4g3MQCb2QsQALqPkrDN9TvsKuQkChF8sZSfnH5fifgKAkXhW8ifAcAE1qA67n9mabB3Mb2R8xT2v3SN49eN8mQ8HN95")
+                .unwrap(),
+        );
         let state = BootstrapConfig {
             tokens_to_mint: TokensToMint {
                 pool_nft: NftMintDetails {
@@ -782,6 +867,11 @@ mod tests {
                 max_deviation_percent: 5,
                 total_ballots: 15,
                 min_votes: 6,
+            },
+            pool_contract_parameters: BootstrapPoolContractParameters {
+                p2s,
+                refresh_nft_index: 2,
+                update_nft_index: 3,
             },
             addresses: Addresses {
                 address_for_oracle_tokens: address.clone(),

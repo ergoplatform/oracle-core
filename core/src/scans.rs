@@ -4,6 +4,7 @@ use crate::contracts::refresh::RefreshContract;
 use crate::node_interface::{
     address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
 };
+use crate::oracle_config::PoolContractParameters;
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -113,13 +114,11 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 /// This function registers scanning for the pool box
 pub fn register_pool_box_scan(
     oracle_pool_nft: &TokenId,
-    refresh_token_nft: &TokenId,
-    update_token_nft: &TokenId,
+    pool_contract_parameters: &PoolContractParameters,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = PoolContract::new()
-        .with_refresh_nft_token_id(refresh_token_nft.clone())
-        .with_update_nft_token_id(update_token_nft.clone())
+    let pool_box_tree_bytes = PoolContract::new(pool_contract_parameters)
+        .unwrap()
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();

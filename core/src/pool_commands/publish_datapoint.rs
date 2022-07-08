@@ -246,7 +246,8 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_oracle_contract_parameters, make_pool_box,
-        make_wallet_unspent_box, OracleBoxMock, PoolBoxMock, WalletDataMock,
+        make_pool_contract_parameters, make_wallet_unspent_box, OracleBoxMock, PoolBoxMock,
+        WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -278,14 +279,16 @@ mod tests {
         let refresh_contract = RefreshContract::new();
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = make_oracle_contract_parameters();
+        let pool_contract_parameters = make_pool_contract_parameters();
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
             1,
-            oracle_contract_parameters.pool_nft_token_id.clone(),
             Token::from((reward_token_id.clone(), 50u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
+            &pool_contract_parameters,
+            &oracle_contract_parameters,
         );
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
