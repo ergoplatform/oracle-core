@@ -21,6 +21,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
 use std::convert::TryInto;
 use std::path::Path;
+use std::sync::Arc;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, StageError>;
@@ -104,14 +105,23 @@ pub struct OraclePool {
     /// More specifically, using a separate `OracleContractParameters` instance within the trait
     /// implementation results in the creation of a local variable whose reference is needed but
     /// is immediately dropped. Type `rustc --explain E0515` on the command line for details.
-    pub datapoint_stage: (Stage, OracleContractParameters),
+    ///
+    /// Note: need to use `Arc` here since it will be passed between threads due to the `api`
+    /// module.
+    pub datapoint_stage: (Stage, Arc<OracleContractParameters>),
     /// Local Oracle Datapoint Scan. Similarly to the `datapoint_stage` field, we must also have
     /// an instance of `OracleContractParameters` alongside the `Scan` instance.
-    pub local_oracle_datapoint_scan: Option<(Scan, OracleContractParameters)>,
+    pub local_oracle_datapoint_scan: Option<(Scan, Arc<OracleContractParameters>)>,
     // Local ballot box Scan
     pub local_ballot_box_scan: Option<Scan>,
-    pool_box_scan: (Scan, PoolContractParameters, OracleContractParameters),
-    refresh_box_scan: (Scan, PoolContractParameters),
+    /// Defined in a similar way to `datapoint_stage`, for the same reasons.
+    pool_box_scan: (
+        Scan,
+        Arc<PoolContractParameters>,
+        Arc<OracleContractParameters>,
+    ),
+    /// Defined in a similar way to `datapoint_stage`, for the same reasons.
+    refresh_box_scan: (Scan, Arc<PoolContractParameters>),
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -225,6 +235,9 @@ impl OraclePool {
         )
         .expect("Failed to parse scanIDs.json");
 
+        let oracle_contract_parameters = Arc::new(config.oracle_contract_parameters.clone());
+        let pool_contract_parameters = Arc::new(config.pool_contract_parameters.clone());
+
         // Create all `Scan` structs for protocol
         let datapoint_scan = Scan::new(
             "All Oracle Datapoints Scan",
@@ -238,7 +251,7 @@ impl OraclePool {
                     "Local Oracle Datapoint Scan",
                     &scan_json[local_scan_str].to_string(),
                 ),
-                config.oracle_contract_parameters.clone(),
+                oracle_contract_parameters.clone(),
             ));
         };
 
@@ -253,8 +266,8 @@ impl OraclePool {
 
         let pool_box_scan = (
             Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
-            config.pool_contract_parameters.clone(),
-            config.oracle_contract_parameters.clone(),
+            pool_contract_parameters.clone(),
+            oracle_contract_parameters.clone(),
         );
 
         let refresh_box_scan = (
@@ -262,7 +275,7 @@ impl OraclePool {
                 refresh_box_scan_name,
                 &scan_json[refresh_box_scan_name].to_string(),
             ),
-            config.pool_contract_parameters.clone(),
+            pool_contract_parameters.clone(),
         );
 
         // Create `OraclePool` struct
@@ -273,7 +286,7 @@ impl OraclePool {
                     contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
                     scan: datapoint_scan,
                 },
-                config.oracle_contract_parameters.clone(),
+                oracle_contract_parameters.clone(),
             ),
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
@@ -401,7 +414,13 @@ impl OraclePool {
     }
 }
 
-impl PoolBoxSource for (Scan, PoolContractParameters, OracleContractParameters) {
+impl PoolBoxSource
+    for (
+        Scan,
+        Arc<PoolContractParameters>,
+        Arc<OracleContractParameters>,
+    )
+{
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
         let box_wrapper = PoolBoxWrapper::new(self.0.get_box()?, &self.1, &self.2)?;
         Ok(box_wrapper)
@@ -414,13 +433,13 @@ impl LocalBallotBoxSource for Scan {
     }
 }
 
-impl RefreshBoxSource for (Scan, PoolContractParameters) {
+impl RefreshBoxSource for (Scan, Arc<PoolContractParameters>) {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        Ok((self.0.get_box()?, &self.1).try_into()?)
+        Ok((self.0.get_box()?, &*self.1).try_into()?)
     }
 }
 
-impl LocalDatapointBoxSource for (Scan, OracleContractParameters) {
+impl LocalDatapointBoxSource for (Scan, Arc<OracleContractParameters>) {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
         let box_wrapper = OracleBoxWrapper::new(self.0.get_box()?, &self.1)?;
         Ok(box_wrapper)
@@ -456,7 +475,7 @@ impl StageDataSource for Stage {
     }
 }
 
-impl DatapointBoxesSource for (Stage, OracleContractParameters) {
+impl DatapointBoxesSource for (Stage, Arc<OracleContractParameters>) {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>> {
         let res = self
             .0
