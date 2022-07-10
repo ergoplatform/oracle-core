@@ -10,6 +10,8 @@ use ergo_node_interface::{
     node_interface::{NodeError, NodeInterface, WalletStatus},
     BlockHeight,
 };
+use log::debug;
+use log::error;
 
 pub type Result<T> = std::result::Result<T, NodeError>;
 pub type ScanID = String;
@@ -184,4 +186,14 @@ pub fn submit_transaction(signed_tx: &Transaction) -> Result<TxId> {
 /// Sign an `UnsignedTransaction` and then submit it to the mempool.
 pub fn sign_and_submit_transaction(unsigned_tx: &UnsignedTransaction) -> Result<TxId> {
     new_node_interface().sign_and_submit_transaction(unsigned_tx)
+}
+
+pub fn assert_wallet_unlocked(node: &NodeInterface) {
+    let unlocked = node.wallet_status().unwrap().unlocked;
+    if !unlocked {
+        error!("Wallet must be unlocked for node operations");
+        std::process::exit(exitcode::SOFTWARE);
+    } else {
+        debug!("Wallet unlocked");
+    }
 }

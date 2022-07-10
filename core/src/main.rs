@@ -44,8 +44,10 @@ use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::debug;
 use log::error;
 use log::LevelFilter;
+use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
+use node_interface::new_node_interface;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
 use state::process;
@@ -136,6 +138,7 @@ fn main() {
         }
 
         Command::Run { read_only } => {
+            assert_wallet_unlocked(&new_node_interface());
             let (_, repost_receiver) = bounded(1);
 
             // Start Oracle Core GET API Server
@@ -157,6 +160,7 @@ fn main() {
         }
 
         Command::ExtractRewardTokens { rewards_address } => {
+            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
             if let Err(e) =
                 cli_commands::extract_reward_tokens::extract_reward_tokens(&wallet, rewards_address)
@@ -167,6 +171,7 @@ fn main() {
         }
 
         Command::PrintRewardTokens => {
+            assert_wallet_unlocked(&new_node_interface());
             let op = OraclePool::new().unwrap();
             if let Err(e) = cli_commands::print_reward_tokens::print_reward_tokens(
                 op.get_local_datapoint_box_source(),
@@ -179,6 +184,7 @@ fn main() {
         Command::TransferOracleToken {
             oracle_token_address,
         } => {
+            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
                 &wallet,
@@ -195,6 +201,7 @@ fn main() {
             reward_token_amount,
             update_box_creation_height,
         } => {
+            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 &wallet,
