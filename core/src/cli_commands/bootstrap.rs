@@ -33,7 +33,7 @@ use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{pool::PoolContract, refresh::RefreshContract, update::UpdateContract},
-    node_interface::{SignTransaction, SubmitTransaction},
+    node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     wallet::WalletDataSource,
 };
 
@@ -49,6 +49,7 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
+    assert_wallet_unlocked(&node);
     let prefix = if config.is_mainnet {
         NetworkPrefix::Mainnet
     } else {
