@@ -78,7 +78,7 @@ impl PoolBoxWrapper {
         } else {
             return Err(PoolBoxError::NoRewardToken);
         }
-        let contract = PoolContract::new(pool_contract_parameters)?;
+        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone(), pool_contract_parameters)?;
         Ok(Self(b, contract))
     }
 }

@@ -12,6 +12,7 @@ use thiserror::Error;
 use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
+use crate::contracts::refresh::RefreshContractParameters;
 
 pub trait RefreshBox {
     fn contract(&self) -> &RefreshContract;
@@ -50,10 +51,18 @@ impl RefreshBox for RefreshBoxWrapper {
     }
 }
 
-impl<'a> TryFrom<(ErgoBox, &'a PoolContractParameters)> for RefreshBoxWrapper {
+impl<'a>
+    TryFrom<(
+        ErgoBox,
+        &'a RefreshContractParameters,
+        &'a PoolContractParameters,
+    )> for RefreshBoxWrapper
+{
     type Error = RefreshBoxError;
 
-    fn try_from(value: (ErgoBox, &PoolContractParameters)) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: (ErgoBox, &RefreshContractParameters, &PoolContractParameters),
+    ) -> Result<Self, Self::Error> {
         let refresh_token_id = value
             .0
             .tokens
@@ -63,11 +72,11 @@ impl<'a> TryFrom<(ErgoBox, &'a PoolContractParameters)> for RefreshBoxWrapper {
             .ok_or(RefreshBoxError::NoTokens)?
             .token_id
             .clone();
-        if refresh_token_id != value.1.refresh_nft_token_id {
+        if refresh_token_id != value.2.refresh_nft_token_id {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
         }
 
-        let contract = RefreshContract::from_ergo_tree(value.0.ergo_tree.clone())?;
+        let contract = RefreshContract::from_ergo_tree(value.0.ergo_tree.clone(), value.1)?;
         Ok(Self(value.0, contract))
     }
 }

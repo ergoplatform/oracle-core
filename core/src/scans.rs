@@ -1,5 +1,5 @@
 use crate::contracts::pool::{PoolContract, PoolContractParameters};
-use crate::contracts::refresh::RefreshContract;
+use crate::contracts::refresh::{RefreshContract, RefreshContractError, RefreshContractParameters};
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
     address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
@@ -29,6 +29,8 @@ pub enum ScanError {
     FailedToRegister,
     #[error("IO error: {0}")]
     IoError(std::io::Error),
+    #[error("refresh contract error: {0}")]
+    RefreshContract(RefreshContractError),
 }
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
@@ -144,13 +146,10 @@ pub fn register_pool_box_scan(
 pub fn register_refresh_box_scan(
     scan_name: &'static str,
     refresh_nft: &TokenId,
-    oracle_token_id: &TokenId,
-    pool_nft: &TokenId,
+    refresh_contract_parameters: &RefreshContractParameters,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::new()
-        .with_oracle_token_id(oracle_token_id.clone())
-        .with_pool_nft_token_id(pool_nft.clone())
+    let tree_bytes = RefreshContract::new(refresh_contract_parameters)?
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();

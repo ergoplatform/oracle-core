@@ -1,7 +1,9 @@
 use crate::{
-    contracts::{oracle::OracleContractParameters, pool::PoolContractParameters},
+    contracts::{
+        oracle::OracleContractParameters, pool::PoolContractParameters,
+        refresh::RefreshContractParameters,
+    },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
-    BlockDuration,
 };
 use anyhow::anyhow;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
@@ -17,10 +19,6 @@ pub struct OracleConfig {
     pub node_api_key: String,
     pub reward_token_id: TokenId,
     pub ballot_token_id: TokenId,
-    pub epoch_length: BlockDuration,
-    pub buffer_length: BlockDuration,
-    pub max_deviation_percent: u64,
-    pub min_data_points: u64,
     pub ballot_box_min_storage_rent: u64,
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
@@ -35,6 +33,7 @@ pub struct OracleConfig {
     pub data_point_source_custom_script: Option<String>,
     pub oracle_contract_parameters: OracleContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
+    pub refresh_contract_parameters: RefreshContractParameters,
 }
 
 impl OracleConfig {
@@ -102,9 +101,14 @@ mod tests {
             ";
         let config = OracleConfig::load_from_str(yaml_string).unwrap();
         let pool_params = config;
-        assert_eq!(pool_params.epoch_length, 20);
-        assert_eq!(pool_params.buffer_length, 4);
-        assert_eq!(pool_params.max_deviation_percent, 5);
+        assert_eq!(pool_params.refresh_contract_parameters.epoch_length, 20);
+        assert_eq!(pool_params.refresh_contract_parameters.buffer_length, 4);
+        assert_eq!(
+            pool_params
+                .refresh_contract_parameters
+                .max_deviation_percent,
+            5
+        );
         assert_eq!(pool_params.base_fee, 1000000);
     }
 }

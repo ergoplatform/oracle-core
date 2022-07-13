@@ -6,6 +6,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::{OracleContract, OracleContractParameters};
 use crate::contracts::pool::PoolContractParameters;
+use crate::contracts::refresh::RefreshContractParameters;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
@@ -121,7 +122,11 @@ pub struct OraclePool {
         Arc<OracleContractParameters>,
     ),
     /// Defined in a similar way to `datapoint_stage`, for the same reasons.
-    refresh_box_scan: (Scan, Arc<PoolContractParameters>),
+    refresh_box_scan: (
+        Scan,
+        Arc<RefreshContractParameters>,
+        Arc<PoolContractParameters>,
+    ),
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -183,8 +188,7 @@ impl OraclePool {
                 register_refresh_box_scan(
                     refresh_box_scan_name,
                     &config.pool_contract_parameters.refresh_nft_token_id,
-                    &oracle_pool_participant_token_id,
-                    &oracle_pool_nft,
+                    &config.refresh_contract_parameters,
                 )
                 .unwrap(),
             ];
@@ -236,6 +240,7 @@ impl OraclePool {
         .expect("Failed to parse scanIDs.json");
 
         let oracle_contract_parameters = Arc::new(config.oracle_contract_parameters.clone());
+        let refresh_contract_parameters = Arc::new(config.refresh_contract_parameters.clone());
         let pool_contract_parameters = Arc::new(config.pool_contract_parameters.clone());
 
         // Create all `Scan` structs for protocol
@@ -275,6 +280,7 @@ impl OraclePool {
                 refresh_box_scan_name,
                 &scan_json[refresh_box_scan_name].to_string(),
             ),
+            refresh_contract_parameters.clone(),
             pool_contract_parameters.clone(),
         );
 
@@ -319,7 +325,8 @@ impl OraclePool {
         let latest_pool_datapoint = pool_box.rate();
 
         // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = pool_box.get_box().creation_height + ORACLE_CONFIG.epoch_length as u32;
+        let epoch_ends = pool_box.get_box().creation_height
+            + ORACLE_CONFIG.refresh_contract_parameters.epoch_length as u32;
 
         let epoch_state = LiveEpochState {
             epoch_id,
@@ -433,9 +440,15 @@ impl LocalBallotBoxSource for Scan {
     }
 }
 
-impl RefreshBoxSource for (Scan, Arc<PoolContractParameters>) {
+impl RefreshBoxSource
+    for (
+        Scan,
+        Arc<RefreshContractParameters>,
+        Arc<PoolContractParameters>,
+    )
+{
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        Ok((self.0.get_box()?, &*self.1).try_into()?)
+        Ok((self.0.get_box()?, &*self.1, &*self.2).try_into()?)
     }
 }
 

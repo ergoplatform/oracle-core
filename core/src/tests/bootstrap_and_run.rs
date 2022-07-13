@@ -19,9 +19,9 @@ use crate::cli_commands::bootstrap::Addresses;
 use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
 use crate::cli_commands::bootstrap::BootstrapPoolContractParameters;
+use crate::cli_commands::bootstrap::BootstrapRefreshContractParameters;
 use crate::cli_commands::bootstrap::NftMintDetails;
 use crate::cli_commands::bootstrap::OracleConfigFields;
-use crate::cli_commands::bootstrap::RefreshContractParameters;
 use crate::cli_commands::bootstrap::TokenMintDetails;
 use crate::cli_commands::bootstrap::TokensToMint;
 use crate::node_interface;
@@ -51,6 +51,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
     let change_address = address;
 
     let pool_box_address = AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str("PViBL5acX6PoP6BQPsYtyNzW9aPXwxpRaUkXo4nE7RkxcBbZXJECUEBQm4g3MQCb2QsQALqPkrDN9TvsKuQkChF8sZSfnH5fifgKAkXhW8ifAcAE1qA67n9mabB3Mb2R8xT2v3SN49eN8mQ8HN95").unwrap();
+    let refresh_box_address = AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str("oq3jWGvabYxVYtceq1RGzFD4UdcdHcqY861G7H4mDiEnYQHya17A2w5r7u45moTpjAqfsNTm2XyhRNvYHiZhDTpmnfVa9XHSsbs5zjEw5UmgQfuP5d3NdFVy7oiAvLP1sjZN8qiHryzFoenLgtsxV8wLAeBaRChy73dd3rgyVfZipVL5LCXQyXMqp9oFFzPtTPkBw3ha7gJ4Bs5KjeUkVXJRVQ2Tdhg51Sdb6fEkHRtRuvCpynxYokQXP6SNif1M6mPcBR3B4zMLcFvmGxwNkZ3mRFzqHVzHV8Syu5AzueJEmMTrvWAXnhpYE7WcFbmDt3dqyXq7x9DNyKq1VwRwgFscLYDenAHqqHKd3jsJ6Grs8uFvvvJGKdqzdoJ3qCcCRXeDcZAKmExJMH4hJbsk8b1ct5YDBcNrq3LUr319XkS8miZDbHdHa88MSpCJQJmE51hmWVAV1yXrpyxqXqAXXPpSaGCP38BwCv8hYFK37DyA4mQd5r7vF9vNo5DEXwQ5wA2EivwRtNqpKUxXtKuZWTNC7Pu7NmvEHSuJPnaoCUujCiPtLM4dR64u8Gp7X3Ujo3o9zuMc6npemx3hf8rQS18QXgKJLwfeSqVYkicbVcGZRHsPsGxwrf1Wixp45E8d5e97MsKTCuqSskPKaHUdQYW1JZ8djcr4dxg1qQN81m7u2q8dwW6AK32mwRSS3nj27jkjML6n6GBpNZk9AtB2uMx3CHo6pZSaxgeCXuu3amrdeYmbuSqHUNZHU").unwrap();
     let state = BootstrapConfig {
         tokens_to_mint: TokensToMint {
             pool_nft: NftMintDetails {
@@ -81,14 +82,21 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
                 quantity: 100_000_000,
             },
         },
-        refresh_contract_parameters: RefreshContractParameters {
+        refresh_contract_parameters: BootstrapRefreshContractParameters {
+            p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &refresh_box_address),
             epoch_length: 30,
-            buffer: 4,
+            buffer_length: 4,
             total_oracles: 15,
             min_data_points: 4,
             max_deviation_percent: 5,
             total_ballots: 15,
             min_votes: 6,
+            pool_nft_index: 17,
+            oracle_token_id_index: 3,
+            min_data_points_index: 13,
+            buffer_index: 21,
+            max_deviation_percent_index: 15,
+            epoch_length_index: 0,
         },
         pool_contract_parameters: BootstrapPoolContractParameters {
             p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &pool_box_address),

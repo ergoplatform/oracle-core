@@ -197,7 +197,7 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_oracle_contract_parameters,
-        make_wallet_unspent_box, OracleBoxMock, WalletDataMock,
+        make_refresh_contract_parameters, make_wallet_unspent_box, OracleBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -212,7 +212,7 @@ mod tests {
     fn test_extract_reward_tokens() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
+        let refresh_contract = RefreshContract::new(&make_refresh_contract_parameters()).unwrap();
         let reward_token_id = force_any_val::<TokenId>();
         dbg!(&reward_token_id);
         let secret = force_any_val::<DlogProverInput>();

@@ -39,7 +39,7 @@ use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{
         pool::{PoolContract, PoolContractParameters},
-        refresh::RefreshContract,
+        refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
         update::UpdateContract,
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
@@ -417,21 +417,39 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Create refresh box --------------------------------------------------------------------------
     info!("Create refresh box tx");
-    let RefreshContractParameters {
-        epoch_length,
-        buffer,
+    let BootstrapRefreshContractParameters {
+        p2s,
+        pool_nft_index,
+        oracle_token_id_index,
+        min_data_points_index,
         min_data_points,
+        buffer_index,
+        buffer_length,
+        max_deviation_percent_index,
         max_deviation_percent,
+        epoch_length_index,
+        epoch_length,
         ..
     } = config.refresh_contract_parameters;
 
-    let refresh_contract = RefreshContract::new()
-        .with_oracle_token_id(oracle_token.token_id.clone())
-        .with_pool_nft_token_id(pool_nft_token.token_id.clone())
-        .with_epoch_length(epoch_length)
-        .with_buffer(buffer)
-        .with_min_data_points(min_data_points)
-        .with_max_deviation_percent(max_deviation_percent);
+    let parameters = RefreshContractParameters {
+        p2s,
+        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
+        pool_nft_index,
+        pool_nft_token_id: pool_nft_token.token_id.clone(),
+        oracle_token_id_index,
+        oracle_token_id: oracle_token.token_id.clone(),
+        min_data_points_index,
+        min_data_points,
+        buffer_index,
+        buffer_length,
+        max_deviation_percent_index,
+        max_deviation_percent,
+        epoch_length_index,
+        epoch_length,
+    };
+
+    let refresh_contract = RefreshContract::new(&parameters)?;
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,
@@ -555,7 +573,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         wallet_address_for_chain_transaction,
     };
 
-    let refresh_contract_parameters: RefreshContractParameters = {
+    let refresh_contract_parameters: BootstrapRefreshContractParameters = {
         // The struct is created via the same process as `tokens_to_mint` above.
         let hash = yaml["refresh_contract_parameters"]
             .as_hash()
@@ -612,7 +630,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
 /// field.
 #[derive(Clone)]
 pub struct BootstrapConfig {
-    pub refresh_contract_parameters: RefreshContractParameters,
+    pub refresh_contract_parameters: BootstrapRefreshContractParameters,
     pub pool_contract_parameters: BootstrapPoolContractParameters,
     pub tokens_to_mint: TokensToMint,
     pub node_ip: String,
@@ -688,16 +706,97 @@ pub struct TokensToMint {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct RefreshContractParameters {
-    pub epoch_length: u32,
-    pub buffer: u32,
-    pub total_oracles: u32,
-    pub min_data_points: u32,
-    pub max_deviation_percent: u32,
-    pub total_ballots: u32,
+#[serde(
+    try_from = "BootstrapRefreshContractParametersYaml",
+    into = "BootstrapRefreshContractParametersYaml"
+)]
+pub struct BootstrapRefreshContractParameters {
+    pub p2s: NetworkAddress,
+    pub pool_nft_index: usize,
+    pub oracle_token_id_index: usize,
+    pub min_data_points_index: usize,
+    pub min_data_points: u64,
+    pub buffer_index: usize,
+    pub buffer_length: u64,
+    pub max_deviation_percent_index: usize,
+    pub max_deviation_percent: u64,
+    pub epoch_length_index: usize,
+    pub epoch_length: u64,
     pub min_votes: u32,
+    pub total_oracles: u32,
+    pub total_ballots: u32,
 }
 
+/// Used to (de)serialize `BootstrapRefreshContractParameters` instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BootstrapRefreshContractParametersYaml {
+    p2s: String,
+    on_mainnet: bool,
+    pool_nft_index: usize,
+    oracle_token_id_index: usize,
+    min_data_points_index: usize,
+    min_data_points: u64,
+    buffer_index: usize,
+    buffer_length: u64,
+    max_deviation_percent_index: usize,
+    max_deviation_percent: u64,
+    epoch_length_index: usize,
+    epoch_length: u64,
+    min_votes: u32,
+    total_oracles: u32,
+    total_ballots: u32,
+}
+
+impl TryFrom<BootstrapRefreshContractParametersYaml> for BootstrapRefreshContractParameters {
+    type Error = AddressEncoderError;
+
+    fn try_from(p: BootstrapRefreshContractParametersYaml) -> Result<Self, Self::Error> {
+        let prefix = if p.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
+        Ok(BootstrapRefreshContractParameters {
+            p2s: NetworkAddress::new(prefix, &address),
+            pool_nft_index: p.pool_nft_index,
+            oracle_token_id_index: p.oracle_token_id_index,
+            min_data_points_index: p.min_data_points_index,
+            min_data_points: p.min_data_points,
+            buffer_index: p.buffer_index,
+            buffer_length: p.buffer_length,
+            max_deviation_percent_index: p.max_deviation_percent_index,
+            max_deviation_percent: p.max_deviation_percent,
+            epoch_length_index: p.epoch_length_index,
+            epoch_length: p.epoch_length,
+            min_votes: p.min_votes,
+            total_oracles: p.total_oracles,
+            total_ballots: p.total_ballots,
+        })
+    }
+}
+
+impl From<BootstrapRefreshContractParameters> for BootstrapRefreshContractParametersYaml {
+    fn from(p: BootstrapRefreshContractParameters) -> Self {
+        BootstrapRefreshContractParametersYaml {
+            p2s: p.p2s.to_base58(),
+            on_mainnet: p.p2s.network() == NetworkPrefix::Mainnet,
+            pool_nft_index: p.pool_nft_index,
+            oracle_token_id_index: p.oracle_token_id_index,
+            min_data_points_index: p.min_data_points_index,
+            min_data_points: p.min_data_points,
+            buffer_index: p.buffer_index,
+            buffer_length: p.buffer_length,
+            max_deviation_percent_index: p.max_deviation_percent_index,
+            max_deviation_percent: p.max_deviation_percent,
+            epoch_length_index: p.epoch_length_index,
+            epoch_length: p.epoch_length,
+            min_votes: p.min_votes,
+            total_oracles: p.total_oracles,
+            total_ballots: p.total_ballots,
+        }
+    }
+}
 #[derive(Deserialize, Serialize, Clone)]
 pub struct TokenMintDetails {
     pub name: String,
@@ -754,6 +853,8 @@ pub enum BootstrapError {
     SigmaParse(SigmaParsingError),
     #[error("Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
+    #[error("Node doesn't have a change address set")]
+    RefreshContract(RefreshContractError),
 }
 
 fn token_id_as_base64_string<S>(value: &TokenId, serializer: S) -> Result<S::Ok, S::Error>
@@ -778,7 +879,9 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
+    use crate::pool_commands::test_utils::{
+        make_refresh_contract_parameters, LocalTxSigner, WalletDataMock,
+    };
     use std::cell::RefCell;
     #[derive(Default)]
     struct SubmitTxMock {
@@ -833,6 +936,7 @@ mod tests {
                 .parse_address_from_str("PViBL5acX6PoP6BQPsYtyNzW9aPXwxpRaUkXo4nE7RkxcBbZXJECUEBQm4g3MQCb2QsQALqPkrDN9TvsKuQkChF8sZSfnH5fifgKAkXhW8ifAcAE1qA67n9mabB3Mb2R8xT2v3SN49eN8mQ8HN95")
                 .unwrap(),
         );
+        let refresh_params = make_refresh_contract_parameters();
         let state = BootstrapConfig {
             tokens_to_mint: TokensToMint {
                 pool_nft: NftMintDetails {
@@ -863,12 +967,19 @@ mod tests {
                     quantity: 100_000_000,
                 },
             },
-            refresh_contract_parameters: RefreshContractParameters {
-                epoch_length: 30,
-                buffer: 4,
+            refresh_contract_parameters: BootstrapRefreshContractParameters {
+                p2s: refresh_params.p2s,
+                epoch_length_index: refresh_params.epoch_length_index,
+                epoch_length: refresh_params.epoch_length,
+                buffer_index: refresh_params.buffer_index,
+                buffer_length: refresh_params.buffer_length,
+                min_data_points_index: refresh_params.min_data_points_index,
+                min_data_points: refresh_params.min_data_points,
+                max_deviation_percent_index: refresh_params.max_deviation_percent_index,
+                max_deviation_percent: refresh_params.max_deviation_percent,
+                pool_nft_index: refresh_params.pool_nft_index,
+                oracle_token_id_index: refresh_params.oracle_token_id_index,
                 total_oracles: 15,
-                min_data_points: 4,
-                max_deviation_percent: 5,
                 total_ballots: 15,
                 min_votes: 6,
             },

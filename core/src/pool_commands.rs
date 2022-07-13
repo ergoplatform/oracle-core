@@ -61,8 +61,10 @@ pub fn build_action(
             pool_box_source,
             refresh_box_source,
             datapoint_stage_src,
-            ORACLE_CONFIG.max_deviation_percent as u32,
-            ORACLE_CONFIG.min_data_points as u32,
+            ORACLE_CONFIG
+                .refresh_contract_parameters
+                .max_deviation_percent as u32,
+            ORACLE_CONFIG.refresh_contract_parameters.min_data_points as u32,
             wallet,
             height,
             change_address,

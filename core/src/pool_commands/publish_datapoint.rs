@@ -245,8 +245,8 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_oracle_contract_parameters, make_pool_box,
-        make_pool_contract_parameters, make_wallet_unspent_box, OracleBoxMock, PoolBoxMock,
-        WalletDataMock,
+        make_pool_contract_parameters, make_refresh_contract_parameters, make_wallet_unspent_box,
+        OracleBoxMock, PoolBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -275,7 +275,8 @@ mod tests {
     fn test_subsequent_publish_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
+        let refresh_parameters = make_refresh_contract_parameters();
+        let refresh_contract = RefreshContract::new(&refresh_parameters).unwrap();
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = make_oracle_contract_parameters();
         let pool_contract_parameters = make_pool_contract_parameters();
