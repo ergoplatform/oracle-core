@@ -47,8 +47,8 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             "live_epoch_length": parameters.refresh_contract_parameters.epoch_length,
             "deviation_range": parameters.refresh_contract_parameters.max_deviation_percent,
             "consensus_num": parameters.refresh_contract_parameters.min_data_points,
-            "oracle_pool_nft_id": parameters.oracle_contract_parameters.pool_nft_token_id,
-            "oracle_pool_participant_token_id": parameters.oracle_pool_participant_token_id,
+            "oracle_pool_nft_id": parameters.token_ids.pool_nft_token_id,
+            "oracle_pool_participant_token_id": parameters.token_ids.oracle_token_id,
 
         });
 

@@ -13,6 +13,7 @@ use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::refresh::RefreshContractParameters;
+use crate::oracle_config::TokenIds;
 
 pub trait RefreshBox {
     fn contract(&self) -> &RefreshContract;
@@ -56,12 +57,18 @@ impl<'a>
         ErgoBox,
         &'a RefreshContractParameters,
         &'a PoolContractParameters,
+        &'a TokenIds,
     )> for RefreshBoxWrapper
 {
     type Error = RefreshBoxError;
 
     fn try_from(
-        value: (ErgoBox, &RefreshContractParameters, &PoolContractParameters),
+        value: (
+            ErgoBox,
+            &RefreshContractParameters,
+            &PoolContractParameters,
+            &TokenIds,
+        ),
     ) -> Result<Self, Self::Error> {
         let refresh_token_id = value
             .0
@@ -72,11 +79,12 @@ impl<'a>
             .ok_or(RefreshBoxError::NoTokens)?
             .token_id
             .clone();
-        if refresh_token_id != value.2.refresh_nft_token_id {
+        if refresh_token_id != value.3.refresh_nft_token_id {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
         }
 
-        let contract = RefreshContract::from_ergo_tree(value.0.ergo_tree.clone(), value.1)?;
+        let contract =
+            RefreshContract::from_ergo_tree(value.0.ergo_tree.clone(), value.1, value.3)?;
         Ok(Self(value.0, contract))
     }
 }

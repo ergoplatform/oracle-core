@@ -4,6 +4,7 @@ use crate::contracts::refresh::{RefreshContract, RefreshContractError, RefreshCo
 use crate::node_interface::{
     address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
 };
+use crate::oracle_config::TokenIds;
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -114,11 +115,11 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 
 /// This function registers scanning for the pool box
 pub fn register_pool_box_scan(
-    oracle_pool_nft: &TokenId,
     pool_contract_parameters: &PoolContractParameters,
+    token_ids: &TokenIds,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = PoolContract::new(pool_contract_parameters)
+    let pool_box_tree_bytes = PoolContract::new(pool_contract_parameters, token_ids)
         .unwrap()
         .ergo_tree()
         .to_base16_bytes()
@@ -130,7 +131,7 @@ pub fn register_pool_box_scan(
         "args": [
         {
             "predicate": "containsAsset",
-            "assetId": oracle_pool_nft.clone(),
+            "assetId": token_ids.oracle_token_id.clone(),
         },
         {
             "predicate": "equals",
@@ -145,11 +146,11 @@ pub fn register_pool_box_scan(
 /// This function registers scanning for the refresh box
 pub fn register_refresh_box_scan(
     scan_name: &'static str,
-    refresh_nft: &TokenId,
     refresh_contract_parameters: &RefreshContractParameters,
+    token_ids: &TokenIds,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::new(refresh_contract_parameters)?
+    let tree_bytes = RefreshContract::new(refresh_contract_parameters, token_ids)?
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();
@@ -160,7 +161,7 @@ pub fn register_refresh_box_scan(
         "args": [
         {
             "predicate": "containsAsset",
-            "assetId": refresh_nft.clone(),
+            "assetId": token_ids.refresh_nft_token_id.clone(),
         },
         {
             "predicate": "equals",

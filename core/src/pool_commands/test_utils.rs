@@ -32,6 +32,7 @@ use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContractParameters;
 use crate::node_interface::SignTransaction;
+use crate::oracle_config::TokenIds;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
@@ -84,25 +85,28 @@ impl WalletDataSource for WalletDataMock {
 pub(crate) fn make_pool_box(
     datapoint: i64,
     epoch_counter: i32,
-    reward_token: Token,
     value: BoxValue,
     creation_height: u32,
     pool_contract_parameters: &PoolContractParameters,
     oracle_contract_parameters: &OracleContractParameters,
+    token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
     let tokens = vec![
         Token::from((
-            oracle_contract_parameters.pool_nft_token_id.clone(),
+            token_ids.pool_nft_token_id.clone(),
             1u64.try_into().unwrap(),
         )),
-        reward_token,
+        Token::from((
+            token_ids.reward_token_id.clone(),
+            100u64.try_into().unwrap(),
+        )),
     ]
     .try_into()
     .unwrap();
     (
         ErgoBox::new(
             value,
-            PoolContract::new(pool_contract_parameters)
+            PoolContract::new(pool_contract_parameters, token_ids)
                 .unwrap()
                 .ergo_tree(),
             Some(tokens),
@@ -122,6 +126,7 @@ pub(crate) fn make_pool_box(
         .unwrap(),
         pool_contract_parameters,
         oracle_contract_parameters,
+        token_ids,
     )
         .try_into()
         .unwrap()
@@ -132,23 +137,25 @@ pub(crate) fn make_datapoint_box(
     pub_key: EcPoint,
     datapoint: i64,
     epoch_counter: i32,
-    oracle_token_id: TokenId,
-    pool_nft_token_id: TokenId,
-    reward_token: Token,
+    token_ids: &TokenIds,
     value: BoxValue,
     creation_height: u32,
 ) -> ErgoBox {
     let tokens = vec![
-        Token::from((oracle_token_id.clone(), 1u64.try_into().unwrap())),
-        reward_token,
+        Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
+        Token::from((
+            token_ids.reward_token_id.clone(),
+            100u64.try_into().unwrap(),
+        )),
     ]
     .try_into()
     .unwrap();
-    let mut parameters = make_oracle_contract_parameters();
-    parameters.pool_nft_token_id = pool_nft_token_id;
+    let parameters = make_oracle_contract_parameters();
     ErgoBox::new(
         value,
-        OracleContract::new(&parameters).unwrap().ergo_tree(),
+        OracleContract::new(&parameters, token_ids)
+            .unwrap()
+            .ergo_tree(),
         Some(tokens),
         NonMandatoryRegisters::new(
             vec![
@@ -243,7 +250,6 @@ pub fn make_oracle_contract_parameters() -> OracleContractParameters {
     OracleContractParameters {
         p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
         pool_nft_index: 5,
-        pool_nft_token_id: force_any_val::<TokenId>(),
     }
 }
 
@@ -254,9 +260,7 @@ pub fn make_pool_contract_parameters() -> PoolContractParameters {
     PoolContractParameters {
         p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
         refresh_nft_index: 2,
-        refresh_nft_token_id: force_any_val::<TokenId>(),
         update_nft_index: 3,
-        update_nft_token_id: force_any_val::<TokenId>(),
     }
 }
 
@@ -267,11 +271,8 @@ pub fn make_refresh_contract_parameters() -> RefreshContractParameters {
     let address = AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str("oq3jWGvabYxVYtceq1RGzFD4UdcdHcqY861G7H4mDiEnYQHya17A2w5r7u45moTpjAqfsNTm2XyhRNvYHiZhDTpmnfVa9XHSsbs5zjEw5UmgQfuP5d3NdFVy7oiAvLP1sjZN8qiHryzFoenLgtsxV8wLAeBaRChy73dd3rgyVfZipVL5LCXQyXMqp9oFFzPtTPkBw3ha7gJ4Bs5KjeUkVXJRVQ2Tdhg51Sdb6fEkHRtRuvCpynxYokQXP6SNif1M6mPcBR3B4zMLcFvmGxwNkZ3mRFzqHVzHV8Syu5AzueJEmMTrvWAXnhpYE7WcFbmDt3dqyXq7x9DNyKq1VwRwgFscLYDenAHqqHKd3jsJ6Grs8uFvvvJGKdqzdoJ3qCcCRXeDcZAKmExJMH4hJbsk8b1ct5YDBcNrq3LUr319XkS8miZDbHdHa88MSpCJQJmE51hmWVAV1yXrpyxqXqAXXPpSaGCP38BwCv8hYFK37DyA4mQd5r7vF9vNo5DEXwQ5wA2EivwRtNqpKUxXtKuZWTNC7Pu7NmvEHSuJPnaoCUujCiPtLM4dR64u8Gp7X3Ujo3o9zuMc6npemx3hf8rQS18QXgKJLwfeSqVYkicbVcGZRHsPsGxwrf1Wixp45E8d5e97MsKTCuqSskPKaHUdQYW1JZ8djcr4dxg1qQN81m7u2q8dwW6AK32mwRSS3nj27jkjML6n6GBpNZk9AtB2uMx3CHo6pZSaxgeCXuu3amrdeYmbuSqHUNZHU").unwrap();
     RefreshContractParameters {
         p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
-        refresh_nft_token_id: force_any_val::<TokenId>(),
         pool_nft_index: 17,
-        pool_nft_token_id: force_any_val::<TokenId>(),
         oracle_token_id_index: 3,
-        oracle_token_id: force_any_val::<TokenId>(),
         min_data_points_index: 13,
         min_data_points: 4,
         buffer_index: 21,
@@ -280,5 +281,16 @@ pub fn make_refresh_contract_parameters() -> RefreshContractParameters {
         max_deviation_percent: 5,
         epoch_length_index: 0,
         epoch_length: 30,
+    }
+}
+
+pub fn generate_token_ids() -> TokenIds {
+    TokenIds {
+        pool_nft_token_id: force_any_val::<TokenId>(),
+        refresh_nft_token_id: force_any_val::<TokenId>(),
+        update_nft_token_id: force_any_val::<TokenId>(),
+        oracle_token_id: force_any_val::<TokenId>(),
+        reward_token_id: force_any_val::<TokenId>(),
+        ballot_token_id: force_any_val::<TokenId>(),
     }
 }

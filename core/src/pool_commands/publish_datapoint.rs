@@ -8,7 +8,7 @@ use ergo_lib::{
         chain::{
             address::Address,
             ergo_box::box_value::BoxValue,
-            token::{Token, TokenAmount, TokenId},
+            token::{Token, TokenAmount},
         },
         sigma_protocol::sigma_boolean::ProveDlog,
     },
@@ -25,6 +25,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
     contracts::oracle::{OracleContract, OracleContractError, OracleContractParameters},
     datapoint_source::{DataPointSource, DataPointSourceError},
+    oracle_config::TokenIds,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -73,8 +74,7 @@ pub fn build_publish_datapoint_action(
             )
         }
         PublishDataPointCommandInputs::FirstDataPoint {
-            oracle_token_id,
-            reward_token_id,
+            token_ids,
             public_key,
             oracle_contract_parameters,
         } => build_publish_first_datapoint_action(
@@ -82,9 +82,8 @@ pub fn build_publish_datapoint_action(
             height,
             change_address,
             new_datapoint as u64,
-            oracle_token_id,
-            reward_token_id,
             oracle_contract_parameters,
+            token_ids,
             public_key,
         ),
     }
@@ -149,20 +148,19 @@ pub fn build_publish_first_datapoint_action(
     height: u32,
     change_address: Address,
     new_datapoint: u64,
-    oracle_token_id: TokenId,
-    reward_token_id: TokenId,
     oracle_contract_parameters: &OracleContractParameters,
+    token_ids: &TokenIds,
     public_key: ProveDlog,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = BoxValue::SAFE_USER_MIN;
     let box_selector = SimpleBoxSelector::new();
     let oracle_token = Token {
-        token_id: oracle_token_id,
+        token_id: token_ids.oracle_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
     let reward_token = Token {
-        token_id: reward_token_id,
+        token_id: token_ids.reward_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
 
@@ -177,7 +175,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new(oracle_contract_parameters)?,
+        &OracleContract::new(oracle_contract_parameters, token_ids)?,
         public_key,
         new_datapoint,
         1,
@@ -242,11 +240,10 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::contracts::refresh::RefreshContract;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, make_datapoint_box, make_oracle_contract_parameters, make_pool_box,
-        make_pool_contract_parameters, make_refresh_contract_parameters, make_wallet_unspent_box,
-        OracleBoxMock, PoolBoxMock, WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_oracle_contract_parameters,
+        make_pool_box, make_pool_contract_parameters, make_wallet_unspent_box, OracleBoxMock,
+        PoolBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -275,8 +272,7 @@ mod tests {
     fn test_subsequent_publish_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_parameters = make_refresh_contract_parameters();
-        let refresh_contract = RefreshContract::new(&refresh_parameters).unwrap();
+        let token_ids = generate_token_ids();
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = make_oracle_contract_parameters();
         let pool_contract_parameters = make_pool_contract_parameters();
@@ -284,11 +280,11 @@ mod tests {
         let in_pool_box = make_pool_box(
             200,
             1,
-            Token::from((reward_token_id.clone(), 50u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
             &pool_contract_parameters,
             &oracle_contract_parameters,
+            &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -303,13 +299,12 @@ mod tests {
                 *oracle_pub_key,
                 200,
                 1,
-                refresh_contract.oracle_token_id(),
-                oracle_contract_parameters.pool_nft_token_id.clone(),
-                Token::from((reward_token_id, 5u64.try_into().unwrap())),
+                &token_ids,
                 BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
             &oracle_contract_parameters,
+            &token_ids,
         )
             .try_into()
             .unwrap();
@@ -367,12 +362,13 @@ mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
 
-        let reward_token_id = force_any_val::<TokenId>();
-        let oracle_token_id =
-            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap();
+        let token_ids = generate_token_ids();
         let tokens = BoxTokens::from_vec(vec![
-            Token::from((reward_token_id.clone(), 1u64.try_into().unwrap())),
-            Token::from((oracle_token_id.clone(), 1u64.try_into().unwrap())),
+            Token::from((
+                token_ids.reward_token_id.clone(),
+                100u64.try_into().unwrap(),
+            )),
+            Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
         ])
         .unwrap();
 
@@ -420,9 +416,8 @@ mod tests {
             height,
             change_address,
             100,
-            oracle_token_id,
-            reward_token_id,
             &oracle_contract_parameters,
+            &token_ids,
             secret.public_image(),
         )
         .unwrap();

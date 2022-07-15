@@ -15,6 +15,7 @@ use thiserror::Error;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractParameters;
+use crate::oracle_config::TokenIds;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
@@ -47,7 +48,11 @@ pub enum OracleBoxError {
 pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
 impl OracleBoxWrapper {
-    pub fn new(b: ErgoBox, parameters: &OracleContractParameters) -> Result<Self, OracleBoxError> {
+    pub fn new(
+        b: ErgoBox,
+        parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
+    ) -> Result<Self, OracleBoxError> {
         let _oracle_token_id = b
             .tokens
             .as_ref()
@@ -89,7 +94,7 @@ impl OracleBoxWrapper {
             return Err(OracleBoxError::NoDataPoint);
         }
 
-        let contract = OracleContract::from_ergo_tree(b.ergo_tree.clone(), parameters)?;
+        let contract = OracleContract::from_ergo_tree(b.ergo_tree.clone(), parameters, token_ids)?;
 
         Ok(Self(b, contract))
     }
@@ -138,11 +143,13 @@ impl OracleBox for OracleBoxWrapper {
     }
 }
 
-impl<'a> TryFrom<(ErgoBox, &'a OracleContractParameters)> for OracleBoxWrapper {
+impl<'a> TryFrom<(ErgoBox, &'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapper {
     type Error = OracleBoxError;
 
-    fn try_from(value: (ErgoBox, &OracleContractParameters)) -> Result<Self, Self::Error> {
-        OracleBoxWrapper::new(value.0, value.1)
+    fn try_from(
+        value: (ErgoBox, &OracleContractParameters, &TokenIds),
+    ) -> Result<Self, Self::Error> {
+        OracleBoxWrapper::new(value.0, value.1, value.2)
     }
 }
 

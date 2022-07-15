@@ -15,6 +15,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::oracle_config::TokenIds;
+
 #[derive(Clone)]
 pub struct OracleContract {
     ergo_tree: ErgoTree,
@@ -43,12 +45,15 @@ impl OracleContract {
 
     //pub const POOL_NFT_INDEX: usize = 5;
 
-    pub fn new(parameters: &OracleContractParameters) -> Result<Self, OracleContractError> {
+    pub fn new(
+        parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
+    ) -> Result<Self, OracleContractError> {
         let ergo_tree = parameters.p2s.address().script()?.with_constant(
             parameters.pool_nft_index,
-            parameters.pool_nft_token_id.clone().into(),
+            token_ids.pool_nft_token_id.clone().into(),
         )?;
-        let contract = Self::from_ergo_tree(ergo_tree, parameters)?;
+        let contract = Self::from_ergo_tree(ergo_tree, parameters, token_ids)?;
         Ok(contract)
     }
 
@@ -56,6 +61,7 @@ impl OracleContract {
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
         parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
     ) -> Result<Self, OracleContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
 
@@ -66,7 +72,7 @@ impl OracleContract {
             .try_extract_into::<TokenId>();
         match m {
             Ok(token_id) => {
-                if token_id != parameters.pool_nft_token_id {
+                if token_id != token_ids.pool_nft_token_id {
                     return Err(OracleContractError::UnknownPoolNftId);
                 }
             }
@@ -104,7 +110,6 @@ impl OracleContract {
 pub struct OracleContractParameters {
     pub p2s: NetworkAddress,
     pub pool_nft_index: usize,
-    pub pool_nft_token_id: TokenId,
 }
 
 /// Used to (de)serialize `OracleContractParameters` instance.
@@ -113,7 +118,6 @@ struct OracleContractParametersYaml {
     p2s: String,
     on_mainnet: bool,
     pool_nft_index: usize,
-    pool_nft_token_id: TokenId,
 }
 
 impl TryFrom<OracleContractParametersYaml> for OracleContractParameters {
@@ -129,7 +133,6 @@ impl TryFrom<OracleContractParametersYaml> for OracleContractParameters {
         Ok(OracleContractParameters {
             p2s: NetworkAddress::new(prefix, &address),
             pool_nft_index: p.pool_nft_index,
-            pool_nft_token_id: p.pool_nft_token_id,
         })
     }
 }
@@ -140,21 +143,20 @@ impl From<OracleContractParameters> for OracleContractParametersYaml {
             p2s: val.p2s.to_base58(),
             on_mainnet: val.p2s.network() == NetworkPrefix::Mainnet,
             pool_nft_index: val.pool_nft_index,
-            pool_nft_token_id: val.pool_nft_token_id.clone(),
         }
     }
 }
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::make_oracle_contract_parameters;
+    use crate::pool_commands::test_utils::{generate_token_ids, make_oracle_contract_parameters};
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
         let parameters = make_oracle_contract_parameters();
-        let pool_nft_token_id = parameters.pool_nft_token_id.clone();
-        let c = OracleContract::new(&parameters).unwrap();
-        assert_eq!(c.pool_nft_token_id(), pool_nft_token_id,);
+        let token_ids = generate_token_ids();
+        let c = OracleContract::new(&parameters, &token_ids).unwrap();
+        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
     }
 }

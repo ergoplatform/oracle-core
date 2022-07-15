@@ -3,13 +3,12 @@ use ergo_lib::ergo_chain_types::DigestNError;
 use ergo_lib::ergotree_ir::chain::address::{
     Address, AddressEncoder, AddressEncoderError, NetworkPrefix,
 };
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::contracts::oracle::OracleContractParameters;
-use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::{TokenIds, ORACLE_CONFIG};
 use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
@@ -86,8 +85,7 @@ pub fn build_action(
                     address_encoder.parse_address_from_str(&ORACLE_CONFIG.oracle_address)?;
                 if let Address::P2Pk(public_key) = address {
                     PublishDataPointCommandInputs::FirstDataPoint {
-                        oracle_token_id: ORACLE_CONFIG.oracle_pool_participant_token_id.clone(),
-                        reward_token_id: ORACLE_CONFIG.reward_token_id.clone(),
+                        token_ids: &ORACLE_CONFIG.token_ids,
                         oracle_contract_parameters: &ORACLE_CONFIG.oracle_contract_parameters,
                         public_key,
                     }
@@ -115,8 +113,7 @@ pub enum PublishDataPointCommandInputs<'a> {
     LocalDataPointBoxExists(&'a dyn LocalDatapointBoxSource),
     /// The first datapoint will be submitted, so there doesn't exist a local datapoint box now.
     FirstDataPoint {
-        oracle_token_id: TokenId,
-        reward_token_id: TokenId,
+        token_ids: &'a TokenIds,
         oracle_contract_parameters: &'a OracleContractParameters,
         public_key: ProveDlog,
     },

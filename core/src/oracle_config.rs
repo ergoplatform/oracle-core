@@ -17,12 +17,9 @@ pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
     pub node_api_key: String,
-    pub reward_token_id: TokenId,
-    pub ballot_token_id: TokenId,
     pub ballot_box_min_storage_rent: u64,
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
-    pub oracle_pool_participant_token_id: TokenId,
     pub core_api_port: u16,
     pub oracle_address: String,
     /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
@@ -34,6 +31,17 @@ pub struct OracleConfig {
     pub oracle_contract_parameters: OracleContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
+    pub token_ids: TokenIds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenIds {
+    pub pool_nft_token_id: TokenId,
+    pub refresh_nft_token_id: TokenId,
+    pub update_nft_token_id: TokenId,
+    pub oracle_token_id: TokenId,
+    pub reward_token_id: TokenId,
+    pub ballot_token_id: TokenId,
 }
 
 impl OracleConfig {

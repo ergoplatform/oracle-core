@@ -14,6 +14,7 @@ use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::pool::PoolContractParameters;
+use crate::oracle_config::TokenIds;
 
 pub trait PoolBox {
     fn contract(&self) -> &PoolContract;
@@ -47,10 +48,10 @@ impl PoolBoxWrapper {
     pub fn new(
         b: ErgoBox,
         pool_contract_parameters: &PoolContractParameters,
-        oracle_contract_parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
     ) -> Result<Self, PoolBoxError> {
         if let Some(token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(0) {
-            if token.token_id != oracle_contract_parameters.pool_nft_token_id {
+            if token.token_id != token_ids.pool_nft_token_id {
                 return Err(PoolBoxError::UnknownPoolNftId);
             }
         } else {
@@ -78,7 +79,8 @@ impl PoolBoxWrapper {
         } else {
             return Err(PoolBoxError::NoRewardToken);
         }
-        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone(), pool_contract_parameters)?;
+        let contract =
+            PoolContract::from_ergo_tree(b.ergo_tree.clone(), pool_contract_parameters, token_ids)?;
         Ok(Self(b, contract))
     }
 }
@@ -122,14 +124,20 @@ impl<'a>
         ErgoBox,
         &'a PoolContractParameters,
         &'a OracleContractParameters,
+        &'a TokenIds,
     )> for PoolBoxWrapper
 {
     type Error = PoolBoxError;
 
     fn try_from(
-        value: (ErgoBox, &PoolContractParameters, &OracleContractParameters),
+        value: (
+            ErgoBox,
+            &PoolContractParameters,
+            &OracleContractParameters,
+            &TokenIds,
+        ),
     ) -> Result<Self, Self::Error> {
-        PoolBoxWrapper::new(value.0, value.1, value.2)
+        PoolBoxWrapper::new(value.0, value.1, value.3)
     }
 }
 

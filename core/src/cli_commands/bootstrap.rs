@@ -43,6 +43,7 @@ use crate::{
         update::UpdateContract,
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
+    oracle_config::TokenIds,
     wallet::WalletDataSource,
 };
 
@@ -339,14 +340,22 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Create pool box -----------------------------------------------------------------------------
     info!("Create pool box tx");
+
+    let token_ids = TokenIds {
+        pool_nft_token_id: pool_nft_token.token_id.clone(),
+        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
+        update_nft_token_id: update_nft_token.token_id.clone(),
+        oracle_token_id: oracle_token.token_id.clone(),
+        reward_token_id: reward_token.token_id.clone(),
+        ballot_token_id: ballot_token.token_id.clone(),
+    };
+
     let pool_contract_parameters = PoolContractParameters {
         p2s: config.pool_contract_parameters.p2s,
         refresh_nft_index: config.pool_contract_parameters.refresh_nft_index,
-        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
         update_nft_index: config.pool_contract_parameters.update_nft_index,
-        update_nft_token_id: update_nft_token.token_id.clone(),
     };
-    let pool_contract = PoolContract::new(&pool_contract_parameters).unwrap();
+    let pool_contract = PoolContract::new(&pool_contract_parameters, &token_ids).unwrap();
 
     let reward_tokens_for_pool_box = Token {
         token_id: reward_token.token_id.clone(),
@@ -434,11 +443,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let parameters = RefreshContractParameters {
         p2s,
-        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
         pool_nft_index,
-        pool_nft_token_id: pool_nft_token.token_id.clone(),
         oracle_token_id_index,
-        oracle_token_id: oracle_token.token_id.clone(),
         min_data_points_index,
         min_data_points,
         buffer_index,
@@ -449,7 +455,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         epoch_length,
     };
 
-    let refresh_contract = RefreshContract::new(&parameters)?;
+    let refresh_contract = RefreshContract::new(&parameters, &token_ids)?;
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,

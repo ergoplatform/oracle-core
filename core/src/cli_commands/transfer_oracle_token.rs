@@ -116,7 +116,7 @@ fn build_transfer_oracle_token_tx(
 ) -> Result<UnsignedTransaction, TransferOracleTokenActionError> {
     let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
     let num_reward_tokens = *in_oracle_box.reward_token().amount.as_u64();
-    if num_reward_tokens != 1 {
+    if num_reward_tokens <= 1 {
         return Err(
             TransferOracleTokenActionError::IncorrectNumberOfRewardTokensInOracleBox(
                 num_reward_tokens as usize,
@@ -172,16 +172,14 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::contracts::refresh::RefreshContract;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, make_datapoint_box, make_oracle_contract_parameters,
-        make_refresh_contract_parameters, make_wallet_unspent_box, OracleBoxMock, WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_oracle_contract_parameters,
+        make_wallet_unspent_box, OracleBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
-    use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
@@ -190,9 +188,7 @@ mod tests {
     fn test_transfer_oracle_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new(&make_refresh_contract_parameters()).unwrap();
-        let reward_token_id = force_any_val::<TokenId>();
-        dbg!(&reward_token_id);
+        let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
@@ -203,13 +199,12 @@ mod tests {
                 *oracle_pub_key,
                 200,
                 1,
-                refresh_contract.oracle_token_id(),
-                parameters.pool_nft_token_id.clone(),
-                Token::from((reward_token_id, 1u64.try_into().unwrap())),
+                &token_ids,
                 BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
             &parameters,
+            &token_ids,
         )
             .try_into()
             .unwrap();

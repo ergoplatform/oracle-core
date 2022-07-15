@@ -14,6 +14,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::oracle_config::TokenIds;
+
 #[derive(Clone)]
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
@@ -73,23 +75,26 @@ pub enum RefreshContractError {
 }
 
 impl RefreshContract {
-    pub fn new(parameters: &RefreshContractParameters) -> Result<Self, RefreshContractError> {
+    pub fn new(
+        parameters: &RefreshContractParameters,
+        token_ids: &TokenIds,
+    ) -> Result<Self, RefreshContractError> {
         let ergo_tree = parameters
             .p2s
             .address()
             .script()?
             .with_constant(
                 parameters.pool_nft_index,
-                parameters.pool_nft_token_id.clone().into(),
+                token_ids.pool_nft_token_id.clone().into(),
             )
             .map_err(RefreshContractError::ErgoTreeConstant)?
             .with_constant(
                 parameters.oracle_token_id_index,
-                parameters.oracle_token_id.clone().into(),
+                token_ids.oracle_token_id.clone().into(),
             )
             .map_err(RefreshContractError::ErgoTreeConstant)?;
 
-        let contract = Self::from_ergo_tree(ergo_tree, parameters)?;
+        let contract = Self::from_ergo_tree(ergo_tree, parameters, token_ids)?;
         Ok(contract)
     }
 
@@ -97,6 +102,7 @@ impl RefreshContract {
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
         parameters: &RefreshContractParameters,
+        token_ids: &TokenIds,
     ) -> Result<Self, RefreshContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
 
@@ -107,9 +113,9 @@ impl RefreshContract {
             .try_extract_into::<TokenId>();
         match pool_nft_token_id {
             Ok(token_id) => {
-                if token_id != parameters.pool_nft_token_id {
+                if token_id != token_ids.pool_nft_token_id {
                     return Err(RefreshContractError::PoolNftTokenIdDiffers {
-                        expected: parameters.pool_nft_token_id.clone(),
+                        expected: token_ids.pool_nft_token_id.clone(),
                         actual: token_id,
                     });
                 }
@@ -126,9 +132,9 @@ impl RefreshContract {
             .try_extract_into::<TokenId>();
         match oracle_token_id {
             Ok(token_id) => {
-                if token_id != parameters.oracle_token_id {
+                if token_id != token_ids.oracle_token_id {
                     return Err(RefreshContractError::OracleTokenIdDiffers {
-                        expected: parameters.oracle_token_id.clone(),
+                        expected: token_ids.oracle_token_id.clone(),
                         actual: token_id,
                     });
                 }
@@ -264,11 +270,8 @@ impl RefreshContract {
 /// Parameters for the pool contract
 pub struct RefreshContractParameters {
     pub p2s: NetworkAddress,
-    pub refresh_nft_token_id: TokenId,
     pub pool_nft_index: usize,
-    pub pool_nft_token_id: TokenId,
     pub oracle_token_id_index: usize,
-    pub oracle_token_id: TokenId,
     pub min_data_points_index: usize,
     pub min_data_points: u64,
     pub buffer_index: usize,
@@ -284,11 +287,8 @@ pub struct RefreshContractParameters {
 struct RefreshContractParametersYaml {
     p2s: String,
     on_mainnet: bool,
-    refresh_nft_token_id: TokenId,
     pool_nft_index: usize,
-    pool_nft_token_id: TokenId,
     oracle_token_id_index: usize,
-    oracle_token_id: TokenId,
     min_data_points_index: usize,
     min_data_points: u64,
     buffer_index: usize,
@@ -311,11 +311,8 @@ impl TryFrom<RefreshContractParametersYaml> for RefreshContractParameters {
         let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
         Ok(RefreshContractParameters {
             p2s: NetworkAddress::new(prefix, &address),
-            refresh_nft_token_id: p.refresh_nft_token_id,
             pool_nft_index: p.pool_nft_index,
-            pool_nft_token_id: p.pool_nft_token_id,
             oracle_token_id_index: p.oracle_token_id_index,
-            oracle_token_id: p.oracle_token_id,
             min_data_points_index: p.min_data_points_index,
             min_data_points: p.min_data_points,
             buffer_index: p.buffer_index,
@@ -333,11 +330,8 @@ impl From<RefreshContractParameters> for RefreshContractParametersYaml {
         RefreshContractParametersYaml {
             p2s: p.p2s.to_base58(),
             on_mainnet: p.p2s.network() == NetworkPrefix::Mainnet,
-            refresh_nft_token_id: p.refresh_nft_token_id,
             pool_nft_index: p.pool_nft_index,
-            pool_nft_token_id: p.pool_nft_token_id,
             oracle_token_id_index: p.oracle_token_id_index,
-            oracle_token_id: p.oracle_token_id,
             min_data_points_index: p.min_data_points_index,
             min_data_points: p.min_data_points,
             buffer_index: p.buffer_index,
@@ -352,16 +346,17 @@ impl From<RefreshContractParameters> for RefreshContractParametersYaml {
 
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::make_refresh_contract_parameters;
+    use crate::pool_commands::test_utils::{generate_token_ids, make_refresh_contract_parameters};
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
         let parameters = make_refresh_contract_parameters();
-        let c = RefreshContract::new(&parameters).unwrap();
-        assert_eq!(c.pool_nft_token_id(), parameters.pool_nft_token_id,);
-        assert_eq!(c.oracle_token_id(), parameters.oracle_token_id,);
+        let token_ids = generate_token_ids();
+        let c = RefreshContract::new(&parameters, &token_ids).unwrap();
+        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
+        assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id,);
         assert_eq!(c.min_data_points() as u64, parameters.min_data_points);
         assert_eq!(c.buffer() as u64, parameters.buffer_length);
         assert_eq!(

@@ -99,11 +99,8 @@ pub fn vote_update_pool(
             reward_token_amount,
             update_box_creation_height,
             ORACLE_CONFIG.ballot_box_min_storage_rent,
-            ORACLE_CONFIG
-                .pool_contract_parameters
-                .update_nft_token_id
-                .clone(),
-            ORACLE_CONFIG.ballot_token_id.clone(),
+            ORACLE_CONFIG.token_ids.update_nft_token_id.clone(),
+            ORACLE_CONFIG.token_ids.ballot_token_id.clone(),
             AddressEncoder::new(network_prefix)
                 .parse_address_from_str(&ORACLE_CONFIG.ballot_token_owner_address)?,
             height,

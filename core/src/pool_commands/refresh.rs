@@ -285,7 +285,9 @@ mod tests {
     use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractParameters;
+    use crate::oracle_config::TokenIds;
     use crate::oracle_state::StageError;
+    use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::make_oracle_contract_parameters;
     use crate::pool_commands::test_utils::make_pool_contract_parameters;
     use crate::pool_commands::test_utils::make_refresh_contract_parameters;
@@ -324,10 +326,11 @@ mod tests {
         value: BoxValue,
         pool_contract_parameters: &PoolContractParameters,
         refresh_contract_parameters: &RefreshContractParameters,
+        token_ids: &TokenIds,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
-            pool_contract_parameters.refresh_nft_token_id.clone(),
+            token_ids.refresh_nft_token_id.clone(),
             1u64.try_into().unwrap(),
         ))]
         .try_into()
@@ -335,7 +338,7 @@ mod tests {
         (
             ErgoBox::new(
                 value,
-                RefreshContract::new(refresh_contract_parameters)
+                RefreshContract::new(refresh_contract_parameters, token_ids)
                     .unwrap()
                     .ergo_tree(),
                 Some(tokens),
@@ -347,6 +350,7 @@ mod tests {
             .unwrap(),
             refresh_contract_parameters,
             pool_contract_parameters,
+            token_ids,
         )
             .try_into()
             .unwrap()
@@ -357,12 +361,10 @@ mod tests {
         pub_keys: Vec<EcPoint>,
         datapoints: Vec<i64>,
         epoch_counter: i32,
-        oracle_token_id: TokenId,
-        pool_nft_token_id: TokenId,
-        reward_token: Token,
         value: BoxValue,
         creation_height: u32,
         oracle_contract_parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
         datapoints
             .into_iter()
@@ -373,13 +375,12 @@ mod tests {
                         pub_key.clone(),
                         datapoint,
                         epoch_counter,
-                        oracle_token_id.clone(),
-                        pool_nft_token_id.clone(),
-                        reward_token.clone(),
+                        token_ids,
                         value,
                         creation_height,
                     ),
                     oracle_contract_parameters,
+                    token_ids,
                 )
                     .try_into()
                     .unwrap()
@@ -395,27 +396,24 @@ mod tests {
         dbg!(&reward_token_id);
         let pool_contract_parameters = make_pool_contract_parameters();
         let oracle_contract_parameters = make_oracle_contract_parameters();
-        let mut refresh_contract_parameters = make_refresh_contract_parameters();
-
-        refresh_contract_parameters.refresh_nft_token_id =
-            pool_contract_parameters.refresh_nft_token_id.clone();
-        refresh_contract_parameters.pool_nft_token_id =
-            oracle_contract_parameters.pool_nft_token_id.clone();
+        let refresh_contract_parameters = make_refresh_contract_parameters();
+        let token_ids = generate_token_ids();
 
         let in_refresh_box = make_refresh_box(
             BoxValue::SAFE_USER_MIN,
             &pool_contract_parameters,
             &refresh_contract_parameters,
+            &token_ids,
             height - 32,
         );
         let in_pool_box = make_pool_box(
             200,
             1,
-            Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
             &pool_contract_parameters,
             &oracle_contract_parameters,
+            &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -434,12 +432,10 @@ mod tests {
             oracle_pub_keys,
             vec![194, 70, 196, 197, 198, 200],
             1,
-            refresh_contract_parameters.oracle_token_id,
-            oracle_contract_parameters.pool_nft_token_id.clone(),
-            Token::from((reward_token_id, 5u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
             height - 9,
             &oracle_contract_parameters,
+            &token_ids,
         );
 
         let pool_box_mock = PoolBoxMock {
