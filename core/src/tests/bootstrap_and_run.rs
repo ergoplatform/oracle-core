@@ -27,6 +27,7 @@ use crate::cli_commands::bootstrap::TokensToMint;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
 use crate::pool_commands::test_utils::init_log_tests;
+use crate::pool_commands::test_utils::make_update_contract_parameters;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
 
@@ -103,6 +104,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
             refresh_nft_index: 2,
             update_nft_index: 3,
         },
+        update_contract_parameters: make_update_contract_parameters(),
         addresses: Addresses {
             address_for_oracle_tokens: address.clone(),
             wallet_address_for_chain_transaction: address.clone(),

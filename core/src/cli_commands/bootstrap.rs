@@ -40,7 +40,7 @@ use crate::{
     contracts::{
         pool::{PoolContract, PoolContractParameters},
         refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
-        update::UpdateContract,
+        update::{UpdateContract, UpdateContractError, UpdateContractParameters},
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::TokenIds,
@@ -279,11 +279,22 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     );
 
     // Mint update NFT token -----------------------------------------------------------------------
-    let min_votes = config.refresh_contract_parameters.min_votes;
-    let update_contract = UpdateContract::new()
-        .with_min_votes(min_votes.try_into().unwrap())
-        .with_pool_nft_token_id(pool_nft_token.token_id.clone())
-        .with_ballot_token_id(ballot_token.token_id.clone());
+
+    // We need to create an instance of `UpdateContract`, which requires the token IDs of the pool
+    // NFT and the ballot token.
+    let token_ids = TokenIds {
+        pool_nft_token_id: pool_nft_token.token_id.clone(),
+        refresh_nft_token_id: refresh_nft_token.token_id.clone(), // Not strictly needed for `UpdateContract`
+        update_nft_token_id: TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU")
+            .unwrap(), // dummy value
+        oracle_token_id: TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU")
+            .unwrap(), // dummy value
+        reward_token_id: TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU")
+            .unwrap(), // dummy value
+        ballot_token_id: ballot_token.token_id.clone(),
+    };
+    let update_contract = UpdateContract::new(&config.update_contract_parameters, &token_ids)?;
+
     info!("Minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
     debug!("inputs for update NFT mint: {:?}", inputs);
@@ -604,6 +615,17 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         emitter.dump(&Yaml::Hash(hash)).unwrap();
         serde_yaml::from_str(&out)?
     };
+    let update_contract_parameters: UpdateContractParameters = {
+        // The struct is created via the same process as `tokens_to_mint` above.
+        let hash = yaml["update_contract_parameters"]
+            .as_hash()
+            .ok_or_else(|| BootstrapError::YamlRust("`update_contract_parameters` missing".into()))?
+            .clone();
+        let mut out = String::new();
+        let mut emitter = YamlEmitter::new(&mut out);
+        emitter.dump(&Yaml::Hash(hash)).unwrap();
+        serde_yaml::from_str(&out)?
+    };
     let node_ip = yaml["node_ip"]
         .as_str()
         .ok_or_else(|| BootstrapError::YamlRust("`node_ip` missing".into()))?
@@ -622,6 +644,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
     Ok(BootstrapConfig {
         refresh_contract_parameters,
         pool_contract_parameters,
+        update_contract_parameters,
         tokens_to_mint,
         node_ip,
         node_port,
@@ -638,6 +661,7 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: BootstrapRefreshContractParameters,
     pub pool_contract_parameters: BootstrapPoolContractParameters,
+    pub update_contract_parameters: UpdateContractParameters,
     pub tokens_to_mint: TokensToMint,
     pub node_ip: String,
     pub node_port: String,
@@ -861,6 +885,8 @@ pub enum BootstrapError {
     NoChangeAddressSetInNode,
     #[error("Node doesn't have a change address set")]
     RefreshContract(RefreshContractError),
+    #[error("Update contract error: {0}")]
+    UpdateContract(UpdateContractError),
 }
 
 fn token_id_as_base64_string<S>(value: &TokenId, serializer: S) -> Result<S::Ok, S::Error>
@@ -886,7 +912,8 @@ mod tests {
 
     use super::*;
     use crate::pool_commands::test_utils::{
-        make_refresh_contract_parameters, LocalTxSigner, WalletDataMock,
+        make_refresh_contract_parameters, make_update_contract_parameters, LocalTxSigner,
+        WalletDataMock,
     };
     use std::cell::RefCell;
     #[derive(Default)]
@@ -994,6 +1021,7 @@ mod tests {
                 refresh_nft_index: 2,
                 update_nft_index: 3,
             },
+            update_contract_parameters: make_update_contract_parameters(),
             addresses: Addresses {
                 address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
@@ -1038,8 +1066,21 @@ mod tests {
             })
             .unwrap();
         // Check that Update NFT is guarded by UpdateContract, and parameters are correct
+
+        let token_ids = TokenIds {
+            pool_nft_token_id: oracle_config.pool_nft.clone(),
+            refresh_nft_token_id: oracle_config.refresh_nft.clone(),
+            update_nft_token_id: oracle_config.update_nft.clone(),
+            oracle_token_id: oracle_config.oracle_token.clone(),
+            reward_token_id: oracle_config.reward_token.clone(),
+            ballot_token_id: oracle_config.ballot_token.clone(),
+        };
+        let parameters = make_update_contract_parameters();
+
         let update_contract = crate::contracts::update::UpdateContract::from_ergo_tree(
             update_nft_box.ergo_tree.clone(),
+            &parameters,
+            &token_ids,
         )
         .unwrap();
         assert!(update_contract.min_votes() as u32 == state.refresh_contract_parameters.min_votes);
