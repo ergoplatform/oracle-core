@@ -3,7 +3,7 @@ use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox,
     PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
 };
-use crate::contracts::ballot::BallotContract;
+use crate::contracts::ballot::{BallotContract, BallotContractParameters};
 use crate::contracts::oracle::{OracleContract, OracleContractParameters};
 use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContractParameters;
@@ -114,7 +114,7 @@ pub struct OraclePool {
     /// an instance of `OracleContractParameters` alongside the `Scan` instance.
     pub local_oracle_datapoint_scan: Option<(Scan, Arc<OracleContractParameters>, Arc<TokenIds>)>,
     // Local ballot box Scan
-    pub local_ballot_box_scan: Option<Scan>,
+    pub local_ballot_box_scan: Option<(Scan, Arc<BallotContractParameters>, Arc<TokenIds>)>,
     /// Defined in a similar way to `datapoint_stage`, for the same reasons.
     pool_box_scan: (Scan, Arc<PoolContractParameters>, Arc<TokenIds>),
     /// Defined in a similar way to `datapoint_stage`, for the same reasons.
@@ -199,10 +199,9 @@ impl OraclePool {
                 scans.push(local_scan);
             }
 
-            let ballot_contract_address = BallotContract::new()
-                .with_min_storage_rent(config.ballot_box_min_storage_rent)
-                .with_update_nft_token_id(config.token_ids.update_nft_token_id.clone())
-                .ergo_tree();
+            let ballot_contract_address =
+                BallotContract::new(&config.ballot_contract_parameters, &config.token_ids)?
+                    .ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,
@@ -237,6 +236,7 @@ impl OraclePool {
         let oracle_contract_parameters = Arc::new(config.oracle_contract_parameters.clone());
         let refresh_contract_parameters = Arc::new(config.refresh_contract_parameters.clone());
         let pool_contract_parameters = Arc::new(config.pool_contract_parameters.clone());
+        let ballot_contract_parameters = Arc::new(config.ballot_contract_parameters.clone());
         let token_ids = Arc::new(config.token_ids.clone());
 
         // Create all `Scan` structs for protocol
@@ -260,9 +260,10 @@ impl OraclePool {
         let local_scan_str = "Local Ballot Box Scan";
         let mut local_ballot_box_scan = None;
         if scan_json.has_key(local_scan_str) {
-            local_ballot_box_scan = Some(Scan::new(
-                local_scan_str,
-                &scan_json[local_scan_str].to_string(),
+            local_ballot_box_scan = Some((
+                (Scan::new(local_scan_str, &scan_json[local_scan_str].to_string())),
+                ballot_contract_parameters.clone(),
+                token_ids.clone(),
             ));
         }
 
@@ -427,9 +428,10 @@ impl PoolBoxSource for (Scan, Arc<PoolContractParameters>, Arc<TokenIds>) {
     }
 }
 
-impl LocalBallotBoxSource for Scan {
+impl LocalBallotBoxSource for (Scan, Arc<BallotContractParameters>, Arc<TokenIds>) {
     fn get_ballot_box(&self) -> Result<BallotBoxWrapper> {
-        Ok(self.get_box()?.try_into()?)
+        let box_wrapper = BallotBoxWrapper::new(self.0.get_box()?, &self.1, &self.2)?;
+        Ok(box_wrapper)
     }
 }
 

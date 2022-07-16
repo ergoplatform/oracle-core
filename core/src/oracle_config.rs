@@ -1,7 +1,7 @@
 use crate::{
     contracts::{
-        oracle::OracleContractParameters, pool::PoolContractParameters,
-        refresh::RefreshContractParameters,
+        ballot::BallotContractParameters, oracle::OracleContractParameters,
+        pool::PoolContractParameters, refresh::RefreshContractParameters,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
@@ -17,7 +17,6 @@ pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
     pub node_api_key: String,
-    pub ballot_box_min_storage_rent: u64,
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
@@ -31,6 +30,7 @@ pub struct OracleConfig {
     pub oracle_contract_parameters: OracleContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
+    pub ballot_contract_parameters: BallotContractParameters,
     pub token_ids: TokenIds,
 }
 

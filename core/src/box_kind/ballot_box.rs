@@ -1,4 +1,7 @@
-use crate::contracts::ballot::{BallotContract, BallotContractError};
+use crate::{
+    contracts::ballot::{BallotContract, BallotContractError, BallotContractParameters},
+    oracle_config::TokenIds,
+};
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
     ergo_chain_types::{Digest32, EcPoint},
@@ -11,7 +14,6 @@ use ergo_lib::{
         sigma_protocol::sigma_boolean::ProveDlog,
     },
 };
-use std::convert::TryFrom;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -46,43 +48,12 @@ pub struct BallotBoxWrapper {
     contract: BallotContract,
 }
 
-impl BallotBox for BallotBoxWrapper {
-    fn contract(&self) -> &BallotContract {
-        &self.contract
-    }
-
-    fn ballot_token(&self) -> Token {
-        self.ergo_box
-            .tokens
-            .as_ref()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .clone()
-    }
-
-    fn min_storage_rent(&self) -> u64 {
-        self.contract.min_storage_rent()
-    }
-
-    fn ballot_token_owner(&self) -> ProveDlog {
-        self.ergo_box
-            .get_register(NonMandatoryRegisterId::R4.into())
-            .unwrap()
-            .try_extract_into::<EcPoint>()
-            .unwrap()
-            .into()
-    }
-
-    fn get_box(&self) -> &ErgoBox {
-        &self.ergo_box
-    }
-}
-
-impl TryFrom<ErgoBox> for BallotBoxWrapper {
-    type Error = BallotBoxError;
-
-    fn try_from(ergo_box: ErgoBox) -> Result<Self, Self::Error> {
+impl BallotBoxWrapper {
+    pub fn new(
+        ergo_box: ErgoBox,
+        parameters: &BallotContractParameters,
+        token_ids: &TokenIds,
+    ) -> Result<Self, BallotBoxError> {
         let _ballot_token_id = ergo_box
             .tokens
             .as_ref()
@@ -137,8 +108,42 @@ impl TryFrom<ErgoBox> for BallotBoxWrapper {
             return Err(BallotBoxError::NoRewardTokenQuantityInR8);
         }
 
-        let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone())?;
+        let contract =
+            BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), parameters, token_ids)?;
         Ok(Self { ergo_box, contract })
+    }
+}
+
+impl BallotBox for BallotBoxWrapper {
+    fn contract(&self) -> &BallotContract {
+        &self.contract
+    }
+
+    fn ballot_token(&self) -> Token {
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
+    }
+
+    fn min_storage_rent(&self) -> u64 {
+        self.contract.min_storage_rent()
+    }
+
+    fn ballot_token_owner(&self) -> ProveDlog {
+        self.ergo_box
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .unwrap()
+            .try_extract_into::<EcPoint>()
+            .unwrap()
+            .into()
+    }
+
+    fn get_box(&self) -> &ErgoBox {
+        &self.ergo_box
     }
 }
 
