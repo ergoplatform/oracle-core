@@ -110,38 +110,24 @@ impl RefreshContract {
             .get_constant(parameters.pool_nft_index)
             .map_err(|_| RefreshContractError::NoPoolNftId)?
             .ok_or(RefreshContractError::NoPoolNftId)?
-            .try_extract_into::<TokenId>();
-        match pool_nft_token_id {
-            Ok(token_id) => {
-                if token_id != token_ids.pool_nft_token_id {
-                    return Err(RefreshContractError::PoolNftTokenIdDiffers {
-                        expected: token_ids.pool_nft_token_id.clone(),
-                        actual: token_id,
-                    });
-                }
-            }
-            Err(e) => {
-                return Err(RefreshContractError::TryExtractFrom(e));
-            }
+            .try_extract_into::<TokenId>()?;
+        if pool_nft_token_id != token_ids.pool_nft_token_id {
+            return Err(RefreshContractError::PoolNftTokenIdDiffers {
+                expected: token_ids.pool_nft_token_id.clone(),
+                actual: pool_nft_token_id,
+            });
         }
 
         let oracle_token_id = ergo_tree
             .get_constant(parameters.oracle_token_id_index)
             .map_err(|_| RefreshContractError::NoOracleTokenId)?
             .ok_or(RefreshContractError::NoOracleTokenId)?
-            .try_extract_into::<TokenId>();
-        match oracle_token_id {
-            Ok(token_id) => {
-                if token_id != token_ids.oracle_token_id {
-                    return Err(RefreshContractError::OracleTokenIdDiffers {
-                        expected: token_ids.oracle_token_id.clone(),
-                        actual: token_id,
-                    });
-                }
-            }
-            Err(e) => {
-                return Err(RefreshContractError::TryExtractFrom(e));
-            }
+            .try_extract_into::<TokenId>()?;
+        if oracle_token_id != token_ids.oracle_token_id {
+            return Err(RefreshContractError::OracleTokenIdDiffers {
+                expected: token_ids.oracle_token_id.clone(),
+                actual: oracle_token_id,
+            });
         }
 
         let min_data_points = ergo_tree

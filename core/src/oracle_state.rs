@@ -97,11 +97,11 @@ pub struct Stage {
 #[derive(Debug)]
 pub struct OraclePool {
     pub data_point_source: Box<dyn DataPointSource>,
-    /// Stages. Note it's defined as a tuple with `OracleContractParameters`. We need to do this
-    /// because the implementation of the `DatapointBoxesSource` trait requires both an ErgoBox and
-    /// oracle contract parameters. Now our codebase makes use of `&dyn DatapointBoxesSource`, and
-    /// trying to use an instance of `OracleContractParameters` within the implementation of the
-    /// trait leads to trouble with Rust's borrow checker.
+    /// Stages. Note it's defined as a tuple with `OracleContractParameters` and `TokenIds`. We need
+    /// to do this because the implementation of the `DatapointBoxesSource` trait requires each of
+    /// these tuple elements.  Now our codebase makes use of `&dyn DatapointBoxesSource`, and trying
+    /// to use an instance of `OracleContractParameters` within the implementation of the trait
+    /// leads to trouble with Rust's borrow checker.
     ///
     /// More specifically, using a separate `OracleContractParameters` instance within the trait
     /// implementation results in the creation of a local variable whose reference is needed but
@@ -111,7 +111,7 @@ pub struct OraclePool {
     /// module.
     pub datapoint_stage: (Stage, Arc<OracleContractParameters>, Arc<TokenIds>),
     /// Local Oracle Datapoint Scan. Similarly to the `datapoint_stage` field, we must also have
-    /// an instance of `OracleContractParameters` alongside the `Scan` instance.
+    /// an instance of `OracleContractParameters` and `TokenIds` alongside the `Scan` instance.
     pub local_oracle_datapoint_scan: Option<(Scan, Arc<OracleContractParameters>, Arc<TokenIds>)>,
     // Local ballot box Scan
     pub local_ballot_box_scan: Option<(Scan, Arc<BallotContractParameters>, Arc<TokenIds>)>,

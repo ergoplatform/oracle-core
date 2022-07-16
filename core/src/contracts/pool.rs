@@ -70,37 +70,23 @@ impl PoolContract {
         token_ids: &TokenIds,
     ) -> Result<Self, PoolContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
-        let token_id = ergo_tree
+        let refresh_nft_token_id = ergo_tree
             .get_constant(parameters.refresh_nft_index)
             .map_err(|_| PoolContractError::NoRefreshNftId)?
             .ok_or(PoolContractError::NoRefreshNftId)?
-            .try_extract_into::<TokenId>();
-        match token_id {
-            Ok(token_id) => {
-                if token_id != token_ids.refresh_nft_token_id {
-                    return Err(PoolContractError::UnknownRefreshNftId);
-                }
-            }
-            Err(e) => {
-                return Err(PoolContractError::TryExtractFrom(e));
-            }
-        };
+            .try_extract_into::<TokenId>()?;
+        if refresh_nft_token_id != token_ids.refresh_nft_token_id {
+            return Err(PoolContractError::UnknownRefreshNftId);
+        }
 
-        let token_id = ergo_tree
+        let update_nft_token_id = ergo_tree
             .get_constant(parameters.update_nft_index)
             .map_err(|_| PoolContractError::NoUpdateNftId)?
             .ok_or(PoolContractError::NoUpdateNftId)?
-            .try_extract_into::<TokenId>();
-        match token_id {
-            Ok(token_id) => {
-                if token_id != token_ids.update_nft_token_id {
-                    return Err(PoolContractError::UnknownUpdateNftId);
-                }
-            }
-            Err(e) => {
-                return Err(PoolContractError::TryExtractFrom(e));
-            }
-        };
+            .try_extract_into::<TokenId>()?;
+        if update_nft_token_id != token_ids.update_nft_token_id {
+            return Err(PoolContractError::UnknownUpdateNftId);
+        }
         Ok(Self {
             ergo_tree,
             refresh_nft_index: parameters.refresh_nft_index,

@@ -87,10 +87,8 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
             p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &refresh_box_address),
             epoch_length: 30,
             buffer_length: 4,
-            total_oracles: 15,
             min_data_points: 4,
             max_deviation_percent: 5,
-            total_ballots: 15,
             min_votes: 6,
             pool_nft_index: 17,
             oracle_token_id_index: 3,
@@ -113,6 +111,8 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         node_port: "9053".into(),
         node_api_key: "hello".into(),
         is_mainnet,
+        total_oracles: 15,
+        total_ballots: 15,
     };
 
     let height = ctx.pre_header.height;

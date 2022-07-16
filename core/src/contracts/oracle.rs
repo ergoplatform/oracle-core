@@ -58,21 +58,15 @@ impl OracleContract {
     ) -> Result<Self, OracleContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
 
-        let m = ergo_tree
+        let pool_nft_token_id = ergo_tree
             .get_constant(parameters.pool_nft_index)
             .map_err(|_| OracleContractError::NoPoolNftId)?
             .ok_or(OracleContractError::NoPoolNftId)?
-            .try_extract_into::<TokenId>();
-        match m {
-            Ok(token_id) => {
-                if token_id != token_ids.pool_nft_token_id {
-                    return Err(OracleContractError::UnknownPoolNftId);
-                }
-            }
-            Err(e) => {
-                return Err(OracleContractError::TryExtractFrom(e));
-            }
+            .try_extract_into::<TokenId>()?;
+        if pool_nft_token_id != token_ids.pool_nft_token_id {
+            return Err(OracleContractError::UnknownPoolNftId);
         }
+
         Ok(Self {
             ergo_tree,
             pool_nft_index: parameters.pool_nft_index,

@@ -641,6 +641,16 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         .ok_or_else(|| BootstrapError::YamlRust("`node_api_key` missing".into()))?
         .into();
 
+    let total_oracles = yaml["total_oracles"]
+        .as_i64()
+        .ok_or_else(|| BootstrapError::YamlRust("`total_oracles` missing".into()))?
+        as u32;
+
+    let total_ballots = yaml["total_ballots"]
+        .as_i64()
+        .ok_or_else(|| BootstrapError::YamlRust("`total_ballots` missing".into()))?
+        as u32;
+
     Ok(BootstrapConfig {
         refresh_contract_parameters,
         pool_contract_parameters,
@@ -651,6 +661,8 @@ fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapE
         node_api_key,
         is_mainnet,
         addresses,
+        total_oracles,
+        total_ballots,
     })
 }
 
@@ -668,6 +680,8 @@ pub struct BootstrapConfig {
     pub node_api_key: String,
     pub is_mainnet: bool,
     pub addresses: Addresses,
+    pub total_oracles: u32,
+    pub total_ballots: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -753,8 +767,6 @@ pub struct BootstrapRefreshContractParameters {
     pub epoch_length_index: usize,
     pub epoch_length: u64,
     pub min_votes: u32,
-    pub total_oracles: u32,
-    pub total_ballots: u32,
 }
 
 /// Used to (de)serialize `BootstrapRefreshContractParameters` instance.
@@ -773,8 +785,6 @@ struct BootstrapRefreshContractParametersYaml {
     epoch_length_index: usize,
     epoch_length: u64,
     min_votes: u32,
-    total_oracles: u32,
-    total_ballots: u32,
 }
 
 impl TryFrom<BootstrapRefreshContractParametersYaml> for BootstrapRefreshContractParameters {
@@ -800,8 +810,6 @@ impl TryFrom<BootstrapRefreshContractParametersYaml> for BootstrapRefreshContrac
             epoch_length_index: p.epoch_length_index,
             epoch_length: p.epoch_length,
             min_votes: p.min_votes,
-            total_oracles: p.total_oracles,
-            total_ballots: p.total_ballots,
         })
     }
 }
@@ -822,8 +830,6 @@ impl From<BootstrapRefreshContractParameters> for BootstrapRefreshContractParame
             epoch_length_index: p.epoch_length_index,
             epoch_length: p.epoch_length,
             min_votes: p.min_votes,
-            total_oracles: p.total_oracles,
-            total_ballots: p.total_ballots,
         }
     }
 }
@@ -1012,8 +1018,6 @@ mod tests {
                 max_deviation_percent: refresh_params.max_deviation_percent,
                 pool_nft_index: refresh_params.pool_nft_index,
                 oracle_token_id_index: refresh_params.oracle_token_id_index,
-                total_oracles: 15,
-                total_ballots: 15,
                 min_votes: 6,
             },
             pool_contract_parameters: BootstrapPoolContractParameters {
@@ -1030,6 +1034,8 @@ mod tests {
             node_port: "9053".into(),
             node_api_key: "hello".into(),
             is_mainnet,
+            total_oracles: 15,
+            total_ballots: 15,
         };
 
         let height = ctx.pre_header.height;

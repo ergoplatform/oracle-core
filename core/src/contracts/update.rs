@@ -42,11 +42,11 @@ pub enum UpdateContractError {
         "update contract: unexpected `min votes` value from constants. Expected {expected}, got {actual}"
     )]
     MinVotesDiffers { expected: u64, actual: u64 },
-    #[error("oracle contract: sigma parsing error {0}")]
+    #[error("update contract: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),
-    #[error("oracle contract: ergo tree constant error {0:?}")]
+    #[error("update contract: ergo tree constant error {0:?}")]
     ErgoTreeConstant(ErgoTreeConstantError),
-    #[error("oracle contract: TryExtractFrom error {0:?}")]
+    #[error("update contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
 }
 

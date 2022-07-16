@@ -34,6 +34,7 @@ pub struct OracleConfig {
     pub token_ids: TokenIds,
 }
 
+/// Holds the token ids of every important token used by the oracle pool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenIds {
     pub pool_nft_token_id: TokenId,
