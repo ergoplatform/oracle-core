@@ -100,9 +100,10 @@ pub fn vote_update_pool(
             reward_token_id.clone(),
             reward_token_amount,
             update_box_creation_height,
-            AddressEncoder::new(network_prefix)
-                .parse_address_from_str(&ORACLE_CONFIG.ballot_token_owner_address)?,
-            &ORACLE_CONFIG.ballot_contract_parameters,
+            AddressEncoder::new(network_prefix).parse_address_from_str(
+                &ORACLE_CONFIG.ballot_parameters.ballot_token_owner_address,
+            )?,
+            &ORACLE_CONFIG.ballot_parameters.contract_parameters,
             &ORACLE_CONFIG.token_ids,
             height,
             change_address,
@@ -261,7 +262,7 @@ mod tests {
         ergo_chain_types::Digest32,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::AddressEncoder,
+            address::{Address, AddressEncoder},
             ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
             token::{Token, TokenId},
         },
@@ -272,6 +273,7 @@ mod tests {
     use crate::{
         box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper},
         contracts::ballot::BallotContract,
+        oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_ballot_contract_parameters,
             make_wallet_unspent_box, BallotBoxMock, WalletDataMock,
@@ -376,10 +378,23 @@ mod tests {
             0,
         )
         .unwrap();
+        let ballot_token_owner_address = AddressEncoder::encode_address_as_string(
+            network_prefix,
+            &Address::P2Pk(secret.public_image()),
+        );
+        let wrapper_parameters = BallotBoxWrapperParameters {
+            contract_parameters: ballot_contract_parameters.clone(),
+            ballot_token_owner_address,
+            vote_parameters: Some(CastBallotBoxVoteParameters {
+                reward_token_id: force_any_val::<TokenId>(),
+                reward_token_quantity: 100000,
+                pool_box_address_hash: force_any_val::<Digest32>().into(),
+            }),
+        };
         let ballot_box_mock = BallotBoxMock {
             ballot_box: BallotBoxWrapper::new(
                 in_ballot_box.clone(),
-                &ballot_contract_parameters,
+                &wrapper_parameters,
                 &token_ids,
             )
             .unwrap(),

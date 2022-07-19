@@ -3,12 +3,12 @@ use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox,
     PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
 };
-use crate::contracts::ballot::{BallotContract, BallotContractParameters};
+use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::{OracleContract, OracleContractParameters};
 use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContractParameters;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::{TokenIds, ORACLE_CONFIG};
+use crate::oracle_config::{BallotBoxWrapperParameters, TokenIds, ORACLE_CONFIG};
 use crate::scans::{
     register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
     register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
@@ -114,7 +114,7 @@ pub struct OraclePool {
     /// an instance of `OracleContractParameters` and `TokenIds` alongside the `Scan` instance.
     pub local_oracle_datapoint_scan: Option<(Scan, Arc<OracleContractParameters>, Arc<TokenIds>)>,
     // Local ballot box Scan
-    pub local_ballot_box_scan: Option<(Scan, Arc<BallotContractParameters>, Arc<TokenIds>)>,
+    pub local_ballot_box_scan: Option<(Scan, Arc<BallotBoxWrapperParameters>, Arc<TokenIds>)>,
     /// Defined in a similar way to `datapoint_stage`, for the same reasons.
     pool_box_scan: (Scan, Arc<PoolContractParameters>, Arc<TokenIds>),
     /// Defined in a similar way to `datapoint_stage`, for the same reasons.
@@ -199,14 +199,16 @@ impl OraclePool {
                 scans.push(local_scan);
             }
 
-            let ballot_contract_address =
-                BallotContract::new(&config.ballot_contract_parameters, &config.token_ids)?
-                    .ergo_tree();
+            let ballot_contract_address = BallotContract::new(
+                &config.ballot_parameters.contract_parameters,
+                &config.token_ids,
+            )?
+            .ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,
                 &config.token_ids.ballot_token_id,
-                &config.ballot_token_owner_address,
+                &config.ballot_parameters.ballot_token_owner_address,
             ) {
                 scans.push(local_scan);
             }
@@ -236,7 +238,7 @@ impl OraclePool {
         let oracle_contract_parameters = Arc::new(config.oracle_contract_parameters.clone());
         let refresh_contract_parameters = Arc::new(config.refresh_contract_parameters.clone());
         let pool_contract_parameters = Arc::new(config.pool_contract_parameters.clone());
-        let ballot_contract_parameters = Arc::new(config.ballot_contract_parameters.clone());
+        let ballot_parameters = Arc::new(config.ballot_parameters.clone());
         let token_ids = Arc::new(config.token_ids.clone());
 
         // Create all `Scan` structs for protocol
@@ -262,7 +264,7 @@ impl OraclePool {
         if scan_json.has_key(local_scan_str) {
             local_ballot_box_scan = Some((
                 (Scan::new(local_scan_str, &scan_json[local_scan_str].to_string())),
-                ballot_contract_parameters.clone(),
+                ballot_parameters.clone(),
                 token_ids.clone(),
             ));
         }
@@ -428,7 +430,7 @@ impl PoolBoxSource for (Scan, Arc<PoolContractParameters>, Arc<TokenIds>) {
     }
 }
 
-impl LocalBallotBoxSource for (Scan, Arc<BallotContractParameters>, Arc<TokenIds>) {
+impl LocalBallotBoxSource for (Scan, Arc<BallotBoxWrapperParameters>, Arc<TokenIds>) {
     fn get_ballot_box(&self) -> Result<BallotBoxWrapper> {
         let box_wrapper = BallotBoxWrapper::new(self.0.get_box()?, &self.1, &self.2)?;
         Ok(box_wrapper)
