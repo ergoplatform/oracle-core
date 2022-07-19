@@ -77,6 +77,10 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
     let s = serde_yaml::to_string(&oracle_config)?;
     let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_CONFIG_FILE_NAME)?;
     file.write_all(s.as_bytes())?;
+    info!(
+        "Oracle configuration file created: {}",
+        crate::oracle_config::DEFAULT_CONFIG_FILE_NAME
+    );
     Ok(())
 }
 
