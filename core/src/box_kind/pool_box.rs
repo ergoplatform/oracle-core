@@ -33,12 +33,14 @@ pub enum PoolBoxError {
     NoDataPoint,
     #[error("pool box: no epoch counter in R5")]
     NoEpochCounter,
-    #[error("refresh box: no reward token found")]
+    #[error("pool box: no reward token found")]
     NoRewardToken,
-    #[error("pool contract: {0:?}")]
+    #[error("pool box: {0:?}")]
     PoolContractError(#[from] PoolContractError),
-    #[error("pool box: unknown pool NFT in box")]
+    #[error("pool box: unknown pool NFT token id in box")]
     UnknownPoolNftId,
+    #[error("pool box: unknown reward token id in box")]
+    UnknownRewardTokenId,
 }
 
 #[derive(Clone)]
@@ -58,6 +60,7 @@ impl PoolBoxWrapper {
             return Err(PoolBoxError::NoTokens);
         }
 
+        // No need to analyse the data point as its validity is checked within the refresh contract.
         if b.get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(PoolBoxError::NoDataPoint)?
             .try_extract_into::<i64>()
@@ -66,6 +69,8 @@ impl PoolBoxWrapper {
             return Err(PoolBoxError::NoDataPoint);
         }
 
+        // No need to analyse the epoch counter as its validity is checked within the pool and
+        // oracle contracts.
         if b.get_register(NonMandatoryRegisterId::R5.into())
             .ok_or(PoolBoxError::NoEpochCounter)?
             .try_extract_into::<i32>()
@@ -74,8 +79,10 @@ impl PoolBoxWrapper {
             return Err(PoolBoxError::NoEpochCounter);
         }
 
-        if let Some(_token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(1) {
-            // TODO: check reward token id (need ballot contract parameters)
+        if let Some(reward_token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(1) {
+            if reward_token.token_id != token_ids.reward_token_id {
+                return Err(PoolBoxError::UnknownRewardTokenId);
+            }
         } else {
             return Err(PoolBoxError::NoRewardToken);
         }
