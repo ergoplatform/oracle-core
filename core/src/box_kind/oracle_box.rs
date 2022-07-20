@@ -8,6 +8,7 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
@@ -31,16 +32,26 @@ pub trait OracleBox {
 pub enum OracleBoxError {
     #[error("oracle box: no tokens found")]
     NoTokens,
+    #[error("oracle box: no oracle token found")]
+    NoOracleToken,
+    #[error("oracle box: unknown oracle token id in `TOKENS(0)`")]
+    UnknownOracleTokenId,
     #[error("oracle box: no reward token found")]
     NoRewardToken,
+    #[error("oracle box: unknown reward token id in `TOKENS(1)`")]
+    UnknownRewardTokenId,
     #[error("oracle box: no public key in R4")]
-    NoPublicKey,
+    NoPublicKeyInR4,
     #[error("oracle box: no epoch counter in R5")]
     NoEpochCounter,
     #[error("oracle box: no data point in R6")]
     NoDataPoint,
-    #[error("oracle contract: {0:?}")]
+    #[error("oracle box: {0:?}")]
     OracleContractError(#[from] OracleContractError),
+    #[error("oracle box: TryExtractFrom error {0:?}")]
+    TryExtractFrom(#[from] TryExtractFromError),
+    #[error("oracle box: Can't create EcPoint from String {0}")]
+    EcPoint(String),
 }
 
 // TODO: convert this one and others to named structs
@@ -53,15 +64,19 @@ impl OracleBoxWrapper {
         parameters: &OracleContractParameters,
         token_ids: &TokenIds,
     ) -> Result<Self, OracleBoxError> {
-        let _oracle_token_id = b
+        let oracle_token_id = b
             .tokens
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
-            .get(0)
-            .ok_or(OracleBoxError::NoTokens)?
+            .first()
             .token_id
             .clone();
-        let _reward_token_id = b
+
+        if oracle_token_id != token_ids.oracle_token_id {
+            return Err(OracleBoxError::UnknownOracleTokenId);
+        }
+
+        let reward_token_id = b
             .tokens
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
@@ -70,29 +85,29 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if b.get_register(NonMandatoryRegisterId::R4.into())
-            .ok_or(OracleBoxError::NoPublicKey)?
-            .try_extract_into::<EcPoint>()
-            .is_err()
-        {
-            return Err(OracleBoxError::NoPublicKey);
+        if reward_token_id != token_ids.reward_token_id {
+            return Err(OracleBoxError::UnknownRewardTokenId);
         }
 
-        if b.get_register(NonMandatoryRegisterId::R5.into())
-            .ok_or(OracleBoxError::NoEpochCounter)?
-            .try_extract_into::<i32>()
-            .is_err()
-        {
-            return Err(OracleBoxError::NoEpochCounter);
-        }
+        // We won't be analysing the actual address since there exists multiple oracle boxes that
+        // will be inputs for the 'refresh pool' operation.
+        let _ = b
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .ok_or(OracleBoxError::NoPublicKeyInR4)?
+            .try_extract_into::<EcPoint>()?;
 
-        if b.get_register(NonMandatoryRegisterId::R6.into())
+        // Similarly we won't be inspecting the actual published data point.
+        let _ = b
+            .get_register(NonMandatoryRegisterId::R6.into())
             .ok_or(OracleBoxError::NoDataPoint)?
-            .try_extract_into::<i64>()
-            .is_err()
-        {
-            return Err(OracleBoxError::NoDataPoint);
-        }
+            .try_extract_into::<i64>()?;
+
+        // No need to analyse the epoch counter as its validity is checked within the pool and
+        // oracle contracts.
+        let _ = b
+            .get_register(NonMandatoryRegisterId::R5.into())
+            .ok_or(OracleBoxError::NoEpochCounter)?
+            .try_extract_into::<i32>()?;
 
         let contract = OracleContract::from_ergo_tree(b.ergo_tree.clone(), parameters, token_ids)?;
 
