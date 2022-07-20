@@ -1,17 +1,10 @@
-use std::convert::TryFrom;
-
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoderError;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
-use serde::Deserialize;
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::oracle_config::TokenIds;
@@ -248,11 +241,7 @@ impl RefreshContract {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(
-    try_from = "RefreshContractParametersYaml",
-    into = "RefreshContractParametersYaml"
-)]
+#[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct RefreshContractParameters {
     pub p2s: NetworkAddress,
@@ -266,68 +255,6 @@ pub struct RefreshContractParameters {
     pub max_deviation_percent: u64,
     pub epoch_length_index: usize,
     pub epoch_length: u64,
-}
-
-/// Used to (de)serialize `RefreshContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RefreshContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    pool_nft_index: usize,
-    oracle_token_id_index: usize,
-    min_data_points_index: usize,
-    min_data_points: u64,
-    buffer_index: usize,
-    buffer_length: u64,
-    max_deviation_percent_index: usize,
-    max_deviation_percent: u64,
-    epoch_length_index: usize,
-    epoch_length: u64,
-}
-
-impl TryFrom<RefreshContractParametersYaml> for RefreshContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: RefreshContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(RefreshContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            pool_nft_index: p.pool_nft_index,
-            oracle_token_id_index: p.oracle_token_id_index,
-            min_data_points_index: p.min_data_points_index,
-            min_data_points: p.min_data_points,
-            buffer_index: p.buffer_index,
-            buffer_length: p.buffer_length,
-            max_deviation_percent_index: p.max_deviation_percent_index,
-            max_deviation_percent: p.max_deviation_percent,
-            epoch_length_index: p.epoch_length_index,
-            epoch_length: p.epoch_length,
-        })
-    }
-}
-
-impl From<RefreshContractParameters> for RefreshContractParametersYaml {
-    fn from(p: RefreshContractParameters) -> Self {
-        RefreshContractParametersYaml {
-            p2s: p.p2s.to_base58(),
-            on_mainnet: p.p2s.network() == NetworkPrefix::Mainnet,
-            pool_nft_index: p.pool_nft_index,
-            oracle_token_id_index: p.oracle_token_id_index,
-            min_data_points_index: p.min_data_points_index,
-            min_data_points: p.min_data_points,
-            buffer_index: p.buffer_index,
-            buffer_length: p.buffer_length,
-            max_deviation_percent_index: p.max_deviation_percent_index,
-            max_deviation_percent: p.max_deviation_percent,
-            epoch_length_index: p.epoch_length_index,
-            epoch_length: p.epoch_length,
-        }
-    }
 }
 
 #[cfg(test)]

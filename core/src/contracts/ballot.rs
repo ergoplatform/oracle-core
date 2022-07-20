@@ -1,10 +1,5 @@
-use std::convert::TryFrom;
-
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoderError;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -12,8 +7,6 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
-use serde::Deserialize;
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::oracle_config::TokenIds;
@@ -122,58 +115,13 @@ impl BallotContract {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(
-    try_from = "BallotContractParametersYaml",
-    into = "BallotContractParametersYaml"
-)]
+#[derive(Debug, Clone)]
 /// Parameters for the ballot contract
 pub struct BallotContractParameters {
     pub p2s: NetworkAddress,
     pub min_storage_rent_index: usize,
     pub min_storage_rent: u64,
     pub update_nft_index: usize,
-}
-
-/// Used to (de)serialize `OracleContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BallotContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    min_storage_rent_index: usize,
-    min_storage_rent: u64,
-    update_nft_index: usize,
-}
-
-impl TryFrom<BallotContractParametersYaml> for BallotContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: BallotContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(BallotContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            min_storage_rent_index: p.min_storage_rent_index,
-            min_storage_rent: p.min_storage_rent,
-            update_nft_index: p.update_nft_index,
-        })
-    }
-}
-
-impl From<BallotContractParameters> for BallotContractParametersYaml {
-    fn from(p: BallotContractParameters) -> Self {
-        BallotContractParametersYaml {
-            p2s: p.p2s.to_base58(),
-            on_mainnet: p.p2s.network() == NetworkPrefix::Mainnet,
-            min_storage_rent_index: p.min_storage_rent_index,
-            min_storage_rent: p.min_storage_rent,
-            update_nft_index: p.update_nft_index,
-        }
-    }
 }
 
 #[cfg(test)]
