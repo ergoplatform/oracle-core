@@ -1,4 +1,5 @@
 use crate::{
+    cli_commands::bootstrap::Addresses,
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
@@ -33,6 +34,7 @@ pub struct OracleConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
     pub ballot_parameters: BallotBoxWrapperParameters,
     pub token_ids: TokenIds,
+    pub addresses: Addresses,
 }
 
 #[derive(Debug, Clone)]
@@ -52,13 +54,37 @@ pub struct CastBallotBoxVoteParameters {
 }
 
 /// Holds the token ids of every important token used by the oracle pool.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TokenIds {
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
     pub pool_nft_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
     pub refresh_nft_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
     pub update_nft_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
     pub oracle_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
     pub reward_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
     pub ballot_token_id: TokenId,
 }
 
@@ -128,6 +154,8 @@ pub fn get_node_api_key() -> String {
 
 #[cfg(test)]
 mod tests {
+    use sigma_test_util::force_any_val;
+
     use super::*;
 
     #[ignore = "until config hierarchy and option names are finalized"]
@@ -152,5 +180,20 @@ mod tests {
             5
         );
         assert_eq!(pool_params.base_fee, 1000000);
+    }
+
+    #[test]
+    fn token_ids_roundtrip() {
+        let token_ids = TokenIds {
+            pool_nft_token_id: force_any_val::<TokenId>(),
+            refresh_nft_token_id: force_any_val::<TokenId>(),
+            update_nft_token_id: force_any_val::<TokenId>(),
+            oracle_token_id: force_any_val::<TokenId>(),
+            reward_token_id: force_any_val::<TokenId>(),
+            ballot_token_id: force_any_val::<TokenId>(),
+        };
+
+        let s = serde_yaml::to_string(&token_ids).unwrap();
+        assert_eq!(token_ids, serde_yaml::from_str::<TokenIds>(&s).unwrap());
     }
 }

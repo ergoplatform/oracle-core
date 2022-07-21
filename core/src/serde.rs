@@ -2,8 +2,9 @@
 
 use std::convert::TryFrom;
 
-use ergo_lib::ergotree_ir::chain::address::{
-    AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
+use ergo_lib::ergotree_ir::chain::{
+    address::{AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix},
+    token::TokenId,
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,7 @@ pub(crate) struct OracleConfigSerde {
     refresh_contract_parameters: RefreshContractParametersSerde,
     ballot_parameters: BallotBoxWrapperParametersSerde,
     token_ids: TokenIds,
+    addresses: AddressesSerde,
 }
 
 impl TryFrom<OracleConfigSerde> for OracleConfig {
@@ -83,6 +85,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             refresh_contract_parameters,
             ballot_parameters,
             token_ids: c.token_ids,
+            addresses: Addresses::try_from((c.addresses, prefix))?,
         })
     }
 }
@@ -102,6 +105,13 @@ impl From<OracleConfig> for OracleConfigSerde {
             vote_parameters: c.ballot_parameters.vote_parameters,
             ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
         };
+
+        let prefix = if c.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+
         OracleConfigSerde {
             node_ip: c.node_ip,
             node_port: c.node_port,
@@ -118,6 +128,7 @@ impl From<OracleConfig> for OracleConfigSerde {
             refresh_contract_parameters,
             ballot_parameters,
             token_ids: c.token_ids,
+            addresses: AddressesSerde::from((c.addresses, prefix)),
         }
     }
 }
@@ -128,6 +139,7 @@ pub struct BootstrapConfigSerde {
     refresh_contract_parameters: RefreshContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     update_contract_parameters: UpdateContractParametersSerde,
+    ballot_contract_parameters: BallotContractParametersSerde,
     tokens_to_mint: TokensToMint,
     node_ip: String,
     node_port: String,
@@ -144,19 +156,40 @@ struct AddressesSerde {
     wallet_address_for_chain_transaction: String,
 }
 
+impl From<(Addresses, NetworkPrefix)> for AddressesSerde {
+    fn from(t: (Addresses, NetworkPrefix)) -> Self {
+        let addresses = t.0;
+        let prefix = t.1;
+        let encoder = AddressEncoder::new(prefix);
+        AddressesSerde {
+            address_for_oracle_tokens: encoder.address_to_str(&addresses.address_for_oracle_tokens),
+            wallet_address_for_chain_transaction: encoder
+                .address_to_str(&addresses.wallet_address_for_chain_transaction),
+        }
+    }
+}
+
+impl TryFrom<(AddressesSerde, NetworkPrefix)> for Addresses {
+    type Error = AddressEncoderError;
+    fn try_from(t: (AddressesSerde, NetworkPrefix)) -> Result<Self, Self::Error> {
+        let addresses = t.0;
+        let prefix = t.1;
+        let encoder = AddressEncoder::new(prefix);
+        Ok(Addresses {
+            address_for_oracle_tokens: encoder
+                .parse_address_from_str(&addresses.address_for_oracle_tokens)?,
+            wallet_address_for_chain_transaction: encoder
+                .parse_address_from_str(&addresses.wallet_address_for_chain_transaction)?,
+        })
+    }
+}
+
 impl From<BootstrapConfig> for BootstrapConfigSerde {
     fn from(c: BootstrapConfig) -> Self {
-        let prefix = if c.is_mainnet {
+        let prefix = if c.on_mainnet {
             NetworkPrefix::Mainnet
         } else {
             NetworkPrefix::Testnet
-        };
-        let encoder = AddressEncoder::new(prefix);
-        let addresses = AddressesSerde {
-            address_for_oracle_tokens: encoder
-                .address_to_str(&c.addresses.address_for_oracle_tokens),
-            wallet_address_for_chain_transaction: encoder
-                .address_to_str(&c.addresses.wallet_address_for_chain_transaction),
         };
         BootstrapConfigSerde {
             refresh_contract_parameters: RefreshContractParametersSerde::from(
@@ -166,12 +199,15 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
             update_contract_parameters: UpdateContractParametersSerde::from(
                 c.update_contract_parameters,
             ),
+            ballot_contract_parameters: BallotContractParametersSerde::from(
+                c.ballot_contract_parameters,
+            ),
             tokens_to_mint: c.tokens_to_mint,
             node_ip: c.node_ip,
             node_port: c.node_port,
             node_api_key: c.node_api_key,
-            is_mainnet: c.is_mainnet,
-            addresses,
+            is_mainnet: c.on_mainnet,
+            addresses: AddressesSerde::from((c.addresses, prefix)),
             total_oracles: c.total_oracles,
             total_ballots: c.total_ballots,
         }
@@ -187,13 +223,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
         } else {
             NetworkPrefix::Testnet
         };
-        let encoder = AddressEncoder::new(prefix);
-        let addresses = Addresses {
-            address_for_oracle_tokens: encoder
-                .parse_address_from_str(&c.addresses.address_for_oracle_tokens)?,
-            wallet_address_for_chain_transaction: encoder
-                .parse_address_from_str(&c.addresses.wallet_address_for_chain_transaction)?,
-        };
         Ok(BootstrapConfig {
             refresh_contract_parameters: RefreshContractParameters::try_from((
                 c.refresh_contract_parameters,
@@ -207,12 +236,16 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
                 c.update_contract_parameters,
                 prefix,
             ))?,
+            ballot_contract_parameters: BallotContractParameters::try_from((
+                c.ballot_contract_parameters,
+                prefix,
+            ))?,
             tokens_to_mint: c.tokens_to_mint,
             node_ip: c.node_ip,
             node_port: c.node_port,
             node_api_key: c.node_api_key,
-            is_mainnet: c.is_mainnet,
-            addresses,
+            on_mainnet: c.is_mainnet,
+            addresses: Addresses::try_from((c.addresses, prefix))?,
             total_oracles: c.total_oracles,
             total_ballots: c.total_ballots,
         })
@@ -410,6 +443,29 @@ impl From<UpdateContractParameters> for UpdateContractParametersSerde {
         }
     }
 }
+
+pub(crate) fn token_id_as_base64_string<S>(
+    value: &TokenId,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let bytes: Vec<u8> = value.clone().into();
+    serializer.serialize_str(&base64::encode(bytes))
+}
+
+pub(crate) fn token_id_from_base64<'de, D>(deserializer: D) -> Result<TokenId, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    // Interesting fact: `s` can't be of type `&str` otherwise we get the following error at
+    // runtime:
+    //   "invalid type: string ..., expected a borrowed string"
+    let s: String = serde::de::Deserialize::deserialize(deserializer)?;
+    TokenId::from_base64(&s).map_err(serde::de::Error::custom)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BallotBoxWrapperParametersSerde {
     contract_parameters: BallotContractParametersSerde,
