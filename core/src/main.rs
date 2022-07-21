@@ -28,6 +28,7 @@ mod oracle_config;
 mod oracle_state;
 mod pool_commands;
 mod scans;
+mod serde;
 mod state;
 mod templates;
 #[cfg(test)]
