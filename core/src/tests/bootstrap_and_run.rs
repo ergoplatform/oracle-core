@@ -18,12 +18,12 @@ use crate::cli_commands::bootstrap::perform_bootstrap_chained_transaction;
 use crate::cli_commands::bootstrap::Addresses;
 use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
-use crate::cli_commands::bootstrap::BootstrapPoolContractParameters;
-use crate::cli_commands::bootstrap::BootstrapRefreshContractParameters;
 use crate::cli_commands::bootstrap::NftMintDetails;
 use crate::cli_commands::bootstrap::OracleConfigFields;
 use crate::cli_commands::bootstrap::TokenMintDetails;
 use crate::cli_commands::bootstrap::TokensToMint;
+use crate::contracts::pool::PoolContractParameters;
+use crate::contracts::refresh::RefreshContractParameters;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
 use crate::pool_commands::test_utils::init_log_tests;
@@ -83,13 +83,12 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
                 quantity: 100_000_000,
             },
         },
-        refresh_contract_parameters: BootstrapRefreshContractParameters {
+        refresh_contract_parameters: RefreshContractParameters {
             p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &refresh_box_address),
             epoch_length: 30,
             buffer_length: 4,
             min_data_points: 4,
             max_deviation_percent: 5,
-            min_votes: 6,
             pool_nft_index: 17,
             oracle_token_id_index: 3,
             min_data_points_index: 13,
@@ -97,7 +96,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
             max_deviation_percent_index: 15,
             epoch_length_index: 0,
         },
-        pool_contract_parameters: BootstrapPoolContractParameters {
+        pool_contract_parameters: PoolContractParameters {
             p2s: NetworkAddress::new(NetworkPrefix::Mainnet, &pool_box_address),
             refresh_nft_index: 2,
             update_nft_index: 3,

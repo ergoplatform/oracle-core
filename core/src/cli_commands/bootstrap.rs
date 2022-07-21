@@ -1,8 +1,5 @@
 //! Bootstrap a new oracle pool
-use std::{
-    convert::{TryFrom, TryInto},
-    io::Write,
-};
+use std::{convert::TryInto, io::Write};
 
 use derive_more::From;
 use ergo_lib::{
@@ -12,9 +9,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{
-                Address, AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
-            },
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -33,7 +28,6 @@ use ergo_node_interface::{node_interface::NodeError, NodeInterface};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
@@ -52,8 +46,7 @@ use crate::{
 /// minted tokens.
 pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
     let s = std::fs::read_to_string(yaml_config_file_name.clone())?;
-    let yaml = &YamlLoader::load_from_str(&s).unwrap()[0];
-    let config = bootstrap_config_from_yaml(yaml)?;
+    let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
     info!("{} loaded", yaml_config_file_name);
     // We can't call any functions from the `crate::node_interface` module because we don't have an
@@ -437,7 +430,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Create refresh box --------------------------------------------------------------------------
     info!("Create refresh box tx");
-    let BootstrapRefreshContractParameters {
+    let RefreshContractParameters {
         p2s,
         pool_nft_index,
         oracle_token_id_index,
@@ -545,134 +538,17 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     })
 }
 
-fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapError> {
-    let is_mainnet = yaml["is_mainnet"]
-        .as_bool()
-        .ok_or_else(|| BootstrapError::YamlRust("`is_mainnet` missing".into()))?;
-
-    let network_prefix = if is_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
-
-    let tokens_to_mint: TokensToMint = {
-        // We'd like to use `serde_yaml` to deserialize `TokensToMint`. Since we're committed to
-        // using `yaml-rust` we extract out the contents of the `tokens_to_mint` field in the YAML
-        // file, convert it back to a YAML string, then pass it to `serde_yaml`.
-        let hash = yaml["tokens_to_mint"]
-            .as_hash()
-            .ok_or_else(|| BootstrapError::YamlRust("`tokens_to_mint` missing".into()))?
-            .clone();
-        let mut out = String::new();
-        let mut emitter = YamlEmitter::new(&mut out);
-        emitter.dump(&Yaml::Hash(hash)).unwrap();
-        serde_yaml::from_str(&out)?
-    };
-
-    let address_for_minted_tokens_str = yaml["addresses"]["address_for_oracle_tokens"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`address_for_oracle_tokens` missing".into()))?;
-    let address_for_minted_tokens = AddressEncoder::new(network_prefix)
-        .parse_address_from_str(address_for_minted_tokens_str)?;
-
-    let wallet_address_for_chain_transaction_str = yaml["addresses"]
-        ["wallet_address_for_chain_transaction"]
-        .as_str()
-        .ok_or_else(|| {
-            BootstrapError::YamlRust("`wallet_address_for_chain_transaction` missing".into())
-        })?;
-    let wallet_address_for_chain_transaction = AddressEncoder::new(network_prefix)
-        .parse_address_from_str(wallet_address_for_chain_transaction_str)?;
-
-    let addresses = Addresses {
-        address_for_oracle_tokens: address_for_minted_tokens,
-        wallet_address_for_chain_transaction,
-    };
-
-    let refresh_contract_parameters: BootstrapRefreshContractParameters = {
-        // The struct is created via the same process as `tokens_to_mint` above.
-        let hash = yaml["refresh_contract_parameters"]
-            .as_hash()
-            .ok_or_else(|| {
-                BootstrapError::YamlRust("`refresh_contract_parameters` missing".into())
-            })?
-            .clone();
-        let mut out = String::new();
-        let mut emitter = YamlEmitter::new(&mut out);
-        emitter.dump(&Yaml::Hash(hash)).unwrap();
-        serde_yaml::from_str(&out)?
-    };
-
-    let pool_contract_parameters: BootstrapPoolContractParameters = {
-        // The struct is created via the same process as `tokens_to_mint` above.
-        let hash = yaml["pool_contract_parameters"]
-            .as_hash()
-            .ok_or_else(|| BootstrapError::YamlRust("`pool_contract_parameters` missing".into()))?
-            .clone();
-        let mut out = String::new();
-        let mut emitter = YamlEmitter::new(&mut out);
-        emitter.dump(&Yaml::Hash(hash)).unwrap();
-        serde_yaml::from_str(&out)?
-    };
-    let update_contract_parameters: UpdateContractParameters = {
-        // The struct is created via the same process as `tokens_to_mint` above.
-        let hash = yaml["update_contract_parameters"]
-            .as_hash()
-            .ok_or_else(|| BootstrapError::YamlRust("`update_contract_parameters` missing".into()))?
-            .clone();
-        let mut out = String::new();
-        let mut emitter = YamlEmitter::new(&mut out);
-        emitter.dump(&Yaml::Hash(hash)).unwrap();
-        serde_yaml::from_str(&out)?
-    };
-    let node_ip = yaml["node_ip"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`node_ip` missing".into()))?
-        .into();
-
-    let node_port = yaml["node_port"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`node_port` missing".into()))?
-        .into();
-
-    let node_api_key = yaml["node_api_key"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`node_api_key` missing".into()))?
-        .into();
-
-    let total_oracles = yaml["total_oracles"]
-        .as_i64()
-        .ok_or_else(|| BootstrapError::YamlRust("`total_oracles` missing".into()))?
-        as u32;
-
-    let total_ballots = yaml["total_ballots"]
-        .as_i64()
-        .ok_or_else(|| BootstrapError::YamlRust("`total_ballots` missing".into()))?
-        as u32;
-
-    Ok(BootstrapConfig {
-        refresh_contract_parameters,
-        pool_contract_parameters,
-        update_contract_parameters,
-        tokens_to_mint,
-        node_ip,
-        node_port,
-        node_api_key,
-        is_mainnet,
-        addresses,
-        total_oracles,
-        total_ballots,
-    })
-}
-
 /// An instance of this struct is created from an operator-provided YAML file. Note that we don't
 /// derive `Deserialize` here since we need to verify the address types against the `is_mainnet`
 /// field.
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    try_from = "crate::serde::BootstrapConfigSerde",
+    into = "crate::serde::BootstrapConfigSerde"
+)]
 pub struct BootstrapConfig {
-    pub refresh_contract_parameters: BootstrapRefreshContractParameters,
-    pub pool_contract_parameters: BootstrapPoolContractParameters,
+    pub refresh_contract_parameters: RefreshContractParameters,
+    pub pool_contract_parameters: PoolContractParameters,
     pub update_contract_parameters: UpdateContractParameters,
     pub tokens_to_mint: TokensToMint,
     pub node_ip: String,
@@ -684,62 +560,13 @@ pub struct BootstrapConfig {
     pub total_ballots: u32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(
-    try_from = "BootstrapPoolContractParametersYaml",
-    into = "BootstrapPoolContractParametersYaml"
-)]
-/// Parameters for the pool contract that are needed for oracle bootstrap.
-pub struct BootstrapPoolContractParameters {
-    pub p2s: NetworkAddress,
-    pub refresh_nft_index: usize,
-    pub update_nft_index: usize,
-}
-
-/// Used to (de)serialize `BootstrapPoolContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BootstrapPoolContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    pub refresh_nft_index: usize,
-    pub update_nft_index: usize,
-}
-
-impl TryFrom<BootstrapPoolContractParametersYaml> for BootstrapPoolContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: BootstrapPoolContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(BootstrapPoolContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            refresh_nft_index: p.refresh_nft_index,
-            update_nft_index: p.update_nft_index,
-        })
-    }
-}
-
-impl From<BootstrapPoolContractParameters> for BootstrapPoolContractParametersYaml {
-    fn from(val: BootstrapPoolContractParameters) -> Self {
-        BootstrapPoolContractParametersYaml {
-            p2s: val.p2s.to_base58(),
-            on_mainnet: val.p2s.network() == NetworkPrefix::Mainnet,
-            refresh_nft_index: val.refresh_nft_index,
-            update_nft_index: val.update_nft_index,
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Addresses {
     pub address_for_oracle_tokens: Address,
     pub wallet_address_for_chain_transaction: Address,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TokensToMint {
     pub pool_nft: NftMintDetails,
     pub refresh_nft: NftMintDetails,
@@ -749,98 +576,14 @@ pub struct TokensToMint {
     pub reward_tokens: TokenMintDetails,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-#[serde(
-    try_from = "BootstrapRefreshContractParametersYaml",
-    into = "BootstrapRefreshContractParametersYaml"
-)]
-pub struct BootstrapRefreshContractParameters {
-    pub p2s: NetworkAddress,
-    pub pool_nft_index: usize,
-    pub oracle_token_id_index: usize,
-    pub min_data_points_index: usize,
-    pub min_data_points: u64,
-    pub buffer_index: usize,
-    pub buffer_length: u64,
-    pub max_deviation_percent_index: usize,
-    pub max_deviation_percent: u64,
-    pub epoch_length_index: usize,
-    pub epoch_length: u64,
-    pub min_votes: u32,
-}
-
-/// Used to (de)serialize `BootstrapRefreshContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BootstrapRefreshContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    pool_nft_index: usize,
-    oracle_token_id_index: usize,
-    min_data_points_index: usize,
-    min_data_points: u64,
-    buffer_index: usize,
-    buffer_length: u64,
-    max_deviation_percent_index: usize,
-    max_deviation_percent: u64,
-    epoch_length_index: usize,
-    epoch_length: u64,
-    min_votes: u32,
-}
-
-impl TryFrom<BootstrapRefreshContractParametersYaml> for BootstrapRefreshContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: BootstrapRefreshContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(BootstrapRefreshContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            pool_nft_index: p.pool_nft_index,
-            oracle_token_id_index: p.oracle_token_id_index,
-            min_data_points_index: p.min_data_points_index,
-            min_data_points: p.min_data_points,
-            buffer_index: p.buffer_index,
-            buffer_length: p.buffer_length,
-            max_deviation_percent_index: p.max_deviation_percent_index,
-            max_deviation_percent: p.max_deviation_percent,
-            epoch_length_index: p.epoch_length_index,
-            epoch_length: p.epoch_length,
-            min_votes: p.min_votes,
-        })
-    }
-}
-
-impl From<BootstrapRefreshContractParameters> for BootstrapRefreshContractParametersYaml {
-    fn from(p: BootstrapRefreshContractParameters) -> Self {
-        BootstrapRefreshContractParametersYaml {
-            p2s: p.p2s.to_base58(),
-            on_mainnet: p.p2s.network() == NetworkPrefix::Mainnet,
-            pool_nft_index: p.pool_nft_index,
-            oracle_token_id_index: p.oracle_token_id_index,
-            min_data_points_index: p.min_data_points_index,
-            min_data_points: p.min_data_points,
-            buffer_index: p.buffer_index,
-            buffer_length: p.buffer_length,
-            max_deviation_percent_index: p.max_deviation_percent_index,
-            max_deviation_percent: p.max_deviation_percent,
-            epoch_length_index: p.epoch_length_index,
-            epoch_length: p.epoch_length,
-            min_votes: p.min_votes,
-        }
-    }
-}
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TokenMintDetails {
     pub name: String,
     pub description: String,
     pub quantity: u64,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct NftMintDetails {
     pub name: String,
     pub description: String,
@@ -909,7 +652,7 @@ mod tests {
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::AddressEncoder,
+            address::{AddressEncoder, NetworkAddress},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
         },
         wallet::Wallet,
@@ -1006,7 +749,7 @@ mod tests {
                     quantity: 100_000_000,
                 },
             },
-            refresh_contract_parameters: BootstrapRefreshContractParameters {
+            refresh_contract_parameters: RefreshContractParameters {
                 p2s: refresh_params.p2s,
                 epoch_length_index: refresh_params.epoch_length_index,
                 epoch_length: refresh_params.epoch_length,
@@ -1018,9 +761,8 @@ mod tests {
                 max_deviation_percent: refresh_params.max_deviation_percent,
                 pool_nft_index: refresh_params.pool_nft_index,
                 oracle_token_id_index: refresh_params.oracle_token_id_index,
-                min_votes: 6,
             },
-            pool_contract_parameters: BootstrapPoolContractParameters {
+            pool_contract_parameters: PoolContractParameters {
                 p2s,
                 refresh_nft_index: 2,
                 update_nft_index: 3,
@@ -1089,7 +831,7 @@ mod tests {
             &token_ids,
         )
         .unwrap();
-        assert!(update_contract.min_votes() as u32 == state.refresh_contract_parameters.min_votes);
+        assert!(update_contract.min_votes() == state.update_contract_parameters.min_votes);
         assert!(update_contract.pool_nft_token_id() == oracle_config.pool_nft);
         assert!(update_contract.ballot_token_id() == oracle_config.ballot_token);
         let s = serde_yaml::to_string(&oracle_config).unwrap();

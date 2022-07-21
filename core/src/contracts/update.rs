@@ -1,10 +1,5 @@
-use std::convert::TryFrom;
-
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoderError;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -12,8 +7,6 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::{Literal, TryExtractInto};
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 
-use serde::Deserialize;
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::oracle_config::TokenIds;
@@ -153,11 +146,7 @@ impl UpdateContract {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(
-    try_from = "UpdateContractParametersYaml",
-    into = "UpdateContractParametersYaml"
-)]
+#[derive(Debug, Clone)]
 /// Parameters for the update contract
 pub struct UpdateContractParameters {
     pub p2s: NetworkAddress,
@@ -165,50 +154,6 @@ pub struct UpdateContractParameters {
     pub ballot_token_index: usize,
     pub min_votes_index: usize,
     pub min_votes: u64,
-}
-
-/// Used to (de)serialize `OracleContractParameters` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct UpdateContractParametersYaml {
-    p2s: String,
-    on_mainnet: bool,
-    pool_nft_index: usize,
-    ballot_token_index: usize,
-    min_votes_index: usize,
-    min_votes: u64,
-}
-
-impl TryFrom<UpdateContractParametersYaml> for UpdateContractParameters {
-    type Error = AddressEncoderError;
-
-    fn try_from(p: UpdateContractParametersYaml) -> Result<Self, Self::Error> {
-        let prefix = if p.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&p.p2s)?;
-        Ok(UpdateContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
-            pool_nft_index: p.pool_nft_index,
-            ballot_token_index: p.ballot_token_index,
-            min_votes_index: p.min_votes_index,
-            min_votes: p.min_votes,
-        })
-    }
-}
-
-impl From<UpdateContractParameters> for UpdateContractParametersYaml {
-    fn from(p: UpdateContractParameters) -> Self {
-        UpdateContractParametersYaml {
-            p2s: p.p2s.to_base58(),
-            on_mainnet: p.p2s.network() == NetworkPrefix::Mainnet,
-            pool_nft_index: p.pool_nft_index,
-            ballot_token_index: p.ballot_token_index,
-            min_votes_index: p.min_votes_index,
-            min_votes: p.min_votes,
-        }
-    }
 }
 
 #[cfg(test)]
