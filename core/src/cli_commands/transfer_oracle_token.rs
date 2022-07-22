@@ -172,9 +172,10 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
+    use crate::contracts::oracle::OracleContractParameters;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, generate_token_ids, make_datapoint_box, make_oracle_contract_parameters,
-        make_wallet_unspent_box, OracleBoxMock, WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
+        OracleBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -193,7 +194,7 @@ mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
-        let parameters = make_oracle_contract_parameters();
+        let parameters = OracleContractParameters::default();
         let oracle_box = (
             make_datapoint_box(
                 *oracle_pub_key,

@@ -19,13 +19,13 @@ use crate::cli_commands::bootstrap::NftMintDetails;
 use crate::cli_commands::bootstrap::OracleConfigFields;
 use crate::cli_commands::bootstrap::TokenMintDetails;
 use crate::cli_commands::bootstrap::TokensToMint;
+use crate::contracts::ballot::BallotContractParameters;
+use crate::contracts::pool::PoolContractParameters;
+use crate::contracts::refresh::RefreshContractParameters;
+use crate::contracts::update::UpdateContractParameters;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
 use crate::pool_commands::test_utils::init_log_tests;
-use crate::pool_commands::test_utils::make_ballot_contract_parameters;
-use crate::pool_commands::test_utils::make_pool_contract_parameters;
-use crate::pool_commands::test_utils::make_refresh_contract_parameters;
-use crate::pool_commands::test_utils::make_update_contract_parameters;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
 
@@ -79,10 +79,10 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
                 quantity: 100_000_000,
             },
         },
-        refresh_contract_parameters: make_refresh_contract_parameters(),
-        pool_contract_parameters: make_pool_contract_parameters(),
-        update_contract_parameters: make_update_contract_parameters(),
-        ballot_contract_parameters: make_ballot_contract_parameters(),
+        refresh_contract_parameters: RefreshContractParameters::default(),
+        pool_contract_parameters: PoolContractParameters::default(),
+        update_contract_parameters: UpdateContractParameters::default(),
+        ballot_contract_parameters: BallotContractParameters::default(),
         addresses: Addresses {
             address_for_oracle_tokens: address.clone(),
             wallet_address_for_chain_transaction: address.clone(),

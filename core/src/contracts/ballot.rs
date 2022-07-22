@@ -126,13 +126,13 @@ pub struct BallotContractParameters {
 
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::{generate_token_ids, make_ballot_contract_parameters};
+    use crate::pool_commands::test_utils::generate_token_ids;
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let parameters = make_ballot_contract_parameters();
+        let parameters = BallotContractParameters::default();
         let token_ids = generate_token_ids();
         let c = BallotContract::new(&parameters, &token_ids).unwrap();
         assert_eq!(c.update_nft_token_id(), token_ids.update_nft_token_id,);

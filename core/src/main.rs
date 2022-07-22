@@ -22,6 +22,7 @@ mod box_kind;
 mod cli_commands;
 mod contracts;
 mod datapoint_source;
+mod default_parameters;
 mod logging;
 mod node_interface;
 mod oracle_config;

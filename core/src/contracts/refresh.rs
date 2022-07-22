@@ -259,13 +259,13 @@ pub struct RefreshContractParameters {
 
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::{generate_token_ids, make_refresh_contract_parameters};
+    use crate::pool_commands::test_utils::generate_token_ids;
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let parameters = make_refresh_contract_parameters();
+        let parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
         let c = RefreshContract::new(&parameters, &token_ids).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);

@@ -645,11 +645,7 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::pool_commands::test_utils::{
-        make_ballot_contract_parameters, make_pool_contract_parameters,
-        make_refresh_contract_parameters, make_update_contract_parameters, LocalTxSigner,
-        WalletDataMock,
-    };
+    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
     use std::cell::RefCell;
     #[derive(Default)]
     struct SubmitTxMock {
@@ -723,10 +719,10 @@ mod tests {
                     quantity: 100_000_000,
                 },
             },
-            refresh_contract_parameters: make_refresh_contract_parameters(),
-            pool_contract_parameters: make_pool_contract_parameters(),
-            update_contract_parameters: make_update_contract_parameters(),
-            ballot_contract_parameters: make_ballot_contract_parameters(),
+            refresh_contract_parameters: RefreshContractParameters::default(),
+            pool_contract_parameters: PoolContractParameters::default(),
+            update_contract_parameters: UpdateContractParameters::default(),
+            ballot_contract_parameters: BallotContractParameters::default(),
             addresses: Addresses {
                 address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
@@ -775,7 +771,7 @@ mod tests {
             .unwrap();
         // Check that Update NFT is guarded by UpdateContract, and parameters are correct
 
-        let parameters = make_update_contract_parameters();
+        let parameters = UpdateContractParameters::default();
 
         let update_contract = crate::contracts::update::UpdateContract::from_ergo_tree(
             update_nft_box.ergo_tree.clone(),

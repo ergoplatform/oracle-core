@@ -120,13 +120,13 @@ pub struct PoolContractParameters {
 
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::{generate_token_ids, make_pool_contract_parameters};
+    use crate::pool_commands::test_utils::generate_token_ids;
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let parameters = make_pool_contract_parameters();
+        let parameters = PoolContractParameters::default();
         let token_ids = generate_token_ids();
         let c = PoolContract::new(&parameters, &token_ids).unwrap();
         assert_eq!(c.refresh_nft_token_id(), token_ids.refresh_nft_token_id,);

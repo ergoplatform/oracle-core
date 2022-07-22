@@ -240,10 +240,10 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
+    use crate::contracts::pool::PoolContractParameters;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, generate_token_ids, make_datapoint_box, make_oracle_contract_parameters,
-        make_pool_box, make_pool_contract_parameters, make_wallet_unspent_box, OracleBoxMock,
-        PoolBoxMock, WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
+        make_wallet_unspent_box, OracleBoxMock, PoolBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -274,8 +274,8 @@ mod tests {
         let height = ctx.pre_header.height;
         let token_ids = generate_token_ids();
         let reward_token_id = force_any_val::<TokenId>();
-        let oracle_contract_parameters = make_oracle_contract_parameters();
-        let pool_contract_parameters = make_pool_contract_parameters();
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let pool_contract_parameters = PoolContractParameters::default();
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
@@ -408,7 +408,7 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
-        let oracle_contract_parameters = make_oracle_contract_parameters();
+        let oracle_contract_parameters = OracleContractParameters::default();
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

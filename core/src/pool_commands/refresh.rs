@@ -288,9 +288,6 @@ mod tests {
     use crate::oracle_config::TokenIds;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::generate_token_ids;
-    use crate::pool_commands::test_utils::make_oracle_contract_parameters;
-    use crate::pool_commands::test_utils::make_pool_contract_parameters;
-    use crate::pool_commands::test_utils::make_refresh_contract_parameters;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
@@ -394,9 +391,9 @@ mod tests {
         let height = ctx.pre_header.height;
         let reward_token_id = force_any_val::<TokenId>();
         dbg!(&reward_token_id);
-        let pool_contract_parameters = make_pool_contract_parameters();
-        let oracle_contract_parameters = make_oracle_contract_parameters();
-        let refresh_contract_parameters = make_refresh_contract_parameters();
+        let pool_contract_parameters = PoolContractParameters::default();
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let refresh_contract_parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
 
         let in_refresh_box = make_refresh_box(
