@@ -26,10 +26,13 @@ use sigma_test_util::force_any_val;
 use crate::box_kind::BallotBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
+use crate::box_kind::UpdateBoxWrapper;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::pool::PoolContract;
 use crate::node_interface::SignTransaction;
+use crate::oracle_state::BallotBoxesSource;
 use crate::oracle_state::LocalBallotBoxSource;
+use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
 use super::*;
@@ -67,6 +70,16 @@ impl LocalBallotBoxSource for BallotBoxMock {
     }
 }
 
+pub struct BallotBoxesMock {
+    pub ballot_boxes: Vec<BallotBoxWrapper>,
+}
+
+impl BallotBoxesSource for BallotBoxesMock {
+    fn get_ballot_boxes(&self) -> std::result::Result<Vec<BallotBoxWrapper>, StageError> {
+        Ok(self.ballot_boxes.clone())
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct WalletDataMock {
     pub unspent_boxes: Vec<ErgoBox>,
@@ -75,6 +88,16 @@ pub(crate) struct WalletDataMock {
 impl WalletDataSource for WalletDataMock {
     fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
         Ok(self.unspent_boxes.clone())
+    }
+}
+
+pub(crate) struct UpdateBoxMock {
+    pub update_box: UpdateBoxWrapper,
+}
+
+impl UpdateBoxSource for UpdateBoxMock {
+    fn get_update_box(&self) -> crate::oracle_state::Result<crate::box_kind::UpdateBoxWrapper> {
+        Ok(self.update_box.clone())
     }
 }
 

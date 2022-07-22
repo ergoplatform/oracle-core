@@ -260,3 +260,22 @@ pub fn register_local_ballot_box_scan(
 
     Scan::register("Local Ballot Box Scan", scan_json)
 }
+
+/// Scan for all ballot boxes matching token id of oracle pool. When updating the pool box only ballot boxes voting for the new pool will be spent
+pub fn register_ballot_box_scan(
+    ballot_contract_address: &ErgoTree,
+    ballot_token_id: &TokenId,
+) -> Result<Scan> {
+    let scan_json = json! ( {
+        "args": [
+        {
+            "predicate": "containsAsset",
+            "assetId": ballot_token_id.clone(),
+        },
+        {
+            "predicate": "equals",
+            "value": ballot_contract_address.to_base16_bytes().unwrap(),
+        }
+        ] });
+    Scan::register("Ballot Box Scan", scan_json)
+}

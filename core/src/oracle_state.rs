@@ -1,15 +1,17 @@
 // This files relates to the state of the oracle/oracle pool.
 use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, OracleBox, OracleBoxError, OracleBoxWrapper, PoolBox,
-    PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper,
+    PoolBoxError, PoolBoxWrapper, RefreshBoxError, RefreshBoxWrapper, UpdateBoxError,
+    UpdateBoxWrapper,
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
-    register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
-    register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
+    register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
+    register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
+    save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg};
@@ -42,6 +44,8 @@ pub enum StageError {
     OracleBoxError(OracleBoxError),
     #[error("datapoint source error: {0}")]
     DataPointSource(DataPointSourceError),
+    #[error("update box error: {0}")]
+    UpdateBoxError(UpdateBoxError),
 }
 
 pub trait StageDataSource {
@@ -81,6 +85,14 @@ pub trait DatapointBoxesSource {
 
 pub trait LocalDatapointBoxSource {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper>;
+}
+
+pub trait BallotBoxesSource {
+    fn get_ballot_boxes(&self) -> Result<Vec<BallotBoxWrapper>>;
+}
+
+pub trait UpdateBoxSource {
+    fn get_update_box(&self) -> Result<UpdateBoxWrapper>;
 }
 
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
@@ -191,6 +203,11 @@ impl OraclePool {
                 &config.ballot_token_owner_address,
             ) {
                 scans.push(local_scan);
+            }
+            if let Ok(scan) =
+                register_ballot_box_scan(&ballot_contract_address, &config.ballot_token_id)
+            {
+                scans.push(scan);
             }
 
             let res = save_scan_ids_locally(scans);
@@ -398,6 +415,20 @@ impl RefreshBoxSource for Scan {
 
 impl LocalDatapointBoxSource for Scan {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
+        Ok(self.get_box()?.try_into()?)
+    }
+}
+
+impl BallotBoxesSource for Scan {
+    fn get_ballot_boxes(&self) -> Result<Vec<BallotBoxWrapper>> {
+        self.get_boxes()?
+            .into_iter()
+            .map(|ballot_box| Ok(ballot_box.try_into()?))
+            .collect()
+    }
+}
+impl UpdateBoxSource for Scan {
+    fn get_update_box(&self) -> Result<UpdateBoxWrapper> {
         Ok(self.get_box()?.try_into()?)
     }
 }

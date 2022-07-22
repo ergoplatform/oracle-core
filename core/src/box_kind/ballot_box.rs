@@ -131,7 +131,7 @@ impl TryFrom<ErgoBox> for BallotBoxWrapper {
         if ergo_box
             .get_register(NonMandatoryRegisterId::R8.into())
             .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-            .try_extract_into::<i32>()
+            .try_extract_into::<i64>()
             .is_err()
         {
             return Err(BallotBoxError::NoRewardTokenQuantityInR8);
@@ -153,6 +153,7 @@ pub fn make_local_ballot_box_candidate(
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
+    dbg!(&reward_tokens);
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
     builder.set_register_value(
         NonMandatoryRegisterId::R4,
@@ -169,7 +170,7 @@ pub fn make_local_ballot_box_candidate(
     );
     builder.set_register_value(
         NonMandatoryRegisterId::R8,
-        (*reward_tokens.amount.as_u64() as i32).into(),
+        (*reward_tokens.amount.as_u64() as i64).into(),
     );
     builder.add_token(ballot_token);
     builder.build()
