@@ -33,7 +33,7 @@ use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{
         ballot::BallotContractParameters,
-        pool::{PoolContract, PoolContractParameters},
+        pool::{PoolContract, PoolContractInputs, PoolContractParameters},
         refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
         update::{UpdateContract, UpdateContractError, UpdateContractParameters},
     },
@@ -360,7 +360,11 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         refresh_nft_index: config.pool_contract_parameters.refresh_nft_index,
         update_nft_index: config.pool_contract_parameters.update_nft_index,
     };
-    let pool_contract = PoolContract::new(&pool_contract_parameters, &token_ids).unwrap();
+    let pool_contract = PoolContract::new(PoolContractInputs::from((
+        &pool_contract_parameters,
+        &token_ids,
+    )))
+    .unwrap();
 
     let reward_tokens_for_pool_box = Token {
         token_id: reward_token.token_id.clone(),

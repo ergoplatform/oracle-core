@@ -280,7 +280,6 @@ mod tests {
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
             &pool_contract_parameters,
-            &oracle_contract_parameters,
             &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();

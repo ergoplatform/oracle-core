@@ -9,6 +9,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use thiserror::Error;
 
+use crate::box_kind::PoolBoxWrapperInputs;
 use crate::oracle_config::TokenIds;
 
 #[derive(Clone)]
@@ -36,54 +37,79 @@ pub enum PoolContractError {
     TryExtractFrom(TryExtractFromError),
 }
 
+pub struct PoolContractInputs<'a> {
+    pub contract_parameters: &'a PoolContractParameters,
+    pub refresh_nft_token_id: &'a TokenId,
+    pub update_nft_token_id: &'a TokenId,
+}
+
+impl<'a> From<PoolBoxWrapperInputs<'a>> for PoolContractInputs<'a> {
+    fn from(b: PoolBoxWrapperInputs<'a>) -> Self {
+        PoolContractInputs {
+            contract_parameters: b.contract_parameters,
+            update_nft_token_id: b.update_nft_token_id,
+            refresh_nft_token_id: b.refresh_nft_token_id,
+        }
+    }
+}
+
+impl<'a> From<(&'a PoolContractParameters, &'a TokenIds)> for PoolContractInputs<'a> {
+    fn from(t: (&'a PoolContractParameters, &'a TokenIds)) -> Self {
+        let contract_parameters = t.0;
+        let token_ids = t.1;
+        PoolContractInputs {
+            contract_parameters,
+            refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+            update_nft_token_id: &token_ids.update_nft_token_id,
+        }
+    }
+}
+
 impl PoolContract {
-    pub fn new(
-        parameters: &PoolContractParameters,
-        token_ids: &TokenIds,
-    ) -> Result<Self, PoolContractError> {
-        let ergo_tree = parameters
+    pub fn new(inputs: PoolContractInputs) -> Result<Self, PoolContractError> {
+        let ergo_tree = inputs
+            .contract_parameters
             .p2s
             .address()
             .script()?
             .with_constant(
-                parameters.refresh_nft_index,
-                token_ids.refresh_nft_token_id.clone().into(),
+                inputs.contract_parameters.refresh_nft_index,
+                inputs.refresh_nft_token_id.clone().into(),
             )?
             .with_constant(
-                parameters.update_nft_index,
-                token_ids.update_nft_token_id.clone().into(),
+                inputs.contract_parameters.update_nft_index,
+                inputs.update_nft_token_id.clone().into(),
             )?;
-        let contract = Self::from_ergo_tree(ergo_tree, parameters, token_ids)?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
 
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
-        parameters: &PoolContractParameters,
-        token_ids: &TokenIds,
+        inputs: PoolContractInputs,
     ) -> Result<Self, PoolContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
         let refresh_nft_token_id = ergo_tree
-            .get_constant(parameters.refresh_nft_index)
+            .get_constant(inputs.contract_parameters.refresh_nft_index)
             .map_err(|_| PoolContractError::NoRefreshNftId)?
             .ok_or(PoolContractError::NoRefreshNftId)?
             .try_extract_into::<TokenId>()?;
-        if refresh_nft_token_id != token_ids.refresh_nft_token_id {
+        if refresh_nft_token_id != *inputs.refresh_nft_token_id {
             return Err(PoolContractError::UnknownRefreshNftId);
         }
 
         let update_nft_token_id = ergo_tree
-            .get_constant(parameters.update_nft_index)
+            .get_constant(inputs.contract_parameters.update_nft_index)
             .map_err(|_| PoolContractError::NoUpdateNftId)?
             .ok_or(PoolContractError::NoUpdateNftId)?
             .try_extract_into::<TokenId>()?;
-        if update_nft_token_id != token_ids.update_nft_token_id {
+        if update_nft_token_id != *inputs.update_nft_token_id {
             return Err(PoolContractError::UnknownUpdateNftId);
         }
         Ok(Self {
             ergo_tree,
-            refresh_nft_index: parameters.refresh_nft_index,
-            update_nft_index: parameters.update_nft_index,
+            refresh_nft_index: inputs.contract_parameters.refresh_nft_index,
+            update_nft_index: inputs.contract_parameters.update_nft_index,
         })
     }
 
@@ -126,9 +152,14 @@ mod tests {
 
     #[test]
     fn test_constant_parsing() {
-        let parameters = PoolContractParameters::default();
+        let contract_parameters = PoolContractParameters::default();
         let token_ids = generate_token_ids();
-        let c = PoolContract::new(&parameters, &token_ids).unwrap();
+        let inputs = PoolContractInputs {
+            contract_parameters: &contract_parameters,
+            refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+            update_nft_token_id: &token_ids.update_nft_token_id,
+        };
+        let c = PoolContract::new(inputs).unwrap();
         assert_eq!(c.refresh_nft_token_id(), token_ids.refresh_nft_token_id,);
         assert_eq!(c.update_nft_token_id(), token_ids.update_nft_token_id,);
     }

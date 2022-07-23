@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
@@ -7,14 +5,13 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
-use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::pool::PoolContractParameters;
-use crate::oracle_config::TokenIds;
 
 pub trait PoolBox {
     fn contract(&self) -> &PoolContract;
@@ -47,13 +44,9 @@ pub enum PoolBoxError {
 pub struct PoolBoxWrapper(ErgoBox, PoolContract);
 
 impl PoolBoxWrapper {
-    pub fn new(
-        b: ErgoBox,
-        pool_contract_parameters: &PoolContractParameters,
-        token_ids: &TokenIds,
-    ) -> Result<Self, PoolBoxError> {
+    pub fn new(b: ErgoBox, inputs: PoolBoxWrapperInputs) -> Result<Self, PoolBoxError> {
         if let Some(token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(0) {
-            if token.token_id != token_ids.pool_nft_token_id {
+            if token.token_id != *inputs.pool_nft_token_id {
                 return Err(PoolBoxError::UnknownPoolNftId);
             }
         } else {
@@ -80,14 +73,13 @@ impl PoolBoxWrapper {
         }
 
         if let Some(reward_token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(1) {
-            if reward_token.token_id != token_ids.reward_token_id {
+            if reward_token.token_id != *inputs.reward_token_id {
                 return Err(PoolBoxError::UnknownRewardTokenId);
             }
         } else {
             return Err(PoolBoxError::NoRewardToken);
         }
-        let contract =
-            PoolContract::from_ergo_tree(b.ergo_tree.clone(), pool_contract_parameters, token_ids)?;
+        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
         Ok(Self(b, contract))
     }
 }
@@ -126,26 +118,17 @@ impl PoolBox for PoolBoxWrapper {
     }
 }
 
-impl<'a>
-    TryFrom<(
-        ErgoBox,
-        &'a PoolContractParameters,
-        &'a OracleContractParameters,
-        &'a TokenIds,
-    )> for PoolBoxWrapper
-{
-    type Error = PoolBoxError;
-
-    fn try_from(
-        value: (
-            ErgoBox,
-            &PoolContractParameters,
-            &OracleContractParameters,
-            &TokenIds,
-        ),
-    ) -> Result<Self, Self::Error> {
-        PoolBoxWrapper::new(value.0, value.1, value.3)
-    }
+#[derive(Clone, Copy, Debug)]
+pub struct PoolBoxWrapperInputs<'a> {
+    pub contract_parameters: &'a PoolContractParameters,
+    /// Pool NFT token is expected to reside in `tokens(0)` of the pool box.
+    pub pool_nft_token_id: &'a TokenId,
+    /// Reward token is expected to reside in `tokens(1)` of the pool box.
+    pub reward_token_id: &'a TokenId,
+    /// This token id appears as a constant in the pool contract.
+    pub refresh_nft_token_id: &'a TokenId,
+    /// This token id also appears as a constant in the pool contract.
+    pub update_nft_token_id: &'a TokenId,
 }
 
 pub fn make_pool_box_candidate(

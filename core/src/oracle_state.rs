@@ -2,7 +2,7 @@
 use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
     OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
-    RefreshBoxError, RefreshBoxWrapper,
+    PoolBoxWrapperInputs, RefreshBoxError, RefreshBoxWrapper,
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
@@ -104,9 +104,7 @@ pub struct OraclePool<'a> {
     local_oracle_datapoint_scan: Option<LocalOracleDatapointScan<'a>>,
     /// Local ballot box Scan
     local_ballot_box_scan: Option<LocalBallotBoxScan<'a>>,
-    /// Defined in a similar way to `datapoint_stage`, for the same reasons.
-    pool_box_scan: (Scan, Arc<PoolContractParameters>, Arc<TokenIds>),
-    /// Defined in a similar way to `datapoint_stage`, for the same reasons.
+    pool_box_scan: PoolBoxScan<'a>,
     refresh_box_scan: (
         Scan,
         Arc<RefreshContractParameters>,
@@ -131,6 +129,12 @@ pub struct LocalOracleDatapointScan<'a> {
 pub struct LocalBallotBoxScan<'a> {
     scan: Scan,
     ballot_box_wrapper_inputs: BallotBoxWrapperInputs<'a>,
+}
+
+#[derive(Debug)]
+pub struct PoolBoxScan<'a> {
+    scan: Scan,
+    pool_box_wrapper_inputs: PoolBoxWrapperInputs<'a>,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -187,6 +191,14 @@ impl<'a> OraclePool<'a> {
             ballot_token_id: &config.token_ids.ballot_token_id,
             update_nft_token_id: &config.token_ids.update_nft_token_id,
         };
+        let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
+            contract_parameters: &config.pool_contract_parameters,
+            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
+            reward_token_id: &config.token_ids.reward_token_id,
+            refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
+            update_nft_token_id: &config.token_ids.update_nft_token_id,
+        };
+
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
             let mut scans = vec![
@@ -195,8 +207,7 @@ impl<'a> OraclePool<'a> {
                     &datapoint_contract_address,
                 )
                 .unwrap(),
-                register_pool_box_scan(&config.pool_contract_parameters, &config.token_ids)
-                    .unwrap(),
+                register_pool_box_scan(pool_box_wrapper_inputs).unwrap(),
                 register_refresh_box_scan(
                     refresh_box_scan_name,
                     &config.refresh_contract_parameters,
@@ -278,11 +289,10 @@ impl<'a> OraclePool<'a> {
             });
         }
 
-        let pool_box_scan = (
-            Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
-            pool_contract_parameters.clone(),
-            token_ids.clone(),
-        );
+        let pool_box_scan = PoolBoxScan {
+            scan: Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
+            pool_box_wrapper_inputs,
+        };
 
         let refresh_box_scan = (
             Scan::new(
@@ -431,9 +441,9 @@ impl<'a> OraclePool<'a> {
     }
 }
 
-impl PoolBoxSource for (Scan, Arc<PoolContractParameters>, Arc<TokenIds>) {
+impl<'a> PoolBoxSource for PoolBoxScan<'a> {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
-        let box_wrapper = PoolBoxWrapper::new(self.0.get_box()?, &self.1, &self.2)?;
+        let box_wrapper = PoolBoxWrapper::new(self.scan.get_box()?, self.pool_box_wrapper_inputs)?;
         Ok(box_wrapper)
     }
 }

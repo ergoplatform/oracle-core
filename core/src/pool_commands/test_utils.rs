@@ -26,10 +26,12 @@ use sigma_test_util::force_any_val;
 use crate::box_kind::BallotBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
+use crate::box_kind::PoolBoxWrapperInputs;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
+use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
 use crate::node_interface::SignTransaction;
 use crate::oracle_config::TokenIds;
@@ -88,9 +90,15 @@ pub(crate) fn make_pool_box(
     value: BoxValue,
     creation_height: u32,
     pool_contract_parameters: &PoolContractParameters,
-    oracle_contract_parameters: &OracleContractParameters,
     token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
+    let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
+        contract_parameters: pool_contract_parameters,
+        pool_nft_token_id: &token_ids.pool_nft_token_id,
+        reward_token_id: &token_ids.reward_token_id,
+        refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+        update_nft_token_id: &token_ids.update_nft_token_id,
+    };
     let tokens = vec![
         Token::from((
             token_ids.pool_nft_token_id.clone(),
@@ -103,12 +111,15 @@ pub(crate) fn make_pool_box(
     ]
     .try_into()
     .unwrap();
-    (
+    PoolBoxWrapper::new(
         ErgoBox::new(
             value,
-            PoolContract::new(pool_contract_parameters, token_ids)
-                .unwrap()
-                .ergo_tree(),
+            PoolContract::new(PoolContractInputs::from((
+                pool_contract_parameters,
+                token_ids,
+            )))
+            .unwrap()
+            .ergo_tree(),
             Some(tokens),
             NonMandatoryRegisters::new(
                 vec![
@@ -124,12 +135,9 @@ pub(crate) fn make_pool_box(
             0,
         )
         .unwrap(),
-        pool_contract_parameters,
-        oracle_contract_parameters,
-        token_ids,
+        pool_box_wrapper_inputs,
     )
-        .try_into()
-        .unwrap()
+    .unwrap()
 }
 
 #[allow(clippy::too_many_arguments)]
