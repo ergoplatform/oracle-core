@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use crate::{
     contracts::ballot::{BallotContract, BallotContractError},
-    oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters, TokenIds},
+    oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
 };
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -66,16 +66,13 @@ pub struct BallotBoxWrapper {
 }
 
 impl BallotBoxWrapper {
-    pub fn new(
-        ergo_box: ErgoBox,
-        parameters: &BallotBoxWrapperParameters,
-        token_ids: &TokenIds,
-    ) -> Result<Self, BallotBoxError> {
+    pub fn new(ergo_box: ErgoBox, inputs: BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
         let CastBallotBoxVoteParameters {
             reward_token_id,
             reward_token_quantity,
             pool_box_address_hash,
-        } = parameters
+        } = inputs
+            .parameters
             .vote_parameters
             .as_ref()
             .ok_or(BallotBoxError::ExpectedVoteCast)?;
@@ -86,7 +83,7 @@ impl BallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != token_ids.ballot_token_id {
+        if *ballot_token_id != *inputs.ballot_token_id {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -94,9 +91,9 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        let prefix = parameters.contract_parameters.p2s.network();
+        let prefix = inputs.parameters.contract_parameters.p2s.network();
         let config_from_address = AddressEncoder::new(prefix)
-            .parse_address_from_str(&parameters.ballot_token_owner_address)?;
+            .parse_address_from_str(&inputs.parameters.ballot_token_owner_address)?;
         if config_from_address != Address::P2Pk(ProveDlog::from(ec)) {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
@@ -139,13 +136,18 @@ impl BallotBoxWrapper {
             warn!("Reward token quantity in R8 register differs to config. Could be due to vote.");
         }
 
-        let contract = BallotContract::from_ergo_tree(
-            ergo_box.ergo_tree.clone(),
-            &parameters.contract_parameters,
-            token_ids,
-        )?;
+        let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), inputs.into())?;
         Ok(Self { ergo_box, contract })
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct BallotBoxWrapperInputs<'a> {
+    pub parameters: &'a BallotBoxWrapperParameters,
+    /// Ballot token is expected to reside in `tokens(0)` of the ballot box.
+    pub ballot_token_id: &'a TokenId,
+    /// This token id appears as a constant in the ballot contract.
+    pub update_nft_token_id: &'a TokenId,
 }
 
 impl BallotBox for BallotBoxWrapper {

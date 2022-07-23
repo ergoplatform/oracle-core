@@ -22,10 +22,9 @@ use thiserror::Error;
 
 use crate::{
     actions::PublishDataPointAction,
-    box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
-    contracts::oracle::{OracleContract, OracleContractError, OracleContractParameters},
+    box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapperInputs, PoolBox},
+    contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
-    oracle_config::TokenIds,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -74,17 +73,15 @@ pub fn build_publish_datapoint_action(
             )
         }
         PublishDataPointCommandInputs::FirstDataPoint {
-            token_ids,
             public_key,
-            oracle_contract_parameters,
+            oracle_box_wrapper_inputs: oracle_box_inputs,
         } => build_publish_first_datapoint_action(
             wallet,
             height,
             change_address,
             new_datapoint as u64,
-            oracle_contract_parameters,
-            token_ids,
             public_key,
+            oracle_box_inputs,
         ),
     }
 }
@@ -148,19 +145,18 @@ pub fn build_publish_first_datapoint_action(
     height: u32,
     change_address: Address,
     new_datapoint: u64,
-    oracle_contract_parameters: &OracleContractParameters,
-    token_ids: &TokenIds,
     public_key: ProveDlog,
+    inputs: OracleBoxWrapperInputs,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = BoxValue::SAFE_USER_MIN;
     let box_selector = SimpleBoxSelector::new();
     let oracle_token = Token {
-        token_id: token_ids.oracle_token_id.clone(),
+        token_id: inputs.oracle_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
     let reward_token = Token {
-        token_id: token_ids.reward_token_id.clone(),
+        token_id: inputs.reward_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
 
@@ -175,7 +171,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new(oracle_contract_parameters, token_ids)?,
+        &OracleContract::new(inputs.into())?,
         public_key,
         new_datapoint,
         1,
@@ -240,6 +236,7 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
+    use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
@@ -294,6 +291,8 @@ mod tests {
             pool_box: in_pool_box,
         };
 
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
         let oracle_box = (
             make_datapoint_box(
                 *oracle_pub_key,
@@ -303,8 +302,7 @@ mod tests {
                 BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
-            &oracle_contract_parameters,
-            &token_ids,
+            oracle_box_wrapper_inputs,
         )
             .try_into()
             .unwrap();
@@ -409,6 +407,8 @@ mod tests {
                 .unwrap();
 
         let oracle_contract_parameters = OracleContractParameters::default();
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
@@ -416,9 +416,8 @@ mod tests {
             height,
             change_address,
             100,
-            &oracle_contract_parameters,
-            &token_ids,
             secret.public_image(),
+            oracle_box_wrapper_inputs,
         )
         .unwrap();
 

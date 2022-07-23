@@ -39,11 +39,11 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
         let parameters = &ORACLE_CONFIG;
-        let num_of_oracles = datapoint_stage.0.number_of_boxes().unwrap_or(10);
+        let num_of_oracles = datapoint_stage.stage.number_of_boxes().unwrap_or(10);
 
         let response_json = json! ({
             "number_of_oracles": num_of_oracles,
-            "datapoint_address": datapoint_stage.0.contract_address,
+            "datapoint_address": datapoint_stage.stage.contract_address,
             "live_epoch_length": parameters.refresh_contract_parameters.epoch_length,
             "deviation_range": parameters.refresh_contract_parameters.max_deviation_percent,
             "consensus_num": parameters.refresh_contract_parameters.min_data_points,

@@ -22,7 +22,9 @@ use ergo_node_interface::node_interface::NodeError;
 use crate::{
     box_kind::{make_local_ballot_box_candidate, BallotBox},
     cli_commands::ergo_explorer_transaction_link,
-    contracts::ballot::{BallotContract, BallotContractError, BallotContractParameters},
+    contracts::ballot::{
+        BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
+    },
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{TokenIds, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, OraclePool, StageError},
@@ -207,7 +209,11 @@ fn build_tx_for_first_ballot_box(
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
     };
-    let contract = BallotContract::new(ballot_contract_parameters, token_ids)?;
+    let inputs = BallotContractInputs {
+        contract_parameters: ballot_contract_parameters,
+        update_nft_token_id: &token_ids.update_nft_token_id,
+    };
+    let contract = BallotContract::new(inputs)?;
     let ballot_token = Token {
         token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
@@ -271,7 +277,7 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use crate::{
-        box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper},
+        box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper, BallotBoxWrapperInputs},
         contracts::ballot::{BallotContract, BallotContractParameters},
         oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
         pool_commands::test_utils::{
@@ -359,9 +365,27 @@ mod tests {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
+        let ballot_token_owner_address = AddressEncoder::encode_address_as_string(
+            network_prefix,
+            &Address::P2Pk(secret.public_image()),
+        );
+        let wrapper_parameters = BallotBoxWrapperParameters {
+            contract_parameters: ballot_contract_parameters.clone(),
+            ballot_token_owner_address,
+            vote_parameters: Some(CastBallotBoxVoteParameters {
+                reward_token_id: force_any_val::<TokenId>(),
+                reward_token_quantity: 100000,
+                pool_box_address_hash: force_any_val::<Digest32>().into(),
+            }),
+        };
+        let inputs = BallotBoxWrapperInputs {
+            parameters: &wrapper_parameters,
+            ballot_token_id: &token_ids.ballot_token_id,
+            update_nft_token_id: &token_ids.update_nft_token_id,
+        };
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::new(&ballot_contract_parameters, &token_ids).unwrap(),
+                &BallotContract::new(inputs.into()).unwrap(),
                 secret.public_image(),
                 height - 2,
                 ballot_token,
@@ -378,26 +402,8 @@ mod tests {
             0,
         )
         .unwrap();
-        let ballot_token_owner_address = AddressEncoder::encode_address_as_string(
-            network_prefix,
-            &Address::P2Pk(secret.public_image()),
-        );
-        let wrapper_parameters = BallotBoxWrapperParameters {
-            contract_parameters: ballot_contract_parameters.clone(),
-            ballot_token_owner_address,
-            vote_parameters: Some(CastBallotBoxVoteParameters {
-                reward_token_id: force_any_val::<TokenId>(),
-                reward_token_quantity: 100000,
-                pool_box_address_hash: force_any_val::<Digest32>().into(),
-            }),
-        };
         let ballot_box_mock = BallotBoxMock {
-            ballot_box: BallotBoxWrapper::new(
-                in_ballot_box.clone(),
-                &wrapper_parameters,
-                &token_ids,
-            )
-            .unwrap(),
+            ballot_box: BallotBoxWrapper::new(in_ballot_box.clone(), inputs).unwrap(),
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),

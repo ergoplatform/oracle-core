@@ -67,7 +67,7 @@ fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<()
     Ok(())
 }
 
-impl OraclePool {
+impl<'a> OraclePool<'a> {
     // /// Generates and submits the "Collect Funds" action tx
     // pub fn action_collect_funds(&self) -> Result<String, StageError> {
     //     let mut req = json::parse(BASIC_TRANSACTION_SEND_REQUEST).unwrap();

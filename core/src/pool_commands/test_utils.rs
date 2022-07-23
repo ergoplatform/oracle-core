@@ -27,6 +27,8 @@ use crate::box_kind::BallotBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::OracleContractInputs;
+use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractParameters;
 use crate::node_interface::SignTransaction;
@@ -149,9 +151,13 @@ pub(crate) fn make_datapoint_box(
     .try_into()
     .unwrap();
     let parameters = OracleContractParameters::default();
+    let oracle_contract_inputs = OracleContractInputs {
+        contract_parameters: &parameters,
+        pool_nft_token_id: &token_ids.pool_nft_token_id,
+    };
     ErgoBox::new(
         value,
-        OracleContract::new(&parameters, token_ids)
+        OracleContract::new(oracle_contract_inputs)
             .unwrap()
             .ergo_tree(),
         Some(tokens),

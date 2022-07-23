@@ -280,6 +280,7 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use crate::box_kind::OracleBoxWrapper;
+    use crate::box_kind::OracleBoxWrapperInputs;
     use crate::box_kind::RefreshBoxWrapper;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
@@ -363,6 +364,8 @@ mod tests {
         oracle_contract_parameters: &OracleContractParameters,
         token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::from((oracle_contract_parameters, token_ids));
         datapoints
             .into_iter()
             .zip(pub_keys)
@@ -376,8 +379,7 @@ mod tests {
                         value,
                         creation_height,
                     ),
-                    oracle_contract_parameters,
-                    token_ids,
+                    oracle_box_wrapper_inputs,
                 )
                     .try_into()
                     .unwrap()

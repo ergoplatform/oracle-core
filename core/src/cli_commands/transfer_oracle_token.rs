@@ -172,6 +172,7 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
+    use crate::box_kind::OracleBoxWrapperInputs;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
@@ -195,6 +196,7 @@ mod tests {
         let oracle_pub_key = secret.public_image().h;
 
         let parameters = OracleContractParameters::default();
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((&parameters, &token_ids));
         let oracle_box = (
             make_datapoint_box(
                 *oracle_pub_key,
@@ -204,8 +206,7 @@ mod tests {
                 BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
-            &parameters,
-            &token_ids,
+            oracle_box_wrapper_inputs,
         )
             .try_into()
             .unwrap();
