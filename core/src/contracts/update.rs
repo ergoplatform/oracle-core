@@ -9,8 +9,6 @@ use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 
 use thiserror::Error;
 
-use crate::oracle_config::TokenIds;
-
 #[derive(Clone)]
 pub struct UpdateContract {
     ergo_tree: ErgoTree,
@@ -43,67 +41,70 @@ pub enum UpdateContractError {
     TryExtractFrom(TryExtractFromError),
 }
 
+pub struct UpdateContractInputs<'a> {
+    pub contract_parameters: &'a UpdateContractParameters,
+    pub pool_nft_token_id: &'a TokenId,
+    pub ballot_token_id: &'a TokenId,
+}
+
 impl UpdateContract {
-    pub fn new(
-        parameters: &UpdateContractParameters,
-        token_ids: &TokenIds,
-    ) -> Result<Self, UpdateContractError> {
-        let ergo_tree = parameters
+    pub fn new(inputs: UpdateContractInputs) -> Result<Self, UpdateContractError> {
+        let ergo_tree = inputs
+            .contract_parameters
             .p2s
             .address()
             .script()?
             .with_constant(
-                parameters.pool_nft_index,
-                token_ids.pool_nft_token_id.clone().into(),
+                inputs.contract_parameters.pool_nft_index,
+                inputs.pool_nft_token_id.clone().into(),
             )?
             .with_constant(
-                parameters.ballot_token_index,
-                token_ids.ballot_token_id.clone().into(),
+                inputs.contract_parameters.ballot_token_index,
+                inputs.ballot_token_id.clone().into(),
             )?;
-        let contract = Self::from_ergo_tree(ergo_tree, parameters, token_ids)?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
 
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
-        parameters: &UpdateContractParameters,
-        token_ids: &TokenIds,
+        inputs: UpdateContractInputs,
     ) -> Result<Self, UpdateContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
         let pool_nft_token_id = ergo_tree
-            .get_constant(parameters.pool_nft_index)
+            .get_constant(inputs.contract_parameters.pool_nft_index)
             .map_err(|_| UpdateContractError::NoPoolNftId)?
             .ok_or(UpdateContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != token_ids.pool_nft_token_id {
+        if pool_nft_token_id != *inputs.pool_nft_token_id {
             return Err(UpdateContractError::UnknownPoolNftId);
         };
 
         let ballot_token_id = ergo_tree
-            .get_constant(parameters.ballot_token_index)
+            .get_constant(inputs.contract_parameters.ballot_token_index)
             .map_err(|_| UpdateContractError::NoBallotTokenId)?
             .ok_or(UpdateContractError::NoBallotTokenId)?
             .try_extract_into::<TokenId>()?;
-        if ballot_token_id != token_ids.ballot_token_id {
+        if ballot_token_id != *inputs.ballot_token_id {
             return Err(UpdateContractError::UnknownBallotTokenId);
         };
 
         let min_votes = ergo_tree
-            .get_constant(parameters.min_votes_index)
+            .get_constant(inputs.contract_parameters.min_votes_index)
             .map_err(|_| UpdateContractError::NoMinVotes)?
             .ok_or(UpdateContractError::NoMinVotes)?
             .try_extract_into::<i32>()? as u64;
-        if min_votes != parameters.min_votes {
+        if min_votes != inputs.contract_parameters.min_votes {
             return Err(UpdateContractError::MinVotesDiffers {
-                expected: parameters.min_votes,
+                expected: inputs.contract_parameters.min_votes,
                 actual: min_votes,
             });
         };
         Ok(Self {
             ergo_tree,
-            pool_nft_index: parameters.pool_nft_index,
-            ballot_token_index: parameters.ballot_token_index,
-            min_votes_index: parameters.min_votes_index,
+            pool_nft_index: inputs.contract_parameters.pool_nft_index,
+            ballot_token_index: inputs.contract_parameters.ballot_token_index,
+            min_votes_index: inputs.contract_parameters.min_votes_index,
         })
     }
 
@@ -166,7 +167,12 @@ mod tests {
     fn test_constant_parsing() {
         let parameters = UpdateContractParameters::default();
         let token_ids = generate_token_ids();
-        let c = UpdateContract::new(&parameters, &token_ids).unwrap();
+        let inputs = UpdateContractInputs {
+            contract_parameters: &parameters,
+            pool_nft_token_id: &token_ids.pool_nft_token_id,
+            ballot_token_id: &token_ids.ballot_token_id,
+        };
+        let c = UpdateContract::new(inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
         assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
         assert_eq!(c.min_votes(), parameters.min_votes);

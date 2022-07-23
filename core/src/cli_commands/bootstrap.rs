@@ -14,7 +14,7 @@ use ergo_lib::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
             },
-            token::{Token, TokenId},
+            token::Token,
         },
         ergo_tree::ErgoTree,
         serialization::SigmaParsingError,
@@ -35,7 +35,9 @@ use crate::{
         ballot::BallotContractParameters,
         pool::{PoolContract, PoolContractInputs, PoolContractParameters},
         refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
-        update::{UpdateContract, UpdateContractError, UpdateContractParameters},
+        update::{
+            UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
+        },
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::TokenIds,
@@ -274,20 +276,12 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Mint update NFT token -----------------------------------------------------------------------
 
-    // We need to create an instance of `UpdateContract`, which requires the token IDs of the pool
-    // NFT and the ballot token.
-    let token_ids = TokenIds {
-        pool_nft_token_id: pool_nft_token.token_id.clone(),
-        refresh_nft_token_id: refresh_nft_token.token_id.clone(), // Not strictly needed for `UpdateContract`
-        update_nft_token_id: TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU")
-            .unwrap(), // dummy value
-        oracle_token_id: TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU")
-            .unwrap(), // dummy value
-        reward_token_id: TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU")
-            .unwrap(), // dummy value
-        ballot_token_id: ballot_token.token_id.clone(),
+    let inputs = UpdateContractInputs {
+        pool_nft_token_id: &pool_nft_token.token_id,
+        ballot_token_id: &ballot_token.token_id,
+        contract_parameters: &config.update_contract_parameters,
     };
-    let update_contract = UpdateContract::new(&config.update_contract_parameters, &token_ids)?;
+    let update_contract = UpdateContract::new(inputs)?;
 
     info!("Minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
@@ -643,6 +637,7 @@ mod tests {
         ergotree_ir::chain::{
             address::AddressEncoder,
             ergo_box::{ErgoBox, NonMandatoryRegisters},
+            token::TokenId,
         },
         wallet::Wallet,
     };
@@ -777,10 +772,14 @@ mod tests {
 
         let parameters = UpdateContractParameters::default();
 
+        let update_contract_inputs = UpdateContractInputs {
+            contract_parameters: &parameters,
+            pool_nft_token_id: &token_ids.pool_nft_token_id,
+            ballot_token_id: &token_ids.ballot_token_id,
+        };
         let update_contract = crate::contracts::update::UpdateContract::from_ergo_tree(
             update_nft_box.ergo_tree.clone(),
-            &parameters,
-            token_ids,
+            update_contract_inputs,
         )
         .unwrap();
         assert!(update_contract.min_votes() == state.update_contract_parameters.min_votes);
