@@ -7,7 +7,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use thiserror::Error;
 
-use crate::oracle_config::TokenIds;
+use crate::box_kind::RefreshBoxWrapperInputs;
 
 #[derive(Clone)]
 pub struct RefreshContract {
@@ -68,45 +68,43 @@ pub enum RefreshContractError {
 }
 
 impl RefreshContract {
-    pub fn new(
-        parameters: &RefreshContractParameters,
-        token_ids: &TokenIds,
-    ) -> Result<Self, RefreshContractError> {
-        let ergo_tree = parameters
+    pub fn new(inputs: RefreshContractInputs) -> Result<Self, RefreshContractError> {
+        let ergo_tree = inputs
+            .contract_parameters
             .p2s
             .address()
             .script()?
             .with_constant(
-                parameters.pool_nft_index,
-                token_ids.pool_nft_token_id.clone().into(),
+                inputs.contract_parameters.pool_nft_index,
+                inputs.pool_nft_token_id.clone().into(),
             )
             .map_err(RefreshContractError::ErgoTreeConstant)?
             .with_constant(
-                parameters.oracle_token_id_index,
-                token_ids.oracle_token_id.clone().into(),
+                inputs.contract_parameters.oracle_token_id_index,
+                inputs.oracle_token_id.clone().into(),
             )
             .map_err(RefreshContractError::ErgoTreeConstant)?;
 
-        let contract = Self::from_ergo_tree(ergo_tree, parameters, token_ids)?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
 
     // TODO: switch to `TryFrom`
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
-        parameters: &RefreshContractParameters,
-        token_ids: &TokenIds,
+        inputs: RefreshContractInputs,
     ) -> Result<Self, RefreshContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
 
+        let parameters = inputs.contract_parameters;
         let pool_nft_token_id = ergo_tree
             .get_constant(parameters.pool_nft_index)
             .map_err(|_| RefreshContractError::NoPoolNftId)?
             .ok_or(RefreshContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != token_ids.pool_nft_token_id {
+        if pool_nft_token_id != *inputs.pool_nft_token_id {
             return Err(RefreshContractError::PoolNftTokenIdDiffers {
-                expected: token_ids.pool_nft_token_id.clone(),
+                expected: inputs.pool_nft_token_id.clone(),
                 actual: pool_nft_token_id,
             });
         }
@@ -116,9 +114,9 @@ impl RefreshContract {
             .map_err(|_| RefreshContractError::NoOracleTokenId)?
             .ok_or(RefreshContractError::NoOracleTokenId)?
             .try_extract_into::<TokenId>()?;
-        if oracle_token_id != token_ids.oracle_token_id {
+        if oracle_token_id != *inputs.oracle_token_id {
             return Err(RefreshContractError::OracleTokenIdDiffers {
-                expected: token_ids.oracle_token_id.clone(),
+                expected: inputs.oracle_token_id.clone(),
                 actual: oracle_token_id,
             });
         }
@@ -241,6 +239,22 @@ impl RefreshContract {
     }
 }
 
+pub struct RefreshContractInputs<'a> {
+    pub contract_parameters: &'a RefreshContractParameters,
+    pub oracle_token_id: &'a TokenId,
+    pub pool_nft_token_id: &'a TokenId,
+}
+
+impl<'a> From<RefreshBoxWrapperInputs<'a>> for RefreshContractInputs<'a> {
+    fn from(b: RefreshBoxWrapperInputs<'a>) -> Self {
+        RefreshContractInputs {
+            contract_parameters: b.contract_parameters,
+            oracle_token_id: b.oracle_token_id,
+            pool_nft_token_id: b.pool_nft_token_id,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct RefreshContractParameters {
@@ -267,7 +281,12 @@ mod tests {
     fn test_constant_parsing() {
         let parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
-        let c = RefreshContract::new(&parameters, &token_ids).unwrap();
+        let inputs = RefreshContractInputs {
+            contract_parameters: &parameters,
+            oracle_token_id: &token_ids.oracle_token_id,
+            pool_nft_token_id: &token_ids.pool_nft_token_id,
+        };
+        let c = RefreshContract::new(inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
         assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id,);
         assert_eq!(c.min_data_points() as u64, parameters.min_data_points);

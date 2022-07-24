@@ -282,6 +282,7 @@ mod tests {
     use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::OracleBoxWrapperInputs;
     use crate::box_kind::RefreshBoxWrapper;
+    use crate::box_kind::RefreshBoxWrapperInputs;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
@@ -322,23 +323,19 @@ mod tests {
 
     fn make_refresh_box(
         value: BoxValue,
-        pool_contract_parameters: &PoolContractParameters,
-        refresh_contract_parameters: &RefreshContractParameters,
-        token_ids: &TokenIds,
+        inputs: RefreshBoxWrapperInputs,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
-            token_ids.refresh_nft_token_id.clone(),
+            inputs.refresh_nft_token_id.clone(),
             1u64.try_into().unwrap(),
         ))]
         .try_into()
         .unwrap();
-        (
+        RefreshBoxWrapper::new(
             ErgoBox::new(
                 value,
-                RefreshContract::new(refresh_contract_parameters, token_ids)
-                    .unwrap()
-                    .ergo_tree(),
+                RefreshContract::new(inputs.into()).unwrap().ergo_tree(),
                 Some(tokens),
                 NonMandatoryRegisters::empty(),
                 creation_height,
@@ -346,12 +343,9 @@ mod tests {
                 0,
             )
             .unwrap(),
-            refresh_contract_parameters,
-            pool_contract_parameters,
-            token_ids,
+            inputs,
         )
-            .try_into()
-            .unwrap()
+        .unwrap()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -398,13 +392,13 @@ mod tests {
         let refresh_contract_parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
 
-        let in_refresh_box = make_refresh_box(
-            BoxValue::SAFE_USER_MIN,
-            &pool_contract_parameters,
-            &refresh_contract_parameters,
-            &token_ids,
-            height - 32,
-        );
+        let inputs = RefreshBoxWrapperInputs {
+            contract_parameters: &refresh_contract_parameters,
+            refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+            oracle_token_id: &token_ids.oracle_token_id,
+            pool_nft_token_id: &token_ids.pool_nft_token_id,
+        };
+        let in_refresh_box = make_refresh_box(BoxValue::SAFE_USER_MIN, inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,

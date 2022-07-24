@@ -2,14 +2,12 @@
 use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
     OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
-    PoolBoxWrapperInputs, RefreshBoxError, RefreshBoxWrapper,
+    PoolBoxWrapperInputs, RefreshBoxError, RefreshBoxWrapper, RefreshBoxWrapperInputs,
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
-use crate::contracts::pool::PoolContractParameters;
-use crate::contracts::refresh::RefreshContractParameters;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::{TokenIds, ORACLE_CONFIG};
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_datapoint_scan, register_local_ballot_box_scan, register_local_oracle_datapoint_scan,
     register_pool_box_scan, register_refresh_box_scan, save_scan_ids_locally, Scan, ScanError,
@@ -21,9 +19,7 @@ use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
-use std::convert::TryInto;
 use std::path::Path;
-use std::sync::Arc;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, StageError>;
@@ -100,17 +96,10 @@ pub struct OraclePool<'a> {
     pub data_point_source: Box<dyn DataPointSource>,
     /// Stages
     pub datapoint_stage: DatapointStage<'a>,
-    /// Local Oracle Datapoint Scan.
     local_oracle_datapoint_scan: Option<LocalOracleDatapointScan<'a>>,
-    /// Local ballot box Scan
     local_ballot_box_scan: Option<LocalBallotBoxScan<'a>>,
     pool_box_scan: PoolBoxScan<'a>,
-    refresh_box_scan: (
-        Scan,
-        Arc<RefreshContractParameters>,
-        Arc<PoolContractParameters>,
-        Arc<TokenIds>,
-    ),
+    refresh_box_scan: RefreshBoxScan<'a>,
 }
 
 #[derive(Debug)]
@@ -135,6 +124,12 @@ pub struct LocalBallotBoxScan<'a> {
 pub struct PoolBoxScan<'a> {
     scan: Scan,
     pool_box_wrapper_inputs: PoolBoxWrapperInputs<'a>,
+}
+
+#[derive(Debug)]
+pub struct RefreshBoxScan<'a> {
+    scan: Scan,
+    refresh_box_wrapper_inputs: RefreshBoxWrapperInputs<'a>,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -198,6 +193,12 @@ impl<'a> OraclePool<'a> {
             refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
             update_nft_token_id: &config.token_ids.update_nft_token_id,
         };
+        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
+            contract_parameters: &config.refresh_contract_parameters,
+            refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
+            oracle_token_id: &config.token_ids.oracle_token_id,
+            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
+        };
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
@@ -208,12 +209,8 @@ impl<'a> OraclePool<'a> {
                 )
                 .unwrap(),
                 register_pool_box_scan(pool_box_wrapper_inputs).unwrap(),
-                register_refresh_box_scan(
-                    refresh_box_scan_name,
-                    &config.refresh_contract_parameters,
-                    &config.token_ids,
-                )
-                .unwrap(),
+                register_refresh_box_scan(refresh_box_scan_name, refresh_box_wrapper_inputs)
+                    .unwrap(),
             ];
 
             // Local datapoint box may not exist yet.
@@ -258,11 +255,6 @@ impl<'a> OraclePool<'a> {
         )
         .expect("Failed to parse scanIDs.json");
 
-        let refresh_contract_parameters = Arc::new(config.refresh_contract_parameters.clone());
-        let pool_contract_parameters = Arc::new(config.pool_contract_parameters.clone());
-        //let ballot_parameters = Arc::new(config.ballot_parameters.clone());
-        let token_ids = Arc::new(config.token_ids.clone());
-
         // Create all `Scan` structs for protocol
         let datapoint_scan = Scan::new(
             "All Oracle Datapoints Scan",
@@ -294,15 +286,13 @@ impl<'a> OraclePool<'a> {
             pool_box_wrapper_inputs,
         };
 
-        let refresh_box_scan = (
-            Scan::new(
+        let refresh_box_scan = RefreshBoxScan {
+            scan: Scan::new(
                 refresh_box_scan_name,
                 &scan_json[refresh_box_scan_name].to_string(),
             ),
-            refresh_contract_parameters.clone(),
-            pool_contract_parameters.clone(),
-            token_ids.clone(),
-        );
+            refresh_box_wrapper_inputs,
+        };
 
         // Create `OraclePool` struct
         Ok(OraclePool {
@@ -456,16 +446,11 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
     }
 }
 
-impl RefreshBoxSource
-    for (
-        Scan,
-        Arc<RefreshContractParameters>,
-        Arc<PoolContractParameters>,
-        Arc<TokenIds>,
-    )
-{
+impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        Ok((self.0.get_box()?, &*self.1, &*self.2, &*self.3).try_into()?)
+        let box_wrapper =
+            RefreshBoxWrapper::new(self.scan.get_box()?, self.refresh_box_wrapper_inputs)?;
+        Ok(box_wrapper)
     }
 }
 

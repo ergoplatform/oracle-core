@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
@@ -9,11 +7,9 @@ use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use thiserror::Error;
 
-use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::refresh::RefreshContractParameters;
-use crate::oracle_config::TokenIds;
 
 pub trait RefreshBox {
     fn contract(&self) -> &RefreshContract;
@@ -38,6 +34,36 @@ pub enum RefreshBoxError {
 #[derive(Clone)]
 pub struct RefreshBoxWrapper(ErgoBox, RefreshContract);
 
+#[derive(Clone, Copy, Debug)]
+pub struct RefreshBoxWrapperInputs<'a> {
+    pub contract_parameters: &'a RefreshContractParameters,
+    /// Refresh token is expected to reside in `tokens(0)` of the oracle box.
+    pub refresh_nft_token_id: &'a TokenId,
+    /// This token id appears as a constant in the refresh contract.
+    pub oracle_token_id: &'a TokenId,
+    /// This token id also appears as a constant in the refresh contract.
+    pub pool_nft_token_id: &'a TokenId,
+}
+
+impl RefreshBoxWrapper {
+    pub fn new(b: ErgoBox, inputs: RefreshBoxWrapperInputs) -> Result<Self, RefreshBoxError> {
+        let refresh_token_id = b
+            .tokens
+            .as_ref()
+            .ok_or(RefreshBoxError::NoTokens)?
+            .get(0)
+            .ok_or(RefreshBoxError::NoTokens)?
+            .token_id
+            .clone();
+        if refresh_token_id != *inputs.refresh_nft_token_id {
+            return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
+        }
+
+        let contract = RefreshContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
+        Ok(Self(b, contract))
+    }
+}
+
 impl RefreshBox for RefreshBoxWrapper {
     fn refresh_nft_token(&self) -> Token {
         self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
@@ -49,43 +75,6 @@ impl RefreshBox for RefreshBoxWrapper {
 
     fn contract(&self) -> &RefreshContract {
         &self.1
-    }
-}
-
-impl<'a>
-    TryFrom<(
-        ErgoBox,
-        &'a RefreshContractParameters,
-        &'a PoolContractParameters,
-        &'a TokenIds,
-    )> for RefreshBoxWrapper
-{
-    type Error = RefreshBoxError;
-
-    fn try_from(
-        value: (
-            ErgoBox,
-            &RefreshContractParameters,
-            &PoolContractParameters,
-            &TokenIds,
-        ),
-    ) -> Result<Self, Self::Error> {
-        let refresh_token_id = value
-            .0
-            .tokens
-            .as_ref()
-            .ok_or(RefreshBoxError::NoTokens)?
-            .get(0)
-            .ok_or(RefreshBoxError::NoTokens)?
-            .token_id
-            .clone();
-        if refresh_token_id != value.3.refresh_nft_token_id {
-            return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
-        }
-
-        let contract =
-            RefreshContract::from_ergo_tree(value.0.ergo_tree.clone(), value.1, value.3)?;
-        Ok(Self(value.0, contract))
     }
 }
 

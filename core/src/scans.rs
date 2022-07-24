@@ -1,11 +1,10 @@
-use crate::box_kind::PoolBoxWrapperInputs;
+use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::PoolContract;
-use crate::contracts::refresh::{RefreshContract, RefreshContractError, RefreshContractParameters};
+use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
     address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
 };
-use crate::oracle_config::TokenIds;
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -144,11 +143,10 @@ pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
 /// This function registers scanning for the refresh box
 pub fn register_refresh_box_scan(
     scan_name: &'static str,
-    refresh_contract_parameters: &RefreshContractParameters,
-    token_ids: &TokenIds,
+    inputs: RefreshBoxWrapperInputs,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::new(refresh_contract_parameters, token_ids)?
+    let tree_bytes = RefreshContract::new(inputs.into())?
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();
@@ -159,7 +157,7 @@ pub fn register_refresh_box_scan(
         "args": [
         {
             "predicate": "containsAsset",
-            "assetId": token_ids.refresh_nft_token_id.clone(),
+            "assetId": inputs.refresh_nft_token_id.clone(),
         },
         {
             "predicate": "equals",
