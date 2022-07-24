@@ -1,3 +1,5 @@
+//! Default parameter values for all Oracle-pool contracts. Tracks values described in EIP-0023.
+
 use ergo_lib::ergotree_ir::chain::address::{AddressEncoder, NetworkAddress, NetworkPrefix};
 
 use crate::contracts::{

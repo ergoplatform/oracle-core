@@ -33,6 +33,7 @@ pub struct OracleConfig {
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
     pub ballot_parameters: BallotBoxWrapperParameters,
+    // TODO: update_parameters (https://github.com/ergoplatform/oracle-core/issues/49)
     pub token_ids: TokenIds,
     pub addresses: Addresses,
 }

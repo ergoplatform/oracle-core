@@ -58,6 +58,8 @@ use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
 
+use crate::cli_commands::bootstrap::BootstrapConfigFile;
+
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
 /// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
@@ -83,8 +85,11 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Bootstrap a new oracle-pool
+    /// Bootstrap a new oracle-pool using default contract scripts and parameters.
     Bootstrap { yaml_config_name: String },
+
+    /// Bootstrap a new oracle-pool using fully-specified contract scripts and parameters.
+    AdvancedBootstrap { yaml_config_name: String },
 
     /// Run the oracle-pool
     Run {
@@ -129,11 +134,27 @@ fn main() {
     match args.command {
         Command::Bootstrap { yaml_config_name } => {
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = cli_commands::bootstrap::bootstrap(yaml_config_name)?;
+                let _ = cli_commands::bootstrap::bootstrap(
+                    BootstrapConfigFile::WithDefaultContractParameters(yaml_config_name),
+                )?;
                 Ok(())
             })() {
                 {
                     error!("Fatal bootstrap error: {:?}", e);
+                    std::process::exit(exitcode::SOFTWARE);
+                }
+            };
+        }
+
+        Command::AdvancedBootstrap { yaml_config_name } => {
+            if let Err(e) = (|| -> Result<(), anyhow::Error> {
+                let _ = cli_commands::bootstrap::bootstrap(BootstrapConfigFile::FullySpecified(
+                    yaml_config_name,
+                ))?;
+                Ok(())
+            })() {
+                {
+                    error!("Fatal advanced-bootstrap error: {:?}", e);
                     std::process::exit(exitcode::SOFTWARE);
                 }
             };

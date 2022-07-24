@@ -39,19 +39,40 @@ use crate::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
     },
+    default_parameters::DefaultWithNetworkPrefix,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::TokenIds,
     wallet::WalletDataSource,
 };
 
+pub enum BootstrapConfigFile {
+    /// Uses default contract parameter values, but the operator must explicitly set values for the
+    /// parameters listed in EIP-0023 here:
+    /// https://github.com/ergoplatform/eips/blob/196e89a8f98bc1611473f059a9e58b81ca7d18d2/eip-0023.md#prerequisites
+    WithDefaultContractParameters(String),
+    /// ADVANCED USAGE: Allows user to fully specify all aspects of the oracle pool down to contract
+    /// parameter values.
+    FullySpecified(String),
+}
+
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
-pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
-    let s = std::fs::read_to_string(yaml_config_file_name.clone())?;
-    let config: BootstrapConfig = serde_yaml::from_str(&s)?;
+pub fn bootstrap(config_file: BootstrapConfigFile) -> Result<(), BootstrapError> {
+    let config: BootstrapConfig = match config_file {
+        BootstrapConfigFile::WithDefaultContractParameters(filename) => {
+            let s = std::fs::read_to_string(filename)?;
+            let config_with_default: BootstrapConfigWithDefaultContractParameters =
+                serde_yaml::from_str(&s)?;
+            BootstrapConfig::from(config_with_default)
+        }
+        BootstrapConfigFile::FullySpecified(filename) => {
+            let s = std::fs::read_to_string(filename)?;
+            let config: BootstrapConfig = serde_yaml::from_str(&s)?;
+            config
+        }
+    };
 
-    info!("{} loaded", yaml_config_file_name);
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
@@ -517,9 +538,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     })
 }
 
-/// An instance of this struct is created from an operator-provided YAML file. Note that we don't
-/// derive `Deserialize` here since we need to verify the address types against the `is_mainnet`
-/// field.
+/// An instance of this struct is created from an operator-provided YAML file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(
     try_from = "crate::serde::BootstrapConfigSerde",
@@ -538,6 +557,65 @@ pub struct BootstrapConfig {
     pub addresses: Addresses,
     pub total_oracles: u32,
     pub total_ballots: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    try_from = "crate::serde::BootstrapConfigWithDefaultContractParametersSerde",
+    into = "crate::serde::BootstrapConfigWithDefaultContractParametersSerde"
+)]
+pub struct BootstrapConfigWithDefaultContractParameters {
+    pub tokens_to_mint: TokensToMint,
+    pub node_ip: String,
+    pub node_port: String,
+    pub node_api_key: String,
+    pub on_mainnet: bool,
+    pub addresses: Addresses,
+    pub oracle_pool_parameter_values: OraclePoolParameterValues,
+}
+
+/// The operator must set the parameters listed in EIP-0023 here:
+/// https://github.com/ergoplatform/eips/blob/196e89a8f98bc1611473f059a9e58b81ca7d18d2/eip-0023.md#prerequisites
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OraclePoolParameterValues {
+    pub total_oracles: u32,
+    pub total_ballots: u32,
+    pub min_data_points: u64,
+    pub buffer_length: u64,
+    pub max_deviation_percent: u64,
+    pub epoch_length: u64,
+}
+
+impl From<BootstrapConfigWithDefaultContractParameters> for BootstrapConfig {
+    fn from(c: BootstrapConfigWithDefaultContractParameters) -> Self {
+        let network_prefix = if c.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let mut refresh_contract_parameters =
+            RefreshContractParameters::default_with(network_prefix);
+        refresh_contract_parameters.min_data_points =
+            c.oracle_pool_parameter_values.min_data_points;
+        refresh_contract_parameters.buffer_length = c.oracle_pool_parameter_values.buffer_length;
+        refresh_contract_parameters.max_deviation_percent =
+            c.oracle_pool_parameter_values.max_deviation_percent;
+        refresh_contract_parameters.epoch_length = c.oracle_pool_parameter_values.epoch_length;
+        Self {
+            refresh_contract_parameters,
+            pool_contract_parameters: PoolContractParameters::default_with(network_prefix),
+            update_contract_parameters: UpdateContractParameters::default_with(network_prefix),
+            ballot_contract_parameters: BallotContractParameters::default_with(network_prefix),
+            tokens_to_mint: c.tokens_to_mint,
+            node_ip: c.node_ip,
+            node_port: c.node_port,
+            node_api_key: c.node_api_key,
+            on_mainnet: c.on_mainnet,
+            addresses: c.addresses,
+            total_oracles: c.oracle_pool_parameter_values.total_oracles,
+            total_ballots: c.oracle_pool_parameter_values.total_ballots,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
