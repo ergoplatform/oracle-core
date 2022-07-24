@@ -273,13 +273,17 @@ pub struct RefreshContractParameters {
 
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::generate_token_ids;
+    use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+
+    use crate::{
+        default_parameters::DefaultWithNetworkPrefix, pool_commands::test_utils::generate_token_ids,
+    };
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let parameters = RefreshContractParameters::default();
+        let parameters = RefreshContractParameters::default_with(NetworkPrefix::Mainnet);
         let token_ids = generate_token_ids();
         let inputs = RefreshContractInputs {
             contract_parameters: &parameters,

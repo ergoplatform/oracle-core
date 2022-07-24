@@ -146,13 +146,17 @@ pub struct PoolContractParameters {
 
 #[cfg(test)]
 mod tests {
-    use crate::pool_commands::test_utils::generate_token_ids;
+    use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+
+    use crate::{
+        default_parameters::DefaultWithNetworkPrefix, pool_commands::test_utils::generate_token_ids,
+    };
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let contract_parameters = PoolContractParameters::default();
+        let contract_parameters = PoolContractParameters::default_with(NetworkPrefix::Mainnet);
         let token_ids = generate_token_ids();
         let inputs = PoolContractInputs {
             contract_parameters: &contract_parameters,

@@ -33,6 +33,7 @@ use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
+use crate::default_parameters::DefaultWithNetworkPrefix;
 use crate::node_interface::SignTransaction;
 use crate::oracle_config::TokenIds;
 use crate::oracle_state::LocalBallotBoxSource;
@@ -158,7 +159,7 @@ pub(crate) fn make_datapoint_box(
     ]
     .try_into()
     .unwrap();
-    let parameters = OracleContractParameters::default();
+    let parameters = OracleContractParameters::default_with(NetworkPrefix::Mainnet);
     let oracle_contract_inputs = OracleContractInputs {
         contract_parameters: &parameters,
         pool_nft_token_id: &token_ids.pool_nft_token_id,

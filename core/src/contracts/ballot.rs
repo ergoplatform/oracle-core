@@ -137,13 +137,16 @@ pub struct BallotContractParameters {
 
 #[cfg(test)]
 mod tests {
+    use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
     use sigma_test_util::force_any_val;
+
+    use crate::default_parameters::DefaultWithNetworkPrefix;
 
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let contract_parameters = BallotContractParameters::default();
+        let contract_parameters = BallotContractParameters::default_with(NetworkPrefix::Mainnet);
         let update_nft_token_id = &force_any_val::<TokenId>();
         let inputs = BallotContractInputs {
             contract_parameters: &contract_parameters,

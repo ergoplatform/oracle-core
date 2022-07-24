@@ -270,6 +270,7 @@ mod tests {
     use ergo_lib::ergo_chain_types::EcPoint;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+    use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
@@ -287,6 +288,7 @@ mod tests {
     use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractParameters;
+    use crate::default_parameters::DefaultWithNetworkPrefix;
     use crate::oracle_config::TokenIds;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::generate_token_ids;
@@ -387,9 +389,10 @@ mod tests {
         let height = ctx.pre_header.height;
         let reward_token_id = force_any_val::<TokenId>();
         dbg!(&reward_token_id);
-        let pool_contract_parameters = PoolContractParameters::default();
-        let oracle_contract_parameters = OracleContractParameters::default();
-        let refresh_contract_parameters = RefreshContractParameters::default();
+        let network_prefix = NetworkPrefix::Mainnet;
+        let pool_contract_parameters = PoolContractParameters::default_with(network_prefix);
+        let oracle_contract_parameters = OracleContractParameters::default_with(network_prefix);
+        let refresh_contract_parameters = RefreshContractParameters::default_with(network_prefix);
         let token_ids = generate_token_ids();
 
         let inputs = RefreshBoxWrapperInputs {

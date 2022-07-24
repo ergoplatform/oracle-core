@@ -174,6 +174,7 @@ mod tests {
     use super::*;
     use crate::box_kind::OracleBoxWrapperInputs;
     use crate::contracts::oracle::OracleContractParameters;
+    use crate::default_parameters::DefaultWithNetworkPrefix;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
         OracleBoxMock, WalletDataMock,
@@ -195,7 +196,7 @@ mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
-        let parameters = OracleContractParameters::default();
+        let parameters = OracleContractParameters::default_with(NetworkPrefix::Mainnet);
         let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((&parameters, &token_ids));
         let oracle_box = (
             make_datapoint_box(

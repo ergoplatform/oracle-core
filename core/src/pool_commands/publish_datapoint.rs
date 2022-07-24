@@ -238,6 +238,7 @@ mod tests {
     use super::*;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
+    use crate::default_parameters::DefaultWithNetworkPrefix;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, OracleBoxMock, PoolBoxMock, WalletDataMock,
@@ -245,7 +246,7 @@ mod tests {
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
-    use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+    use ergo_lib::ergotree_ir::chain::address::{AddressEncoder, NetworkPrefix};
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::{BoxTokens, ErgoBox, NonMandatoryRegisters};
     use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
@@ -271,8 +272,9 @@ mod tests {
         let height = ctx.pre_header.height;
         let token_ids = generate_token_ids();
         let reward_token_id = force_any_val::<TokenId>();
-        let oracle_contract_parameters = OracleContractParameters::default();
-        let pool_contract_parameters = PoolContractParameters::default();
+        let network_prefix = NetworkPrefix::Mainnet;
+        let oracle_contract_parameters = OracleContractParameters::default_with(network_prefix);
+        let pool_contract_parameters = PoolContractParameters::default_with(network_prefix);
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
@@ -405,7 +407,8 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
-        let oracle_contract_parameters = OracleContractParameters::default();
+        let oracle_contract_parameters =
+            OracleContractParameters::default_with(NetworkPrefix::Mainnet);
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
         let action = build_publish_first_datapoint_action(
