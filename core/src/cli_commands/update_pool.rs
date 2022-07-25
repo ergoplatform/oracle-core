@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::ErgoBoxCandidateBuilder,
@@ -17,10 +16,12 @@ use ergo_lib::{
     ergotree_ir::serialization::SigmaSerializable,
     wallet::{
         box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
+        signing::{TransactionContext, TxSigningError},
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
 use ergo_node_interface::node_interface::NodeError;
+use std::convert::{TryFrom, TryInto};
 
 use crate::{
     box_kind::{
@@ -53,23 +54,24 @@ pub enum UpdatePoolError {
     BoxSelector(BoxSelectorError),
     #[error("Update pool: tx builder error {0}")]
     TxBuilder(TxBuilderError),
+    #[error("Update pool: tx context error {0}")]
+    TxSigningError(TxSigningError),
     #[error("Update pool: stage error {0}")]
     StageError(StageError),
     #[error("Update pool: node error {0}")]
-    Node(NodeError)
+    Node(NodeError),
 }
 
-
-// TODO: Convert to Result
 fn build_update_pool_box_tx(
     pool_box_source: &dyn PoolBoxSource,
     ballot_boxes: &dyn BallotBoxesSource,
     wallet: &dyn WalletDataSource,
     update_box: &dyn UpdateBoxSource,
     new_pool_contract: PoolContract,
+    new_reward_tokens: Option<Token>,
     height: u32,
     change_address: Address,
-) -> Result<UnsignedTransaction, UpdatePoolError> {
+) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
     let min_votes = update_box.get_update_box()?.min_votes();
     let old_pool_box = pool_box_source.get_pool_box()?;
     let update_box = update_box.get_update_box()?;
@@ -79,6 +81,7 @@ fn build_update_pool_box_tx(
             .sigma_serialize_bytes()
             .unwrap(),
     ));
+    let reward_tokens = new_reward_tokens.unwrap_or(old_pool_box.reward_token());
     // Find ballot boxes that are voting for the new pool hash
     let vote_ballot_boxes: Vec<BallotBoxWrapper> = ballot_boxes
         .get_ballot_boxes()?
@@ -92,15 +95,18 @@ fn build_update_pool_box_tx(
                 && ballot_box
                     .additional_registers
                     .get(NonMandatoryRegisterId::R7)
-                    == Some(&old_pool_box.reward_token().token_id.into())
+                    == Some(&reward_tokens.token_id.clone().into())
                 && ballot_box
                     .additional_registers
                     .get(NonMandatoryRegisterId::R8)
-                    == Some(&(*old_pool_box.reward_token().amount.as_u64() as i64).into())
+                    == Some(&(*reward_tokens.amount.as_u64() as i64).into())
         })
         .collect();
     if vote_ballot_boxes.len() < min_votes as usize {
-        return Err(UpdatePoolError::NotEnoughVotes(min_votes as usize, vote_ballot_boxes.len()));
+        return Err(UpdatePoolError::NotEnoughVotes(
+            min_votes as usize,
+            vote_ballot_boxes.len(),
+        ));
     }
 
     let pool_box_candidate = make_pool_box_candidate(
@@ -108,7 +114,7 @@ fn build_update_pool_box_tx(
         old_pool_box.rate() as i64,
         old_pool_box.epoch_counter() as i32,
         old_pool_box.pool_nft_token(),
-        old_pool_box.reward_token(),
+        reward_tokens.clone(),
         BoxValue::SAFE_USER_MIN,
         old_pool_box.get_box().creation_height, // creation info must be preserved
     )?;
@@ -122,9 +128,27 @@ fn build_update_pool_box_tx(
     let target_balance = BoxValue::SAFE_USER_MIN
         .checked_mul_u32((vote_ballot_boxes.len() + 2) as u32)
         .unwrap();
+
+    let tokens_needed; // Amount of tokens we need from wallet box for new pool box
+    let target_tokens: &[Token] = if reward_tokens.token_id != old_pool_box.reward_token().token_id
+    {
+        tokens_needed = [reward_tokens.clone()];
+        &tokens_needed
+    } else if reward_tokens.amount > old_pool_box.reward_token().amount {
+        let diff = reward_tokens
+            .amount
+            .checked_sub(&old_pool_box.reward_token().amount)
+            .unwrap();
+        tokens_needed = [Token {
+            token_id: reward_tokens.token_id,
+            amount: diff,
+        }];
+        &tokens_needed
+    } else {
+        &[]
+    };
     let box_selector = SimpleBoxSelector::new();
-    let selection = box_selector
-        .select(unspent_boxes, target_balance, &[])?;
+    let selection = box_selector.select(unspent_boxes, target_balance, target_tokens)?;
     let mut input_boxes = vec![old_pool_box.get_box().clone(), update_box.get_box().clone()];
     input_boxes.extend(
         vote_ballot_boxes
@@ -154,7 +178,7 @@ fn build_update_pool_box_tx(
     }
 
     let mut tx_builder = TxBuilder::new(
-        box_selection,
+        box_selection.clone(),
         outputs.clone(),
         height,
         BoxValue::SAFE_USER_MIN,
@@ -170,7 +194,12 @@ fn build_update_pool_box_tx(
             },
         )
     }
-    Ok(tx_builder.build()?)
+    let unsigned_tx = tx_builder.build()?;
+    Ok(TransactionContext::new(
+        unsigned_tx,
+        box_selection.boxes.into(),
+        vec![],
+    )?)
 }
 
 #[cfg(test)]
@@ -232,8 +261,12 @@ mod tests {
             token_id: reward_token_id,
             amount: 1500.try_into().unwrap(),
         };
+        let new_reward_tokens = Token {
+            token_id: force_any_tokenid(),
+            amount: force_any_val(),
+        };
         let update_contract = UpdateContract::new()
-            .with_min_votes(1)
+            .with_min_votes(4)
             .with_pool_nft_token_id(pool_nft_token_id.clone())
             .with_ballot_token_id(ballot_token_id.clone());
         let mut update_box_candidate = ErgoBoxCandidateBuilder::new(
@@ -298,7 +331,7 @@ mod tests {
                     amount: 1.try_into().unwrap(),
                 },
                 pool_box_hash.clone(),
-                reward_tokens.clone(),
+                new_reward_tokens.clone(),
                 BoxValue::SAFE_USER_MIN,
                 height,
             )
@@ -312,11 +345,12 @@ mod tests {
 
         let secret = DlogProverInput::random();
         let wallet_unspent_box = make_wallet_unspent_box(
+            // create a wallet box with new reward tokens
             secret.public_image(),
             BoxValue::SAFE_USER_MIN
                 .checked_mul_u32(4_000_000_000)
                 .unwrap(),
-            None,
+            Some(vec![new_reward_tokens.clone()].try_into().unwrap()),
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
@@ -340,23 +374,12 @@ mod tests {
             &wallet_mock,
             &update_mock,
             new_pool_contract,
+            Some(new_reward_tokens),
             height + 1,
             change_address,
         )
         .unwrap();
 
-        let mut input_boxes = vec![
-            pool_mock.pool_box.get_box().clone(),
-            update_mock.update_box.get_box().clone(),
-        ];
-        input_boxes.extend(
-            ballot_boxes_mock
-                .ballot_boxes
-                .iter()
-                .map(|ballot_box| ballot_box.get_box().clone()),
-        );
-        input_boxes.extend_from_slice(&wallet_mock.unspent_boxes);
-        let tx_context = TransactionContext::new(update_tx, input_boxes, vec![]).unwrap();
-        wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        wallet.sign_transaction(update_tx, &ctx, None).unwrap();
     }
 }
