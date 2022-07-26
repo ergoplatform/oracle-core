@@ -196,7 +196,6 @@ mod tests {
     use super::*;
     use crate::box_kind::OracleBoxWrapperInputs;
     use crate::contracts::oracle::OracleContractParameters;
-    use crate::default_parameters::DefaultWithNetworkPrefix;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
         OracleBoxMock, WalletDataMock,
@@ -220,7 +219,7 @@ mod tests {
 
         let num_reward_tokens_in_box = 100_u64;
 
-        let parameters = OracleContractParameters::default_with(NetworkPrefix::Mainnet);
+        let parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((&parameters, &token_ids));
         let oracle_box = (
             make_datapoint_box(

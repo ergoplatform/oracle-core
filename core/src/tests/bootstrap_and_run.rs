@@ -7,7 +7,6 @@ use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::Transaction;
 use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::wallet::Wallet;
 use sigma_test_util::force_any_val;
@@ -24,7 +23,6 @@ use crate::contracts::ballot::BallotContractParameters;
 use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContractParameters;
 use crate::contracts::update::UpdateContractParameters;
-use crate::default_parameters::DefaultWithNetworkPrefix;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
 use crate::pool_commands::test_utils::init_log_tests;
@@ -47,7 +45,6 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
 fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> OracleConfigFields {
     let ctx = force_any_val::<ErgoStateContext>();
     let is_mainnet = true;
-    let network_prefix = NetworkPrefix::Mainnet;
 
     let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
     let change_address = address;
@@ -82,10 +79,10 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
                 quantity: 100_000_000,
             },
         },
-        refresh_contract_parameters: RefreshContractParameters::default_with(network_prefix),
-        pool_contract_parameters: PoolContractParameters::default_with(network_prefix),
-        update_contract_parameters: UpdateContractParameters::default_with(network_prefix),
-        ballot_contract_parameters: BallotContractParameters::default_with(network_prefix),
+        refresh_contract_parameters: RefreshContractParameters::default(),
+        pool_contract_parameters: PoolContractParameters::default(),
+        update_contract_parameters: UpdateContractParameters::default(),
+        ballot_contract_parameters: BallotContractParameters::default(),
         addresses: Addresses {
             address_for_oracle_tokens: address.clone(),
             wallet_address_for_chain_transaction: address.clone(),

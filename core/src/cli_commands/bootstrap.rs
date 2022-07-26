@@ -39,7 +39,6 @@ use crate::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
     },
-    default_parameters::DefaultWithNetworkPrefix,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::TokenIds,
     wallet::WalletDataSource,
@@ -588,24 +587,18 @@ pub struct OraclePoolParameterValues {
 
 impl From<BootstrapConfigWithDefaultContractParameters> for BootstrapConfig {
     fn from(c: BootstrapConfigWithDefaultContractParameters) -> Self {
-        let network_prefix = if c.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
+        let refresh_contract_parameters = RefreshContractParameters {
+            min_data_points: c.oracle_pool_parameter_values.min_data_points,
+            buffer_length: c.oracle_pool_parameter_values.buffer_length,
+            max_deviation_percent: c.oracle_pool_parameter_values.max_deviation_percent,
+            epoch_length: c.oracle_pool_parameter_values.epoch_length,
+            ..Default::default()
         };
-        let mut refresh_contract_parameters =
-            RefreshContractParameters::default_with(network_prefix);
-        refresh_contract_parameters.min_data_points =
-            c.oracle_pool_parameter_values.min_data_points;
-        refresh_contract_parameters.buffer_length = c.oracle_pool_parameter_values.buffer_length;
-        refresh_contract_parameters.max_deviation_percent =
-            c.oracle_pool_parameter_values.max_deviation_percent;
-        refresh_contract_parameters.epoch_length = c.oracle_pool_parameter_values.epoch_length;
         Self {
             refresh_contract_parameters,
-            pool_contract_parameters: PoolContractParameters::default_with(network_prefix),
-            update_contract_parameters: UpdateContractParameters::default_with(network_prefix),
-            ballot_contract_parameters: BallotContractParameters::default_with(network_prefix),
+            pool_contract_parameters: PoolContractParameters::default(),
+            update_contract_parameters: UpdateContractParameters::default(),
+            ballot_contract_parameters: BallotContractParameters::default(),
             tokens_to_mint: c.tokens_to_mint,
             node_ip: c.node_ip,
             node_port: c.node_port,
@@ -700,10 +693,7 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::{
-        default_parameters::DefaultWithNetworkPrefix,
-        pool_commands::test_utils::{LocalTxSigner, WalletDataMock},
-    };
+    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
     use std::cell::RefCell;
     #[derive(Default)]
     struct SubmitTxMock {
@@ -728,11 +718,6 @@ mod tests {
         let secret = force_any_val::<DlogProverInput>();
         let address = Address::P2Pk(secret.public_image());
         let is_mainnet = address.content_bytes()[0] < NetworkPrefix::Testnet as u8;
-        let network_prefix = if is_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = address.script().unwrap();
 
@@ -782,10 +767,10 @@ mod tests {
                     quantity: 100_000_000,
                 },
             },
-            refresh_contract_parameters: RefreshContractParameters::default_with(network_prefix),
-            pool_contract_parameters: PoolContractParameters::default_with(network_prefix),
-            update_contract_parameters: UpdateContractParameters::default_with(network_prefix),
-            ballot_contract_parameters: BallotContractParameters::default_with(network_prefix),
+            refresh_contract_parameters: RefreshContractParameters::default(),
+            pool_contract_parameters: PoolContractParameters::default(),
+            update_contract_parameters: UpdateContractParameters::default(),
+            ballot_contract_parameters: BallotContractParameters::default(),
             addresses: Addresses {
                 address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
@@ -834,7 +819,7 @@ mod tests {
             .unwrap();
         // Check that Update NFT is guarded by UpdateContract, and parameters are correct
 
-        let parameters = UpdateContractParameters::default_with(network_prefix);
+        let parameters = UpdateContractParameters::default();
 
         let update_contract_inputs = UpdateContractInputs {
             contract_parameters: &parameters,

@@ -279,7 +279,6 @@ mod tests {
     use crate::{
         box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper, BallotBoxWrapperInputs},
         contracts::ballot::{BallotContract, BallotContractParameters},
-        default_parameters::DefaultWithNetworkPrefix,
         oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, BallotBoxMock,
@@ -304,7 +303,7 @@ mod tests {
             .unwrap();
 
         let token_ids = generate_token_ids();
-        let ballot_contract_parameters = BallotContractParameters::default_with(network_prefix);
+        let ballot_contract_parameters = BallotContractParameters::default();
         let ballot_token = Token {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
@@ -360,7 +359,7 @@ mod tests {
             .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
             .unwrap();
 
-        let ballot_contract_parameters = BallotContractParameters::default_with(network_prefix);
+        let ballot_contract_parameters = BallotContractParameters::default();
         let token_ids = generate_token_ids();
         let ballot_token = Token {
             token_id: token_ids.ballot_token_id.clone(),
