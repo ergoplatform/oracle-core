@@ -58,8 +58,6 @@ use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
 
-use crate::cli_commands::bootstrap::BootstrapConfigFile;
-
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
 /// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
@@ -85,11 +83,16 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Bootstrap a new oracle-pool using default contract scripts and parameters.
-    Bootstrap { yaml_config_name: String },
-
-    /// Bootstrap a new oracle-pool using fully-specified contract scripts and parameters.
-    AdvancedBootstrap { yaml_config_name: String },
+    /// Bootstrap a new oracle-pool or generate a bootstrap config template file using default
+    /// contract scripts and parameters.
+    Bootstrap {
+        /// The name of the bootstrap config file.
+        yaml_config_name: String,
+        #[clap(short, long)]
+        /// Set this flag to output a bootstrap config template file to the given filename. If
+        /// filename already exists, return error.
+        generate_config_template: bool,
+    },
 
     /// Run the oracle-pool
     Run {
@@ -132,25 +135,16 @@ fn main() {
     debug!("Args: {:?}", args);
 
     match args.command {
-        Command::Bootstrap { yaml_config_name } => {
+        Command::Bootstrap {
+            yaml_config_name,
+            generate_config_template,
+        } => {
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = cli_commands::bootstrap::bootstrap(
-                    BootstrapConfigFile::WithDefaultContractParameters(yaml_config_name),
-                )?;
-                Ok(())
-            })() {
-                {
-                    error!("Fatal bootstrap error: {:?}", e);
-                    std::process::exit(exitcode::SOFTWARE);
+                if generate_config_template {
+                    cli_commands::bootstrap::generate_bootstrap_config_template(yaml_config_name)?;
+                } else {
+                    cli_commands::bootstrap::bootstrap(yaml_config_name)?;
                 }
-            };
-        }
-
-        Command::AdvancedBootstrap { yaml_config_name } => {
-            if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = cli_commands::bootstrap::bootstrap(BootstrapConfigFile::FullySpecified(
-                    yaml_config_name,
-                ))?;
                 Ok(())
             })() {
                 {

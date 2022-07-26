@@ -10,10 +10,7 @@ use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cli_commands::bootstrap::{
-        Addresses, BootstrapConfig, BootstrapConfigWithDefaultContractParameters,
-        OraclePoolParameterValues, TokensToMint,
-    },
+    cli_commands::bootstrap::{Addresses, BootstrapConfig, TokensToMint},
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
@@ -255,60 +252,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct BootstrapConfigWithDefaultContractParametersSerde {
-    tokens_to_mint: TokensToMint,
-    node_ip: String,
-    node_port: String,
-    node_api_key: String,
-    on_mainnet: bool,
-    addresses: AddressesSerde,
-    oracle_pool_parameter_values: OraclePoolParameterValues,
-}
-
-impl From<BootstrapConfigWithDefaultContractParameters>
-    for BootstrapConfigWithDefaultContractParametersSerde
-{
-    fn from(c: BootstrapConfigWithDefaultContractParameters) -> Self {
-        let prefix = if c.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        Self {
-            tokens_to_mint: c.tokens_to_mint,
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            on_mainnet: c.on_mainnet,
-            addresses: AddressesSerde::from((c.addresses, prefix)),
-            oracle_pool_parameter_values: c.oracle_pool_parameter_values,
-        }
-    }
-}
-
-impl TryFrom<BootstrapConfigWithDefaultContractParametersSerde>
-    for BootstrapConfigWithDefaultContractParameters
-{
-    type Error = AddressEncoderError;
-
-    fn try_from(c: BootstrapConfigWithDefaultContractParametersSerde) -> Result<Self, Self::Error> {
-        let prefix = if c.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        Ok(Self {
-            tokens_to_mint: c.tokens_to_mint,
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            on_mainnet: c.on_mainnet,
-            addresses: Addresses::try_from((c.addresses, prefix))?,
-            oracle_pool_parameter_values: c.oracle_pool_parameter_values,
-        })
-    }
-}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OracleContractParametersSerde {
     p2s: String,

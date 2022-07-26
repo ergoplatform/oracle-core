@@ -1,5 +1,5 @@
 //! Bootstrap a new oracle pool
-use std::{convert::TryInto, io::Write};
+use std::{convert::TryInto, io::Write, path::Path};
 
 use derive_more::From;
 use ergo_lib::{
@@ -44,33 +44,12 @@ use crate::{
     wallet::WalletDataSource,
 };
 
-pub enum BootstrapConfigFile {
-    /// Uses default contract parameter values, but the operator must explicitly set values for the
-    /// parameters listed in EIP-0023 here:
-    /// https://github.com/ergoplatform/eips/blob/196e89a8f98bc1611473f059a9e58b81ca7d18d2/eip-0023.md#prerequisites
-    WithDefaultContractParameters(String),
-    /// ADVANCED USAGE: Allows user to fully specify all aspects of the oracle pool down to contract
-    /// parameter values.
-    FullySpecified(String),
-}
-
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
-pub fn bootstrap(config_file: BootstrapConfigFile) -> Result<(), BootstrapError> {
-    let config: BootstrapConfig = match config_file {
-        BootstrapConfigFile::WithDefaultContractParameters(filename) => {
-            let s = std::fs::read_to_string(filename)?;
-            let config_with_default: BootstrapConfigWithDefaultContractParameters =
-                serde_yaml::from_str(&s)?;
-            BootstrapConfig::from(config_with_default)
-        }
-        BootstrapConfigFile::FullySpecified(filename) => {
-            let s = std::fs::read_to_string(filename)?;
-            let config: BootstrapConfig = serde_yaml::from_str(&s)?;
-            config
-        }
-    };
+pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
+    let s = std::fs::read_to_string(config_file_name)?;
+    let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
@@ -102,6 +81,64 @@ pub fn bootstrap(config_file: BootstrapConfigFile) -> Result<(), BootstrapError>
     info!("Bootstrap chain-transaction complete");
     let s = serde_yaml::to_string(&oracle_config)?;
     let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_CONFIG_FILE_NAME)?;
+    file.write_all(s.as_bytes())?;
+    Ok(())
+}
+
+pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<(), BootstrapError> {
+    if Path::new(&config_file_name).exists() {
+        return Err(BootstrapError::ConfigFilenameAlreadyExists);
+    }
+    let address = AddressEncoder::new(NetworkPrefix::Mainnet)
+        .parse_address_from_str("9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw")?;
+    let config = BootstrapConfig {
+        tokens_to_mint: TokensToMint {
+            pool_nft: NftMintDetails {
+                name: "pool NFT".into(),
+                description: "Pool NFT".into(),
+            },
+            refresh_nft: NftMintDetails {
+                name: "refresh NFT".into(),
+                description: "refresh NFT".into(),
+            },
+            update_nft: NftMintDetails {
+                name: "update NFT".into(),
+                description: "update NFT".into(),
+            },
+            oracle_tokens: TokenMintDetails {
+                name: "oracle token".into(),
+                description: "oracle token".into(),
+                quantity: 15,
+            },
+            ballot_tokens: TokenMintDetails {
+                name: "ballot token".into(),
+                description: "ballot token".into(),
+                quantity: 15,
+            },
+            reward_tokens: TokenMintDetails {
+                name: "reward token".into(),
+                description: "reward token".into(),
+                quantity: 100_000_000,
+            },
+        },
+        addresses: Addresses {
+            address_for_oracle_tokens: address.clone(),
+            wallet_address_for_chain_transaction: address,
+        },
+        node_ip: "127.0.0.1".into(),
+        node_port: "9053".into(),
+        node_api_key: "hello".into(),
+        on_mainnet: true,
+        total_oracles: 15,
+        total_ballots: 15,
+        refresh_contract_parameters: RefreshContractParameters::default(),
+        pool_contract_parameters: PoolContractParameters::default(),
+        update_contract_parameters: UpdateContractParameters::default(),
+        ballot_contract_parameters: BallotContractParameters::default(),
+    };
+
+    let s = serde_yaml::to_string(&config)?;
+    let mut file = std::fs::File::create(&config_file_name)?;
     file.write_all(s.as_bytes())?;
     Ok(())
 }
@@ -558,59 +595,6 @@ pub struct BootstrapConfig {
     pub total_ballots: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    try_from = "crate::serde::BootstrapConfigWithDefaultContractParametersSerde",
-    into = "crate::serde::BootstrapConfigWithDefaultContractParametersSerde"
-)]
-pub struct BootstrapConfigWithDefaultContractParameters {
-    pub tokens_to_mint: TokensToMint,
-    pub node_ip: String,
-    pub node_port: String,
-    pub node_api_key: String,
-    pub on_mainnet: bool,
-    pub addresses: Addresses,
-    pub oracle_pool_parameter_values: OraclePoolParameterValues,
-}
-
-/// The operator must set the parameters listed in EIP-0023 here:
-/// https://github.com/ergoplatform/eips/blob/196e89a8f98bc1611473f059a9e58b81ca7d18d2/eip-0023.md#prerequisites
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OraclePoolParameterValues {
-    pub total_oracles: u32,
-    pub total_ballots: u32,
-    pub min_data_points: u64,
-    pub buffer_length: u64,
-    pub max_deviation_percent: u64,
-    pub epoch_length: u64,
-}
-
-impl From<BootstrapConfigWithDefaultContractParameters> for BootstrapConfig {
-    fn from(c: BootstrapConfigWithDefaultContractParameters) -> Self {
-        let refresh_contract_parameters = RefreshContractParameters {
-            min_data_points: c.oracle_pool_parameter_values.min_data_points,
-            buffer_length: c.oracle_pool_parameter_values.buffer_length,
-            max_deviation_percent: c.oracle_pool_parameter_values.max_deviation_percent,
-            epoch_length: c.oracle_pool_parameter_values.epoch_length,
-            ..Default::default()
-        };
-        Self {
-            refresh_contract_parameters,
-            pool_contract_parameters: PoolContractParameters::default(),
-            update_contract_parameters: UpdateContractParameters::default(),
-            ballot_contract_parameters: BallotContractParameters::default(),
-            tokens_to_mint: c.tokens_to_mint,
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            on_mainnet: c.on_mainnet,
-            addresses: c.addresses,
-            total_oracles: c.oracle_pool_parameter_values.total_oracles,
-            total_ballots: c.oracle_pool_parameter_values.total_ballots,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Addresses {
     pub address_for_oracle_tokens: Address,
@@ -676,6 +660,8 @@ pub enum BootstrapError {
     RefreshContract(RefreshContractError),
     #[error("Update contract error: {0}")]
     UpdateContract(UpdateContractError),
+    #[error("Bootstrap config file already exists")]
+    ConfigFilenameAlreadyExists,
 }
 
 #[cfg(test)]
