@@ -26,9 +26,15 @@ use sigma_test_util::force_any_val;
 use crate::box_kind::BallotBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
+use crate::box_kind::PoolBoxWrapperInputs;
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::OracleContractInputs;
+use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
+use crate::contracts::pool::PoolContractInputs;
+use crate::contracts::pool::PoolContractParameters;
 use crate::node_interface::SignTransaction;
+use crate::oracle_config::TokenIds;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
@@ -81,57 +87,87 @@ impl WalletDataSource for WalletDataMock {
 pub(crate) fn make_pool_box(
     datapoint: i64,
     epoch_counter: i32,
-    pool_nft_token_id: TokenId,
-    reward_token: Token,
     value: BoxValue,
     creation_height: u32,
+    pool_contract_parameters: &PoolContractParameters,
+    token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
+    let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
+        contract_parameters: pool_contract_parameters,
+        pool_nft_token_id: &token_ids.pool_nft_token_id,
+        reward_token_id: &token_ids.reward_token_id,
+        refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+        update_nft_token_id: &token_ids.update_nft_token_id,
+    };
     let tokens = vec![
-        Token::from((pool_nft_token_id.clone(), 1u64.try_into().unwrap())),
-        reward_token,
+        Token::from((
+            token_ids.pool_nft_token_id.clone(),
+            1u64.try_into().unwrap(),
+        )),
+        Token::from((
+            token_ids.reward_token_id.clone(),
+            100u64.try_into().unwrap(),
+        )),
     ]
     .try_into()
     .unwrap();
-    ErgoBox::new(
-        value,
-        PoolContract::new().ergo_tree(),
-        Some(tokens),
-        NonMandatoryRegisters::new(
-            vec![
-                (NonMandatoryRegisterId::R4, Constant::from(datapoint)),
-                (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
-            ]
-            .into_iter()
-            .collect(),
+    PoolBoxWrapper::new(
+        ErgoBox::new(
+            value,
+            PoolContract::new(PoolContractInputs::from((
+                pool_contract_parameters,
+                token_ids,
+            )))
+            .unwrap()
+            .ergo_tree(),
+            Some(tokens),
+            NonMandatoryRegisters::new(
+                vec![
+                    (NonMandatoryRegisterId::R4, Constant::from(datapoint)),
+                    (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
+                ]
+                .into_iter()
+                .collect(),
+            )
+            .unwrap(),
+            creation_height,
+            force_any_val::<TxId>(),
+            0,
         )
         .unwrap(),
-        creation_height,
-        force_any_val::<TxId>(),
-        0,
+        pool_box_wrapper_inputs,
     )
-    .unwrap()
-    .try_into()
     .unwrap()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn make_datapoint_box(
     pub_key: EcPoint,
     datapoint: i64,
     epoch_counter: i32,
-    oracle_token_id: TokenId,
-    reward_token: Token,
+    token_ids: &TokenIds,
     value: BoxValue,
     creation_height: u32,
 ) -> ErgoBox {
     let tokens = vec![
-        Token::from((oracle_token_id.clone(), 1u64.try_into().unwrap())),
-        reward_token,
+        Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
+        Token::from((
+            token_ids.reward_token_id.clone(),
+            100u64.try_into().unwrap(),
+        )),
     ]
     .try_into()
     .unwrap();
+    let parameters = OracleContractParameters::default();
+    let oracle_contract_inputs = OracleContractInputs {
+        contract_parameters: &parameters,
+        pool_nft_token_id: &token_ids.pool_nft_token_id,
+    };
     ErgoBox::new(
         value,
-        OracleContract::new().ergo_tree(),
+        OracleContract::new(oracle_contract_inputs)
+            .unwrap()
+            .ergo_tree(),
         Some(tokens),
         NonMandatoryRegisters::new(
             vec![
@@ -217,4 +253,15 @@ impl<'a> SignTransaction for LocalTxSigner<'a> {
 pub fn init_log_tests() {
     // set log level via RUST_LOG=info env var
     let _ = env_logger::builder().is_test(true).try_init().unwrap();
+}
+
+pub fn generate_token_ids() -> TokenIds {
+    TokenIds {
+        pool_nft_token_id: force_any_val::<TokenId>(),
+        refresh_nft_token_id: force_any_val::<TokenId>(),
+        update_nft_token_id: force_any_val::<TokenId>(),
+        oracle_token_id: force_any_val::<TokenId>(),
+        reward_token_id: force_any_val::<TokenId>(),
+        ballot_token_id: force_any_val::<TokenId>(),
+    }
 }

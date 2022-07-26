@@ -1,99 +1,124 @@
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+use derive_more::From;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
-
+use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use thiserror::Error;
+
+use crate::box_kind::BallotBoxWrapperInputs;
 
 #[derive(Clone)]
 pub struct BallotContract {
     ergo_tree: ErgoTree,
+    min_storage_rent_index: usize,
+    update_nft_index: usize,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, From)]
 pub enum BallotContractError {
     #[error("ballot contract: failed to get update NFT from constants")]
     NoUpdateNftId,
+    #[error("ballot contract: unknown update NFT defined in constant")]
+    UnknownUpdateNftId,
     #[error("ballot contract: failed to get minStorageRent from constants")]
     NoMinStorageRent,
+    #[error(
+        "ballot contract: unexpected `min storage rent` value. Expected {expected:?}, got {actual:?}"
+    )]
+    MinStorageRentDiffers { expected: u64, actual: u64 },
+    #[error("ballot contract: sigma parsing error {0}")]
+    SigmaParsing(SigmaParsingError),
+    #[error("ballot contract: ergo tree constant error {0:?}")]
+    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("ballot contract: TryExtractFrom error {0:?}")]
+    TryExtractFrom(TryExtractFromError),
+}
+
+pub struct BallotContractInputs<'a> {
+    pub contract_parameters: &'a BallotContractParameters,
+    pub update_nft_token_id: &'a TokenId,
+}
+
+impl<'a> From<BallotBoxWrapperInputs<'a>> for BallotContractInputs<'a> {
+    fn from(b: BallotBoxWrapperInputs<'a>) -> Self {
+        BallotContractInputs {
+            contract_parameters: &b.parameters.contract_parameters,
+            update_nft_token_id: b.update_nft_token_id,
+        }
+    }
 }
 
 impl BallotContract {
-    // NOTE: slightly modified v2.0a from https://github.com/scalahub/OraclePool/blob/v2/src/main/scala/oraclepool/v2a/Contracts.scala
-    // compiled via
-    // https://wallet.plutomonkey.com/p2s/?source=eyAvLyBUaGlzIGJveCAoYmFsbG90IGJveCk6CiAgLy8gUjQgdGhlIGdyb3VwIGVsZW1lbnQgb2YgdGhlIG93bmVyIG9mIHRoZSBiYWxsb3QgdG9rZW4gW0dyb3VwRWxlbWVudF0KICAvLyBSNSB0aGUgY3JlYXRpb24gaGVpZ2h0IG9mIHRoZSB1cGRhdGUgYm94IFtJbnRdCiAgLy8gUjYgdGhlIHZhbHVlIHZvdGVkIGZvciBbQ29sbFtCeXRlXV0KICAvLyBSNyB0aGUgcmV3YXJkIHRva2VuIGlkIFtDb2xsW0J5dGVdXQogIC8vIFI4IHRoZSByZXdhcmQgdG9rZW4gYW1vdW50IFtMb25nXQoKICB2YWwgdXBkYXRlTkZUID0gZnJvbUJhc2U2NCgiWWxGbFZHaFhiVnB4TkhRM2R5RjZKVU1xUmkxS1FFNWpVbVpWYWxodU1uST0iKSAvLyBUT0RPIHJlcGxhY2Ugd2l0aCBhY3R1YWwgCiAgdmFsIG1pblN0b3JhZ2VSZW50ID0gMTAwMDAwMDBMICAvLyBUT0RPIHJlcGxhY2Ugd2l0aCBhY3R1YWwgIAogIHZhbCBzZWxmUHViS2V5ID0gU0VMRi5SNFtHcm91cEVsZW1lbnRdLmdldAogIHZhbCBvdXRJbmRleCA9IGdldFZhcltJbnRdKDApLmdldAogIHZhbCBvdXRwdXQgPSBPVVRQVVRTKG91dEluZGV4KQogIAogIHZhbCBpc1NpbXBsZUNvcHkgPSBvdXRwdXQuUjRbR3JvdXBFbGVtZW50XS5pc0RlZmluZWQgICAgICAgICAgICAgICAgJiYgLy8gYmFsbG90IGJveGVzIGFyZSB0cmFuc2ZlcmFibGUgYnkgc2V0dGluZyBkaWZmZXJlbnQgdmFsdWUgaGVyZSAKICAgICAgICAgICAgICAgICAgICAgb3V0cHV0LnByb3Bvc2l0aW9uQnl0ZXMgPT0gU0VMRi5wcm9wb3NpdGlvbkJ5dGVzICYmCiAgICAgICAgICAgICAgICAgICAgIG91dHB1dC50b2tlbnMgPT0gU0VMRi50b2tlbnMgICAgICAgICAgICAgICAgICAgICAmJiAKICAgICAgICAgICAgICAgICAgICAgb3V0cHV0LnZhbHVlID49IG1pblN0b3JhZ2VSZW50IAogIAogIHZhbCB1cGRhdGUgPSBJTlBVVFMuc2l6ZSA+IDEgICAgICAgICAgICAgICAgICAgICAgICAgICAmJgogICAgICAgICAgICAgICBJTlBVVFMoMSkudG9rZW5zLnNpemUgPiAwICAgICAgICAgICAgICAgICAmJgogICAgICAgICAgICAgICBJTlBVVFMoMSkudG9rZW5zKDApLl8xID09IHVwZGF0ZU5GVCAgICAgICAmJiAvLyBjYW4gb25seSB1cGRhdGUgd2hlbiB1cGRhdGUgYm94IGlzIHRoZSAybmQgaW5wdXQKICAgICAgICAgICAgICAgb3V0cHV0LlI0W0dyb3VwRWxlbWVudF0uZ2V0ID09IHNlbGZQdWJLZXkgJiYgLy8gcHVibGljIGtleSBpcyBwcmVzZXJ2ZWQKICAgICAgICAgICAgICAgb3V0cHV0LnZhbHVlID49IFNFTEYudmFsdWUgICAgICAgICAgICAgICAgJiYgLy8gdmFsdWUgcHJlc2VydmVkIG9yIGluY3JlYXNlZAogICAgICAgICAgICAgICAhIChvdXRwdXQuUjVbQW55XS5pc0RlZmluZWQpICAgICAgICAgICAgICAgICAvLyBubyBtb3JlIHJlZ2lzdGVyczsgcHJldmVudHMgYm94IGZyb20gYmVpbmcgcmV1c2VkIGFzIGEgdmFsaWQgdm90ZSAKICAKICB2YWwgb3duZXIgPSBwcm92ZURsb2coc2VsZlB1YktleSkKICAKICAvLyB1bmxpa2UgaW4gY29sbGVjdGlvbiwgaGVyZSB3ZSBkb24ndCByZXF1aXJlIHNwZW5kZXIgdG8gYmUgb25lIG9mIHRoZSBiYWxsb3QgdG9rZW4gaG9sZGVycwogIGlzU2ltcGxlQ29weSAmJiAob3duZXIgfHwgdXBkYXRlKQp9
-    const P2S: &'static str = "3whMZZ6THhGiX1avBy7KxoSNJrBEEJDhufAoWXq2qMiP5gy4ny5sVaFNrhJMybFASG7VP4DLTs2Mij6rMCQqj1D7JzMjHoguPL3W9y5g7JkWuYqrcN6AWWenaCmHa6jTueTsLmjBZnibb7L5SNJjRv1U5K9J3oazVkkmy19X2jQ3fDQ6tES8NAU1dngivpSAbuihur2tQ7ENCWeWZHkK49sUkxbWHgKRxHFFB1rT79Fs2mBp";
-
-    const MIN_STORAGE_RENT_INDEX: usize = 0;
-    const UPDATE_NFT_INDEX: usize = 6;
-
-    pub fn new() -> Self {
-        let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
-        let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
-        let ergo_tree = addr.script().unwrap();
-        Self::from_ergo_tree(ergo_tree).unwrap()
+    pub fn new(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
+        let parameters = inputs.contract_parameters;
+        let ergo_tree = parameters
+            .p2s
+            .address()
+            .script()?
+            .with_constant(
+                parameters.min_storage_rent_index,
+                (parameters.min_storage_rent as i64).into(),
+            )?
+            .with_constant(
+                parameters.update_nft_index,
+                inputs.update_nft_token_id.clone().into(),
+            )?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
+        Ok(contract)
     }
 
-    pub fn from_ergo_tree(ergo_tree: ErgoTree) -> Result<Self, BallotContractError> {
+    pub fn from_ergo_tree(
+        ergo_tree: ErgoTree,
+        inputs: BallotContractInputs,
+    ) -> Result<Self, BallotContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
-        if ergo_tree
-            .get_constant(Self::MIN_STORAGE_RENT_INDEX)
+        let parameters = inputs.contract_parameters;
+        let min_storage_rent = ergo_tree
+            .get_constant(parameters.min_storage_rent_index)
             .map_err(|_| BallotContractError::NoMinStorageRent)?
             .ok_or(BallotContractError::NoMinStorageRent)?
-            .try_extract_into::<i64>()
-            .is_err()
-        {
-            return Err(BallotContractError::NoMinStorageRent);
-        };
+            .try_extract_into::<i64>()? as u64;
+        if min_storage_rent != parameters.min_storage_rent {
+            return Err(BallotContractError::MinStorageRentDiffers {
+                expected: parameters.min_storage_rent,
+                actual: min_storage_rent,
+            });
+        }
 
-        if ergo_tree
-            .get_constant(Self::UPDATE_NFT_INDEX)
+        let token_id = ergo_tree
+            .get_constant(parameters.update_nft_index)
             .map_err(|_| BallotContractError::NoUpdateNftId)?
             .ok_or(BallotContractError::NoUpdateNftId)?
-            .try_extract_into::<TokenId>()
-            .is_err()
-        {
-            return Err(BallotContractError::NoUpdateNftId);
-        };
-        Ok(Self { ergo_tree })
+            .try_extract_into::<TokenId>()?;
+        if token_id != *inputs.update_nft_token_id {
+            return Err(BallotContractError::UnknownUpdateNftId);
+        }
+        Ok(Self {
+            ergo_tree,
+            min_storage_rent_index: parameters.min_storage_rent_index,
+            update_nft_index: parameters.update_nft_index,
+        })
     }
 
     pub fn min_storage_rent(&self) -> u64 {
         self.ergo_tree
-            .get_constant(Self::MIN_STORAGE_RENT_INDEX)
+            .get_constant(self.min_storage_rent_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<i64>()
             .unwrap() as u64
     }
 
-    pub fn with_min_storage_rent(self, min_storage_rent: u64) -> Self {
-        let tree = self
-            .ergo_tree
-            .with_constant(
-                Self::MIN_STORAGE_RENT_INDEX,
-                (min_storage_rent as i64).into(),
-            )
-            .unwrap();
-        Self { ergo_tree: tree }
-    }
-
     pub fn update_nft_token_id(&self) -> TokenId {
         self.ergo_tree
-            .get_constant(Self::UPDATE_NFT_INDEX)
+            .get_constant(self.update_nft_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap()
-    }
-
-    pub fn with_update_nft_token_id(self, token_id: TokenId) -> Self {
-        let ergo_tree = self
-            .ergo_tree
-            .with_constant(Self::UPDATE_NFT_INDEX, token_id.clone().into())
-            .unwrap();
-        Self { ergo_tree }
     }
 
     pub fn ergo_tree(&self) -> ErgoTree {
@@ -101,17 +126,30 @@ impl BallotContract {
     }
 }
 
+#[derive(Debug, Clone)]
+/// Parameters for the ballot contract
+pub struct BallotContractParameters {
+    pub p2s: NetworkAddress,
+    pub min_storage_rent_index: usize,
+    pub min_storage_rent: u64,
+    pub update_nft_index: usize,
+}
+
 #[cfg(test)]
 mod tests {
+    use sigma_test_util::force_any_val;
+
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let c = BallotContract::new();
-        assert_eq!(
-            c.update_nft_token_id(),
-            TokenId::from_base64("YlFlVGhXbVpxNHQ3dyF6JUMqRi1KQE5jUmZValhuMnI=").unwrap()
-        );
-        assert_eq!(c.min_storage_rent(), 10000000);
+        let contract_parameters = BallotContractParameters::default();
+        let update_nft_token_id = &force_any_val::<TokenId>();
+        let inputs = BallotContractInputs {
+            contract_parameters: &contract_parameters,
+            update_nft_token_id,
+        };
+        let c = BallotContract::new(inputs).unwrap();
+        assert_eq!(c.update_nft_token_id(), *update_nft_token_id);
     }
 }

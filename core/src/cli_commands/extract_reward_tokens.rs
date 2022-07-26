@@ -194,16 +194,16 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::contracts::refresh::RefreshContract;
+    use crate::box_kind::OracleBoxWrapperInputs;
+    use crate::contracts::oracle::OracleContractParameters;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, make_datapoint_box, make_wallet_unspent_box, OracleBoxMock,
-        WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
+        OracleBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
-    use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
@@ -212,29 +212,28 @@ mod tests {
     fn test_extract_reward_tokens() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
-        let reward_token_id = force_any_val::<TokenId>();
-        dbg!(&reward_token_id);
+        let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
-        let num_reward_tokens_in_box = 5_u64;
+        let num_reward_tokens_in_box = 100_u64;
 
-        let oracle_box = make_datapoint_box(
-            *oracle_pub_key,
-            200,
-            1,
-            refresh_contract.oracle_token_id(),
-            Token::from((
-                reward_token_id,
-                num_reward_tokens_in_box.try_into().unwrap(),
-            )),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
-            height - 9,
+        let parameters = OracleContractParameters::default();
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((&parameters, &token_ids));
+        let oracle_box = (
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                1,
+                &token_ids,
+                BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                height - 9,
+            ),
+            oracle_box_wrapper_inputs,
         )
-        .try_into()
-        .unwrap();
+            .try_into()
+            .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
         let change_address =

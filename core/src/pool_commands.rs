@@ -3,11 +3,11 @@ use ergo_lib::ergo_chain_types::DigestNError;
 use ergo_lib::ergotree_ir::chain::address::{
     Address, AddressEncoder, AddressEncoderError, NetworkPrefix,
 };
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
+use crate::box_kind::OracleBoxWrapperInputs;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
 use crate::wallet::WalletDataSource;
@@ -60,8 +60,10 @@ pub fn build_action(
             pool_box_source,
             refresh_box_source,
             datapoint_stage_src,
-            ORACLE_CONFIG.max_deviation_percent as u32,
-            ORACLE_CONFIG.min_data_points as u32,
+            ORACLE_CONFIG
+                .refresh_contract_parameters
+                .max_deviation_percent as u32,
+            ORACLE_CONFIG.refresh_contract_parameters.min_data_points as u32,
             wallet,
             height,
             change_address,
@@ -82,11 +84,13 @@ pub fn build_action(
                 let address =
                     address_encoder.parse_address_from_str(&ORACLE_CONFIG.oracle_address)?;
                 if let Address::P2Pk(public_key) = address {
+                    let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((
+                        &ORACLE_CONFIG.oracle_contract_parameters,
+                        &ORACLE_CONFIG.token_ids,
+                    ));
                     PublishDataPointCommandInputs::FirstDataPoint {
-                        oracle_token_id: ORACLE_CONFIG.oracle_pool_participant_token_id.clone(),
-                        reward_token_id: ORACLE_CONFIG.reward_token_id.clone(),
-                        pool_nft: ORACLE_CONFIG.oracle_pool_nft.clone(),
                         public_key,
+                        oracle_box_wrapper_inputs,
                     }
                 } else {
                     return Err(PoolCommandError::WrongOracleAddressType);
@@ -112,9 +116,7 @@ pub enum PublishDataPointCommandInputs<'a> {
     LocalDataPointBoxExists(&'a dyn LocalDatapointBoxSource),
     /// The first datapoint will be submitted, so there doesn't exist a local datapoint box now.
     FirstDataPoint {
-        oracle_token_id: TokenId,
-        reward_token_id: TokenId,
-        pool_nft: TokenId,
+        oracle_box_wrapper_inputs: OracleBoxWrapperInputs<'a>,
         public_key: ProveDlog,
     },
 }

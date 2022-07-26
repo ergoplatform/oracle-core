@@ -280,10 +280,16 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use crate::box_kind::OracleBoxWrapper;
+    use crate::box_kind::OracleBoxWrapperInputs;
     use crate::box_kind::RefreshBoxWrapper;
-    use crate::contracts::pool::PoolContract;
+    use crate::box_kind::RefreshBoxWrapperInputs;
+    use crate::contracts::oracle::OracleContractParameters;
+    use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
+    use crate::contracts::refresh::RefreshContractParameters;
+    use crate::oracle_config::TokenIds;
     use crate::oracle_state::StageError;
+    use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
@@ -316,51 +322,61 @@ mod tests {
     }
 
     fn make_refresh_box(
-        refresh_nft: &TokenId,
         value: BoxValue,
+        inputs: RefreshBoxWrapperInputs,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
-        let tokens = vec![Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))]
-            .try_into()
-            .unwrap();
-        ErgoBox::new(
-            value,
-            RefreshContract::new().ergo_tree(),
-            Some(tokens),
-            NonMandatoryRegisters::empty(),
-            creation_height,
-            force_any_val::<TxId>(),
-            0,
-        )
-        .unwrap()
+        let tokens = vec![Token::from((
+            inputs.refresh_nft_token_id.clone(),
+            1u64.try_into().unwrap(),
+        ))]
         .try_into()
+        .unwrap();
+        RefreshBoxWrapper::new(
+            ErgoBox::new(
+                value,
+                RefreshContract::new(inputs.into()).unwrap().ergo_tree(),
+                Some(tokens),
+                NonMandatoryRegisters::empty(),
+                creation_height,
+                force_any_val::<TxId>(),
+                0,
+            )
+            .unwrap(),
+            inputs,
+        )
         .unwrap()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn make_datapoint_boxes(
         pub_keys: Vec<EcPoint>,
         datapoints: Vec<i64>,
         epoch_counter: i32,
-        oracle_token_id: TokenId,
-        reward_token: Token,
         value: BoxValue,
         creation_height: u32,
+        oracle_contract_parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::from((oracle_contract_parameters, token_ids));
         datapoints
             .into_iter()
             .zip(pub_keys)
             .map(|(datapoint, pub_key)| {
-                make_datapoint_box(
-                    pub_key.clone(),
-                    datapoint,
-                    epoch_counter,
-                    oracle_token_id.clone(),
-                    reward_token.clone(),
-                    value,
-                    creation_height,
+                (
+                    make_datapoint_box(
+                        pub_key.clone(),
+                        datapoint,
+                        epoch_counter,
+                        token_ids,
+                        value,
+                        creation_height,
+                    ),
+                    oracle_box_wrapper_inputs,
                 )
-                .try_into()
-                .unwrap()
+                    .try_into()
+                    .unwrap()
             })
             .collect()
     }
@@ -369,20 +385,27 @@ mod tests {
     fn test_refresh_pool() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
-        let pool_contract = PoolContract::new();
         let reward_token_id = force_any_val::<TokenId>();
-        let pool_nft_token_id = refresh_contract.pool_nft_token_id();
-        let refresh_nft = pool_contract.refresh_nft_token_id();
         dbg!(&reward_token_id);
-        let in_refresh_box = make_refresh_box(&refresh_nft, BoxValue::SAFE_USER_MIN, height - 32);
+        let pool_contract_parameters = PoolContractParameters::default();
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let refresh_contract_parameters = RefreshContractParameters::default();
+        let token_ids = generate_token_ids();
+
+        let inputs = RefreshBoxWrapperInputs {
+            contract_parameters: &refresh_contract_parameters,
+            refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+            oracle_token_id: &token_ids.oracle_token_id,
+            pool_nft_token_id: &token_ids.pool_nft_token_id,
+        };
+        let in_refresh_box = make_refresh_box(BoxValue::SAFE_USER_MIN, inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,
-            pool_nft_token_id,
-            Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
+            &pool_contract_parameters,
+            &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -396,14 +419,15 @@ mod tests {
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
         ];
+
         let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_keys,
             vec![194, 70, 196, 197, 198, 200],
             1,
-            refresh_contract.oracle_token_id(),
-            Token::from((reward_token_id, 5u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
             height - 9,
+            &oracle_contract_parameters,
+            &token_ids,
         );
 
         let pool_box_mock = PoolBoxMock {

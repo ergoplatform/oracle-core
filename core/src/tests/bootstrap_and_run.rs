@@ -17,9 +17,12 @@ use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
 use crate::cli_commands::bootstrap::NftMintDetails;
 use crate::cli_commands::bootstrap::OracleConfigFields;
-use crate::cli_commands::bootstrap::RefreshContractParameters;
 use crate::cli_commands::bootstrap::TokenMintDetails;
 use crate::cli_commands::bootstrap::TokensToMint;
+use crate::contracts::ballot::BallotContractParameters;
+use crate::contracts::pool::PoolContractParameters;
+use crate::contracts::refresh::RefreshContractParameters;
+use crate::contracts::update::UpdateContractParameters;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
 use crate::pool_commands::test_utils::init_log_tests;
@@ -76,15 +79,10 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
                 quantity: 100_000_000,
             },
         },
-        refresh_contract_parameters: RefreshContractParameters {
-            epoch_length: 30,
-            buffer: 4,
-            total_oracles: 15,
-            min_data_points: 4,
-            max_deviation_percent: 5,
-            total_ballots: 15,
-            min_votes: 6,
-        },
+        refresh_contract_parameters: RefreshContractParameters::default(),
+        pool_contract_parameters: PoolContractParameters::default(),
+        update_contract_parameters: UpdateContractParameters::default(),
+        ballot_contract_parameters: BallotContractParameters::default(),
         addresses: Addresses {
             address_for_oracle_tokens: address.clone(),
             wallet_address_for_chain_transaction: address.clone(),
@@ -92,7 +90,9 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        is_mainnet,
+        on_mainnet: is_mainnet,
+        total_oracles: 15,
+        total_ballots: 15,
     };
 
     let height = ctx.pre_header.height;

@@ -1,45 +1,113 @@
 use crate::{
+    cli_commands::bootstrap::Addresses,
+    contracts::{
+        ballot::BallotContractParameters, oracle::OracleContractParameters,
+        pool::PoolContractParameters, refresh::RefreshContractParameters,
+    },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
-    BlockDuration,
 };
 use anyhow::anyhow;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
+use ergo_lib::ergotree_ir::chain::{address::NetworkPrefix, token::TokenId};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    try_from = "crate::serde::OracleConfigSerde",
+    into = "crate::serde::OracleConfigSerde"
+)]
 pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
     pub node_api_key: String,
-    pub oracle_pool_nft: TokenId,
-    pub refresh_nft: TokenId,
-    pub update_nft: TokenId,
-    pub reward_token_id: TokenId,
-    pub ballot_token_id: TokenId,
-    pub epoch_length: BlockDuration,
-    pub buffer_length: BlockDuration,
-    pub max_deviation_percent: u64,
-    pub min_data_points: u64,
-    pub ballot_box_min_storage_rent: u64,
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
-    pub oracle_pool_participant_token_id: TokenId,
     pub core_api_port: u16,
     pub oracle_address: String,
-    /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
-    /// set here.
-    pub ballot_token_owner_address: String,
     pub on_mainnet: bool,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
+    pub oracle_contract_parameters: OracleContractParameters,
+    pub pool_contract_parameters: PoolContractParameters,
+    pub refresh_contract_parameters: RefreshContractParameters,
+    pub ballot_parameters: BallotBoxWrapperParameters,
+    // TODO: update_parameters (https://github.com/ergoplatform/oracle-core/issues/49)
+    pub token_ids: TokenIds,
+    pub addresses: Addresses,
+}
+
+#[derive(Debug, Clone)]
+pub struct BallotBoxWrapperParameters {
+    pub contract_parameters: BallotContractParameters,
+    pub vote_parameters: Option<CastBallotBoxVoteParameters>,
+    /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
+    /// set here.
+    pub ballot_token_owner_address: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CastBallotBoxVoteParameters {
+    pub pool_box_address_hash: String,
+    pub reward_token_id: TokenId,
+    pub reward_token_quantity: u32,
+}
+
+/// Holds the token ids of every important token used by the oracle pool.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TokenIds {
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
+    pub pool_nft_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
+    pub refresh_nft_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
+    pub update_nft_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
+    pub oracle_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
+    pub reward_token_id: TokenId,
+    #[serde(
+        serialize_with = "crate::serde::token_id_as_base64_string",
+        deserialize_with = "crate::serde::token_id_from_base64"
+    )]
+    pub ballot_token_id: TokenId,
 }
 
 impl OracleConfig {
     fn load() -> Result<Self, anyhow::Error> {
-        Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
+        let config = Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)?;
+
+        // Check network prefixes
+        let prefix = if config.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        if prefix == config.oracle_contract_parameters.p2s.network()
+            && prefix == config.pool_contract_parameters.p2s.network()
+            && prefix == config.refresh_contract_parameters.p2s.network()
+            && prefix == config.ballot_parameters.contract_parameters.p2s.network()
+        {
+            Ok(config)
+        } else {
+            Err(anyhow!("Network prefixes are not constant"))
+        }
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
@@ -87,6 +155,8 @@ pub fn get_node_api_key() -> String {
 
 #[cfg(test)]
 mod tests {
+    use sigma_test_util::force_any_val;
+
     use super::*;
 
     #[ignore = "until config hierarchy and option names are finalized"]
@@ -102,9 +172,29 @@ mod tests {
             ";
         let config = OracleConfig::load_from_str(yaml_string).unwrap();
         let pool_params = config;
-        assert_eq!(pool_params.epoch_length, 20);
-        assert_eq!(pool_params.buffer_length, 4);
-        assert_eq!(pool_params.max_deviation_percent, 5);
+        assert_eq!(pool_params.refresh_contract_parameters.epoch_length, 20);
+        assert_eq!(pool_params.refresh_contract_parameters.buffer_length, 4);
+        assert_eq!(
+            pool_params
+                .refresh_contract_parameters
+                .max_deviation_percent,
+            5
+        );
         assert_eq!(pool_params.base_fee, 1000000);
+    }
+
+    #[test]
+    fn token_ids_roundtrip() {
+        let token_ids = TokenIds {
+            pool_nft_token_id: force_any_val::<TokenId>(),
+            refresh_nft_token_id: force_any_val::<TokenId>(),
+            update_nft_token_id: force_any_val::<TokenId>(),
+            oracle_token_id: force_any_val::<TokenId>(),
+            reward_token_id: force_any_val::<TokenId>(),
+            ballot_token_id: force_any_val::<TokenId>(),
+        };
+
+        let s = serde_yaml::to_string(&token_ids).unwrap();
+        assert_eq!(token_ids, serde_yaml::from_str::<TokenIds>(&s).unwrap());
     }
 }

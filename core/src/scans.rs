@@ -1,5 +1,6 @@
+use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::PoolContract;
-use crate::contracts::refresh::RefreshContract;
+use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
     address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
@@ -29,6 +30,8 @@ pub enum ScanError {
     FailedToRegister,
     #[error("IO error: {0}")]
     IoError(std::io::Error),
+    #[error("refresh contract error: {0}")]
+    RefreshContract(RefreshContractError),
 }
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
@@ -111,15 +114,10 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 }
 
 /// This function registers scanning for the pool box
-pub fn register_pool_box_scan(
-    oracle_pool_nft: &TokenId,
-    refresh_token_nft: &TokenId,
-    update_token_nft: &TokenId,
-) -> Result<Scan> {
+pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = PoolContract::new()
-        .with_refresh_nft_token_id(refresh_token_nft.clone())
-        .with_update_nft_token_id(update_token_nft.clone())
+    let pool_box_tree_bytes = PoolContract::new(inputs.into())
+        .unwrap()
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();
@@ -130,7 +128,7 @@ pub fn register_pool_box_scan(
         "args": [
         {
             "predicate": "containsAsset",
-            "assetId": oracle_pool_nft.clone(),
+            "assetId": inputs.pool_nft_token_id.clone(),
         },
         {
             "predicate": "equals",
@@ -145,14 +143,10 @@ pub fn register_pool_box_scan(
 /// This function registers scanning for the refresh box
 pub fn register_refresh_box_scan(
     scan_name: &'static str,
-    refresh_nft: &TokenId,
-    oracle_token_id: &TokenId,
-    pool_nft: &TokenId,
+    inputs: RefreshBoxWrapperInputs,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::new()
-        .with_oracle_token_id(oracle_token_id.clone())
-        .with_pool_nft_token_id(pool_nft.clone())
+    let tree_bytes = RefreshContract::new(inputs.into())?
         .ergo_tree()
         .to_base16_bytes()
         .unwrap();
@@ -163,7 +157,7 @@ pub fn register_refresh_box_scan(
         "args": [
         {
             "predicate": "containsAsset",
-            "assetId": refresh_nft.clone(),
+            "assetId": inputs.refresh_nft_token_id.clone(),
         },
         {
             "predicate": "equals",
