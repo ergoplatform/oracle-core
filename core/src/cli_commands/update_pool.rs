@@ -62,6 +62,14 @@ pub enum UpdatePoolError {
     Node(NodeError),
 }
 
+fn update_pool(
+    new_pool_box_address_hash_str: Option<String>,
+    reward_token_id: Option<String>,
+    reward_token_amount: Option<u64>,
+) -> Result<(), UpdatePoolError> {
+    Ok(())
+}
+
 fn build_update_pool_box_tx(
     pool_box_source: &dyn PoolBoxSource,
     ballot_boxes: &dyn BallotBoxesSource,
@@ -83,6 +91,10 @@ fn build_update_pool_box_tx(
     ));
     let reward_tokens = new_reward_tokens.unwrap_or(old_pool_box.reward_token());
     // Find ballot boxes that are voting for the new pool hash
+    let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
+    sorted_ballot_boxes.sort_by_key(|ballot_box| ballot_box.ballot_token().amount);
+
+    let mut votes_cast = 0;
     let vote_ballot_boxes: Vec<BallotBoxWrapper> = ballot_boxes
         .get_ballot_boxes()?
         .into_iter()
@@ -101,8 +113,15 @@ fn build_update_pool_box_tx(
                     .get(NonMandatoryRegisterId::R8)
                     == Some(&(*reward_tokens.amount.as_u64() as i64).into())
         })
+        .scan(&mut votes_cast, |votes_cast, ballot_box| {
+            if **votes_cast >= min_votes as u64 {
+                return None;
+            }
+            **votes_cast += *ballot_box.ballot_token().amount.as_u64();
+            Some(ballot_box)
+        })
         .collect();
-    if vote_ballot_boxes.len() < min_votes as usize {
+    if votes_cast < min_votes as u64 {
         return Err(UpdatePoolError::NotEnoughVotes(
             min_votes as usize,
             vote_ballot_boxes.len(),

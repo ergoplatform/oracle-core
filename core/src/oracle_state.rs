@@ -112,6 +112,7 @@ pub struct OraclePool {
     pub local_oracle_datapoint_scan: Option<Scan>,
     // Local ballot box Scan
     pub local_ballot_box_scan: Option<Scan>,
+    pub ballot_box_scan: Scan,
     pool_box_scan: Scan,
     refresh_box_scan: Scan,
 }
@@ -255,6 +256,9 @@ impl OraclePool {
             ));
         }
 
+        let ballot_box_scan =
+            Scan::new("Ballot Box Scan", &scan_json["Ballot Box Scan"].to_string());
+
         let pool_box_scan = Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string());
 
         let refresh_box_scan = Scan::new(
@@ -271,6 +275,7 @@ impl OraclePool {
             },
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
+            ballot_box_scan,
             pool_box_scan,
             refresh_box_scan,
         })
