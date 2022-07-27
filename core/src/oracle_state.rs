@@ -205,11 +205,10 @@ impl OraclePool {
             ) {
                 scans.push(local_scan);
             }
-            if let Ok(scan) =
+            scans.push(
                 register_ballot_box_scan(&ballot_contract_address, &config.ballot_token_id)
-            {
-                scans.push(scan);
-            }
+                    .unwrap(),
+            );
 
             let res = save_scan_ids_locally(scans);
             if res.is_ok() {

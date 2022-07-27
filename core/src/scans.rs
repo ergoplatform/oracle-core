@@ -9,6 +9,8 @@ use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
+use ergo_lib::ergotree_ir::mir::constant::Constant;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_node_interface::node_interface::NodeError;
 use log::info;
 use serde_json::json;
@@ -117,12 +119,12 @@ pub fn register_pool_box_scan(
     update_token_nft: &TokenId,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = PoolContract::new()
-        .with_refresh_nft_token_id(refresh_token_nft.clone())
-        .with_update_nft_token_id(update_token_nft.clone())
-        .ergo_tree()
-        .to_base16_bytes()
-        .unwrap();
+    let pool_box_tree_bytes = ergo_tree_to_scan_bytes(
+        &PoolContract::new()
+            .with_refresh_nft_token_id(refresh_token_nft.clone())
+            .with_update_nft_token_id(update_token_nft.clone())
+            .ergo_tree(),
+    );
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {
@@ -134,7 +136,7 @@ pub fn register_pool_box_scan(
         },
         {
             "predicate": "equals",
-            "value": pool_box_tree_bytes.clone(),
+            "value": &pool_box_tree_bytes
         }
     ]
     } );
@@ -150,12 +152,12 @@ pub fn register_refresh_box_scan(
     pool_nft: &TokenId,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::new()
-        .with_oracle_token_id(oracle_token_id.clone())
-        .with_pool_nft_token_id(pool_nft.clone())
-        .ergo_tree()
-        .to_base16_bytes()
-        .unwrap();
+    let tree_bytes = ergo_tree_to_scan_bytes(
+        &RefreshContract::new()
+            .with_oracle_token_id(oracle_token_id.clone())
+            .with_pool_nft_token_id(pool_nft.clone())
+            .ergo_tree(),
+    );
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {
@@ -167,7 +169,7 @@ pub fn register_refresh_box_scan(
         },
         {
             "predicate": "equals",
-            "value": tree_bytes.clone(),
+            "value": tree_bytes,
         }
     ]
     } );
@@ -183,6 +185,7 @@ pub fn register_local_oracle_datapoint_scan(
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
     let oracle_add_bytes = address_to_raw_for_register(oracle_address)?;
+    let datapoint_bytes = ergo_tree_to_scan_bytes(&datapoint_address);
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
@@ -194,7 +197,7 @@ pub fn register_local_oracle_datapoint_scan(
         },
         {
             "predicate": "equals",
-            "value": datapoint_address.to_base16_bytes().unwrap(),
+            "value": datapoint_bytes,
         },
         {
             "predicate": "equals",
@@ -212,6 +215,7 @@ pub fn register_datapoint_scan(
     oracle_pool_participant_token: &TokenId,
     datapoint_address: &ErgoTree,
 ) -> Result<Scan> {
+    let datapoint_bytes = ergo_tree_to_scan_bytes(&datapoint_address);
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
         "predicate": "and",
@@ -222,7 +226,7 @@ pub fn register_datapoint_scan(
         },
         {
             "predicate": "equals",
-            "value": datapoint_address.to_base16_bytes().unwrap(),
+            "value": datapoint_bytes,
         }
     ]
     } );
@@ -238,6 +242,7 @@ pub fn register_local_ballot_box_scan(
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
     let ballot_add_bytes = address_to_raw_for_register(ballot_token_owner_address)?;
+    let ballot_contract_bytes = ergo_tree_to_scan_bytes(&ballot_contract_address);
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
         "predicate": "and",
@@ -248,7 +253,7 @@ pub fn register_local_ballot_box_scan(
         },
         {
             "predicate": "equals",
-            "value": ballot_contract_address.to_base16_bytes().unwrap(),
+            "value": ballot_contract_bytes,
         },
         {
             "predicate": "equals",
@@ -267,6 +272,7 @@ pub fn register_ballot_box_scan(
     ballot_token_id: &TokenId,
 ) -> Result<Scan> {
     let scan_json = json! ( {
+        "predicate": "and",
         "args": [
         {
             "predicate": "containsAsset",
@@ -274,8 +280,16 @@ pub fn register_ballot_box_scan(
         },
         {
             "predicate": "equals",
-            "value": ballot_contract_address.to_base16_bytes().unwrap(),
+            "value": ergo_tree_to_scan_bytes(ballot_contract_address),
         }
         ] });
     Scan::register("Ballot Box Scan", scan_json)
+}
+
+fn ergo_tree_to_scan_bytes(tree: &ErgoTree) -> String {
+    base16::encode_lower(
+        &Constant::from(tree.sigma_serialize_bytes().unwrap())
+            .sigma_serialize_bytes()
+            .unwrap(),
+    )
 }
