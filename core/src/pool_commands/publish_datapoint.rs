@@ -8,7 +8,7 @@ use ergo_lib::{
         chain::{
             address::Address,
             ergo_box::box_value::BoxValue,
-            token::{Token, TokenAmount, TokenId},
+            token::{Token, TokenAmount},
         },
         sigma_protocol::sigma_boolean::ProveDlog,
     },
@@ -22,8 +22,8 @@ use thiserror::Error;
 
 use crate::{
     actions::PublishDataPointAction,
-    box_kind::{make_oracle_box_candidate, OracleBox, PoolBox},
-    contracts::oracle::OracleContract,
+    box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapperInputs, PoolBox},
+    contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
@@ -47,6 +47,8 @@ pub enum PublishDatapointActionError {
     BoxSelector(BoxSelectorError),
     #[error("datapoint source error: {0}")]
     DataPointSource(DataPointSourceError),
+    #[error("oracle contract error: {0}")]
+    OracleContract(OracleContractError),
 }
 
 pub fn build_publish_datapoint_action(
@@ -71,19 +73,15 @@ pub fn build_publish_datapoint_action(
             )
         }
         PublishDataPointCommandInputs::FirstDataPoint {
-            oracle_token_id,
-            reward_token_id,
             public_key,
-            pool_nft,
+            oracle_box_wrapper_inputs: oracle_box_inputs,
         } => build_publish_first_datapoint_action(
             wallet,
             height,
             change_address,
             new_datapoint as u64,
-            oracle_token_id,
-            reward_token_id,
-            pool_nft,
             public_key,
+            oracle_box_inputs,
         ),
     }
 }
@@ -147,20 +145,18 @@ pub fn build_publish_first_datapoint_action(
     height: u32,
     change_address: Address,
     new_datapoint: u64,
-    oracle_token_id: TokenId,
-    reward_token_id: TokenId,
-    pool_nft: TokenId,
     public_key: ProveDlog,
+    inputs: OracleBoxWrapperInputs,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = BoxValue::SAFE_USER_MIN;
     let box_selector = SimpleBoxSelector::new();
     let oracle_token = Token {
-        token_id: oracle_token_id,
+        token_id: inputs.oracle_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
     let reward_token = Token {
-        token_id: reward_token_id,
+        token_id: inputs.reward_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
 
@@ -175,7 +171,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new().with_pool_nft_token_id(pool_nft),
+        &OracleContract::new(inputs.into())?,
         public_key,
         new_datapoint,
         1,
@@ -240,10 +236,11 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::contracts::refresh::RefreshContract;
+    use crate::contracts::oracle::OracleContractParameters;
+    use crate::contracts::pool::PoolContractParameters;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box,
-        OracleBoxMock, PoolBoxMock, WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
+        make_wallet_unspent_box, OracleBoxMock, PoolBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -272,17 +269,18 @@ mod tests {
     fn test_subsequent_publish_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
+        let token_ids = generate_token_ids();
         let reward_token_id = force_any_val::<TokenId>();
-        let pool_nft_token_id = refresh_contract.pool_nft_token_id();
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let pool_contract_parameters = PoolContractParameters::default();
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
             1,
-            pool_nft_token_id,
-            Token::from((reward_token_id.clone(), 50u64.try_into().unwrap())),
             BoxValue::SAFE_USER_MIN,
             height - 32, // from previous epoch
+            &pool_contract_parameters,
+            &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -292,17 +290,21 @@ mod tests {
             pool_box: in_pool_box,
         };
 
-        let oracle_box = make_datapoint_box(
-            *oracle_pub_key,
-            200,
-            1,
-            refresh_contract.oracle_token_id(),
-            Token::from((reward_token_id, 5u64.try_into().unwrap())),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
-            height - 9,
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
+        let oracle_box = (
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                1,
+                &token_ids,
+                BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                height - 9,
+            ),
+            oracle_box_wrapper_inputs,
         )
-        .try_into()
-        .unwrap();
+            .try_into()
+            .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
         let change_address =
@@ -357,13 +359,13 @@ mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
 
-        let reward_token_id = force_any_val::<TokenId>();
-        let pool_nft = force_any_val::<TokenId>();
-        let oracle_token_id =
-            TokenId::from_base64("KkctSmFOZFJnVWtYcDJzNXY4eS9CP0UoSCtNYlBlU2g=").unwrap();
+        let token_ids = generate_token_ids();
         let tokens = BoxTokens::from_vec(vec![
-            Token::from((reward_token_id.clone(), 1u64.try_into().unwrap())),
-            Token::from((oracle_token_id.clone(), 1u64.try_into().unwrap())),
+            Token::from((
+                token_ids.reward_token_id.clone(),
+                100u64.try_into().unwrap(),
+            )),
+            Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
         ])
         .unwrap();
 
@@ -403,6 +405,9 @@ mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
@@ -410,10 +415,8 @@ mod tests {
             height,
             change_address,
             100,
-            oracle_token_id,
-            reward_token_id,
-            pool_nft,
             secret.public_image(),
+            oracle_box_wrapper_inputs,
         )
         .unwrap();
 

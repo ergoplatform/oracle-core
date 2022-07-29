@@ -22,12 +22,14 @@ mod box_kind;
 mod cli_commands;
 mod contracts;
 mod datapoint_source;
+mod default_parameters;
 mod logging;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
 mod pool_commands;
 mod scans;
+mod serde;
 mod state;
 mod templates;
 #[cfg(test)]
@@ -81,8 +83,16 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Bootstrap a new oracle-pool
-    Bootstrap { yaml_config_name: String },
+    /// Bootstrap a new oracle-pool or generate a bootstrap config template file using default
+    /// contract scripts and parameters.
+    Bootstrap {
+        /// The name of the bootstrap config file.
+        yaml_config_name: String,
+        #[clap(short, long)]
+        /// Set this flag to output a bootstrap config template file to the given filename. If
+        /// filename already exists, return error.
+        generate_config_template: bool,
+    },
 
     /// Run the oracle-pool
     Run {
@@ -131,13 +141,20 @@ fn main() {
     debug!("Args: {:?}", args);
 
     match args.command {
-        Command::Bootstrap { yaml_config_name } => {
+        Command::Bootstrap {
+            yaml_config_name,
+            generate_config_template,
+        } => {
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
-                let _ = cli_commands::bootstrap::bootstrap(yaml_config_name)?;
+                if generate_config_template {
+                    cli_commands::bootstrap::generate_bootstrap_config_template(yaml_config_name)?;
+                } else {
+                    cli_commands::bootstrap::bootstrap(yaml_config_name)?;
+                }
                 Ok(())
             })() {
                 {
-                    error!("Fatal bootstrap error: {:?}", e);
+                    error!("Fatal advanced-bootstrap error: {:?}", e);
                     std::process::exit(exitcode::SOFTWARE);
                 }
             };

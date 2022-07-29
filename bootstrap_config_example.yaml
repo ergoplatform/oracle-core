@@ -1,5 +1,6 @@
+# Example bootstrap config file corresponding to the non-advaced `bootstrap` command.
 ---
-refresh_contract_parameters:
+oracle_pool_parameter_values: # These values are the defaults described in EIP-0023
   epoch_length: 30
   buffer: 4
   total_oracles: 15
