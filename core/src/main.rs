@@ -110,6 +110,12 @@ enum Command {
         /// The creation height of the update box.
         update_box_creation_height: u32,
     },
+    UpdatePool {
+        new_pool_box_hash: Option<String>,
+        reward_token_id: Option<String>,
+        reward_token_amount: Option<u64>,
+        height: Option<u64>,
+    },
 }
 
 fn main() {
@@ -211,6 +217,22 @@ fn main() {
                 update_box_creation_height,
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+        Command::UpdatePool {
+            new_pool_box_hash,
+            reward_token_id,
+            reward_token_amount,
+            height,
+        } => {
+            if let Err(e) = cli_commands::update_pool::update_pool(
+                new_pool_box_hash,
+                reward_token_id,
+                reward_token_amount,
+                height,
+            ) {
+                error!("Fatal update-pool error: {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }

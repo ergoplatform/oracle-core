@@ -6,12 +6,13 @@ use crate::box_kind::{
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::update::UpdateContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
     register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
-    save_scan_ids_locally, Scan, ScanError,
+    register_update_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg};
@@ -115,6 +116,7 @@ pub struct OraclePool {
     pub ballot_box_scan: Scan,
     pool_box_scan: Scan,
     refresh_box_scan: Scan,
+    update_box_scan: Scan,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -158,6 +160,7 @@ impl OraclePool {
         let local_oracle_address = config.oracle_address.clone();
         let oracle_pool_nft = config.oracle_pool_nft.clone();
         let refresh_nft = config.refresh_nft.clone();
+        let update_nft = config.update_nft.clone();
         let oracle_pool_participant_token_id = config.oracle_pool_participant_token_id.clone();
         let data_point_source = config.data_point_source()?;
 
@@ -182,6 +185,7 @@ impl OraclePool {
                     &oracle_pool_nft,
                 )
                 .unwrap(),
+                register_update_box_scan(&update_nft).unwrap(),
             ];
 
             // Local datapoint box may not exist yet.
@@ -265,6 +269,9 @@ impl OraclePool {
             &scan_json[refresh_box_scan_name].to_string(),
         );
 
+        let update_box_scan =
+            Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string());
+
         // Create `OraclePool` struct
         Ok(OraclePool {
             data_point_source,
@@ -277,6 +284,7 @@ impl OraclePool {
             ballot_box_scan,
             pool_box_scan,
             refresh_box_scan,
+            update_box_scan,
         })
     }
 
@@ -384,6 +392,10 @@ impl OraclePool {
             .map(|s| s as &dyn LocalBallotBoxSource)
     }
 
+    pub fn get_ballot_boxes_source(&self) -> &dyn BallotBoxesSource {
+        &self.ballot_box_scan as &dyn BallotBoxesSource
+    }
+
     pub fn get_refresh_box_source(&self) -> &dyn RefreshBoxSource {
         &self.refresh_box_scan as &dyn RefreshBoxSource
     }
@@ -396,6 +408,10 @@ impl OraclePool {
         self.local_oracle_datapoint_scan
             .as_ref()
             .map(|s| s as &dyn LocalDatapointBoxSource)
+    }
+
+    pub fn get_update_box_source(&self) -> &dyn UpdateBoxSource {
+        &self.update_box_scan as &dyn UpdateBoxSource
     }
 }
 
