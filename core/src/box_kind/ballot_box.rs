@@ -130,7 +130,7 @@ impl BallotBoxWrapper {
         let register_reward_token_quantity = ergo_box
             .get_register(NonMandatoryRegisterId::R8.into())
             .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-            .try_extract_into::<i32>()? as u32;
+            .try_extract_into::<i64>()? as u32;
 
         if register_reward_token_quantity != *reward_token_quantity {
             warn!("Reward token quantity in R8 register differs to config. Could be due to vote.");

@@ -16,6 +16,7 @@ use thiserror::Error;
 
 use crate::contracts::update::UpdateContract;
 use crate::contracts::update::UpdateContractError;
+use crate::contracts::update::UpdateContractParameters;
 
 #[derive(Debug, Error)]
 pub enum UpdateBoxError {
@@ -23,14 +24,16 @@ pub enum UpdateBoxError {
     NoTokens,
     #[error("update contract: {0:?}")]
     UpdateContractError(#[from] UpdateContractError),
+    #[error("update contract: {0:?}")]
+    IncorrectUpdateTokenId(TokenId),
 }
 
 #[derive(Clone)]
 pub struct UpdateBoxWrapper(ErgoBox, UpdateContract);
 
 impl UpdateBoxWrapper {
-    pub fn new(b: ErgoBox) -> Result<Self, UpdateBoxError> {
-        let _update_token_id = b
+    pub fn new(b: ErgoBox, inputs: UpdateBoxWrapperInputs) -> Result<Self, UpdateBoxError> {
+        let update_token_id = b
             .tokens
             .as_ref()
             .ok_or(UpdateBoxError::NoTokens)?
@@ -38,7 +41,10 @@ impl UpdateBoxWrapper {
             .ok_or(UpdateBoxError::NoTokens)?
             .token_id
             .clone();
-        let contract = UpdateContract::from_ergo_tree(b.ergo_tree.clone())?;
+        if update_token_id != *inputs.update_nft_token_id {
+            return Err(UpdateBoxError::IncorrectUpdateTokenId(update_token_id));
+        }
+        let contract = UpdateContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
 
         Ok(Self(b, contract))
     }
@@ -59,12 +65,12 @@ impl UpdateBoxWrapper {
     }
 }
 
-impl TryFrom<ErgoBox> for UpdateBoxWrapper {
-    type Error = UpdateBoxError;
-
-    fn try_from(value: ErgoBox) -> Result<Self, Self::Error> {
-        UpdateBoxWrapper::new(value)
-    }
+#[derive(Debug, Copy, Clone)]
+pub struct UpdateBoxWrapperInputs<'a> {
+    pub contract_parameters: &'a UpdateContractParameters,
+    pub update_nft_token_id: &'a TokenId,
+    pub ballot_token_id: &'a TokenId,
+    pub pool_nft_token_id: &'a TokenId,
 }
 
 impl From<UpdateBoxWrapper> for ErgoBox {

@@ -118,9 +118,8 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 /// This function registers scanning for the pool box
 pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = ergo_tree_to_scan_bytes(PoolContract::new(inputs.into())
-        .unwrap()
-        .ergo_tree());
+    let pool_box_tree_bytes =
+        ergo_tree_to_scan_bytes(&PoolContract::new(inputs.into()).unwrap().ergo_tree());
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {
@@ -146,9 +145,7 @@ pub fn register_refresh_box_scan(
     inputs: RefreshBoxWrapperInputs,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = ergo_tree_to_scan_bytes(RefreshContract::new(inputs.into())?
-        .ergo_tree()
-    );
+    let tree_bytes = ergo_tree_to_scan_bytes(&RefreshContract::new(inputs.into())?.ergo_tree());
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {

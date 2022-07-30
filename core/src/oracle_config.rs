@@ -3,6 +3,7 @@ use crate::{
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
+        update::UpdateContractParameters,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
@@ -32,8 +33,8 @@ pub struct OracleConfig {
     pub oracle_contract_parameters: OracleContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
+    pub update_contract_parameters: UpdateContractParameters,
     pub ballot_parameters: BallotBoxWrapperParameters,
-    // TODO: update_parameters (https://github.com/ergoplatform/oracle-core/issues/49)
     pub token_ids: TokenIds,
     pub addresses: Addresses,
 }
