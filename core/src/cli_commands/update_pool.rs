@@ -5,7 +5,6 @@ use ergo_lib::{
         transaction::unsigned::UnsignedTransaction,
     },
     ergo_chain_types::blake2b256_hash,
-    ergo_chain_types::{Digest32, DigestNError},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
         address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
@@ -21,7 +20,7 @@ use ergo_lib::{
     },
 };
 use ergo_node_interface::node_interface::NodeError;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 
 use crate::{
     box_kind::{
@@ -134,7 +133,6 @@ pub fn update_pool(
         current_block_height()? as u32,
         change_address,
     )?;
-    println!("{}", serde_json::to_string(&tx.spending_tx).unwrap());
 
     let tx_id_str = sign_and_submit_transaction(&tx.spending_tx)?;
     println!(
