@@ -209,7 +209,18 @@ fn build_update_pool_box_tx(
     let reward_tokens = new_reward_tokens.unwrap_or(old_pool_box.reward_token());
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
-    sorted_ballot_boxes.sort_by_key(|ballot_box| ballot_box.ballot_token().amount); // TODO: sort by box value as well, incase some ballot boxes were incorrectly created below storage rent levels
+    // Sort in descending order of ballot token amounts. If two boxes have the same amount of ballot tokens, also compare box value, in case some boxes were incorrectly created below minStorageRent
+    sorted_ballot_boxes.sort_by(|b1, b2| {
+        (
+            *b1.ballot_token().amount.as_u64(),
+            *b1.get_box().value.as_u64(),
+        )
+            .cmp(&(
+                *b2.ballot_token().amount.as_u64(),
+                *b2.get_box().value.as_u64(),
+            ))
+    });
+    sorted_ballot_boxes.reverse();
 
     let mut votes_cast = 0;
     let vote_ballot_boxes: Vec<BallotBoxWrapper> = ballot_boxes
@@ -311,7 +322,6 @@ fn build_update_pool_box_tx(
             NonMandatoryRegisterId::R4,
             (*ballot_box.ballot_token_owner().h).clone().into(),
         );
-        let built = ballot_box_candidate.clone().build()?;
         outputs.push(ballot_box_candidate.build()?)
     }
 

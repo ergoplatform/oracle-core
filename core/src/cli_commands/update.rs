@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, io::Write};
 
 use derive_more::From;
 use ergo_lib::{
@@ -24,11 +24,14 @@ use ergo_lib::{
     },
 };
 use ergo_node_interface::node_interface::NodeError;
-use log::debug;
+use log::{debug, info};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
     contracts::{
+        ballot::BallotContractParameters,
+        oracle::OracleContractInputs,
         pool::PoolContractParameters,
         refresh::{
             RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
@@ -38,18 +41,35 @@ use crate::{
         },
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
-    oracle_config::ORACLE_CONFIG,
+    oracle_config::{OracleConfig, ORACLE_CONFIG},
     oracle_state::OraclePool,
     wallet::WalletDataSource,
 };
 
-#[derive(Clone)]
-pub struct UpdateBootstrapConfig {
-    pub refresh_contract_parameters: Option<RefreshContractParameters>,
-    change_address: Address,
+use super::bootstrap::{Addresses, NftMintDetails, TokenMintDetails};
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct UpdateTokensToMint {
+    pub refresh_nft: Option<NftMintDetails>,
+    pub update_nft: Option<NftMintDetails>,
+    pub oracle_tokens: Option<TokenMintDetails>,
+    pub ballot_tokens: Option<TokenMintDetails>,
+    pub reward_tokens: Option<TokenMintDetails>,
 }
 
-fn update_setup(config: UpdateBootstrapConfig) {
+#[derive(Clone, Deserialize)]
+#[serde(try_from = "crate::serde::UpdateBootstrapConfigSerde")]
+pub struct UpdateBootstrapConfig {
+    pub refresh_contract_parameters: Option<RefreshContractParameters>,
+    pub update_contract_parameters: Option<UpdateContractParameters>,
+    pub tokens_to_mint: UpdateTokensToMint,
+    pub addresses: Addresses,
+}
+
+fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
+    let s = std::fs::read_to_string(config_file_name)?;
+    let config: UpdateBootstrapConfig = serde_yaml::from_str(&s)?;
+
     let node_interface = new_node_interface();
     let update_bootstrap_input = UpdateBootstrapInput {
         config: config.clone(),
@@ -58,13 +78,26 @@ fn update_setup(config: UpdateBootstrapConfig) {
         submit_tx: &node_interface,
         tx_fee: BoxValue::SAFE_USER_MIN,
         erg_value_per_box: BoxValue::SAFE_USER_MIN,
-        change_address: config.change_address.clone(),
+        change_address: config
+            .addresses
+            .wallet_address_for_chain_transaction
+            .clone(),
         height: node_interface
             .current_block_height()
             .unwrap()
             .try_into()
             .unwrap(),
     };
+
+    let new_config = perform_update_bootstrap_chained_transaction(update_bootstrap_input)?;
+
+    info!("Update chain-transaction complete");
+    info!("Writing new config file to oracle_config_updated.yaml");
+    let s = serde_yaml::to_string(&new_config)?;
+    let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
+    file.write_all(s.as_bytes())?;
+    info!("Updated oracle configuration file oracle_config_updated.yaml");
+    Ok(())
 }
 
 pub struct UpdateBootstrapInput<'a> {
@@ -80,7 +113,7 @@ pub struct UpdateBootstrapInput<'a> {
 
 pub(crate) fn perform_update_bootstrap_chained_transaction(
     input: UpdateBootstrapInput,
-) -> Result<(), UpdateBootstrapError> {
+) -> Result<OracleConfig, UpdateBootstrapError> {
     let UpdateBootstrapInput {
         config,
         wallet,
@@ -93,14 +126,20 @@ pub(crate) fn perform_update_bootstrap_chained_transaction(
         ..
     } = input;
 
-    let op = OraclePool::new().unwrap();
     // count number of transactions, TODO: add update_contract_parameters, mint reward tokens, etc
-    let mut num_transactions_left = config
-        .refresh_contract_parameters
-        .as_ref()
-        .into_iter()
-        .count() as u32;
-    let wallet_pk_ergo_tree = config.change_address.script()?;
+    let mut num_transactions_left = 0;
+
+    if config.refresh_contract_parameters.is_some() {
+        num_transactions_left += 1;
+    }
+    if config.tokens_to_mint.oracle_tokens.is_some() {
+        num_transactions_left += 1;
+    }
+
+    let wallet_pk_ergo_tree = config
+        .addresses
+        .wallet_address_for_chain_transaction
+        .script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -175,24 +214,52 @@ pub(crate) fn perform_update_bootstrap_chained_transaction(
     let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
     debug!("box selection: {:?}", box_selection);
 
+    let mut new_oracle_config = ORACLE_CONFIG.clone();
+    let mut transactions = vec![];
+    let mut inputs = box_selection.boxes.clone(); // Inputs for each transaction in chained tx, updated after each mint step
+
+    if let Some(ref nft_mint_details) = config.tokens_to_mint.oracle_tokens {
+        let (token, tx) = mint_token(
+            inputs.as_vec().clone(),
+            &mut num_transactions_left,
+            nft_mint_details.name.clone(),
+            nft_mint_details.description.clone(),
+            nft_mint_details.quantity.try_into().unwrap(),
+            None,
+        )?;
+        new_oracle_config.token_ids.oracle_token_id = token.token_id;
+        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+    }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
         let refresh_contract_inputs = RefreshContractInputs {
             contract_parameters,
-            oracle_token_id: &ORACLE_CONFIG.token_ids.oracle_token_id,
+            oracle_token_id: &new_oracle_config.token_ids.oracle_token_id,
             pool_nft_token_id: &ORACLE_CONFIG.token_ids.pool_nft_token_id,
         };
         let refresh_contract = RefreshContract::new(refresh_contract_inputs)?;
-        // TODO: preserve old token descriptions from bootstrap or ask in UpdateConfig?
+        let refresh_nft_details = config
+            .tokens_to_mint
+            .refresh_nft
+            .ok_or(UpdateBootstrapError::NoMintDetails)?;
         let (token, tx) = mint_token(
-            box_selection.boxes.as_vec().clone(),
+            inputs.as_vec().clone(),
             &mut num_transactions_left,
-            "Refresh NFT".to_string(),
-            "".to_string(),
+            refresh_nft_details.name.clone(),
+            refresh_nft_details.description.clone(),
             1.try_into().unwrap(),
             Some(refresh_contract.ergo_tree()),
         )?;
+        new_oracle_config.token_ids.refresh_nft_token_id = token.token_id;
+        new_oracle_config.refresh_contract_parameters = contract_parameters.clone();
+        //TODO: inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+        transactions.push(tx);
     }
-    Ok(())
+
+    for tx in transactions {
+        let tx_id = submit_tx.submit_transaction(&tx)?;
+        info!("Tx submitted {}", tx_id);
+    }
+    Ok(new_oracle_config)
 }
 
 #[derive(Debug, Error, From)]
@@ -225,4 +292,8 @@ pub enum UpdateBootstrapError {
     UpdateContract(UpdateContractError),
     #[error("Bootstrap config file already exists")]
     ConfigFilenameAlreadyExists,
+    #[error("No parameters were added for update")]
+    NoOpUpgrade,
+    #[error("No mint details were provided for update/refresh contract in tokens_to_mint")]
+    NoMintDetails,
 }
