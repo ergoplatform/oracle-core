@@ -92,6 +92,9 @@ enum Command {
         /// Set this flag to output a bootstrap config template file to the given filename. If
         /// filename already exists, return error.
         generate_config_template: bool,
+        #[clap(short, long)]
+        /// Set this flag to use testnet prefix for bootstrap config template file
+        testnet: bool,
     },
 
     /// Run the oracle-pool
@@ -144,10 +147,14 @@ fn main() {
         Command::Bootstrap {
             yaml_config_name,
             generate_config_template,
+            testnet,
         } => {
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
                 if generate_config_template {
-                    cli_commands::bootstrap::generate_bootstrap_config_template(yaml_config_name)?;
+                    cli_commands::bootstrap::generate_bootstrap_config_template(
+                        yaml_config_name,
+                        testnet,
+                    )?;
                 } else {
                     cli_commands::bootstrap::bootstrap(yaml_config_name)?;
                 }
