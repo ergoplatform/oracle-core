@@ -5,14 +5,6 @@ on:
     types: [published]
 
 jobs:
-  create-release:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: taiki-e/create-gh-release-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   upload-assets:
     strategy:
       matrix:
