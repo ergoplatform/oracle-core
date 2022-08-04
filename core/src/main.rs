@@ -67,7 +67,7 @@ pub type BlockDuration = u64;
 /// The epoch counter
 pub type EpochID = u32;
 
-const ORACLE_VERSION: &str = concat!(
+const APP_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     " ",
     env!("GIT_COMMIT_HASH"),
@@ -76,7 +76,7 @@ const ORACLE_VERSION: &str = concat!(
 );
 
 #[derive(Debug, Parser)]
-#[clap(author, version = ORACLE_VERSION, about, long_about = None)]
+#[clap(author, version = APP_VERSION, about, long_about = None)]
 struct Args {
     #[clap(subcommand)]
     command: Command,
@@ -105,7 +105,7 @@ enum Command {
 
 fn main() {
     let args = Args::parse();
-    log::info!("{}", ORACLE_VERSION);
+    log::info!("{}", APP_VERSION);
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Debug)
