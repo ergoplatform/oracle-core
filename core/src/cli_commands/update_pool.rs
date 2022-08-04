@@ -501,7 +501,7 @@ mod tests {
             ErgoBox::from_box_candidate(&pool_box_candidate, force_any_val::<TxId>(), 0).unwrap();
 
         let new_refresh_token_id = force_any_tokenid();
-        let mut new_pool_contract_inputs = pool_contract_inputs.clone();
+        let mut new_pool_contract_inputs = pool_contract_inputs;
         new_pool_contract_inputs.refresh_nft_token_id = &new_refresh_token_id;
         let new_pool_contract = PoolContract::new(new_pool_contract_inputs).unwrap();
 

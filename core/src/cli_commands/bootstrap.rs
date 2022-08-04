@@ -711,7 +711,7 @@ pub enum BootstrapError {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use ergo_lib::{
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
@@ -728,7 +728,7 @@ mod tests {
     use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
     use std::cell::RefCell;
     #[derive(Default)]
-    struct SubmitTxMock {
+    pub(crate) struct SubmitTxMock {
         transactions: RefCell<Vec<ergo_lib::chain::transaction::Transaction>>,
     }
 
