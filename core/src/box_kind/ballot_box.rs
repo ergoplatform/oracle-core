@@ -59,7 +59,7 @@ pub trait BallotBox {
     fn get_box(&self) -> &ErgoBox;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BallotBoxWrapper {
     ergo_box: ErgoBox,
     contract: BallotContract,

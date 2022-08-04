@@ -7,7 +7,6 @@ use crate::box_kind::{
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
-use crate::contracts::update::UpdateContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::{
     BallotBoxWrapperParameters, CastBallotBoxVoteParameters, ORACLE_CONFIG,

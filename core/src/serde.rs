@@ -456,6 +456,7 @@ impl From<UpdateContractParameters> for UpdateContractParametersSerde {
 
 #[derive(Clone, Deserialize)]
 pub struct UpdateBootstrapConfigSerde {
+    pool_contract_parameters: Option<PoolContractParametersSerde>,
     refresh_contract_parameters: Option<RefreshContractParametersSerde>,
     update_contract_parameters: Option<UpdateContractParametersSerde>,
     tokens_to_mint: UpdateTokensToMint,
@@ -470,6 +471,10 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
         } else {
             NetworkPrefix::Testnet
         };
+        let pool_contract_parameters = c
+            .pool_contract_parameters
+            .map(|r| (r, prefix).try_into())
+            .transpose()?;
         let refresh_contract_parameters = c
             .refresh_contract_parameters
             .map(|r| (r, prefix).try_into())
@@ -480,6 +485,7 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
             .transpose()?;
         let addresses = (c.addresses, prefix).try_into()?;
         Ok(UpdateBootstrapConfig {
+            pool_contract_parameters,
             refresh_contract_parameters,
             update_contract_parameters,
             tokens_to_mint: c.tokens_to_mint,

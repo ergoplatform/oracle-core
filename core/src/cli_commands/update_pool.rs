@@ -8,8 +8,8 @@ use ergo_lib::{
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
         address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
-        ergo_box::{box_value::BoxValue, NonMandatoryRegisterId},
-        token::{Token, TokenAmount, TokenId},
+        ergo_box::{box_value::BoxValue, ErgoBox, NonMandatoryRegisterId},
+        token::{Token, TokenId},
     },
     ergotree_ir::mir::constant::Constant,
     ergotree_ir::serialization::SigmaSerializable,
@@ -20,22 +20,17 @@ use ergo_lib::{
     },
 };
 use ergo_node_interface::node_interface::NodeError;
+use log::{error, info};
 use std::convert::TryInto;
 
 use crate::{
-    box_kind::{
-        make_local_ballot_box_candidate, make_pool_box_candidate, BallotBox, BallotBoxWrapper,
-        PoolBox, PoolBoxWrapper,
-    },
+    box_kind::{make_pool_box_candidate, BallotBox, BallotBoxWrapper, PoolBox, PoolBoxWrapper},
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
-    contracts::{ballot::BallotContract, pool::PoolContractInputs},
+    contracts::pool::PoolContractInputs,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::ORACLE_CONFIG,
-    oracle_state::{
-        BallotBoxesSource, LocalBallotBoxSource, OraclePool, PoolBoxSource, StageError,
-        UpdateBoxSource,
-    },
+    oracle_config::{OracleConfig, ORACLE_CONFIG},
+    oracle_state::{BallotBoxesSource, OraclePool, PoolBoxSource, StageError, UpdateBoxSource},
     wallet::WalletDataSource,
 };
 use derive_more::From;
@@ -65,6 +60,12 @@ pub enum UpdatePoolError {
     AddressEncoderError(AddressEncoderError),
     #[error("Update pool: pool contract error {0}")]
     PoolContractError(crate::contracts::pool::PoolContractError),
+    #[error("Update pool: io error {0}")]
+    IoError(std::io::Error),
+    #[error("Update pool: yaml error {0}")]
+    YamlError(serde_yaml::Error),
+    #[error("Update pool: could not find unspent wallot boxes that do not contain ballot tokens")]
+    NoUsableWalletBoxes,
 }
 
 pub fn update_pool(
@@ -73,6 +74,9 @@ pub fn update_pool(
     reward_token_amount: Option<u64>,
     height: Option<u64>,
 ) -> Result<(), UpdatePoolError> {
+    info!("Opening oracle_config_updated.yaml");
+    let s = std::fs::read_to_string("oracle_config_updated.yaml")?;
+    let new_oracle_config: OracleConfig = serde_yaml::from_str(&s)?;
     let wallet = crate::wallet::WalletData {};
     let op = OraclePool::new().unwrap();
     let change_address_str = get_wallet_status()?
@@ -88,8 +92,8 @@ pub fn update_pool(
         AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
 
     let pool_contract_inputs = PoolContractInputs::from((
-        &ORACLE_CONFIG.pool_contract_parameters,
-        &ORACLE_CONFIG.token_ids,
+        &new_oracle_config.pool_contract_parameters,
+        &new_oracle_config.token_ids,
     ));
 
     let new_pool_contract = PoolContract::new(pool_contract_inputs)?;
@@ -101,10 +105,12 @@ pub fn update_pool(
     );
 
     display_update_diff(
+        &ORACLE_CONFIG,
+        &new_oracle_config,
         op.get_pool_box_source().get_pool_box()?,
-        &new_pool_contract,
         None,
     );
+
     if new_pool_box_hash_str.is_none() {
         println!(
             "Run ./oracle-core --new_pool_box_hash {} --height HEIGHT to update pool",
@@ -143,12 +149,18 @@ pub fn update_pool(
 }
 
 fn display_update_diff(
+    old_oracle_config: &OracleConfig,
+    new_oracle_config: &OracleConfig,
     old_pool_box: PoolBoxWrapper,
-    new_pool_contract: &PoolContract,
-    new_tokens: Option<Token>,
+    new_reward_tokens: Option<Token>,
 ) {
-    let new_tokens = new_tokens.unwrap_or(old_pool_box.reward_token().clone());
-    println!("Pool Box Parameters: ");
+    let new_tokens = new_reward_tokens.unwrap_or(old_pool_box.reward_token());
+    let new_pool_contract = PoolContract::new(PoolContractInputs::from((
+        &new_oracle_config.pool_contract_parameters,
+        &new_oracle_config.token_ids,
+    )))
+    .unwrap();
+    println!("Pool Parameters: ");
     let pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -158,11 +170,11 @@ fn display_update_diff(
     println!("Pool Box Hash (new): {}", String::from(pool_box_hash));
     println!(
         "Reward Token ID (old): {}",
-        String::from(old_pool_box.reward_token().token_id.clone())
+        String::from(old_oracle_config.token_ids.reward_token_id.clone())
     );
     println!(
         "Reward Token ID (new): {}",
-        String::from(new_tokens.token_id.clone())
+        String::from(new_oracle_config.token_ids.reward_token_id.clone())
     );
     println!(
         "Reward Token Amount (old): {}",
@@ -274,10 +286,29 @@ fn build_update_pool_box_tx(
     update_box_candidate.add_token(update_box.update_nft());
     let update_box_candidate = update_box_candidate.build()?;
 
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let target_balance = BoxValue::SAFE_USER_MIN;
+    // Find unspent boxes without ballot token, see: https://github.com/ergoplatform/oracle-core/pull/80#issuecomment-1200258458
+    let unspent_boxes: Vec<ErgoBox> = wallet
+        .get_unspent_wallet_boxes()?
+        .into_iter()
+        .filter(|wallet_box| {
+            wallet_box
+                .tokens
+                .as_ref()
+                .and_then(|tokens| {
+                    tokens
+                        .iter()
+                        .find(|token| token.token_id == update_box.ballot_token_id())
+                })
+                .is_none()
+        })
+        .collect();
+    if unspent_boxes.is_empty() {
+        error!("Could not find unspent wallet boxes that do not contain ballot token");
+        return Err(UpdatePoolError::NoUsableWalletBoxes);
+    }
 
-    let tokens_needed; // Amount of tokens we need from wallet box for new pool box
+    let target_balance = BoxValue::SAFE_USER_MIN;
+    let tokens_needed; // Amount of reward tokens we need from wallet box for new pool box
     let target_tokens: &[Token] = if reward_tokens.token_id != old_pool_box.reward_token().token_id
     {
         tokens_needed = [reward_tokens.clone()];
@@ -357,26 +388,25 @@ mod tests {
             ergo_box::box_builder::ErgoBoxCandidateBuilder, ergo_state_context::ErgoStateContext,
             transaction::TxId,
         },
-        ergo_chain_types::{blake2b256_hash, Digest32},
+        ergo_chain_types::blake2b256_hash,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::{
             chain::{
                 address::AddressEncoder,
-                ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
+                ergo_box::{box_value::BoxValue, ErgoBox},
                 token::{Token, TokenId},
             },
-            serialization::{sigma_byte_writer::SigmaByteWriter, SigmaSerializable},
+            serialization::SigmaSerializable,
         },
-        wallet::{signing::TransactionContext, Wallet},
+        wallet::Wallet,
     };
     use sigma_test_util::force_any_val;
-    use std::convert::{TryFrom, TryInto};
+    use std::convert::TryInto;
 
     use crate::{
         box_kind::{
-            make_local_ballot_box_candidate, make_pool_box_candidate, BallotBox, BallotBoxWrapper,
-            PoolBox, PoolBoxWrapper, PoolBoxWrapperInputs, UpdateBoxWrapper,
-            UpdateBoxWrapperInputs,
+            make_local_ballot_box_candidate, make_pool_box_candidate, BallotBoxWrapper,
+            PoolBoxWrapper, PoolBoxWrapperInputs, UpdateBoxWrapper, UpdateBoxWrapperInputs,
         },
         contracts::{
             ballot::{BallotContract, BallotContractInputs},
@@ -385,10 +415,8 @@ mod tests {
         },
         oracle_config::{BallotBoxWrapperParameters, TokenIds},
         pool_commands::test_utils::{
-            find_input_boxes, make_wallet_unspent_box, BallotBoxMock, BallotBoxesMock, PoolBoxMock,
-            UpdateBoxMock, WalletDataMock,
+            make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock, UpdateBoxMock, WalletDataMock,
         },
-        wallet::WalletDataSource,
     };
 
     use super::build_update_pool_box_tx;
