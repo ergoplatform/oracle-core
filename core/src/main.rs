@@ -104,13 +104,17 @@ enum Command {
     },
 
     /// Extract reward tokens to a chosen address
-    ExtractRewardTokens { rewards_address: String },
+    ExtractRewardTokens {
+        rewards_address: String,
+    },
 
     /// Print the number of reward tokens earned by the oracle.
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
-    TransferOracleToken { oracle_token_address: String },
+    TransferOracleToken {
+        oracle_token_address: String,
+    },
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
@@ -128,6 +132,9 @@ enum Command {
         reward_token_id: Option<String>,
         reward_token_amount: Option<u64>,
         height: Option<u64>,
+    },
+    Update {
+        update_bootstrap_file: String,
     },
 }
 
@@ -250,6 +257,7 @@ fn main() {
             reward_token_amount,
             height,
         } => {
+            assert_wallet_unlocked(&new_node_interface());
             if let Err(e) = cli_commands::update_pool::update_pool(
                 new_pool_box_hash,
                 reward_token_id,
@@ -257,6 +265,15 @@ fn main() {
                 height,
             ) {
                 error!("Fatal update-pool error: {}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+        Command::Update {
+            update_bootstrap_file,
+        } => {
+            assert_wallet_unlocked(&new_node_interface());
+            if let Err(e) = cli_commands::update::update(update_bootstrap_file) {
+                error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }

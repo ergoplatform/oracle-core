@@ -8,7 +8,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoderError},
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -30,8 +30,6 @@ use thiserror::Error;
 
 use crate::{
     contracts::{
-        ballot::BallotContractParameters,
-        oracle::OracleContractInputs,
         pool::PoolContractParameters,
         refresh::{
             RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
@@ -42,7 +40,6 @@ use crate::{
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, ORACLE_CONFIG},
-    oracle_state::OraclePool,
     wallet::WalletDataSource,
 };
 
@@ -60,17 +57,29 @@ pub struct UpdateTokensToMint {
 #[derive(Clone, Deserialize)]
 #[serde(try_from = "crate::serde::UpdateBootstrapConfigSerde")]
 pub struct UpdateBootstrapConfig {
+    pub pool_contract_parameters: Option<PoolContractParameters>, // New pool script, etc. Note that we don't actually mint any new pool NFT in the update step, instead this is simply passed to the new oracle config for convenience
     pub refresh_contract_parameters: Option<RefreshContractParameters>,
     pub update_contract_parameters: Option<UpdateContractParameters>,
     pub tokens_to_mint: UpdateTokensToMint,
     pub addresses: Addresses,
 }
 
-fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
+pub fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config: UpdateBootstrapConfig = serde_yaml::from_str(&s)?;
 
     let node_interface = new_node_interface();
+    let prefix = if ORACLE_CONFIG.on_mainnet {
+        NetworkPrefix::Mainnet
+    } else {
+        NetworkPrefix::Testnet
+    };
+    let change_address = AddressEncoder::new(prefix).parse_address_from_str(
+        &node_interface
+            .wallet_status()?
+            .change_address
+            .ok_or(UpdateBootstrapError::NoChangeAddressSetInNode)?,
+    )?;
     let update_bootstrap_input = UpdateBootstrapInput {
         config: config.clone(),
         wallet: &node_interface,
@@ -78,15 +87,13 @@ fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
         submit_tx: &node_interface,
         tx_fee: BoxValue::SAFE_USER_MIN,
         erg_value_per_box: BoxValue::SAFE_USER_MIN,
-        change_address: config
-            .addresses
-            .wallet_address_for_chain_transaction
-            .clone(),
+        change_address,
         height: node_interface
             .current_block_height()
             .unwrap()
             .try_into()
             .unwrap(),
+        old_config: ORACLE_CONFIG.clone(),
     };
 
     let new_config = perform_update_bootstrap_chained_transaction(update_bootstrap_input)?;
@@ -109,6 +116,7 @@ pub struct UpdateBootstrapInput<'a> {
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
     pub height: u32,
+    pub old_config: OracleConfig,
 }
 
 pub(crate) fn perform_update_bootstrap_chained_transaction(
@@ -123,16 +131,25 @@ pub(crate) fn perform_update_bootstrap_chained_transaction(
         erg_value_per_box,
         change_address,
         height,
+        old_config,
         ..
     } = input;
 
-    // count number of transactions, TODO: add update_contract_parameters, mint reward tokens, etc
-    let mut num_transactions_left = 0;
+    let mut num_transactions_left = 1;
 
     if config.refresh_contract_parameters.is_some() {
         num_transactions_left += 1;
     }
+    if config.update_contract_parameters.is_some() {
+        num_transactions_left += 1;
+    }
     if config.tokens_to_mint.oracle_tokens.is_some() {
+        num_transactions_left += 1;
+    }
+    if config.tokens_to_mint.ballot_tokens.is_some() {
+        num_transactions_left += 1;
+    }
+    if config.tokens_to_mint.reward_tokens.is_some() {
         num_transactions_left += 1;
     }
 
@@ -214,27 +231,57 @@ pub(crate) fn perform_update_bootstrap_chained_transaction(
     let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
     debug!("box selection: {:?}", box_selection);
 
-    let mut new_oracle_config = ORACLE_CONFIG.clone();
+    let mut new_oracle_config = old_config.clone();
     let mut transactions = vec![];
     let mut inputs = box_selection.boxes.clone(); // Inputs for each transaction in chained tx, updated after each mint step
 
-    if let Some(ref nft_mint_details) = config.tokens_to_mint.oracle_tokens {
+    if let Some(ref token_mint_details) = config.tokens_to_mint.oracle_tokens {
+        info!("Minting oracle tokens");
         let (token, tx) = mint_token(
-            inputs.as_vec().clone(),
+            inputs.into(),
             &mut num_transactions_left,
-            nft_mint_details.name.clone(),
-            nft_mint_details.description.clone(),
-            nft_mint_details.quantity.try_into().unwrap(),
+            token_mint_details.name.clone(),
+            token_mint_details.description.clone(),
+            token_mint_details.quantity.try_into().unwrap(),
             None,
         )?;
         new_oracle_config.token_ids.oracle_token_id = token.token_id;
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+        transactions.push(tx);
+    }
+    if let Some(ref token_mint_details) = config.tokens_to_mint.ballot_tokens {
+        info!("Minting ballot tokens");
+        let (token, tx) = mint_token(
+            inputs.into(),
+            &mut num_transactions_left,
+            token_mint_details.name.clone(),
+            token_mint_details.description.clone(),
+            token_mint_details.quantity.try_into().unwrap(),
+            None,
+        )?;
+        new_oracle_config.token_ids.ballot_token_id = token.token_id;
+        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+    }
+    if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
+        info!("Minting reward tokens");
+        let (token, tx) = mint_token(
+            inputs.into(),
+            &mut num_transactions_left,
+            token_mint_details.name.clone(),
+            token_mint_details.description.clone(),
+            token_mint_details.quantity.try_into().unwrap(),
+            None,
+        )?;
+        new_oracle_config.token_ids.reward_token_id = token.token_id;
+        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+        transactions.push(tx);
     }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
+        info!("Creating new refresh NFT");
         let refresh_contract_inputs = RefreshContractInputs {
             contract_parameters,
             oracle_token_id: &new_oracle_config.token_ids.oracle_token_id,
-            pool_nft_token_id: &ORACLE_CONFIG.token_ids.pool_nft_token_id,
+            pool_nft_token_id: &old_config.token_ids.pool_nft_token_id,
         };
         let refresh_contract = RefreshContract::new(refresh_contract_inputs)?;
         let refresh_nft_details = config
@@ -242,7 +289,7 @@ pub(crate) fn perform_update_bootstrap_chained_transaction(
             .refresh_nft
             .ok_or(UpdateBootstrapError::NoMintDetails)?;
         let (token, tx) = mint_token(
-            inputs.as_vec().clone(),
+            inputs.into(),
             &mut num_transactions_left,
             refresh_nft_details.name.clone(),
             refresh_nft_details.description.clone(),
@@ -251,8 +298,38 @@ pub(crate) fn perform_update_bootstrap_chained_transaction(
         )?;
         new_oracle_config.token_ids.refresh_nft_token_id = token.token_id;
         new_oracle_config.refresh_contract_parameters = contract_parameters.clone();
-        //TODO: inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+        info!("Refresh contract tx id: {:?}", tx.id());
         transactions.push(tx);
+    }
+    if let Some(ref contract_parameters) = config.update_contract_parameters {
+        info!("Creating new update NFT");
+        let update_contract_inputs = UpdateContractInputs {
+            contract_parameters,
+            ballot_token_id: &new_oracle_config.token_ids.ballot_token_id,
+            pool_nft_token_id: &new_oracle_config.token_ids.pool_nft_token_id,
+        };
+        let update_contract = UpdateContract::new(update_contract_inputs)?;
+        let update_nft_details = config
+            .tokens_to_mint
+            .update_nft
+            .ok_or(UpdateBootstrapError::NoMintDetails)?;
+        let (token, tx) = mint_token(
+            inputs.into(),
+            &mut num_transactions_left,
+            update_nft_details.name.clone(),
+            update_nft_details.description.clone(),
+            1.try_into().unwrap(),
+            Some(update_contract.ergo_tree()),
+        )?;
+        new_oracle_config.token_ids.update_nft_token_id = token.token_id;
+        new_oracle_config.update_contract_parameters = contract_parameters.clone();
+        info!("Update contract tx id: {:?}", tx.id());
+        transactions.push(tx);
+    }
+
+    if let Some(new_pool_contract_parameters) = config.pool_contract_parameters {
+        new_oracle_config.pool_contract_parameters = new_pool_contract_parameters;
     }
 
     for tx in transactions {
@@ -286,7 +363,7 @@ pub enum UpdateBootstrapError {
     SigmaParse(SigmaParsingError),
     #[error("Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
-    #[error("Node doesn't have a change address set")]
+    #[error("Refresh contract failed: {0}")]
     RefreshContract(RefreshContractError),
     #[error("Update contract error: {0}")]
     UpdateContract(UpdateContractError),

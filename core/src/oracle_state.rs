@@ -9,7 +9,9 @@ use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::update::UpdateContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::{
+    BallotBoxWrapperParameters, CastBallotBoxVoteParameters, ORACLE_CONFIG,
+};
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
     register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
@@ -19,8 +21,12 @@ use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
+use ergo_lib::ergo_chain_types::Digest32;
+use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder};
+use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, NonMandatoryRegisterId};
+use ergo_lib::ergotree_ir::chain::token::TokenId;
+use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
+use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
 use thiserror::Error;
@@ -529,9 +535,53 @@ impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
             .get_boxes()?
             .into_iter()
             .map(|ballot_box| {
+                // Build Parameters for each Ballot Box
+                // TODO: After updating, a ballot box will have no vote parameters, currently BallotBox::new() will fail when scanning for these boxes
+                let ec = ballot_box
+                    .get_register(NonMandatoryRegisterId::R4.into())
+                    .ok_or(BallotBoxError::NoGroupElementInR4)?
+                    .try_extract_into::<ergo_lib::ergo_chain_types::EcPoint>()?;
+
+                let address = AddressEncoder::new(
+                    self.ballot_box_wrapper_inputs
+                        .parameters
+                        .contract_parameters
+                        .p2s
+                        .network(),
+                )
+                .address_to_str(&Address::P2Pk(ProveDlog::from(ec)));
+                let pool_box_address_hash = base16::encode_lower(
+                    &ballot_box
+                        .get_register(NonMandatoryRegisterId::R6.into())
+                        .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
+                        .try_extract_into::<Digest32>()?,
+                );
+
+                let reward_token_id = ballot_box
+                    .get_register(NonMandatoryRegisterId::R7.into())
+                    .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
+                    .try_extract_into::<TokenId>()?;
+                let reward_token_quantity = ballot_box
+                    .get_register(NonMandatoryRegisterId::R8.into())
+                    .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
+                    .try_extract_into::<i64>()? as u32;
+                let vote_parameters = CastBallotBoxVoteParameters {
+                    reward_token_id,
+                    reward_token_quantity,
+                    pool_box_address_hash,
+                };
+                let ballot_box_wrapper_parameters = BallotBoxWrapperParameters {
+                    vote_parameters: Some(vote_parameters),
+                    ballot_token_owner_address: address,
+                    ..self.ballot_box_wrapper_inputs.parameters.clone()
+                };
+                let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
+                    parameters: &ballot_box_wrapper_parameters,
+                    ..self.ballot_box_wrapper_inputs.clone()
+                };
                 Ok(BallotBoxWrapper::new(
                     ballot_box,
-                    self.ballot_box_wrapper_inputs,
+                    ballot_box_wrapper_inputs,
                 )?)
             })
             .collect()

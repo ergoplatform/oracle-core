@@ -41,8 +41,8 @@ pub(crate) struct OracleConfigSerde {
     oracle_contract_parameters: OracleContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
+    update_contract_parameters: UpdateContractParametersSerde,
     ballot_parameters: BallotBoxWrapperParametersSerde,
-    update_parameters: UpdateContractParametersSerde,
     token_ids: TokenIds,
     addresses: AddressesSerde,
 }
@@ -65,7 +65,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         let refresh_contract_parameters =
             RefreshContractParameters::try_from((c.refresh_contract_parameters, prefix))?;
         let update_contract_parameters =
-            UpdateContractParameters::try_from((c.update_parameters, prefix))?;
+            UpdateContractParameters::try_from((c.update_contract_parameters, prefix))?;
 
         let ballot_parameters = BallotBoxWrapperParameters {
             contract_parameters: BallotContractParameters::try_from((
@@ -112,7 +112,8 @@ impl From<OracleConfig> for OracleConfigSerde {
             vote_parameters: c.ballot_parameters.vote_parameters,
             ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
         };
-        let update_parameters = UpdateContractParametersSerde::from(c.update_contract_parameters);
+        let update_contract_parameters =
+            UpdateContractParametersSerde::from(c.update_contract_parameters);
 
         let prefix = if c.on_mainnet {
             NetworkPrefix::Mainnet
@@ -135,7 +136,7 @@ impl From<OracleConfig> for OracleConfigSerde {
             pool_contract_parameters,
             refresh_contract_parameters,
             ballot_parameters,
-            update_parameters,
+            update_contract_parameters,
             token_ids: c.token_ids,
             addresses: AddressesSerde::from((c.addresses, prefix)),
         }
