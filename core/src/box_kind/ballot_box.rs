@@ -67,15 +67,6 @@ pub struct BallotBoxWrapper {
 
 impl BallotBoxWrapper {
     pub fn new(ergo_box: ErgoBox, inputs: BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
-        let CastBallotBoxVoteParameters {
-            reward_token_id,
-            reward_token_quantity,
-            pool_box_address_hash,
-        } = inputs
-            .parameters
-            .vote_parameters
-            .as_ref()
-            .ok_or(BallotBoxError::ExpectedVoteCast)?;
         let ballot_token_id = &ergo_box
             .tokens
             .as_ref()
@@ -98,42 +89,54 @@ impl BallotBoxWrapper {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
 
-        if ergo_box
-            .get_register(NonMandatoryRegisterId::R5.into())
-            .ok_or(BallotBoxError::NoUpdateBoxCreationHeightInR5)?
-            .try_extract_into::<i32>()
-            .is_err()
+        if let Some(CastBallotBoxVoteParameters {
+            reward_token_id,
+            reward_token_quantity,
+            pool_box_address_hash,
+        }) = inputs.parameters.vote_parameters.as_ref()
         {
-            return Err(BallotBoxError::NoUpdateBoxCreationHeightInR5);
-        }
+            if ergo_box
+                .get_register(NonMandatoryRegisterId::R5.into())
+                .ok_or(BallotBoxError::NoUpdateBoxCreationHeightInR5)?
+                .try_extract_into::<i32>()
+                .is_err()
+            {
+                return Err(BallotBoxError::NoUpdateBoxCreationHeightInR5);
+            }
 
-        let register_pool_box_address_hash = ergo_box
-            .get_register(NonMandatoryRegisterId::R6.into())
-            .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
-            .try_extract_into::<Digest32>()?;
-        let pb: Digest32 = base16::decode(pool_box_address_hash)
-            .unwrap()
-            .try_into()
-            .unwrap();
-        if pb != register_pool_box_address_hash {
-            warn!("Pool box address in R6 register differs to config. Could be due to vote.");
-        }
+            let register_pool_box_address_hash = ergo_box
+                .get_register(NonMandatoryRegisterId::R6.into())
+                .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
+                .try_extract_into::<Digest32>()?;
+            let pb: Digest32 = base16::decode(pool_box_address_hash)
+                .unwrap()
+                .try_into()
+                .unwrap();
+            if pb != register_pool_box_address_hash {
+                warn!("Pool box address in R6 register differs to config. Could be due to vote.");
+            }
 
-        let register_reward_token_id = ergo_box
-            .get_register(NonMandatoryRegisterId::R7.into())
-            .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
-            .try_extract_into::<TokenId>()?;
-        if register_reward_token_id != *reward_token_id {
-            warn!("Reward token id in R7 register differs to config. Could be due to vote.");
-        }
+            let register_reward_token_id = ergo_box
+                .get_register(NonMandatoryRegisterId::R7.into())
+                .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
+                .try_extract_into::<TokenId>()?;
+            if register_reward_token_id != *reward_token_id {
+                warn!("Reward token id in R7 register differs to config. Could be due to vote.");
+            }
 
-        let register_reward_token_quantity = ergo_box
-            .get_register(NonMandatoryRegisterId::R8.into())
-            .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-            .try_extract_into::<i64>()? as u32;
+            let register_reward_token_quantity = ergo_box
+                .get_register(NonMandatoryRegisterId::R8.into())
+                .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
+                .try_extract_into::<i64>()? as u32;
 
-        if register_reward_token_quantity != *reward_token_quantity {
-            warn!("Reward token quantity in R8 register differs to config. Could be due to vote.");
+            if register_reward_token_quantity != *reward_token_quantity {
+                warn!(
+                    "Reward token quantity in R8 register differs to config. Could be due to vote."
+                );
+            }
+        } else if ergo_box.additional_registers.len() > 1 {
+            // If no vote parameter is provided, then the box must only have R4 (owner public key) defined
+            return Err(BallotBoxError::ExpectedVoteCast);
         }
 
         let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), inputs.into())?;

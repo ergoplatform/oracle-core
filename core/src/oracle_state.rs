@@ -549,28 +549,33 @@ impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
                         .network(),
                 )
                 .address_to_str(&Address::P2Pk(ProveDlog::from(ec)));
-                let pool_box_address_hash = base16::encode_lower(
-                    &ballot_box
-                        .get_register(NonMandatoryRegisterId::R6.into())
-                        .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
-                        .try_extract_into::<Digest32>()?,
-                );
 
-                let reward_token_id = ballot_box
-                    .get_register(NonMandatoryRegisterId::R7.into())
-                    .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
-                    .try_extract_into::<TokenId>()?;
-                let reward_token_quantity = ballot_box
-                    .get_register(NonMandatoryRegisterId::R8.into())
-                    .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-                    .try_extract_into::<i64>()? as u32;
-                let vote_parameters = CastBallotBoxVoteParameters {
-                    reward_token_id,
-                    reward_token_quantity,
-                    pool_box_address_hash,
+                let vote_parameters = if let Some(pool_box_address_hash) =
+                    ballot_box.get_register(NonMandatoryRegisterId::R6.into())
+                {
+                    let pool_box_address_hash = base16::encode_lower(
+                        &pool_box_address_hash.try_extract_into::<Digest32>()?,
+                    );
+
+                    let reward_token_id = ballot_box
+                        .get_register(NonMandatoryRegisterId::R7.into())
+                        .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
+                        .try_extract_into::<TokenId>()?;
+                    let reward_token_quantity = ballot_box
+                        .get_register(NonMandatoryRegisterId::R8.into())
+                        .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
+                        .try_extract_into::<i64>()?
+                        as u32;
+                    Some(CastBallotBoxVoteParameters {
+                        reward_token_id,
+                        reward_token_quantity,
+                        pool_box_address_hash,
+                    })
+                } else {
+                    None
                 };
                 let ballot_box_wrapper_parameters = BallotBoxWrapperParameters {
-                    vote_parameters: Some(vote_parameters),
+                    vote_parameters,
                     ballot_token_owner_address: address,
                     ..self.ballot_box_wrapper_inputs.parameters.clone()
                 };
