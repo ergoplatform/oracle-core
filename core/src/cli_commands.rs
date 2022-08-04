@@ -13,7 +13,7 @@ pub(crate) fn ergo_explorer_transaction_link(tx_id_str: String, prefix: NetworkP
         NetworkPrefix::Mainnet => "explorer",
         NetworkPrefix::Testnet => "testnet",
     };
-    let tx_id_str = tx_id_str.replace("\"", ""); // Node interface returns Tx Id as a JSON string "TxId"
+    let tx_id_str = tx_id_str.replace('"', ""); // Node interface returns Tx Id as a JSON string "TxId"
     format!(
         "https://{}.ergoplatform.com/en/transactions/{}",
         prefix_str, tx_id_str

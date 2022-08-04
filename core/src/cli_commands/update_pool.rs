@@ -154,7 +154,7 @@ fn display_update_diff(
     old_pool_box: PoolBoxWrapper,
     new_reward_tokens: Option<Token>,
 ) {
-    let new_tokens = new_reward_tokens.unwrap_or(old_pool_box.reward_token());
+    let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
     let new_pool_contract = PoolContract::new(PoolContractInputs::from((
         &new_oracle_config.pool_contract_parameters,
         &new_oracle_config.token_ids,
@@ -199,6 +199,7 @@ fn display_update_diff(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_update_pool_box_tx(
     pool_box_source: &dyn PoolBoxSource,
     ballot_boxes: &dyn BallotBoxesSource,
@@ -218,7 +219,7 @@ fn build_update_pool_box_tx(
             .sigma_serialize_bytes()
             .unwrap(),
     ));
-    let reward_tokens = new_reward_tokens.unwrap_or(old_pool_box.reward_token());
+    let reward_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
     // Sort in descending order of ballot token amounts. If two boxes have the same amount of ballot tokens, also compare box value, in case some boxes were incorrectly created below minStorageRent
@@ -335,7 +336,7 @@ fn build_update_pool_box_tx(
             .map(|ballot_box| ballot_box.get_box())
             .cloned(),
     );
-    input_boxes.extend_from_slice(&*selection.boxes.as_vec());
+    input_boxes.extend_from_slice(selection.boxes.as_vec());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
         change_boxes: selection.change_boxes,

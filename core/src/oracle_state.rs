@@ -576,7 +576,7 @@ impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
                 };
                 let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
                     parameters: &ballot_box_wrapper_parameters,
-                    ..self.ballot_box_wrapper_inputs.clone()
+                    ..self.ballot_box_wrapper_inputs
                 };
                 Ok(BallotBoxWrapper::new(
                     ballot_box,
