@@ -304,7 +304,7 @@ fn build_update_pool_box_tx(
         })
         .collect();
     if unspent_boxes.is_empty() {
-        error!("Could not find unspent wallet boxes that do not contain ballot token");
+        error!("Could not find unspent wallet boxes that do not contain ballot token. Please move ballot tokens to another address");
         return Err(UpdatePoolError::NoUsableWalletBoxes);
     }
 
