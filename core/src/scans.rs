@@ -1,5 +1,5 @@
 use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
-use crate::contracts::pool::PoolContract;
+use crate::contracts::pool::{PoolContract, PoolContractError};
 use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{
@@ -34,6 +34,8 @@ pub enum ScanError {
     IoError(std::io::Error),
     #[error("refresh contract error: {0}")]
     RefreshContract(RefreshContractError),
+    #[error("pool contract error: {0}")]
+    PoolContract(PoolContractError),
 }
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
@@ -118,8 +120,9 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 /// This function registers scanning for the pool box
 pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes =
-        ergo_tree_to_scan_bytes(&PoolContract::new(inputs.into()).unwrap().ergo_tree());
+    let pool_box_tree_bytes = PoolContract::new(inputs.into())?
+        .ergo_tree()
+        .to_scan_bytes();
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {
@@ -145,7 +148,9 @@ pub fn register_refresh_box_scan(
     inputs: RefreshBoxWrapperInputs,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = ergo_tree_to_scan_bytes(&RefreshContract::new(inputs.into())?.ergo_tree());
+    let tree_bytes = RefreshContract::new(inputs.into())?
+        .ergo_tree()
+        .to_scan_bytes();
 
     // Scan for NFT id + Oracle Pool Epoch address
     let scan_json = json! ( {
@@ -173,7 +178,7 @@ pub fn register_local_oracle_datapoint_scan(
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
     let oracle_add_bytes = address_to_raw_for_register(oracle_address)?;
-    let datapoint_bytes = ergo_tree_to_scan_bytes(&datapoint_address);
+    let datapoint_bytes = datapoint_address.to_scan_bytes();
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
@@ -203,7 +208,7 @@ pub fn register_datapoint_scan(
     oracle_pool_participant_token: &TokenId,
     datapoint_address: &ErgoTree,
 ) -> Result<Scan> {
-    let datapoint_bytes = ergo_tree_to_scan_bytes(&datapoint_address);
+    let datapoint_bytes = datapoint_address.to_scan_bytes();
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
         "predicate": "and",
@@ -230,7 +235,7 @@ pub fn register_local_ballot_box_scan(
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
     let ballot_add_bytes = address_to_raw_for_register(ballot_token_owner_address)?;
-    let ballot_contract_bytes = ergo_tree_to_scan_bytes(&ballot_contract_address);
+    let ballot_contract_bytes = ballot_contract_address.to_scan_bytes();
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
         "predicate": "and",
@@ -268,7 +273,7 @@ pub fn register_ballot_box_scan(
         },
         {
             "predicate": "equals",
-            "value": ergo_tree_to_scan_bytes(ballot_contract_address),
+            "value": ballot_contract_address.to_scan_bytes(),
         }
         ] });
     Scan::register("Ballot Box Scan", scan_json)
@@ -287,10 +292,17 @@ pub fn register_update_box_scan(update_nft_token_id: &TokenId) -> Result<Scan> {
     Scan::register("Update Box Scan", scan_json)
 }
 
-fn ergo_tree_to_scan_bytes(tree: &ErgoTree) -> String {
-    base16::encode_lower(
-        &Constant::from(tree.sigma_serialize_bytes().unwrap())
-            .sigma_serialize_bytes()
-            .unwrap(),
-    )
+/// Convert a chain type to Coll[Byte] for scans
+pub trait ToScanBytes {
+    fn to_scan_bytes(&self) -> String;
+}
+
+impl ToScanBytes for ErgoTree {
+    fn to_scan_bytes(&self) -> String {
+        base16::encode_lower(
+            &Constant::from(self.sigma_serialize_bytes().unwrap())
+                .sigma_serialize_bytes()
+                .unwrap(),
+        )
+    }
 }
