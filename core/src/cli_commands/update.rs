@@ -64,7 +64,7 @@ pub struct UpdateBootstrapConfig {
     pub addresses: Addresses,
 }
 
-pub fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
+pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config: UpdateBootstrapConfig = serde_yaml::from_str(&s)?;
 
@@ -78,9 +78,9 @@ pub fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
         &node_interface
             .wallet_status()?
             .change_address
-            .ok_or(UpdateBootstrapError::NoChangeAddressSetInNode)?,
+            .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
     )?;
-    let update_bootstrap_input = UpdateBootstrapInput {
+    let update_bootstrap_input = PrepareUpdateInput {
         config: config.clone(),
         wallet: &node_interface,
         tx_signer: &node_interface,
@@ -107,7 +107,7 @@ pub fn update(config_file_name: String) -> Result<(), UpdateBootstrapError> {
     Ok(())
 }
 
-pub struct UpdateBootstrapInput<'a> {
+pub struct PrepareUpdateInput<'a> {
     pub config: UpdateBootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
     pub tx_signer: &'a dyn SignTransaction,
@@ -120,9 +120,9 @@ pub struct UpdateBootstrapInput<'a> {
 }
 
 pub(crate) fn perform_update_chained_transaction(
-    input: UpdateBootstrapInput,
-) -> Result<OracleConfig, UpdateBootstrapError> {
-    let UpdateBootstrapInput {
+    input: PrepareUpdateInput,
+) -> Result<OracleConfig, PrepareUpdateError> {
+    let PrepareUpdateInput {
         config,
         wallet,
         tx_signer: wallet_sign,
@@ -185,7 +185,7 @@ pub(crate) fn perform_update_chained_transaction(
                       token_desc,
                       token_amount,
                       different_token_box_guard: Option<ErgoTree>|
-     -> Result<(Token, Transaction), UpdateBootstrapError> {
+     -> Result<(Token, Transaction), PrepareUpdateError> {
         let target_balance = calc_target_balance(*num_transactions_left)?;
         let box_selector = SimpleBoxSelector::new();
         let box_selection = box_selector.select(input_boxes, target_balance, &[])?;
@@ -287,7 +287,7 @@ pub(crate) fn perform_update_chained_transaction(
         let refresh_nft_details = config
             .tokens_to_mint
             .refresh_nft
-            .ok_or(UpdateBootstrapError::NoMintDetails)?;
+            .ok_or(PrepareUpdateError::NoMintDetails)?;
         let (token, tx) = mint_token(
             inputs.into(),
             &mut num_transactions_left,
@@ -313,7 +313,7 @@ pub(crate) fn perform_update_chained_transaction(
         let update_nft_details = config
             .tokens_to_mint
             .update_nft
-            .ok_or(UpdateBootstrapError::NoMintDetails)?;
+            .ok_or(PrepareUpdateError::NoMintDetails)?;
         let (token, tx) = mint_token(
             inputs.into(),
             &mut num_transactions_left,
@@ -340,7 +340,7 @@ pub(crate) fn perform_update_chained_transaction(
 }
 
 #[derive(Debug, Error, From)]
-pub enum UpdateBootstrapError {
+pub enum PrepareUpdateError {
     #[error("tx builder error: {0}")]
     TxBuilder(TxBuilderError),
     #[error("box builder error: {0}")]
@@ -392,7 +392,8 @@ mod test {
     use crate::cli_commands::bootstrap::tests::SubmitTxMock;
     use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
 
-    fn test_update_transaction() {
+    #[test]
+    fn test_prepare_update_transaction() {
         let old_config: OracleConfig = serde_yaml::from_str(
             "---
 token_ids:
@@ -514,7 +515,7 @@ ballot_parameters:
 
         let height = ctx.pre_header.height;
         let submit_tx = SubmitTxMock::default();
-        let oracle_config = perform_update_chained_transaction(UpdateBootstrapInput {
+        let oracle_config = perform_update_chained_transaction(PrepareUpdateInput {
             config: state.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

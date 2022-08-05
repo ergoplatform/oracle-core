@@ -8,7 +8,7 @@
 #![deny(non_camel_case_types)]
 #![deny(non_snake_case)]
 #![deny(unused_mut)]
-//#![deny(unused_imports)] TODO
+#![deny(unused_imports)]
 #![deny(clippy::wildcard_enum_match_arm)]
 // #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
@@ -133,7 +133,7 @@ enum Command {
         reward_token_amount: Option<u64>,
         height: Option<u64>,
     },
-    Update {
+    PrepareUpdate {
         update_bootstrap_file: String,
     },
 }
@@ -268,11 +268,11 @@ fn main() {
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
-        Command::Update {
+        Command::PrepareUpdate {
             update_bootstrap_file,
         } => {
             assert_wallet_unlocked(&new_node_interface());
-            if let Err(e) = cli_commands::update::update(update_bootstrap_file) {
+            if let Err(e) = cli_commands::update::prepare_update(update_bootstrap_file) {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
