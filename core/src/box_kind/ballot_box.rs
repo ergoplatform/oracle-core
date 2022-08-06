@@ -197,7 +197,6 @@ pub fn make_local_ballot_box_candidate(
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    dbg!(&reward_tokens);
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
     builder.set_register_value(
         NonMandatoryRegisterId::R4,

@@ -104,17 +104,13 @@ enum Command {
     },
 
     /// Extract reward tokens to a chosen address
-    ExtractRewardTokens {
-        rewards_address: String,
-    },
+    ExtractRewardTokens { rewards_address: String },
 
     /// Print the number of reward tokens earned by the oracle.
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
-    TransferOracleToken {
-        oracle_token_address: String,
-    },
+    TransferOracleToken { oracle_token_address: String },
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
@@ -127,14 +123,21 @@ enum Command {
         /// The creation height of the update box.
         update_box_creation_height: u32,
     },
+    /// Initiate the Update Pool transaction.
+    /// Run with no arguments to to show diff between oracle_config.yaml and oracle_config_updated.yaml
+    /// Updated config file must be created using --prepare-update command first
     UpdatePool {
+        /// New pool box hash. Must match hash of updated pool contract
         new_pool_box_hash: Option<String>,
+        /// New reward token id (optional)
         reward_token_id: Option<String>,
+        /// New reward token amount, required if new token id was voted for
         reward_token_amount: Option<u64>,
-        height: Option<u64>,
     },
+    /// Prepare updating oracle pool with new contracts/parameters.
     PrepareUpdate {
-        update_bootstrap_file: String,
+        /// Name of update parameters file (.yaml)
+        update_file: String,
     },
 }
 
@@ -255,24 +258,20 @@ fn main() {
             new_pool_box_hash,
             reward_token_id,
             reward_token_amount,
-            height,
         } => {
             assert_wallet_unlocked(&new_node_interface());
             if let Err(e) = cli_commands::update_pool::update_pool(
                 new_pool_box_hash,
                 reward_token_id,
                 reward_token_amount,
-                height,
             ) {
                 error!("Fatal update-pool error: {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
-        Command::PrepareUpdate {
-            update_bootstrap_file,
-        } => {
+        Command::PrepareUpdate { update_file } => {
             assert_wallet_unlocked(&new_node_interface());
-            if let Err(e) = cli_commands::update::prepare_update(update_bootstrap_file) {
+            if let Err(e) = cli_commands::update::prepare_update(update_file) {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }

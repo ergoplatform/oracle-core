@@ -72,7 +72,6 @@ pub fn update_pool(
     new_pool_box_hash_str: Option<String>,
     reward_token_id: Option<String>,
     reward_token_amount: Option<u64>,
-    height: Option<u64>,
 ) -> Result<(), UpdatePoolError> {
     info!("Opening oracle_config_updated.yaml");
     let s = std::fs::read_to_string("oracle_config_updated.yaml")?;
@@ -113,22 +112,18 @@ pub fn update_pool(
 
     if new_pool_box_hash_str.is_none() {
         println!(
-            "Run ./oracle-core --new_pool_box_hash {} --height HEIGHT to update pool",
+            "Run ./oracle-core --new_pool_box_hash {} to update pool",
             String::from(new_pool_box_hash)
         );
         return Ok(());
     }
-    let height = height.unwrap();
     let new_reward_tokens = reward_token_id
         .zip(reward_token_amount)
         .map(|(token_id, amount)| Token {
             token_id: TokenId::from_base64(&token_id).unwrap(),
             amount: amount.try_into().unwrap(),
         });
-    if height != current_block_height()? {
-        println!("Height outdated, please use current blockchain height");
-        std::process::exit(exitcode::SOFTWARE);
-    }
+
     let tx = build_update_pool_box_tx(
         op.get_pool_box_source(),
         op.get_ballot_boxes_source(),
