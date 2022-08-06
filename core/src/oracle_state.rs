@@ -535,7 +535,6 @@ impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
             .into_iter()
             .map(|ballot_box| {
                 // Build Parameters for each Ballot Box
-                // TODO: After updating, a ballot box will have no vote parameters, currently BallotBox::new() will fail when scanning for these boxes
                 let ec = ballot_box
                     .get_register(NonMandatoryRegisterId::R4.into())
                     .ok_or(BallotBoxError::NoGroupElementInR4)?

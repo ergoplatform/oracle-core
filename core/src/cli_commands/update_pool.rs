@@ -210,9 +210,9 @@ fn build_update_pool_box_tx(
     height: u32,
     change_address: Address,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
-    let min_votes = update_box.get_update_box()?.min_votes();
-    let old_pool_box = pool_box_source.get_pool_box()?;
     let update_box = update_box.get_update_box()?;
+    let min_votes = update_box.min_votes();
+    let old_pool_box = pool_box_source.get_pool_box()?;
     let pool_box_hash = Constant::from(blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -259,9 +259,6 @@ fn build_update_pool_box_tx(
                     == Some(&(*reward_tokens.amount.as_u64() as i64).into())
         })
         .scan(&mut votes_cast, |votes_cast, ballot_box| {
-            if **votes_cast >= min_votes as u64 {
-                return None;
-            }
             **votes_cast += *ballot_box.ballot_token().amount.as_u64();
             Some(ballot_box)
         })
@@ -314,16 +311,6 @@ fn build_update_pool_box_tx(
     {
         tokens_needed = [reward_tokens.clone()];
         &tokens_needed
-    } else if reward_tokens.amount > old_pool_box.reward_token().amount {
-        let diff = reward_tokens
-            .amount
-            .checked_sub(&old_pool_box.reward_token().amount)
-            .unwrap();
-        tokens_needed = [Token {
-            token_id: reward_tokens.token_id,
-            amount: diff,
-        }];
-        &tokens_needed
     } else {
         &[]
     };
@@ -370,7 +357,7 @@ fn build_update_pool_box_tx(
         tx_builder.set_context_extension(
             input_ballot.get_box().box_id(),
             ContextExtension {
-                values: [(0, ((i + 2) as i32).into())].iter().cloned().collect(), // first 2 outputs are pool and update box, ballot indexes start at 2
+                values: IntoIterator::into_iter([(0, ((i + 2) as i32).into())]).collect(), // first 2 outputs are pool and update box, ballot indexes start at 2
             },
         )
     }
