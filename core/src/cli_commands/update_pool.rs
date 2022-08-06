@@ -106,7 +106,7 @@ pub fn update_pool(
         &ORACLE_CONFIG,
         &new_oracle_config,
         op.get_pool_box_source().get_pool_box()?,
-        None,
+        new_reward_tokens.clone(),
     );
 
     if new_pool_box_hash_str.is_none() {
@@ -294,16 +294,13 @@ fn build_update_pool_box_tx(
     }
 
     let target_balance = BoxValue::SAFE_USER_MIN;
-    let tokens_needed; // Amount of reward tokens we need from wallet box for new pool box
-    let target_tokens: &[Token] = if reward_tokens.token_id != old_pool_box.reward_token().token_id
-    {
-        tokens_needed = [reward_tokens.clone()];
-        &tokens_needed
+    let target_tokens = if reward_tokens.token_id != old_pool_box.reward_token().token_id {
+        vec![reward_tokens.clone()]
     } else {
-        &[]
+        vec![]
     };
     let box_selector = SimpleBoxSelector::new();
-    let selection = box_selector.select(unspent_boxes, target_balance, target_tokens)?;
+    let selection = box_selector.select(unspent_boxes, target_balance, &target_tokens)?;
     let mut input_boxes = vec![old_pool_box.get_box().clone(), update_box.get_box().clone()];
     input_boxes.extend(
         vote_ballot_boxes
