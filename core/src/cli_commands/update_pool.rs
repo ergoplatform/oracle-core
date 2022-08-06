@@ -9,7 +9,7 @@ use ergo_lib::{
     ergotree_ir::chain::{
         address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
         ergo_box::{box_value::BoxValue, ErgoBox, NonMandatoryRegisterId},
-        token::{Token, TokenId},
+        token::Token,
     },
     ergotree_ir::mir::constant::Constant,
     ergotree_ir::serialization::SigmaSerializable,
@@ -70,8 +70,7 @@ pub enum UpdatePoolError {
 
 pub fn update_pool(
     new_pool_box_hash_str: Option<String>,
-    reward_token_id: Option<String>,
-    reward_token_amount: Option<u64>,
+    new_reward_tokens: Option<Token>,
 ) -> Result<(), UpdatePoolError> {
     info!("Opening oracle_config_updated.yaml");
     let s = std::fs::read_to_string("oracle_config_updated.yaml")?;
@@ -117,12 +116,6 @@ pub fn update_pool(
         );
         return Ok(());
     }
-    let new_reward_tokens = reward_token_id
-        .zip(reward_token_amount)
-        .map(|(token_id, amount)| Token {
-            token_id: TokenId::from_base64(&token_id).unwrap(),
-            amount: amount.try_into().unwrap(),
-        });
 
     let tx = build_update_pool_box_tx(
         op.get_pool_box_source(),

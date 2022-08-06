@@ -43,6 +43,8 @@ use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::debug;
 use log::error;
 use log::LevelFilter;
@@ -54,6 +56,7 @@ use oracle_state::OraclePool;
 use pool_commands::build_action;
 use state::process;
 use state::PoolState;
+use std::convert::TryInto;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
@@ -129,7 +132,7 @@ enum Command {
     UpdatePool {
         /// New pool box hash. Must match hash of updated pool contract
         new_pool_box_hash: Option<String>,
-        /// New reward token id (optional)
+        /// New reward token id (optional, base64)
         reward_token_id: Option<String>,
         /// New reward token amount, required if new token id was voted for
         reward_token_amount: Option<u64>,
@@ -260,11 +263,16 @@ fn main() {
             reward_token_amount,
         } => {
             assert_wallet_unlocked(&new_node_interface());
-            if let Err(e) = cli_commands::update_pool::update_pool(
-                new_pool_box_hash,
-                reward_token_id,
-                reward_token_amount,
-            ) {
+            let new_reward_tokens =
+                reward_token_id
+                    .zip(reward_token_amount)
+                    .map(|(token_id, amount)| Token {
+                        token_id: TokenId::from_base64(&token_id).unwrap(),
+                        amount: amount.try_into().unwrap(),
+                    });
+            if let Err(e) =
+                cli_commands::update_pool::update_pool(new_pool_box_hash, new_reward_tokens)
+            {
                 error!("Fatal update-pool error: {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
