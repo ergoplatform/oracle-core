@@ -279,7 +279,7 @@ fn main() {
         }
         Command::PrepareUpdate { update_file } => {
             assert_wallet_unlocked(&new_node_interface());
-            if let Err(e) = cli_commands::update::prepare_update(update_file) {
+            if let Err(e) = cli_commands::prepare_update::prepare_update(update_file) {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }

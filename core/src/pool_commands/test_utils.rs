@@ -37,9 +37,9 @@ use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
 use crate::node_interface::SignTransaction;
 use crate::oracle_config::TokenIds;
-use crate::oracle_state::BallotBoxesSource;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
+use crate::oracle_state::VoteBallotBoxesSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
 
 use super::*;
@@ -81,7 +81,7 @@ pub struct BallotBoxesMock {
     pub ballot_boxes: Vec<VoteBallotBoxWrapper>,
 }
 
-impl BallotBoxesSource for BallotBoxesMock {
+impl VoteBallotBoxesSource for BallotBoxesMock {
     fn get_ballot_boxes(&self) -> std::result::Result<Vec<VoteBallotBoxWrapper>, StageError> {
         Ok(self.ballot_boxes.clone())
     }

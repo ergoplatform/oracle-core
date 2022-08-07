@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cli_commands::{
         bootstrap::{Addresses, BootstrapConfig, TokensToMint},
-        update::{UpdateBootstrapConfig, UpdateTokensToMint},
+        prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
     },
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
