@@ -8,7 +8,10 @@ use crate::{
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
 use anyhow::anyhow;
-use ergo_lib::ergotree_ir::chain::{address::NetworkPrefix, token::TokenId};
+use ergo_lib::{
+    ergo_chain_types::Digest32,
+    ergotree_ir::chain::{address::NetworkPrefix, token::TokenId},
+};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -48,9 +51,9 @@ pub struct BallotBoxWrapperParameters {
     pub ballot_token_owner_address: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct CastBallotBoxVoteParameters {
-    pub pool_box_address_hash: String,
+    pub pool_box_address_hash: Digest32,
     pub reward_token_id: TokenId,
     pub reward_token_quantity: u32,
 }

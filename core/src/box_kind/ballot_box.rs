@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::{
     contracts::ballot::{BallotContract, BallotContractError},
     oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
@@ -108,11 +106,7 @@ impl BallotBoxWrapper {
                 .get_register(NonMandatoryRegisterId::R6.into())
                 .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
                 .try_extract_into::<Digest32>()?;
-            let pb: Digest32 = base16::decode(pool_box_address_hash)
-                .unwrap()
-                .try_into()
-                .unwrap();
-            if pb != register_pool_box_address_hash {
+            if *pool_box_address_hash != register_pool_box_address_hash {
                 warn!("Pool box address in R6 register differs to config. Could be due to vote.");
             }
 
@@ -153,7 +147,110 @@ pub struct BallotBoxWrapperInputs<'a> {
     pub update_nft_token_id: &'a TokenId,
 }
 
+/// A Ballot Box with vote parameters guaranteed to be set
+#[derive(Clone, Debug)]
+pub struct VoteBallotBoxWrapper {
+    ergo_box: ErgoBox,
+    vote_parameters: CastBallotBoxVoteParameters,
+    contract: BallotContract,
+}
+
+impl VoteBallotBoxWrapper {
+    pub fn new(ergo_box: ErgoBox, inputs: BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
+        let ballot_token_id = &ergo_box
+            .tokens
+            .as_ref()
+            .ok_or(BallotBoxError::NoBallotToken)?
+            .get(0)
+            .ok_or(BallotBoxError::NoBallotToken)?
+            .token_id;
+        if *ballot_token_id != *inputs.ballot_token_id {
+            return Err(BallotBoxError::UnknownBallotTokenId);
+        }
+
+        if ergo_box
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .ok_or(BallotBoxError::NoGroupElementInR4)?
+            .try_extract_into::<EcPoint>()
+            .is_err()
+        {
+            return Err(BallotBoxError::NoGroupElementInR4);
+        }
+        if ergo_box
+            .get_register(NonMandatoryRegisterId::R5.into())
+            .ok_or(BallotBoxError::NoUpdateBoxCreationHeightInR5)?
+            .try_extract_into::<i32>()
+            .is_err()
+        {
+            return Err(BallotBoxError::NoUpdateBoxCreationHeightInR5);
+        }
+
+        let pool_box_address_hash = ergo_box
+            .get_register(NonMandatoryRegisterId::R6.into())
+            .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
+            .try_extract_into::<Digest32>()?;
+
+        let reward_token_id = ergo_box
+            .get_register(NonMandatoryRegisterId::R7.into())
+            .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
+            .try_extract_into::<TokenId>()?;
+        let reward_token_quantity = ergo_box
+            .get_register(NonMandatoryRegisterId::R8.into())
+            .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
+            .try_extract_into::<i64>()? as u32;
+
+        let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), inputs.into())?;
+        let vote_parameters = CastBallotBoxVoteParameters {
+            pool_box_address_hash,
+            reward_token_id,
+            reward_token_quantity,
+        };
+        Ok(Self {
+            ergo_box,
+            contract,
+            vote_parameters,
+        })
+    }
+
+    pub fn vote_parameters(&self) -> &CastBallotBoxVoteParameters {
+        &self.vote_parameters
+    }
+}
+
 impl BallotBox for BallotBoxWrapper {
+    fn contract(&self) -> &BallotContract {
+        &self.contract
+    }
+
+    fn ballot_token(&self) -> Token {
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
+    }
+
+    fn min_storage_rent(&self) -> u64 {
+        self.contract.min_storage_rent()
+    }
+
+    fn ballot_token_owner(&self) -> ProveDlog {
+        self.ergo_box
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .unwrap()
+            .try_extract_into::<EcPoint>()
+            .unwrap()
+            .into()
+    }
+
+    fn get_box(&self) -> &ErgoBox {
+        &self.ergo_box
+    }
+}
+
+impl BallotBox for VoteBallotBoxWrapper {
     fn contract(&self) -> &BallotContract {
         &self.contract
     }

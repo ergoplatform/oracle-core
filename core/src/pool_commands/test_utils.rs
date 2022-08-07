@@ -28,6 +28,7 @@ use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::PoolBoxWrapperInputs;
 use crate::box_kind::UpdateBoxWrapper;
+use crate::box_kind::VoteBallotBoxWrapper;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
@@ -77,11 +78,11 @@ impl LocalBallotBoxSource for BallotBoxMock {
 }
 
 pub struct BallotBoxesMock {
-    pub ballot_boxes: Vec<BallotBoxWrapper>,
+    pub ballot_boxes: Vec<VoteBallotBoxWrapper>,
 }
 
 impl BallotBoxesSource for BallotBoxesMock {
-    fn get_ballot_boxes(&self) -> std::result::Result<Vec<BallotBoxWrapper>, StageError> {
+    fn get_ballot_boxes(&self) -> std::result::Result<Vec<VoteBallotBoxWrapper>, StageError> {
         Ok(self.ballot_boxes.clone())
     }
 }

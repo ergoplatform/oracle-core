@@ -3,14 +3,12 @@ use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
     OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
     PoolBoxWrapperInputs, RefreshBoxError, RefreshBoxWrapper, RefreshBoxWrapperInputs,
-    UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
+    UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::{
-    BallotBoxWrapperParameters, CastBallotBoxVoteParameters, ORACLE_CONFIG,
-};
+use crate::oracle_config::{BallotBoxWrapperParameters, ORACLE_CONFIG};
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
     register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
@@ -20,10 +18,9 @@ use crate::state::PoolState;
 use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
-use ergo_lib::ergo_chain_types::Digest32;
+
 use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder};
 use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, NonMandatoryRegisterId};
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_node_interface::node_interface::NodeError;
@@ -93,8 +90,8 @@ pub trait LocalDatapointBoxSource {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper>;
 }
 
-pub trait BallotBoxesSource {
-    fn get_ballot_boxes(&self) -> Result<Vec<BallotBoxWrapper>>;
+pub trait VoteBallotBoxesSource {
+    fn get_ballot_boxes(&self) -> Result<Vec<VoteBallotBoxWrapper>>;
 }
 
 pub trait UpdateBoxSource {
@@ -474,8 +471,8 @@ impl<'a> OraclePool<'a> {
             .map(|s| s as &dyn LocalBallotBoxSource)
     }
 
-    pub fn get_ballot_boxes_source(&self) -> &dyn BallotBoxesSource {
-        &self.ballot_boxes_scan as &dyn BallotBoxesSource
+    pub fn get_ballot_boxes_source(&self) -> &dyn VoteBallotBoxesSource {
+        &self.ballot_boxes_scan as &dyn VoteBallotBoxesSource
     }
 
     pub fn get_refresh_box_source(&self) -> &dyn RefreshBoxSource {
@@ -528,9 +525,10 @@ impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
     }
 }
 
-impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
-    fn get_ballot_boxes(&self) -> Result<Vec<BallotBoxWrapper>> {
-        self.scan
+impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
+    fn get_ballot_boxes(&self) -> Result<Vec<VoteBallotBoxWrapper>> {
+        Ok(self
+            .scan
             .get_boxes()?
             .into_iter()
             .map(|ballot_box| {
@@ -549,32 +547,8 @@ impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
                 )
                 .address_to_str(&Address::P2Pk(ProveDlog::from(ec)));
 
-                let vote_parameters = if let Some(pool_box_address_hash) =
-                    ballot_box.get_register(NonMandatoryRegisterId::R6.into())
-                {
-                    let pool_box_address_hash = base16::encode_lower(
-                        &pool_box_address_hash.try_extract_into::<Digest32>()?,
-                    );
-
-                    let reward_token_id = ballot_box
-                        .get_register(NonMandatoryRegisterId::R7.into())
-                        .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
-                        .try_extract_into::<TokenId>()?;
-                    let reward_token_quantity = ballot_box
-                        .get_register(NonMandatoryRegisterId::R8.into())
-                        .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-                        .try_extract_into::<i64>()?
-                        as u32;
-                    Some(CastBallotBoxVoteParameters {
-                        reward_token_id,
-                        reward_token_quantity,
-                        pool_box_address_hash,
-                    })
-                } else {
-                    None
-                };
                 let ballot_box_wrapper_parameters = BallotBoxWrapperParameters {
-                    vote_parameters,
+                    vote_parameters: None,
                     ballot_token_owner_address: address,
                     ..self.ballot_box_wrapper_inputs.parameters.clone()
                 };
@@ -582,12 +556,13 @@ impl<'a> BallotBoxesSource for BallotBoxesScan<'a> {
                     parameters: &ballot_box_wrapper_parameters,
                     ..self.ballot_box_wrapper_inputs
                 };
-                Ok(BallotBoxWrapper::new(
+                Ok(VoteBallotBoxWrapper::new(
                     ballot_box,
                     ballot_box_wrapper_inputs,
                 )?)
             })
-            .collect()
+            .filter_map(Result::ok) // Filter out boxes that are not participating in voting
+            .collect())
     }
 }
 

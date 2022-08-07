@@ -11,7 +11,6 @@ use ergo_lib::{
         ergo_box::{box_value::BoxValue, ErgoBox, NonMandatoryRegisterId},
         token::Token,
     },
-    ergotree_ir::mir::constant::Constant,
     ergotree_ir::serialization::SigmaSerializable,
     wallet::{
         box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
@@ -24,13 +23,13 @@ use log::{error, info};
 use std::convert::TryInto;
 
 use crate::{
-    box_kind::{make_pool_box_candidate, BallotBox, BallotBoxWrapper, PoolBox, PoolBoxWrapper},
+    box_kind::{make_pool_box_candidate, BallotBox, PoolBox, PoolBoxWrapper, VoteBallotBoxWrapper},
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
     contracts::pool::PoolContractInputs,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::{OracleConfig, ORACLE_CONFIG},
-    oracle_state::{BallotBoxesSource, OraclePool, PoolBoxSource, StageError, UpdateBoxSource},
+    oracle_config::{CastBallotBoxVoteParameters, OracleConfig, ORACLE_CONFIG},
+    oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
     wallet::WalletDataSource,
 };
 use derive_more::From;
@@ -190,7 +189,7 @@ fn display_update_diff(
 #[allow(clippy::too_many_arguments)]
 fn build_update_pool_box_tx(
     pool_box_source: &dyn PoolBoxSource,
-    ballot_boxes: &dyn BallotBoxesSource,
+    ballot_boxes: &dyn VoteBallotBoxesSource,
     wallet: &dyn WalletDataSource,
     update_box: &dyn UpdateBoxSource,
     new_pool_contract: PoolContract,
@@ -201,13 +200,18 @@ fn build_update_pool_box_tx(
     let update_box = update_box.get_update_box()?;
     let min_votes = update_box.min_votes();
     let old_pool_box = pool_box_source.get_pool_box()?;
-    let pool_box_hash = Constant::from(blake2b256_hash(
+    let pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
             .sigma_serialize_bytes()
             .unwrap(),
-    ));
+    );
     let reward_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
+    let vote_parameters = CastBallotBoxVoteParameters {
+        pool_box_address_hash: pool_box_hash,
+        reward_token_id: reward_tokens.token_id.clone(),
+        reward_token_quantity: *reward_tokens.amount.as_u64() as u32, // TODO: Change vote parameters to i64
+    };
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
     // Sort in descending order of ballot token amounts. If two boxes have the same amount of ballot tokens, also compare box value, in case some boxes were incorrectly created below minStorageRent
@@ -224,28 +228,10 @@ fn build_update_pool_box_tx(
     sorted_ballot_boxes.reverse();
 
     let mut votes_cast = 0;
-    let vote_ballot_boxes: Vec<BallotBoxWrapper> = ballot_boxes
+    let vote_ballot_boxes: Vec<VoteBallotBoxWrapper> = ballot_boxes
         .get_ballot_boxes()?
         .into_iter()
-        .filter(|ballot_box| {
-            let ballot_box = ballot_box.get_box();
-            ballot_box
-                .additional_registers
-                .get(NonMandatoryRegisterId::R5)
-                == Some(&update_box.get_box().creation_info().0.into())
-                && ballot_box
-                    .additional_registers
-                    .get(NonMandatoryRegisterId::R6)
-                    == Some(&pool_box_hash)
-                && ballot_box
-                    .additional_registers
-                    .get(NonMandatoryRegisterId::R7)
-                    == Some(&reward_tokens.token_id.clone().into())
-                && ballot_box
-                    .additional_registers
-                    .get(NonMandatoryRegisterId::R8)
-                    == Some(&(*reward_tokens.amount.as_u64() as i64).into())
-        })
+        .filter(|ballot_box| *ballot_box.vote_parameters() == vote_parameters)
         .scan(&mut votes_cast, |votes_cast, ballot_box| {
             **votes_cast += *ballot_box.ballot_token().amount.as_u64();
             Some(ballot_box)
@@ -378,8 +364,8 @@ mod tests {
 
     use crate::{
         box_kind::{
-            make_local_ballot_box_candidate, make_pool_box_candidate, BallotBoxWrapper,
-            PoolBoxWrapper, PoolBoxWrapperInputs, UpdateBoxWrapper, UpdateBoxWrapperInputs,
+            make_local_ballot_box_candidate, make_pool_box_candidate, PoolBoxWrapper,
+            PoolBoxWrapperInputs, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
         },
         contracts::{
             ballot::{BallotContract, BallotContractInputs},
@@ -496,11 +482,7 @@ mod tests {
             let secret = DlogProverInput::random();
             let ballot_box_parameters = BallotBoxWrapperParameters {
                 contract_parameters: ballot_contract_parameters.clone(),
-                vote_parameters: Some(crate::oracle_config::CastBallotBoxVoteParameters {
-                    pool_box_address_hash: base16::encode_lower(&pool_box_hash),
-                    reward_token_id: new_reward_tokens.token_id.clone(),
-                    reward_token_quantity: *new_reward_tokens.amount.as_u64() as u32,
-                }),
+                vote_parameters: None,
                 ballot_token_owner_address: AddressEncoder::new(
                     ballot_contract_parameters.p2s.network(),
                 )
@@ -526,7 +508,7 @@ mod tests {
                 ErgoBox::from_box_candidate(&ballot_box_candidate, force_any_val::<TxId>(), 0)
                     .unwrap();
             ballot_boxes.push(
-                BallotBoxWrapper::new(
+                VoteBallotBoxWrapper::new(
                     ballot_box,
                     crate::box_kind::BallotBoxWrapperInputs {
                         parameters: &ballot_box_parameters,
@@ -594,7 +576,6 @@ mod tests {
             change_address,
         )
         .unwrap();
-        println!("{}", serde_json::to_string(&update_tx.spending_tx).unwrap());
 
         wallet.sign_transaction(update_tx, &ctx, None).unwrap();
     }
