@@ -375,7 +375,7 @@ mod tests {
             vote_parameters: Some(CastBallotBoxVoteParameters {
                 reward_token_id: force_any_val::<TokenId>(),
                 reward_token_quantity: 100000,
-                pool_box_address_hash: force_any_val::<Digest32>().into(),
+                pool_box_address_hash: force_any_val::<Digest32>(),
             }),
         };
         let inputs = BallotBoxWrapperInputs {
