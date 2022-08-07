@@ -118,10 +118,11 @@ impl BallotBoxWrapper {
                 warn!("Reward token id in R7 register differs to config. Could be due to vote.");
             }
 
-            let register_reward_token_quantity = ergo_box
+            let register_reward_token_quantity: u64 = ergo_box
                 .get_register(NonMandatoryRegisterId::R8.into())
                 .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-                .try_extract_into::<i64>()? as u32;
+                .try_extract_into::<i64>()?
+                as u64;
 
             if register_reward_token_quantity != *reward_token_quantity {
                 warn!(
@@ -197,7 +198,7 @@ impl VoteBallotBoxWrapper {
         let reward_token_quantity = ergo_box
             .get_register(NonMandatoryRegisterId::R8.into())
             .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-            .try_extract_into::<i64>()? as u32;
+            .try_extract_into::<i64>()? as u64;
 
         let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), inputs.into())?;
         let vote_parameters = CastBallotBoxVoteParameters {

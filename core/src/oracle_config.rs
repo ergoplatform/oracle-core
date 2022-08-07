@@ -55,7 +55,7 @@ pub struct BallotBoxWrapperParameters {
 pub struct CastBallotBoxVoteParameters {
     pub pool_box_address_hash: Digest32,
     pub reward_token_id: TokenId,
-    pub reward_token_quantity: u32,
+    pub reward_token_quantity: u64,
 }
 
 /// Holds the token ids of every important token used by the oracle pool.

@@ -210,7 +210,7 @@ fn build_update_pool_box_tx(
     let vote_parameters = CastBallotBoxVoteParameters {
         pool_box_address_hash: pool_box_hash,
         reward_token_id: reward_tokens.token_id.clone(),
-        reward_token_quantity: *reward_tokens.amount.as_u64() as u32, // TODO: Change vote parameters to i64
+        reward_token_quantity: *reward_tokens.amount.as_u64(), // TODO: Change vote parameters to i64
     };
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
