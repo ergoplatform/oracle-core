@@ -91,21 +91,23 @@ impl BallotBoxWrapper {
             reward_token_id,
             reward_token_quantity,
             pool_box_address_hash,
+            update_box_creation_height,
         }) = inputs.parameters.vote_parameters.as_ref()
         {
-            if ergo_box
+            let register_update_box_creation_height = ergo_box
                 .get_register(NonMandatoryRegisterId::R5.into())
                 .ok_or(BallotBoxError::NoUpdateBoxCreationHeightInR5)?
-                .try_extract_into::<i32>()
-                .is_err()
-            {
-                return Err(BallotBoxError::NoUpdateBoxCreationHeightInR5);
+                .try_extract_into::<i32>()?;
+
+            if register_update_box_creation_height != *update_box_creation_height {
+                warn!("Update box creation height in R5 register differs to config. Could be due to vote.");
             }
 
             let register_pool_box_address_hash = ergo_box
                 .get_register(NonMandatoryRegisterId::R6.into())
                 .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
                 .try_extract_into::<Digest32>()?;
+
             if *pool_box_address_hash != register_pool_box_address_hash {
                 warn!("Pool box address in R6 register differs to config. Could be due to vote.");
             }
@@ -114,6 +116,7 @@ impl BallotBoxWrapper {
                 .get_register(NonMandatoryRegisterId::R7.into())
                 .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
                 .try_extract_into::<TokenId>()?;
+
             if register_reward_token_id != *reward_token_id {
                 warn!("Reward token id in R7 register differs to config. Could be due to vote.");
             }
@@ -177,14 +180,10 @@ impl VoteBallotBoxWrapper {
         {
             return Err(BallotBoxError::NoGroupElementInR4);
         }
-        if ergo_box
+        let update_box_creation_height = ergo_box
             .get_register(NonMandatoryRegisterId::R5.into())
             .ok_or(BallotBoxError::NoUpdateBoxCreationHeightInR5)?
-            .try_extract_into::<i32>()
-            .is_err()
-        {
-            return Err(BallotBoxError::NoUpdateBoxCreationHeightInR5);
-        }
+            .try_extract_into::<i32>()?;
 
         let pool_box_address_hash = ergo_box
             .get_register(NonMandatoryRegisterId::R6.into())
@@ -205,6 +204,7 @@ impl VoteBallotBoxWrapper {
             pool_box_address_hash,
             reward_token_id,
             reward_token_quantity,
+            update_box_creation_height,
         };
         Ok(Self {
             ergo_box,

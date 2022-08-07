@@ -376,6 +376,7 @@ mod tests {
                 reward_token_id: force_any_val::<TokenId>(),
                 reward_token_quantity: 100000,
                 pool_box_address_hash: force_any_val::<Digest32>(),
+                update_box_creation_height: force_any_val::<i32>().abs(),
             }),
         };
         let inputs = BallotBoxWrapperInputs {
