@@ -249,7 +249,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         let token_box_guard =
             different_token_box_guard.unwrap_or_else(|| wallet_pk_ergo_tree.clone());
         let mut builder = ErgoBoxCandidateBuilder::new(erg_value_per_box, token_box_guard, height);
-        builder.mint_token(token.clone(), token_name, token_desc, 1);
+        builder.mint_token(token.clone(), token_name, token_desc, 0);
         let mut output_candidates = vec![builder.build()?];
 
         let remaining_funds = ErgoBoxCandidateBuilder::new(
