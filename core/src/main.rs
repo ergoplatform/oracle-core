@@ -71,8 +71,16 @@ pub type BlockDuration = u64;
 /// The epoch counter
 pub type EpochID = u32;
 
+const APP_VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    " ",
+    env!("GIT_COMMIT_HASH"),
+    " ",
+    env!("GIT_COMMIT_DATE")
+);
+
 #[derive(Debug, Parser)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version = APP_VERSION, about, long_about = None)]
 struct Args {
     #[clap(subcommand)]
     command: Command,
@@ -124,6 +132,7 @@ enum Command {
 
 fn main() {
     let args = Args::parse();
+    log::info!("{}", APP_VERSION);
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Trace)
