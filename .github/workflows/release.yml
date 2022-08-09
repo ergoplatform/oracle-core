@@ -18,9 +18,10 @@ jobs:
           - target: x86_64-apple-darwin
             os: macos-latest
             build_tool: cargo
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            build_tool: cargo
+          # Failing to build openssl-sys crate 
+          # - target: x86_64-pc-windows-msvc
+          #   os: windows-latest
+          #   build_tool: cargo
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
