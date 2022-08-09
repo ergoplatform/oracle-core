@@ -72,8 +72,9 @@ pub type BlockDuration = u64;
 pub type EpochID = u32;
 
 const APP_VERSION: &str = concat!(
+    "v",
     env!("CARGO_PKG_VERSION"),
-    " ",
+    "+",
     env!("GIT_COMMIT_HASH"),
     " ",
     env!("GIT_COMMIT_DATE")
