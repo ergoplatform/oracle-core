@@ -27,7 +27,7 @@ jobs:
         name: Install cross-compilation tools
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: oracle_core
+          bin: oracle-core
           target: ${{ matrix.target }}
           build_tool: ${{ matrix.build_tool }}
         env:
