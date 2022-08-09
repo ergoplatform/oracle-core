@@ -146,8 +146,6 @@ pub struct BootstrapConfigSerde {
     node_api_key: String,
     is_mainnet: bool,
     addresses: AddressesSerde,
-    total_oracles: u32,
-    total_ballots: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -208,8 +206,6 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
             node_api_key: c.node_api_key,
             is_mainnet: c.on_mainnet,
             addresses: AddressesSerde::from((c.addresses, prefix)),
-            total_oracles: c.total_oracles,
-            total_ballots: c.total_ballots,
         }
     }
 }
@@ -246,8 +242,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             node_api_key: c.node_api_key,
             on_mainnet: c.is_mainnet,
             addresses: Addresses::try_from((c.addresses, prefix))?,
-            total_oracles: c.total_oracles,
-            total_ballots: c.total_ballots,
         })
     }
 }

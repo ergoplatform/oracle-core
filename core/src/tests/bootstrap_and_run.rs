@@ -91,8 +91,6 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         node_port: "9053".into(),
         node_api_key: "hello".into(),
         on_mainnet: is_mainnet,
-        total_oracles: 15,
-        total_ballots: 15,
     };
 
     let height = ctx.pre_header.height;
