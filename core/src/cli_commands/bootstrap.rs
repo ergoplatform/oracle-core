@@ -133,8 +133,6 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
         node_port: "9053".into(),
         node_api_key: "hello".into(),
         on_mainnet: true,
-        total_oracles: 15,
-        total_ballots: 15,
         refresh_contract_parameters: RefreshContractParameters::default(),
         pool_contract_parameters: PoolContractParameters::default(),
         update_contract_parameters: UpdateContractParameters::default(),
@@ -595,8 +593,6 @@ pub struct BootstrapConfig {
     pub node_api_key: String,
     pub on_mainnet: bool,
     pub addresses: Addresses,
-    pub total_oracles: u32,
-    pub total_ballots: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -769,8 +765,6 @@ mod tests {
             node_port: "9053".into(),
             node_api_key: "hello".into(),
             on_mainnet: is_mainnet,
-            total_oracles: 15,
-            total_ballots: 15,
         };
 
         let height = ctx.pre_header.height;
