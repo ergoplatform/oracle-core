@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  upload-assets:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-20.04
+            build_tool: cross # Use https://github.com/cross-rs/cross for ARM
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-18.04
+            build_tool: cargo
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            build_tool: cargo
+          # Failing to build openssl-sys crate 
+          # - target: x86_64-pc-windows-msvc
+          #   os: windows-latest
+          #   build_tool: cargo
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        name: Install cross-compilation tools
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: oracle-core
+          archive: $bin-$tag-$target
+          target: ${{ matrix.target }}
+          build_tool: ${{ matrix.build_tool }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
