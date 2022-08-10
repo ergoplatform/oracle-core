@@ -17,6 +17,7 @@
 extern crate lazy_static;
 
 mod actions;
+mod address_util;
 mod api;
 mod box_kind;
 mod cli_commands;
