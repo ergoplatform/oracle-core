@@ -1,10 +1,9 @@
+use crate::address_util::{address_to_raw_for_register, AddressUtilError};
 use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::{PoolContract, PoolContractError};
 use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 /// This file holds logic related to UTXO-set scans
-use crate::node_interface::{
-    address_to_raw_for_register, get_scan_boxes, register_scan, serialize_box, serialize_boxes,
-};
+use crate::node_interface::{get_scan_boxes, register_scan, serialize_box, serialize_boxes};
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -36,6 +35,8 @@ pub enum ScanError {
     RefreshContract(RefreshContractError),
     #[error("pool contract error: {0}")]
     PoolContract(PoolContractError),
+    #[error("address util error: {0}")]
+    AddressUtilError(AddressUtilError),
 }
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
