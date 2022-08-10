@@ -60,7 +60,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             OracleContractParameters::try_from((c.oracle_contract_parameters, prefix))?;
 
         let pool_contract_parameters =
-            PoolContractParameters::try_from((c.pool_contract_parameters, prefix))?;
+            PoolContractParameters::try_from(c.pool_contract_parameters)?;
 
         let refresh_contract_parameters =
             RefreshContractParameters::try_from((c.refresh_contract_parameters, prefix))?;
@@ -234,10 +234,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
                 c.refresh_contract_parameters,
                 prefix,
             ))?,
-            pool_contract_parameters: PoolContractParameters::try_from((
-                c.pool_contract_parameters,
-                prefix,
-            ))?,
+            pool_contract_parameters: PoolContractParameters::try_from(c.pool_contract_parameters)?,
             update_contract_parameters: UpdateContractParameters::try_from((
                 c.update_contract_parameters,
                 prefix,
@@ -296,22 +293,20 @@ struct PoolContractParametersSerde {
 impl From<PoolContractParameters> for PoolContractParametersSerde {
     fn from(p: PoolContractParameters) -> Self {
         PoolContractParametersSerde {
-            p2s: p.p2s.to_base58(),
+            p2s: AddressEncoder::new(NetworkPrefix::Mainnet).address_to_str(&p.p2s),
             refresh_nft_index: p.refresh_nft_index,
             update_nft_index: p.update_nft_index,
         }
     }
 }
 
-impl TryFrom<(PoolContractParametersSerde, NetworkPrefix)> for PoolContractParameters {
+impl TryFrom<PoolContractParametersSerde> for PoolContractParameters {
     type Error = AddressEncoderError;
-    fn try_from(t: (PoolContractParametersSerde, NetworkPrefix)) -> Result<Self, Self::Error> {
-        let prefix = t.1;
-        let contract = t.0;
-        let pool_contract_address =
-            AddressEncoder::new(prefix).parse_address_from_str(&contract.p2s)?;
+    fn try_from(contract: PoolContractParametersSerde) -> Result<Self, Self::Error> {
+        let p2s =
+            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
         Ok(PoolContractParameters {
-            p2s: NetworkAddress::new(prefix, &pool_contract_address),
+            p2s,
             refresh_nft_index: contract.refresh_nft_index,
             update_nft_index: contract.update_nft_index,
         })

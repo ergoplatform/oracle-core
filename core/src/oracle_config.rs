@@ -8,10 +8,7 @@ use crate::{
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
 use anyhow::anyhow;
-use ergo_lib::{
-    ergo_chain_types::Digest32,
-    ergotree_ir::chain::{address::NetworkPrefix, token::TokenId},
-};
+use ergo_lib::{ergo_chain_types::Digest32, ergotree_ir::chain::token::TokenId};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -96,23 +93,7 @@ pub struct TokenIds {
 
 impl OracleConfig {
     fn load() -> Result<Self, anyhow::Error> {
-        let config = Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)?;
-
-        // Check network prefixes
-        let prefix = if config.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        if prefix == config.oracle_contract_parameters.p2s.network()
-            && prefix == config.pool_contract_parameters.p2s.network()
-            && prefix == config.refresh_contract_parameters.p2s.network()
-            && prefix == config.ballot_parameters.contract_parameters.p2s.network()
-        {
-            Ok(config)
-        } else {
-            Err(anyhow!("Network prefixes are not constant"))
-        }
+        Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {

@@ -1,5 +1,5 @@
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -71,7 +71,6 @@ impl PoolContract {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
-            .address()
             .script()?
             .with_constant(
                 inputs.contract_parameters.refresh_nft_index,
@@ -140,7 +139,7 @@ impl PoolContract {
 #[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct PoolContractParameters {
-    pub p2s: NetworkAddress,
+    pub p2s: Address,
     pub refresh_nft_index: usize,
     pub update_nft_index: usize,
 }
