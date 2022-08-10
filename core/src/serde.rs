@@ -338,13 +338,13 @@ struct RefreshContractParametersSerde {
     pool_nft_index: usize,
     oracle_token_id_index: usize,
     min_data_points_index: usize,
-    min_data_points: u64,
+    min_data_points: i32,
     buffer_index: usize,
-    buffer_length: u64,
+    buffer_length: i32,
     max_deviation_percent_index: usize,
-    max_deviation_percent: u64,
+    max_deviation_percent: i32,
     epoch_length_index: usize,
-    epoch_length: u64,
+    epoch_length: i32,
 }
 
 impl From<RefreshContractParameters> for RefreshContractParametersSerde {

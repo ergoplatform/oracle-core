@@ -503,7 +503,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         oracle_token_id: &token_ids.oracle_token_id,
         pool_nft_token_id: &token_ids.pool_nft_token_id,
     };
-    let refresh_contract = RefreshContract::new(inputs.into())?;
+    let refresh_contract = RefreshContract::create(inputs.into())?;
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,

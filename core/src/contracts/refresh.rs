@@ -40,19 +40,19 @@ pub enum RefreshContractError {
     #[error(
         "refresh contract: unexpected `min data points` value from constants. Expected {expected}, got {actual}"
     )]
-    MinDataPointsDiffers { expected: u64, actual: u64 },
+    MinDataPointsDiffers { expected: i32, actual: i32 },
     #[error(
         "refresh contract: unexpected `buffer length` value from constants. Expected {expected}, got {actual}"
     )]
-    BufferLengthDiffers { expected: u64, actual: u64 },
+    BufferLengthDiffers { expected: i32, actual: i32 },
     #[error(
         "refresh contract: unexpected `max deviation percentage` value from constants. Expected {expected}, got {actual}"
     )]
-    MaxDeviationPercentDiffers { expected: u64, actual: u64 },
+    MaxDeviationPercentDiffers { expected: i32, actual: i32 },
     #[error(
         "refresh contract: unexpected `epoch length` value from constants. Expected {expected}, got {actual}"
     )]
-    EpochLengthDiffers { expected: u64, actual: u64 },
+    EpochLengthDiffers { expected: i32, actual: i32 },
     #[error("refresh contract: failed to get buffer from constants")]
     NoBuffer,
     #[error("refresh contract: failed to get max deviation percent from constants")]
@@ -68,28 +68,12 @@ pub enum RefreshContractError {
 }
 
 impl RefreshContract {
-    pub fn new(inputs: RefreshContractInputs) -> Result<Self, RefreshContractError> {
-        let ergo_tree = inputs
-            .contract_parameters
-            .p2s
-            .address()
-            .script()?
-            .with_constant(
-                inputs.contract_parameters.pool_nft_index,
-                inputs.pool_nft_token_id.clone().into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?
-            .with_constant(
-                inputs.contract_parameters.oracle_token_id_index,
-                inputs.oracle_token_id.clone().into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?;
-
+    pub fn load(inputs: RefreshContractInputs) -> Result<Self, RefreshContractError> {
+        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
 
-    // TODO: switch to `TryFrom`
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
         inputs: RefreshContractInputs,
@@ -126,10 +110,10 @@ impl RefreshContract {
             .map_err(|_| RefreshContractError::NoMinDataPoints)?
             .ok_or(RefreshContractError::NoMinDataPoints)?
             .try_extract_into::<i32>()?;
-        if min_data_points as u64 != parameters.min_data_points {
+        if min_data_points != parameters.min_data_points {
             return Err(RefreshContractError::MinDataPointsDiffers {
                 expected: parameters.min_data_points,
-                actual: min_data_points as u64,
+                actual: min_data_points,
             });
         }
 
@@ -137,7 +121,7 @@ impl RefreshContract {
             .get_constant(parameters.buffer_index)
             .map_err(|_| RefreshContractError::NoBuffer)?
             .ok_or(RefreshContractError::NoBuffer)?
-            .try_extract_into::<i32>()? as u64;
+            .try_extract_into::<i32>()?;
         if buffer_length != parameters.buffer_length {
             return Err(RefreshContractError::BufferLengthDiffers {
                 expected: parameters.buffer_length,
@@ -149,7 +133,7 @@ impl RefreshContract {
             .get_constant(parameters.max_deviation_percent_index)
             .map_err(|_| RefreshContractError::NoMaxDeviationPercent)?
             .ok_or(RefreshContractError::NoMaxDeviationPercent)?
-            .try_extract_into::<i32>()? as u64;
+            .try_extract_into::<i32>()?;
         if max_deviation_percent != parameters.max_deviation_percent {
             return Err(RefreshContractError::MaxDeviationPercentDiffers {
                 expected: parameters.max_deviation_percent,
@@ -161,7 +145,7 @@ impl RefreshContract {
             .get_constant(parameters.epoch_length_index)
             .map_err(|_| RefreshContractError::NoEpochLength)?
             .ok_or(RefreshContractError::NoEpochLength)?
-            .try_extract_into::<i32>()? as u64;
+            .try_extract_into::<i32>()?;
         if epoch_length != parameters.epoch_length {
             return Err(RefreshContractError::EpochLengthDiffers {
                 expected: parameters.epoch_length,
@@ -180,44 +164,91 @@ impl RefreshContract {
         })
     }
 
+    pub fn create(inputs: RefreshContractInputs) -> Result<Self, RefreshContractError> {
+        let ergo_tree = inputs
+            .contract_parameters
+            .p2s
+            .address()
+            .script()?
+            .with_constant(
+                inputs.contract_parameters.pool_nft_index,
+                inputs.pool_nft_token_id.clone().into(),
+            )
+            .map_err(RefreshContractError::ErgoTreeConstant)?
+            .with_constant(
+                inputs.contract_parameters.oracle_token_id_index,
+                inputs.oracle_token_id.clone().into(),
+            )
+            .map_err(RefreshContractError::ErgoTreeConstant)?
+            .with_constant(
+                inputs.contract_parameters.min_data_points_index,
+                (inputs.contract_parameters.min_data_points).into(),
+            )
+            .map_err(RefreshContractError::ErgoTreeConstant)?
+            .with_constant(
+                inputs.contract_parameters.buffer_index,
+                (inputs.contract_parameters.buffer_length).into(),
+            )
+            .map_err(RefreshContractError::ErgoTreeConstant)?
+            .with_constant(
+                inputs.contract_parameters.max_deviation_percent_index,
+                (inputs.contract_parameters.max_deviation_percent).into(),
+            )
+            .map_err(RefreshContractError::ErgoTreeConstant)?
+            .with_constant(
+                inputs.contract_parameters.epoch_length_index,
+                (inputs.contract_parameters.epoch_length).into(),
+            )
+            .map_err(RefreshContractError::ErgoTreeConstant)?;
+        Ok(Self {
+            ergo_tree,
+            pool_nft_index: inputs.contract_parameters.pool_nft_index,
+            oracle_token_id_index: inputs.contract_parameters.oracle_token_id_index,
+            min_data_points_index: inputs.contract_parameters.min_data_points_index,
+            buffer_index: inputs.contract_parameters.buffer_index,
+            max_deviation_percent_index: inputs.contract_parameters.max_deviation_percent_index,
+            epoch_length_index: inputs.contract_parameters.epoch_length_index,
+        })
+    }
+
     pub fn ergo_tree(&self) -> ErgoTree {
         self.ergo_tree.clone()
     }
 
-    pub fn epoch_length(&self) -> u32 {
+    pub fn epoch_length(&self) -> i32 {
         self.ergo_tree
             .get_constant(self.epoch_length_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
-            .unwrap() as u32
+            .unwrap()
     }
 
-    pub fn buffer(&self) -> u32 {
+    pub fn buffer(&self) -> i32 {
         self.ergo_tree
             .get_constant(self.buffer_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
-            .unwrap() as u32
+            .unwrap()
     }
 
-    pub fn min_data_points(&self) -> u32 {
+    pub fn min_data_points(&self) -> i32 {
         self.ergo_tree
             .get_constant(self.min_data_points_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
-            .unwrap() as u32
+            .unwrap()
     }
 
-    pub fn max_deviation_percent(&self) -> u32 {
+    pub fn max_deviation_percent(&self) -> i32 {
         self.ergo_tree
             .get_constant(self.max_deviation_percent_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<i32>()
-            .unwrap() as u32
+            .unwrap()
     }
 
     pub fn oracle_token_id(&self) -> TokenId {
@@ -262,13 +293,13 @@ pub struct RefreshContractParameters {
     pub pool_nft_index: usize,
     pub oracle_token_id_index: usize,
     pub min_data_points_index: usize,
-    pub min_data_points: u64,
+    pub min_data_points: i32,
     pub buffer_index: usize,
-    pub buffer_length: u64,
+    pub buffer_length: i32,
     pub max_deviation_percent_index: usize,
-    pub max_deviation_percent: u64,
+    pub max_deviation_percent: i32,
     pub epoch_length_index: usize,
-    pub epoch_length: u64,
+    pub epoch_length: i32,
 }
 
 #[cfg(test)]
@@ -287,15 +318,12 @@ mod tests {
             oracle_token_id: &token_ids.oracle_token_id,
             pool_nft_token_id: &token_ids.pool_nft_token_id,
         };
-        let c = RefreshContract::new(inputs).unwrap();
+        let c = RefreshContract::create(inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
         assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id,);
-        assert_eq!(c.min_data_points() as u64, parameters.min_data_points);
-        assert_eq!(c.buffer() as u64, parameters.buffer_length);
-        assert_eq!(
-            c.max_deviation_percent() as u64,
-            parameters.max_deviation_percent
-        );
-        assert_eq!(c.epoch_length() as u64, parameters.epoch_length);
+        assert_eq!(c.min_data_points(), parameters.min_data_points);
+        assert_eq!(c.buffer(), parameters.buffer_length);
+        assert_eq!(c.max_deviation_percent(), parameters.max_deviation_percent);
+        assert_eq!(c.epoch_length(), parameters.epoch_length);
     }
 }
