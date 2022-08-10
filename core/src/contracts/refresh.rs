@@ -1,4 +1,4 @@
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -72,7 +72,6 @@ impl RefreshContract {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
-            .address()
             .script()?
             .with_constant(
                 inputs.contract_parameters.pool_nft_index,
@@ -258,7 +257,7 @@ impl<'a> From<RefreshBoxWrapperInputs<'a>> for RefreshContractInputs<'a> {
 #[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct RefreshContractParameters {
-    pub p2s: NetworkAddress,
+    pub p2s: Address,
     pub pool_nft_index: usize,
     pub oracle_token_id_index: usize,
     pub min_data_points_index: usize,
