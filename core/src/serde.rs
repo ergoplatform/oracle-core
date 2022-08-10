@@ -68,10 +68,9 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             UpdateContractParameters::try_from((c.update_contract_parameters, prefix))?;
 
         let ballot_parameters = BallotBoxWrapperParameters {
-            contract_parameters: BallotContractParameters::try_from((
+            contract_parameters: BallotContractParameters::try_from(
                 c.ballot_parameters.contract_parameters,
-                prefix,
-            ))?,
+            )?,
             vote_parameters: c.ballot_parameters.vote_parameters,
             ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
         };
@@ -239,10 +238,9 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
                 c.update_contract_parameters,
                 prefix,
             ))?,
-            ballot_contract_parameters: BallotContractParameters::try_from((
+            ballot_contract_parameters: BallotContractParameters::try_from(
                 c.ballot_contract_parameters,
-                prefix,
-            ))?,
+            )?,
             tokens_to_mint: c.tokens_to_mint,
             node_ip: c.node_ip,
             node_port: c.node_port,
@@ -380,7 +378,7 @@ struct BallotContractParametersSerde {
 impl From<BallotContractParameters> for BallotContractParametersSerde {
     fn from(c: BallotContractParameters) -> Self {
         BallotContractParametersSerde {
-            p2s: c.p2s.to_base58(),
+            p2s: AddressEncoder::new(NetworkPrefix::Mainnet).address_to_str(&c.p2s),
             min_storage_rent_index: c.min_storage_rent_index,
             min_storage_rent: c.min_storage_rent,
             update_nft_index: c.update_nft_index,
@@ -388,15 +386,13 @@ impl From<BallotContractParameters> for BallotContractParametersSerde {
     }
 }
 
-impl TryFrom<(BallotContractParametersSerde, NetworkPrefix)> for BallotContractParameters {
+impl TryFrom<BallotContractParametersSerde> for BallotContractParameters {
     type Error = AddressEncoderError;
-    fn try_from(t: (BallotContractParametersSerde, NetworkPrefix)) -> Result<Self, Self::Error> {
-        let prefix = t.1;
-        let contract = t.0;
-        let ballot_contract_address =
-            AddressEncoder::new(prefix).parse_address_from_str(&contract.p2s)?;
+    fn try_from(contract: BallotContractParametersSerde) -> Result<Self, Self::Error> {
+        let p2s =
+            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
         Ok(BallotContractParameters {
-            p2s: NetworkAddress::new(prefix, &ballot_contract_address),
+            p2s,
             min_storage_rent_index: contract.min_storage_rent_index,
             min_storage_rent: contract.min_storage_rent,
             update_nft_index: contract.update_nft_index,
