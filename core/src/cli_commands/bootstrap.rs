@@ -175,8 +175,6 @@ pub fn generate_bootstrap_config_template(
         node_port: "9053".into(),
         node_api_key: "hello".into(),
         on_mainnet: !testnet,
-        total_oracles: 15,
-        total_ballots: 15,
         refresh_contract_parameters,
         pool_contract_parameters,
         update_contract_parameters,
