@@ -57,7 +57,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         };
 
         let oracle_contract_parameters =
-            OracleContractParameters::try_from((c.oracle_contract_parameters, prefix))?;
+            OracleContractParameters::try_from(c.oracle_contract_parameters)?;
 
         let pool_contract_parameters =
             PoolContractParameters::try_from(c.pool_contract_parameters)?;
@@ -260,22 +260,20 @@ pub struct OracleContractParametersSerde {
 impl From<OracleContractParameters> for OracleContractParametersSerde {
     fn from(p: OracleContractParameters) -> Self {
         OracleContractParametersSerde {
-            p2s: p.p2s.to_base58(),
+            p2s: AddressEncoder::new(NetworkPrefix::Mainnet).address_to_str(&p.p2s),
             pool_nft_index: p.pool_nft_index,
         }
     }
 }
 
-impl TryFrom<(OracleContractParametersSerde, NetworkPrefix)> for OracleContractParameters {
+impl TryFrom<OracleContractParametersSerde> for OracleContractParameters {
     type Error = AddressEncoderError;
-    fn try_from(t: (OracleContractParametersSerde, NetworkPrefix)) -> Result<Self, Self::Error> {
-        let prefix = t.1;
-        let contract = t.0;
-        let oracle_contract_address =
-            AddressEncoder::new(prefix).parse_address_from_str(&contract.p2s)?;
+    fn try_from(contract: OracleContractParametersSerde) -> Result<Self, Self::Error> {
+        let p2s =
+            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
 
         Ok(OracleContractParameters {
-            p2s: NetworkAddress::new(prefix, &oracle_contract_address),
+            p2s,
             pool_nft_index: contract.pool_nft_index,
         })
     }

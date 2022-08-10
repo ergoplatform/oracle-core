@@ -1,5 +1,5 @@
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -47,15 +47,10 @@ impl<'a> From<OracleBoxWrapperInputs<'a>> for OracleContractInputs<'a> {
 
 impl OracleContract {
     pub fn new(inputs: OracleContractInputs) -> Result<Self, OracleContractError> {
-        let ergo_tree = inputs
-            .contract_parameters
-            .p2s
-            .address()
-            .script()?
-            .with_constant(
-                inputs.contract_parameters.pool_nft_index,
-                inputs.pool_nft_token_id.clone().into(),
-            )?;
+        let ergo_tree = inputs.contract_parameters.p2s.script()?.with_constant(
+            inputs.contract_parameters.pool_nft_index,
+            inputs.pool_nft_token_id.clone().into(),
+        )?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
@@ -100,7 +95,7 @@ impl OracleContract {
 #[serde(into = "crate::serde::OracleContractParametersSerde")]
 /// Parameters for the oracle contract
 pub struct OracleContractParameters {
-    pub p2s: NetworkAddress,
+    pub p2s: Address,
     pub pool_nft_index: usize,
 }
 
