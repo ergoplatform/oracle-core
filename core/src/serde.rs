@@ -3,7 +3,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use ergo_lib::ergotree_ir::chain::{
-    address::{AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix},
+    address::{AddressEncoder, AddressEncoderError, NetworkPrefix},
     token::TokenId,
 };
 use log::LevelFilter;
@@ -233,10 +233,9 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
                 c.refresh_contract_parameters,
             )?,
             pool_contract_parameters: PoolContractParameters::try_from(c.pool_contract_parameters)?,
-            update_contract_parameters: UpdateContractParameters::try_from((
+            update_contract_parameters: UpdateContractParameters::try_from(
                 c.update_contract_parameters,
-                prefix,
-            ))?,
+            )?,
             ballot_contract_parameters: BallotContractParameters::try_from(
                 c.ballot_contract_parameters,
             )?,
@@ -405,15 +404,14 @@ struct UpdateContractParametersSerde {
     min_votes: u64,
 }
 
-impl TryFrom<(UpdateContractParametersSerde, NetworkPrefix)> for UpdateContractParameters {
+impl TryFrom<UpdateContractParametersSerde> for UpdateContractParameters {
     type Error = AddressEncoderError;
 
-    fn try_from(t: (UpdateContractParametersSerde, NetworkPrefix)) -> Result<Self, Self::Error> {
-        let prefix = t.1;
-        let contract = t.0;
-        let address = AddressEncoder::new(prefix).parse_address_from_str(&contract.p2s)?;
+    fn try_from(contract: UpdateContractParametersSerde) -> Result<Self, Self::Error> {
+        let p2s =
+            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
         Ok(UpdateContractParameters {
-            p2s: NetworkAddress::new(prefix, &address),
+            p2s,
             pool_nft_index: contract.pool_nft_index,
             ballot_token_index: contract.ballot_token_index,
             min_votes_index: contract.min_votes_index,
@@ -425,7 +423,7 @@ impl TryFrom<(UpdateContractParametersSerde, NetworkPrefix)> for UpdateContractP
 impl From<UpdateContractParameters> for UpdateContractParametersSerde {
     fn from(p: UpdateContractParameters) -> Self {
         UpdateContractParametersSerde {
-            p2s: p.p2s.to_base58(),
+            p2s: AddressEncoder::new(NetworkPrefix::Mainnet).address_to_str(&p.p2s),
             pool_nft_index: p.pool_nft_index,
             ballot_token_index: p.ballot_token_index,
             min_votes_index: p.min_votes_index,
