@@ -1,6 +1,6 @@
 //! Types to allow oracle configuration to convert to and from Serde.
 
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use ergo_lib::ergotree_ir::chain::{
     address::{AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix},
@@ -10,7 +10,10 @@ use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cli_commands::bootstrap::{Addresses, BootstrapConfig, TokensToMint},
+    cli_commands::{
+        bootstrap::{Addresses, BootstrapConfig, TokensToMint},
+        prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
+    },
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
@@ -38,6 +41,7 @@ pub(crate) struct OracleConfigSerde {
     oracle_contract_parameters: OracleContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
+    update_contract_parameters: UpdateContractParametersSerde,
     ballot_parameters: BallotBoxWrapperParametersSerde,
     token_ids: TokenIds,
     addresses: AddressesSerde,
@@ -60,6 +64,8 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 
         let refresh_contract_parameters =
             RefreshContractParameters::try_from((c.refresh_contract_parameters, prefix))?;
+        let update_contract_parameters =
+            UpdateContractParameters::try_from((c.update_contract_parameters, prefix))?;
 
         let ballot_parameters = BallotBoxWrapperParameters {
             contract_parameters: BallotContractParameters::try_from((
@@ -83,6 +89,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             oracle_contract_parameters,
             pool_contract_parameters,
             refresh_contract_parameters,
+            update_contract_parameters,
             ballot_parameters,
             token_ids: c.token_ids,
             addresses: Addresses::try_from((c.addresses, prefix))?,
@@ -105,6 +112,8 @@ impl From<OracleConfig> for OracleConfigSerde {
             vote_parameters: c.ballot_parameters.vote_parameters,
             ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
         };
+        let update_contract_parameters =
+            UpdateContractParametersSerde::from(c.update_contract_parameters);
 
         let prefix = if c.on_mainnet {
             NetworkPrefix::Mainnet
@@ -127,6 +136,7 @@ impl From<OracleConfig> for OracleConfigSerde {
             pool_contract_parameters,
             refresh_contract_parameters,
             ballot_parameters,
+            update_contract_parameters,
             token_ids: c.token_ids,
             addresses: AddressesSerde::from((c.addresses, prefix)),
         }
@@ -247,7 +257,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct OracleContractParametersSerde {
+pub struct OracleContractParametersSerde {
     p2s: String,
     pool_nft_index: usize,
 }
@@ -435,6 +445,46 @@ impl From<UpdateContractParameters> for UpdateContractParametersSerde {
             min_votes_index: p.min_votes_index,
             min_votes: p.min_votes,
         }
+    }
+}
+
+#[derive(Clone, Deserialize)]
+pub struct UpdateBootstrapConfigSerde {
+    pool_contract_parameters: Option<PoolContractParametersSerde>,
+    refresh_contract_parameters: Option<RefreshContractParametersSerde>,
+    update_contract_parameters: Option<UpdateContractParametersSerde>,
+    tokens_to_mint: UpdateTokensToMint,
+    addresses: AddressesSerde,
+}
+
+impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
+    type Error = AddressEncoderError;
+    fn try_from(c: UpdateBootstrapConfigSerde) -> Result<UpdateBootstrapConfig, Self::Error> {
+        let prefix = if crate::oracle_config::ORACLE_CONFIG.on_mainnet {
+            NetworkPrefix::Mainnet
+        } else {
+            NetworkPrefix::Testnet
+        };
+        let pool_contract_parameters = c
+            .pool_contract_parameters
+            .map(|r| (r, prefix).try_into())
+            .transpose()?;
+        let refresh_contract_parameters = c
+            .refresh_contract_parameters
+            .map(|r| (r, prefix).try_into())
+            .transpose()?;
+        let update_contract_parameters = c
+            .update_contract_parameters
+            .map(|r| (r, prefix).try_into())
+            .transpose()?;
+        let addresses = (c.addresses, prefix).try_into()?;
+        Ok(UpdateBootstrapConfig {
+            pool_contract_parameters,
+            refresh_contract_parameters,
+            update_contract_parameters,
+            tokens_to_mint: c.tokens_to_mint,
+            addresses,
+        })
     }
 }
 

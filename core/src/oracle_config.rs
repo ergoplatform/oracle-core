@@ -3,11 +3,15 @@ use crate::{
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
+        update::UpdateContractParameters,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
 use anyhow::anyhow;
-use ergo_lib::ergotree_ir::chain::{address::NetworkPrefix, token::TokenId};
+use ergo_lib::{
+    ergo_chain_types::Digest32,
+    ergotree_ir::chain::{address::NetworkPrefix, token::TokenId},
+};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -32,8 +36,8 @@ pub struct OracleConfig {
     pub oracle_contract_parameters: OracleContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
+    pub update_contract_parameters: UpdateContractParameters,
     pub ballot_parameters: BallotBoxWrapperParameters,
-    // TODO: update_parameters (https://github.com/ergoplatform/oracle-core/issues/49)
     pub token_ids: TokenIds,
     pub addresses: Addresses,
 }
@@ -47,11 +51,12 @@ pub struct BallotBoxWrapperParameters {
     pub ballot_token_owner_address: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct CastBallotBoxVoteParameters {
-    pub pool_box_address_hash: String,
+    pub pool_box_address_hash: Digest32,
     pub reward_token_id: TokenId,
-    pub reward_token_quantity: u32,
+    pub reward_token_quantity: u64,
+    pub update_box_creation_height: i32,
 }
 
 /// Holds the token ids of every important token used by the oracle pool.

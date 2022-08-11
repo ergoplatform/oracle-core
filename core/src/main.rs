@@ -44,6 +44,8 @@ use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::debug;
 use log::error;
 use log::LevelFilter;
@@ -55,6 +57,7 @@ use oracle_state::OraclePool;
 use pool_commands::build_action;
 use state::process;
 use state::PoolState;
+use std::convert::TryInto;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
@@ -102,6 +105,9 @@ enum Command {
         /// Set this flag to output a bootstrap config template file to the given filename. If
         /// filename already exists, return error.
         generate_config_template: bool,
+        #[clap(short, long)]
+        /// Set this flag to use testnet prefix for bootstrap config template file
+        testnet: bool,
     },
 
     /// Run the oracle-pool
@@ -130,6 +136,22 @@ enum Command {
         /// The creation height of the update box.
         update_box_creation_height: u32,
     },
+    /// Initiate the Update Pool transaction.
+    /// Run with no arguments to show diff between oracle_config.yaml and oracle_config_updated.yaml
+    /// Updated config file must be created using --prepare-update command first
+    UpdatePool {
+        /// New pool box hash. Must match hash of updated pool contract
+        new_pool_box_hash: Option<String>,
+        /// New reward token id (optional, base64)
+        reward_token_id: Option<String>,
+        /// New reward token amount, required if new token id was voted for
+        reward_token_amount: Option<u64>,
+    },
+    /// Prepare updating oracle pool with new contracts/parameters.
+    PrepareUpdate {
+        /// Name of update parameters file (.yaml)
+        update_file: String,
+    },
 }
 
 fn main() {
@@ -149,10 +171,14 @@ fn main() {
         Command::Bootstrap {
             yaml_config_name,
             generate_config_template,
+            testnet,
         } => {
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
                 if generate_config_template {
-                    cli_commands::bootstrap::generate_bootstrap_config_template(yaml_config_name)?;
+                    cli_commands::bootstrap::generate_bootstrap_config_template(
+                        yaml_config_name,
+                        testnet,
+                    )?;
                 } else {
                     cli_commands::bootstrap::bootstrap(yaml_config_name)?;
                 }
@@ -239,6 +265,33 @@ fn main() {
                 update_box_creation_height,
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+        Command::UpdatePool {
+            new_pool_box_hash,
+            reward_token_id,
+            reward_token_amount,
+        } => {
+            assert_wallet_unlocked(&new_node_interface());
+            let new_reward_tokens =
+                reward_token_id
+                    .zip(reward_token_amount)
+                    .map(|(token_id, amount)| Token {
+                        token_id: TokenId::from_base64(&token_id).unwrap(),
+                        amount: amount.try_into().unwrap(),
+                    });
+            if let Err(e) =
+                cli_commands::update_pool::update_pool(new_pool_box_hash, new_reward_tokens)
+            {
+                error!("Fatal update-pool error: {}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+        Command::PrepareUpdate { update_file } => {
+            assert_wallet_unlocked(&new_node_interface());
+            if let Err(e) = cli_commands::prepare_update::prepare_update(update_file) {
+                error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }

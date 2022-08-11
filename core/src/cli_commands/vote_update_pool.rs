@@ -124,7 +124,7 @@ pub fn vote_update_pool(
     );
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
-    if input == "YES" {
+    if input.trim_end() == "YES" {
         let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
         println!(
             "Transaction made. Check status here: {}",
@@ -375,7 +375,8 @@ mod tests {
             vote_parameters: Some(CastBallotBoxVoteParameters {
                 reward_token_id: force_any_val::<TokenId>(),
                 reward_token_quantity: 100000,
-                pool_box_address_hash: force_any_val::<Digest32>().into(),
+                pool_box_address_hash: force_any_val::<Digest32>(),
+                update_box_creation_height: force_any_val::<i32>().abs(),
             }),
         };
         let inputs = BallotBoxWrapperInputs {

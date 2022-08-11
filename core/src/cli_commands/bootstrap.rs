@@ -9,7 +9,9 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{
+                Address, AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
+            },
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -89,12 +91,52 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     Ok(())
 }
 
-pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<(), BootstrapError> {
+pub fn generate_bootstrap_config_template(
+    config_file_name: String,
+    testnet: bool,
+) -> Result<(), BootstrapError> {
     if Path::new(&config_file_name).exists() {
         return Err(BootstrapError::ConfigFilenameAlreadyExists);
     }
     let address = AddressEncoder::new(NetworkPrefix::Mainnet)
         .parse_address_from_str("9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw")?;
+
+    let refresh_contract_parameters = if !testnet {
+        RefreshContractParameters::default()
+    } else {
+        let default = RefreshContractParameters::default();
+        RefreshContractParameters {
+            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
+            ..default
+        }
+    };
+    let pool_contract_parameters = if !testnet {
+        PoolContractParameters::default()
+    } else {
+        let default = PoolContractParameters::default();
+        PoolContractParameters {
+            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
+            ..default
+        }
+    };
+    let update_contract_parameters = if !testnet {
+        UpdateContractParameters::default()
+    } else {
+        let default = UpdateContractParameters::default();
+        UpdateContractParameters {
+            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
+            ..default
+        }
+    };
+    let ballot_contract_parameters = if !testnet {
+        BallotContractParameters::default()
+    } else {
+        let default = BallotContractParameters::default();
+        BallotContractParameters {
+            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
+            ..default
+        }
+    };
     let config = BootstrapConfig {
         tokens_to_mint: TokensToMint {
             pool_nft: NftMintDetails {
@@ -132,11 +174,11 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        on_mainnet: true,
-        refresh_contract_parameters: RefreshContractParameters::default(),
-        pool_contract_parameters: PoolContractParameters::default(),
-        update_contract_parameters: UpdateContractParameters::default(),
-        ballot_contract_parameters: BallotContractParameters::default(),
+        on_mainnet: !testnet,
+        refresh_contract_parameters,
+        pool_contract_parameters,
+        update_contract_parameters,
+        ballot_contract_parameters,
     };
 
     let s = serde_yaml::to_string(&config)?;
@@ -665,7 +707,7 @@ pub enum BootstrapError {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use ergo_lib::{
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
@@ -682,7 +724,7 @@ mod tests {
     use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
     use std::cell::RefCell;
     #[derive(Default)]
-    struct SubmitTxMock {
+    pub(crate) struct SubmitTxMock {
         transactions: RefCell<Vec<ergo_lib::chain::transaction::Transaction>>,
     }
 

@@ -9,6 +9,8 @@ use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 
 use thiserror::Error;
 
+use crate::box_kind::UpdateBoxWrapperInputs;
+
 #[derive(Clone)]
 pub struct UpdateContract {
     ergo_tree: ErgoTree,
@@ -47,6 +49,16 @@ pub struct UpdateContractInputs<'a> {
     pub ballot_token_id: &'a TokenId,
 }
 
+impl<'a> From<UpdateBoxWrapperInputs<'a>> for UpdateContractInputs<'a> {
+    fn from(wrapper_inputs: UpdateBoxWrapperInputs) -> UpdateContractInputs {
+        UpdateContractInputs {
+            contract_parameters: wrapper_inputs.contract_parameters,
+            pool_nft_token_id: wrapper_inputs.pool_nft_token_id,
+            ballot_token_id: wrapper_inputs.ballot_token_id,
+        }
+    }
+}
+
 impl UpdateContract {
     pub fn new(inputs: UpdateContractInputs) -> Result<Self, UpdateContractError> {
         let ergo_tree = inputs
@@ -61,6 +73,10 @@ impl UpdateContract {
             .with_constant(
                 inputs.contract_parameters.ballot_token_index,
                 inputs.ballot_token_id.clone().into(),
+            )?
+            .with_constant(
+                inputs.contract_parameters.min_votes_index,
+                (inputs.contract_parameters.min_votes as i32).into(),
             )?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)

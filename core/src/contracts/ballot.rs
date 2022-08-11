@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::box_kind::BallotBoxWrapperInputs;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BallotContract {
     ergo_tree: ErgoTree,
     min_storage_rent_index: usize,

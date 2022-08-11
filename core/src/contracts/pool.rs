@@ -37,6 +37,7 @@ pub enum PoolContractError {
     TryExtractFrom(TryExtractFromError),
 }
 
+#[derive(Copy, Clone)]
 pub struct PoolContractInputs<'a> {
     pub contract_parameters: &'a PoolContractParameters,
     pub refresh_nft_token_id: &'a TokenId,
