@@ -44,7 +44,6 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
 
 fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> OracleConfigFields {
     let ctx = force_any_val::<ErgoStateContext>();
-    let is_mainnet = true;
 
     let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
     let change_address = address;
@@ -90,7 +89,6 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        on_mainnet: is_mainnet,
     };
 
     let height = ctx.pre_header.height;

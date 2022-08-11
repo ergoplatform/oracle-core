@@ -112,7 +112,6 @@ pub struct BootstrapConfigSerde {
     node_ip: String,
     node_port: String,
     node_api_key: String,
-    is_mainnet: bool,
     addresses: AddressesSerde,
 }
 
@@ -159,13 +158,10 @@ impl TryFrom<AddressesSerde> for AddressesWithPrefix {
     }
 }
 
-impl From<BootstrapConfig> for BootstrapConfigSerde {
-    fn from(c: BootstrapConfig) -> Self {
-        let prefix = if c.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
+impl From<(BootstrapConfig, NetworkPrefix)> for BootstrapConfigSerde {
+    fn from(t: (BootstrapConfig, NetworkPrefix)) -> Self {
+        let c = t.0;
+        let prefix = t.1;
         BootstrapConfigSerde {
             refresh_contract_parameters: RefreshContractParametersSerde::from(
                 c.refresh_contract_parameters,
@@ -181,7 +177,6 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
             node_ip: c.node_ip,
             node_port: c.node_port,
             node_api_key: c.node_api_key,
-            is_mainnet: c.on_mainnet,
             addresses: AddressesSerde::from((c.addresses, prefix)),
         }
     }
@@ -206,7 +201,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             node_ip: c.node_ip,
             node_port: c.node_port,
             node_api_key: c.node_api_key,
-            on_mainnet: c.is_mainnet,
             addresses: AddressesWithPrefix::try_from(c.addresses)?.addresses,
         })
     }

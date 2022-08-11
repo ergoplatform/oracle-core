@@ -43,6 +43,7 @@ use crate::{
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::TokenIds,
+    serde::BootstrapConfigSerde,
     wallet::WalletDataSource,
 };
 
@@ -57,18 +58,13 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
     assert_wallet_unlocked(&node);
-    let prefix = if config.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
     let change_address_str = node
         .wallet_status()?
         .change_address
         .ok_or(BootstrapError::NoChangeAddressSetInNode)?;
     debug!("Change address: {}", change_address_str);
 
-    let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
+    let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
         wallet: &node as &dyn WalletDataSource,
@@ -174,14 +170,16 @@ pub fn generate_bootstrap_config_template(
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        on_mainnet: !testnet,
         refresh_contract_parameters,
         pool_contract_parameters,
         update_contract_parameters,
         ballot_contract_parameters,
     };
 
-    let s = serde_yaml::to_string(&config)?;
+    // Just default to mainnet prefix for this template.
+    let config_serde = BootstrapConfigSerde::from((config, NetworkPrefix::Mainnet));
+
+    let s = serde_yaml::to_string(&config_serde)?;
     let mut file = std::fs::File::create(&config_file_name)?;
     file.write_all(s.as_bytes())?;
     Ok(())
@@ -619,11 +617,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    try_from = "crate::serde::BootstrapConfigSerde",
-    into = "crate::serde::BootstrapConfigSerde"
-)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "crate::serde::BootstrapConfigSerde")]
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
@@ -633,7 +628,6 @@ pub struct BootstrapConfig {
     pub node_ip: String,
     pub node_port: String,
     pub node_api_key: String,
-    pub on_mainnet: bool,
     pub addresses: Addresses,
 }
 
@@ -745,7 +739,6 @@ pub(crate) mod tests {
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
         let address = Address::P2Pk(secret.public_image());
-        let is_mainnet = address.content_bytes()[0] < NetworkPrefix::Testnet as u8;
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = address.script().unwrap();
 
@@ -806,7 +799,6 @@ pub(crate) mod tests {
             node_ip: "127.0.0.1".into(),
             node_port: "9053".into(),
             node_api_key: "hello".into(),
-            on_mainnet: is_mainnet,
         };
 
         let height = ctx.pre_header.height;
