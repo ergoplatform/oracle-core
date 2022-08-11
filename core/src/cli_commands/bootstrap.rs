@@ -42,7 +42,8 @@ use crate::{
         },
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::{TokenIds, BASE_FEE},
+    oracle_config::BASE_FEE,
+    oracle_config::{OracleConfig, TokenIds},
     serde::BootstrapConfigSerde,
     wallet::WalletDataSource,
 };
@@ -164,7 +165,7 @@ pub struct BootstrapInput<'a> {
 /// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
 pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
-) -> Result<OracleConfigFields, BootstrapError> {
+) -> Result<OracleConfig, BootstrapError> {
     let BootstrapInput {
         config,
         wallet,
@@ -417,7 +418,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     };
 
     let pool_contract_parameters = PoolContractParameters {
-        p2s: config.pool_contract_parameters.p2s,
+        p2s: config.pool_contract_parameters.p2s.clone(),
         refresh_nft_index: config.pool_contract_parameters.refresh_nft_index,
         update_nft_index: config.pool_contract_parameters.update_nft_index,
     };
@@ -569,19 +570,15 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
     info!("Creating initial refresh box TxId: {}", tx_id);
 
-    Ok(OracleConfigFields {
-        token_ids: TokenIds {
-            pool_nft_token_id: pool_nft_token.token_id,
-            refresh_nft_token_id: refresh_nft_token.token_id,
-            update_nft_token_id: update_nft_token.token_id,
-            oracle_token_id: oracle_token.token_id,
-            reward_token_id: reward_token.token_id,
-            ballot_token_id: ballot_token.token_id,
-        },
-        node_ip: config.node_ip,
-        node_port: config.node_port,
-        node_api_key: config.node_api_key,
-    })
+    let token_ids = TokenIds {
+        pool_nft_token_id: pool_nft_token.token_id,
+        refresh_nft_token_id: refresh_nft_token.token_id,
+        update_nft_token_id: update_nft_token.token_id,
+        oracle_token_id: oracle_token.token_id,
+        reward_token_id: reward_token.token_id,
+        ballot_token_id: ballot_token.token_id,
+    };
+    Ok(OracleConfig::create(config, token_ids))
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
@@ -626,14 +623,6 @@ pub struct TokenMintDetails {
 pub struct NftMintDetails {
     pub name: String,
     pub description: String,
-}
-
-#[derive(Serialize)]
-pub struct OracleConfigFields {
-    pub token_ids: TokenIds,
-    pub node_ip: String,
-    pub node_port: String,
-    pub node_api_key: String,
 }
 
 #[derive(Debug, Error, From)]

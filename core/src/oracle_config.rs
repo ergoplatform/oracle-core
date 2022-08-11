@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::{
-    cli_commands::bootstrap::Addresses,
+    cli_commands::bootstrap::{Addresses, BootstrapConfig},
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractParameters,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
@@ -97,6 +97,31 @@ pub struct TokenIds {
 }
 
 impl OracleConfig {
+    pub fn create(bootstrap: BootstrapConfig, token_ids: TokenIds) -> Self {
+        OracleConfig {
+            node_ip: bootstrap.node_ip,
+            node_port: bootstrap.node_port,
+            node_api_key: bootstrap.node_api_key,
+            // TODO: rename to tx_fee and use insteaf of BoxValue::SAFE_USER_MIN
+            base_fee: bootstrap.base_fee,
+            log_level: Some(LevelFilter::Info),
+            // TODO: move to BootstrapConfig
+            core_api_port: todo!(),
+            oracle_address: todo!(),
+            on_mainnet: todo!(),
+            // TODO: move to BootstrapConfig
+            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
+            // TODO: move to BootstrapConfig
+            data_point_source_custom_script: todo!(),
+            oracle_contract_parameters: bootstrap.oracle_contract_parameters,
+            pool_contract_parameters: bootstrap.pool_contract_parameters,
+            refresh_contract_parameters: bootstrap.refresh_contract_parameters,
+            ballot_parameters: bootstrap.ballot_contract_parameters,
+            token_ids,
+            addresses: bootstrap.addresses,
+        }
+    }
+
     fn load() -> Result<Self, anyhow::Error> {
         Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
     }
