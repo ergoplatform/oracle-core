@@ -35,7 +35,6 @@ pub(crate) struct OracleConfigSerde {
     log_level: Option<LevelFilter>,
     core_api_port: u16,
     oracle_address: String,
-    on_mainnet: bool,
     data_point_source: Option<PredefinedDataPointSource>,
     data_point_source_custom_script: Option<String>,
     oracle_contract_parameters: OracleContractParametersSerde,
@@ -50,12 +49,6 @@ pub(crate) struct OracleConfigSerde {
 impl TryFrom<OracleConfigSerde> for OracleConfig {
     type Error = AddressEncoderError;
     fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
-        let prefix = if c.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-
         let oracle_contract_parameters =
             OracleContractParameters::try_from(c.oracle_contract_parameters)?;
 
@@ -74,6 +67,19 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             vote_parameters: c.ballot_parameters.vote_parameters,
             ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
         };
+
+        // Extract network prefix from the ballot token owner address. We'll use it to check the
+        // network prefixes of addresses below:
+        let ballot_token_owner_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            &ballot_parameters.ballot_token_owner_address,
+        )?;
+        let addresses_with_prefix = AddressesWithPrefix::try_from(c.addresses)?;
+
+        assert!(
+            ballot_token_owner_address.network() == addresses_with_prefix.prefix,
+            "All addresses must have the same network prefix (mainnet or testnet)"
+        );
+
         Ok(OracleConfig {
             node_ip: c.node_ip,
             node_port: c.node_port,
@@ -82,7 +88,6 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             log_level: c.log_level,
             core_api_port: c.core_api_port,
             oracle_address: c.oracle_address,
-            on_mainnet: c.on_mainnet,
             data_point_source: c.data_point_source,
             data_point_source_custom_script: c.data_point_source_custom_script,
             oracle_contract_parameters,
@@ -91,54 +96,8 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             update_contract_parameters,
             ballot_parameters,
             token_ids: c.token_ids,
-            addresses: Addresses::try_from((c.addresses, prefix))?,
+            addresses: addresses_with_prefix.addresses,
         })
-    }
-}
-
-impl From<OracleConfig> for OracleConfigSerde {
-    fn from(c: OracleConfig) -> Self {
-        let oracle_contract_parameters =
-            OracleContractParametersSerde::from(c.oracle_contract_parameters);
-        let pool_contract_parameters =
-            PoolContractParametersSerde::from(c.pool_contract_parameters);
-        let refresh_contract_parameters =
-            RefreshContractParametersSerde::from(c.refresh_contract_parameters);
-        let ballot_parameters = BallotBoxWrapperParametersSerde {
-            contract_parameters: BallotContractParametersSerde::from(
-                c.ballot_parameters.contract_parameters,
-            ),
-            vote_parameters: c.ballot_parameters.vote_parameters,
-            ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
-        };
-        let update_contract_parameters =
-            UpdateContractParametersSerde::from(c.update_contract_parameters);
-
-        let prefix = if c.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-
-        OracleConfigSerde {
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            base_fee: c.base_fee,
-            log_level: c.log_level,
-            core_api_port: c.core_api_port,
-            oracle_address: c.oracle_address,
-            on_mainnet: c.on_mainnet,
-            data_point_source: c.data_point_source,
-            data_point_source_custom_script: c.data_point_source_custom_script,
-            oracle_contract_parameters,
-            pool_contract_parameters,
-            refresh_contract_parameters,
-            ballot_parameters,
-            update_contract_parameters,
-            token_ids: c.token_ids,
-            addresses: AddressesSerde::from((c.addresses, prefix)),
-        }
     }
 }
 
@@ -163,6 +122,11 @@ struct AddressesSerde {
     wallet_address_for_chain_transaction: String,
 }
 
+struct AddressesWithPrefix {
+    addresses: Addresses,
+    prefix: NetworkPrefix,
+}
+
 impl From<(Addresses, NetworkPrefix)> for AddressesSerde {
     fn from(t: (Addresses, NetworkPrefix)) -> Self {
         let addresses = t.0;
@@ -176,17 +140,21 @@ impl From<(Addresses, NetworkPrefix)> for AddressesSerde {
     }
 }
 
-impl TryFrom<(AddressesSerde, NetworkPrefix)> for Addresses {
+impl TryFrom<AddressesSerde> for AddressesWithPrefix {
     type Error = AddressEncoderError;
-    fn try_from(t: (AddressesSerde, NetworkPrefix)) -> Result<Self, Self::Error> {
-        let addresses = t.0;
-        let prefix = t.1;
-        let encoder = AddressEncoder::new(prefix);
-        Ok(Addresses {
-            address_for_oracle_tokens: encoder
-                .parse_address_from_str(&addresses.address_for_oracle_tokens)?,
-            wallet_address_for_chain_transaction: encoder
-                .parse_address_from_str(&addresses.wallet_address_for_chain_transaction)?,
+    fn try_from(addresses: AddressesSerde) -> Result<Self, Self::Error> {
+        let oracle_token_network_addr = AddressEncoder::unchecked_parse_network_address_from_str(
+            &addresses.address_for_oracle_tokens,
+        )?;
+        let prefix = oracle_token_network_addr.network();
+        let wallet_address_for_chain_transaction = AddressEncoder::new(prefix)
+            .parse_address_from_str(&addresses.wallet_address_for_chain_transaction)?;
+        Ok(AddressesWithPrefix {
+            addresses: Addresses {
+                address_for_oracle_tokens: oracle_token_network_addr.address(),
+                wallet_address_for_chain_transaction,
+            },
+            prefix,
         })
     }
 }
@@ -223,11 +191,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
     type Error = AddressEncoderError;
 
     fn try_from(c: BootstrapConfigSerde) -> Result<Self, Self::Error> {
-        let prefix = if c.is_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
         Ok(BootstrapConfig {
             refresh_contract_parameters: RefreshContractParameters::try_from(
                 c.refresh_contract_parameters,
@@ -244,7 +207,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             node_port: c.node_port,
             node_api_key: c.node_api_key,
             on_mainnet: c.is_mainnet,
-            addresses: Addresses::try_from((c.addresses, prefix))?,
+            addresses: AddressesWithPrefix::try_from(c.addresses)?.addresses,
         })
     }
 }

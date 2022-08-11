@@ -9,7 +9,7 @@ use ergo_lib::{
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{Address, AddressEncoder, AddressEncoderError},
             ergo_box::box_value::BoxValue,
         },
         serialization::SigmaParsingError,
@@ -26,7 +26,6 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::ORACLE_CONFIG,
     oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
     wallet::WalletDataSource,
 };
@@ -65,24 +64,20 @@ pub fn transfer_oracle_token(
 ) -> Result<(), TransferOracleTokenActionError> {
     let op = OraclePool::new().unwrap();
     if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
-        let prefix = if ORACLE_CONFIG.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
         let rewards_destination =
-            AddressEncoder::new(prefix).parse_address_from_str(&rewards_destination_str)?;
+            AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
+        let network_prefix = rewards_destination.network();
 
         let change_address_str = get_wallet_status()?
             .change_address
             .ok_or(TransferOracleTokenActionError::NoChangeAddressSetInNode)?;
 
         let change_address =
-            AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
+            AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
         let unsigned_tx = build_transfer_oracle_token_tx(
             local_datapoint_box_source,
             wallet,
-            rewards_destination,
+            rewards_destination.address(),
             current_block_height()? as u32,
             change_address,
         )?;
@@ -97,7 +92,7 @@ pub fn transfer_oracle_token(
             let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
             println!(
                 "Transaction made. Check status here: {}",
-                ergo_explorer_transaction_link(tx_id_str, prefix)
+                ergo_explorer_transaction_link(tx_id_str, network_prefix)
             );
         } else {
             println!("Aborting the transaction.")

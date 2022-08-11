@@ -1,8 +1,6 @@
 use derive_more::From;
 use ergo_lib::ergo_chain_types::DigestNError;
-use ergo_lib::ergotree_ir::chain::address::{
-    Address, AddressEncoder, AddressEncoderError, NetworkPrefix,
-};
+use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder, AddressEncoderError};
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
@@ -76,13 +74,9 @@ pub fn build_action(
             {
                 PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source)
             } else {
-                let address_encoder = if ORACLE_CONFIG.on_mainnet {
-                    AddressEncoder::new(NetworkPrefix::Mainnet)
-                } else {
-                    AddressEncoder::new(NetworkPrefix::Testnet)
-                };
-                let address =
-                    address_encoder.parse_address_from_str(&ORACLE_CONFIG.oracle_address)?;
+                let address = AddressEncoder::unchecked_parse_address_from_str(
+                    &ORACLE_CONFIG.oracle_address,
+                )?;
                 if let Address::P2Pk(public_key) = address {
                     let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((
                         &ORACLE_CONFIG.oracle_contract_parameters,

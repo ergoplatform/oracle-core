@@ -14,11 +14,8 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    try_from = "crate::serde::OracleConfigSerde",
-    into = "crate::serde::OracleConfigSerde"
-)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "crate::serde::OracleConfigSerde")]
 pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
@@ -27,7 +24,6 @@ pub struct OracleConfig {
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: String,
-    pub on_mainnet: bool,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
     pub oracle_contract_parameters: OracleContractParameters,
