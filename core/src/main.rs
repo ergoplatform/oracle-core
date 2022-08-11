@@ -137,7 +137,7 @@ enum Command {
         update_box_creation_height: u32,
     },
     /// Initiate the Update Pool transaction.
-    /// Run with no arguments to to show diff between oracle_config.yaml and oracle_config_updated.yaml
+    /// Run with no arguments to show diff between oracle_config.yaml and oracle_config_updated.yaml
     /// Updated config file must be created using --prepare-update command first
     UpdatePool {
         /// New pool box hash. Must match hash of updated pool contract
