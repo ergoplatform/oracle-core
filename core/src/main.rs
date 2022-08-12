@@ -194,6 +194,7 @@ fn main() {
         Command::Run { read_only } => {
             assert_wallet_unlocked(&new_node_interface());
             let (_, repost_receiver) = bounded(1);
+            let op = OraclePool::new().unwrap();
 
             // Start Oracle Core GET API Server
             thread::Builder::new()
@@ -202,7 +203,6 @@ fn main() {
                     api::start_get_api(repost_receiver);
                 })
                 .ok();
-            let op = OraclePool::new().unwrap();
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
                     error!("Fatal error: {:?}", e);
