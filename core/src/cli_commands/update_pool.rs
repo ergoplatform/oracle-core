@@ -7,7 +7,7 @@ use ergo_lib::{
     ergo_chain_types::blake2b256_hash,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
-        address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+        address::{Address, AddressEncoder, AddressEncoderError},
         ergo_box::{box_value::BoxValue, ErgoBox, NonMandatoryRegisterId},
         token::Token,
     },
@@ -80,13 +80,10 @@ pub fn update_pool(
         .change_address
         .ok_or(UpdatePoolError::NoChangeAddressSetInNode)?;
 
-    let network_prefix = if ORACLE_CONFIG.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
+    let (change_address, network_prefix) = {
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
+        (a.address(), a.network())
     };
-    let change_address =
-        AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
 
     let pool_contract_inputs = PoolContractInputs::from((
         &new_oracle_config.pool_contract_parameters,
@@ -352,7 +349,7 @@ mod tests {
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::{
             chain::{
-                address::AddressEncoder,
+                address::{AddressEncoder, NetworkPrefix},
                 ergo_box::{box_value::BoxValue, ErgoBox},
                 token::{Token, TokenId},
             },
@@ -484,12 +481,10 @@ mod tests {
             let ballot_box_parameters = BallotBoxWrapperParameters {
                 contract_parameters: ballot_contract_parameters.clone(),
                 vote_parameters: None,
-                ballot_token_owner_address: AddressEncoder::new(
-                    ballot_contract_parameters.p2s.network(),
-                )
-                .address_to_str(
-                    &ergo_lib::ergotree_ir::chain::address::Address::P2Pk(secret.public_image()),
-                ),
+                ballot_token_owner_address: AddressEncoder::new(NetworkPrefix::Mainnet)
+                    .address_to_str(&ergo_lib::ergotree_ir::chain::address::Address::P2Pk(
+                        secret.public_image(),
+                    )),
             };
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,

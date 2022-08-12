@@ -8,7 +8,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{Address, AddressEncoder, AddressEncoderError},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -40,6 +40,7 @@ use crate::{
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, ORACLE_CONFIG},
+    serde::OracleConfigSerde,
     wallet::WalletDataSource,
 };
 
@@ -69,17 +70,15 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     let config: UpdateBootstrapConfig = serde_yaml::from_str(&s)?;
 
     let node_interface = new_node_interface();
-    let prefix = if ORACLE_CONFIG.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
+    let (change_address, network_prefix) = {
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(
+            &node_interface
+                .wallet_status()?
+                .change_address
+                .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
+        )?;
+        (a.address(), a.network())
     };
-    let change_address = AddressEncoder::new(prefix).parse_address_from_str(
-        &node_interface
-            .wallet_status()?
-            .change_address
-            .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
-    )?;
     let update_bootstrap_input = PrepareUpdateInput {
         config: config.clone(),
         wallet: &node_interface,
@@ -100,7 +99,8 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
 
     info!("Update chain-transaction complete");
     info!("Writing new config file to oracle_config_updated.yaml");
-    let s = serde_yaml::to_string(&new_config)?;
+    let config = OracleConfigSerde::from((new_config, network_prefix));
+    let s = serde_yaml::to_string(&config)?;
     let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
     info!("Updated oracle configuration file oracle_config_updated.yaml");

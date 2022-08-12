@@ -542,8 +542,7 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
                     self.ballot_box_wrapper_inputs
                         .parameters
                         .contract_parameters
-                        .p2s
-                        .network(),
+                        .p2s,
                 )
                 .address_to_str(&Address::P2Pk(ProveDlog::from(ec)));
 

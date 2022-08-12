@@ -46,6 +46,47 @@ pub(crate) struct OracleConfigSerde {
     addresses: AddressesSerde,
 }
 
+impl From<(OracleConfig, NetworkPrefix)> for OracleConfigSerde {
+    fn from(t: (OracleConfig, NetworkPrefix)) -> Self {
+        let c = t.0;
+        let network_prefix = t.1;
+        let oracle_contract_parameters =
+            OracleContractParametersSerde::from(c.oracle_contract_parameters);
+        let pool_contract_parameters =
+            PoolContractParametersSerde::from(c.pool_contract_parameters);
+        let refresh_contract_parameters =
+            RefreshContractParametersSerde::from(c.refresh_contract_parameters);
+        let ballot_parameters = BallotBoxWrapperParametersSerde {
+            contract_parameters: BallotContractParametersSerde::from(
+                c.ballot_parameters.contract_parameters,
+            ),
+            vote_parameters: c.ballot_parameters.vote_parameters,
+            ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
+        };
+        let update_contract_parameters =
+            UpdateContractParametersSerde::from(c.update_contract_parameters);
+
+        OracleConfigSerde {
+            node_ip: c.node_ip,
+            node_port: c.node_port,
+            node_api_key: c.node_api_key,
+            base_fee: c.base_fee,
+            log_level: c.log_level,
+            core_api_port: c.core_api_port,
+            oracle_address: c.oracle_address,
+            data_point_source: c.data_point_source,
+            data_point_source_custom_script: c.data_point_source_custom_script,
+            oracle_contract_parameters,
+            pool_contract_parameters,
+            refresh_contract_parameters,
+            update_contract_parameters,
+            ballot_parameters,
+            token_ids: c.token_ids,
+            addresses: AddressesSerde::from((c.addresses, network_prefix)),
+        }
+    }
+}
+
 impl TryFrom<OracleConfigSerde> for OracleConfig {
     type Error = AddressEncoderError;
     fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
@@ -401,30 +442,25 @@ pub struct UpdateBootstrapConfigSerde {
 impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
     type Error = AddressEncoderError;
     fn try_from(c: UpdateBootstrapConfigSerde) -> Result<UpdateBootstrapConfig, Self::Error> {
-        let prefix = if crate::oracle_config::ORACLE_CONFIG.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
         let pool_contract_parameters = c
             .pool_contract_parameters
-            .map(|r| (r, prefix).try_into())
+            .map(|r| r.try_into())
             .transpose()?;
         let refresh_contract_parameters = c
             .refresh_contract_parameters
-            .map(|r| (r, prefix).try_into())
+            .map(|r| r.try_into())
             .transpose()?;
         let update_contract_parameters = c
             .update_contract_parameters
-            .map(|r| (r, prefix).try_into())
+            .map(|r| r.try_into())
             .transpose()?;
-        let addresses = (c.addresses, prefix).try_into()?;
+        let addresses_with_prefix: AddressesWithPrefix = c.addresses.try_into()?;
         Ok(UpdateBootstrapConfig {
             pool_contract_parameters,
             refresh_contract_parameters,
             update_contract_parameters,
             tokens_to_mint: c.tokens_to_mint,
-            addresses,
+            addresses: addresses_with_prefix.addresses,
         })
     }
 }

@@ -9,9 +9,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{
-                Address, AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
-            },
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -97,42 +95,6 @@ pub fn generate_bootstrap_config_template(
     let address = AddressEncoder::new(NetworkPrefix::Mainnet)
         .parse_address_from_str("9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw")?;
 
-    let refresh_contract_parameters = if !testnet {
-        RefreshContractParameters::default()
-    } else {
-        let default = RefreshContractParameters::default();
-        RefreshContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
-    let pool_contract_parameters = if !testnet {
-        PoolContractParameters::default()
-    } else {
-        let default = PoolContractParameters::default();
-        PoolContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
-    let update_contract_parameters = if !testnet {
-        UpdateContractParameters::default()
-    } else {
-        let default = UpdateContractParameters::default();
-        UpdateContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
-    let ballot_contract_parameters = if !testnet {
-        BallotContractParameters::default()
-    } else {
-        let default = BallotContractParameters::default();
-        BallotContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
     let config = BootstrapConfig {
         tokens_to_mint: TokensToMint {
             pool_nft: NftMintDetails {
@@ -170,14 +132,18 @@ pub fn generate_bootstrap_config_template(
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        refresh_contract_parameters,
-        pool_contract_parameters,
-        update_contract_parameters,
-        ballot_contract_parameters,
+        refresh_contract_parameters: RefreshContractParameters::default(),
+        pool_contract_parameters: PoolContractParameters::default(),
+        update_contract_parameters: UpdateContractParameters::default(),
+        ballot_contract_parameters: BallotContractParameters::default(),
     };
 
-    // Just default to mainnet prefix for this template.
-    let config_serde = BootstrapConfigSerde::from((config, NetworkPrefix::Mainnet));
+    let network_prefix = if testnet {
+        NetworkPrefix::Testnet
+    } else {
+        NetworkPrefix::Mainnet
+    };
+    let config_serde = BootstrapConfigSerde::from((config, network_prefix));
 
     let s = serde_yaml::to_string(&config_serde)?;
     let mut file = std::fs::File::create(&config_file_name)?;
