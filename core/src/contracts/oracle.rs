@@ -6,6 +6,7 @@ use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::box_kind::OracleBoxWrapperInputs;
@@ -95,7 +96,8 @@ impl OracleContract {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(into = "crate::serde::OracleContractParametersSerde")]
 /// Parameters for the oracle contract
 pub struct OracleContractParameters {
     pub p2s: NetworkAddress,
