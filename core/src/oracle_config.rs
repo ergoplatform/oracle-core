@@ -8,7 +8,10 @@ use crate::{
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
 use anyhow::anyhow;
-use ergo_lib::{ergo_chain_types::Digest32, ergotree_ir::chain::token::TokenId};
+use ergo_lib::{
+    ergo_chain_types::Digest32,
+    ergotree_ir::chain::{address::Address, token::TokenId},
+};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +44,7 @@ pub struct BallotBoxWrapperParameters {
     pub vote_parameters: Option<CastBallotBoxVoteParameters>,
     /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
     /// set here.
-    pub ballot_token_owner_address: String,
+    pub ballot_token_owner_address: Address,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

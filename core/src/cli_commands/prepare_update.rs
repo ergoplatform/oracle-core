@@ -1,4 +1,7 @@
-use std::{convert::TryInto, io::Write};
+use std::{
+    convert::{TryFrom, TryInto},
+    io::Write,
+};
 
 use derive_more::From;
 use ergo_lib::{
@@ -40,7 +43,7 @@ use crate::{
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, ORACLE_CONFIG},
-    serde::OracleConfigSerde,
+    serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     wallet::WalletDataSource,
 };
 
@@ -55,8 +58,7 @@ pub struct UpdateTokensToMint {
     pub reward_tokens: Option<TokenMintDetails>,
 }
 
-#[derive(Clone, Deserialize)]
-#[serde(try_from = "crate::serde::UpdateBootstrapConfigSerde")]
+#[derive(Clone)]
 pub struct UpdateBootstrapConfig {
     pub pool_contract_parameters: Option<PoolContractParameters>, // New pool script, etc. Note that we don't actually mint any new pool NFT in the update step, instead this is simply passed to the new oracle config for convenience
     pub refresh_contract_parameters: Option<RefreshContractParameters>,
@@ -67,7 +69,7 @@ pub struct UpdateBootstrapConfig {
 
 pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError> {
     let s = std::fs::read_to_string(config_file_name)?;
-    let config: UpdateBootstrapConfig = serde_yaml::from_str(&s)?;
+    let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
     let node_interface = new_node_interface();
     let (change_address, network_prefix) = {
@@ -79,6 +81,7 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
         )?;
         (a.address(), a.network())
     };
+    let config = UpdateBootstrapConfig::try_from((config_serde, network_prefix))?;
     let update_bootstrap_input = PrepareUpdateInput {
         config: config.clone(),
         wallet: &node_interface,
@@ -373,6 +376,8 @@ pub enum PrepareUpdateError {
     NoOpUpgrade,
     #[error("No mint details were provided for update/refresh contract in tokens_to_mint")]
     NoMintDetails,
+    #[error("Serde conversion error {0}")]
+    SerdeConversion(SerdeConversionError),
 }
 
 #[cfg(test)]

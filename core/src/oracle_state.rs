@@ -258,13 +258,18 @@ impl<'a> OraclePool<'a> {
                 scans.push(local_scan);
             }
 
+            let network_prefix =
+                AddressEncoder::unchecked_parse_network_address_from_str(&config.oracle_address)?
+                    .network();
+            let ballot_token_owner_address_str = AddressEncoder::new(network_prefix)
+                .address_to_str(&config.ballot_parameters.ballot_token_owner_address);
             let ballot_contract_address =
                 BallotContract::new(ballot_box_wrapper_inputs.into())?.ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,
                 &config.token_ids.ballot_token_id,
-                &config.ballot_parameters.ballot_token_owner_address,
+                &ballot_token_owner_address_str,
             ) {
                 scans.push(local_scan);
             }
@@ -538,17 +543,11 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
                     .ok_or(BallotBoxError::NoGroupElementInR4)?
                     .try_extract_into::<ergo_lib::ergo_chain_types::EcPoint>()?;
 
-                let address = AddressEncoder::new(
-                    self.ballot_box_wrapper_inputs
-                        .parameters
-                        .contract_parameters
-                        .p2s,
-                )
-                .address_to_str(&Address::P2Pk(ProveDlog::from(ec)));
+                let ballot_token_owner_address = Address::P2Pk(ProveDlog::from(ec));
 
                 let ballot_box_wrapper_parameters = BallotBoxWrapperParameters {
                     vote_parameters: None,
-                    ballot_token_owner_address: address,
+                    ballot_token_owner_address,
                     ..self.ballot_box_wrapper_inputs.parameters.clone()
                 };
                 let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {

@@ -2,12 +2,14 @@
 
 use std::convert::{TryFrom, TryInto};
 
+use derive_more::From;
 use ergo_lib::ergotree_ir::chain::{
     address::{AddressEncoder, AddressEncoderError, NetworkPrefix},
     token::TokenId,
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{
     cli_commands::{
@@ -46,6 +48,14 @@ pub(crate) struct OracleConfigSerde {
     addresses: AddressesSerde,
 }
 
+#[derive(Debug, Error, From)]
+pub enum SerdeConversionError {
+    #[error("Serde conversion error: AddressEncoder {0}")]
+    AddressEncoder(AddressEncoderError),
+    #[error("Serde conversion error: Network prefixes of addresses differ")]
+    NetworkPrefixesDiffer,
+}
+
 impl From<(OracleConfig, NetworkPrefix)> for OracleConfigSerde {
     fn from(t: (OracleConfig, NetworkPrefix)) -> Self {
         let c = t.0;
@@ -61,7 +71,8 @@ impl From<(OracleConfig, NetworkPrefix)> for OracleConfigSerde {
                 c.ballot_parameters.contract_parameters,
             ),
             vote_parameters: c.ballot_parameters.vote_parameters,
-            ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
+            ballot_token_owner_address: AddressEncoder::new(network_prefix)
+                .address_to_str(&c.ballot_parameters.ballot_token_owner_address),
         };
         let update_contract_parameters =
             UpdateContractParametersSerde::from(c.update_contract_parameters);
@@ -88,57 +99,66 @@ impl From<(OracleConfig, NetworkPrefix)> for OracleConfigSerde {
 }
 
 impl TryFrom<OracleConfigSerde> for OracleConfig {
-    type Error = AddressEncoderError;
+    type Error = SerdeConversionError;
     fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
-        let oracle_contract_parameters =
-            OracleContractParameters::try_from(c.oracle_contract_parameters)?;
+        let (oracle_contract_parameters, oracle_contract_prefix) =
+            <(OracleContractParameters, NetworkPrefix)>::try_from(c.oracle_contract_parameters)?;
 
-        let pool_contract_parameters =
-            PoolContractParameters::try_from(c.pool_contract_parameters)?;
+        let (pool_contract_parameters, pool_contract_prefix) =
+            <(PoolContractParameters, NetworkPrefix)>::try_from(c.pool_contract_parameters)?;
 
-        let refresh_contract_parameters =
-            RefreshContractParameters::try_from(c.refresh_contract_parameters)?;
-        let update_contract_parameters =
-            UpdateContractParameters::try_from(c.update_contract_parameters)?;
+        let (refresh_contract_parameters, refresh_contract_prefix) =
+            <(RefreshContractParameters, NetworkPrefix)>::try_from(c.refresh_contract_parameters)?;
 
-        let ballot_parameters = BallotBoxWrapperParameters {
-            contract_parameters: BallotContractParameters::try_from(
+        let (update_contract_parameters, update_contract_prefix) =
+            <(UpdateContractParameters, NetworkPrefix)>::try_from(c.update_contract_parameters)?;
+
+        let (ballot_token_owner_address, network_prefix) = {
+            let a = AddressEncoder::unchecked_parse_network_address_from_str(
+                &c.ballot_parameters.ballot_token_owner_address,
+            )?;
+            (a.address(), a.network())
+        };
+        let (ballot_contract_parameters, ballot_contract_prefix) =
+            <(BallotContractParameters, NetworkPrefix)>::try_from(
                 c.ballot_parameters.contract_parameters,
-            )?,
+            )?;
+        let ballot_parameters = BallotBoxWrapperParameters {
+            contract_parameters: ballot_contract_parameters,
             vote_parameters: c.ballot_parameters.vote_parameters,
-            ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address,
+            ballot_token_owner_address,
         };
 
-        // Extract network prefix from the ballot token owner address. We'll use it to check the
-        // network prefixes of addresses below:
-        let ballot_token_owner_address = AddressEncoder::unchecked_parse_network_address_from_str(
-            &ballot_parameters.ballot_token_owner_address,
-        )?;
         let addresses_with_prefix = AddressesWithPrefix::try_from(c.addresses)?;
 
-        assert!(
-            ballot_token_owner_address.network() == addresses_with_prefix.prefix,
-            "All addresses must have the same network prefix (mainnet or testnet)"
-        );
-
-        Ok(OracleConfig {
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            base_fee: c.base_fee,
-            log_level: c.log_level,
-            core_api_port: c.core_api_port,
-            oracle_address: c.oracle_address,
-            data_point_source: c.data_point_source,
-            data_point_source_custom_script: c.data_point_source_custom_script,
-            oracle_contract_parameters,
-            pool_contract_parameters,
-            refresh_contract_parameters,
-            update_contract_parameters,
-            ballot_parameters,
-            token_ids: c.token_ids,
-            addresses: addresses_with_prefix.addresses,
-        })
+        if addresses_with_prefix.prefix == network_prefix
+            && ballot_contract_prefix == network_prefix
+            && update_contract_prefix == network_prefix
+            && refresh_contract_prefix == network_prefix
+            && oracle_contract_prefix == network_prefix
+            && pool_contract_prefix == network_prefix
+        {
+            Ok(OracleConfig {
+                node_ip: c.node_ip,
+                node_port: c.node_port,
+                node_api_key: c.node_api_key,
+                base_fee: c.base_fee,
+                log_level: c.log_level,
+                core_api_port: c.core_api_port,
+                oracle_address: c.oracle_address,
+                data_point_source: c.data_point_source,
+                data_point_source_custom_script: c.data_point_source_custom_script,
+                oracle_contract_parameters,
+                pool_contract_parameters,
+                refresh_contract_parameters,
+                update_contract_parameters,
+                ballot_parameters,
+                token_ids: c.token_ids,
+                addresses: addresses_with_prefix.addresses,
+            })
+        } else {
+            Err(SerdeConversionError::NetworkPrefixesDiffer)
+        }
     }
 }
 
@@ -224,26 +244,38 @@ impl From<(BootstrapConfig, NetworkPrefix)> for BootstrapConfigSerde {
 }
 
 impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
-    type Error = AddressEncoderError;
+    type Error = SerdeConversionError;
 
     fn try_from(c: BootstrapConfigSerde) -> Result<Self, Self::Error> {
-        Ok(BootstrapConfig {
-            refresh_contract_parameters: RefreshContractParameters::try_from(
-                c.refresh_contract_parameters,
-            )?,
-            pool_contract_parameters: PoolContractParameters::try_from(c.pool_contract_parameters)?,
-            update_contract_parameters: UpdateContractParameters::try_from(
-                c.update_contract_parameters,
-            )?,
-            ballot_contract_parameters: BallotContractParameters::try_from(
-                c.ballot_contract_parameters,
-            )?,
-            tokens_to_mint: c.tokens_to_mint,
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            addresses: AddressesWithPrefix::try_from(c.addresses)?.addresses,
-        })
+        let (pool_contract_parameters, pool_contract_prefix) =
+            <(PoolContractParameters, NetworkPrefix)>::try_from(c.pool_contract_parameters)?;
+        let (refresh_contract_parameters, refresh_contract_prefix) =
+            <(RefreshContractParameters, NetworkPrefix)>::try_from(c.refresh_contract_parameters)?;
+        let (update_contract_parameters, update_contract_prefix) =
+            <(UpdateContractParameters, NetworkPrefix)>::try_from(c.update_contract_parameters)?;
+        let (ballot_contract_parameters, ballot_contract_prefix) =
+            <(BallotContractParameters, NetworkPrefix)>::try_from(c.ballot_contract_parameters)?;
+        let AddressesWithPrefix { addresses, prefix } = AddressesWithPrefix::try_from(c.addresses)?;
+
+        if pool_contract_prefix == prefix
+            && refresh_contract_prefix == prefix
+            && update_contract_prefix == prefix
+            && ballot_contract_prefix == prefix
+        {
+            Ok(BootstrapConfig {
+                pool_contract_parameters,
+                refresh_contract_parameters,
+                update_contract_parameters,
+                ballot_contract_parameters,
+                tokens_to_mint: c.tokens_to_mint,
+                node_ip: c.node_ip,
+                node_port: c.node_port,
+                node_api_key: c.node_api_key,
+                addresses,
+            })
+        } else {
+            Err(SerdeConversionError::NetworkPrefixesDiffer)
+        }
     }
 }
 
@@ -262,16 +294,18 @@ impl From<OracleContractParameters> for OracleContractParametersSerde {
     }
 }
 
-impl TryFrom<OracleContractParametersSerde> for OracleContractParameters {
+impl TryFrom<OracleContractParametersSerde> for (OracleContractParameters, NetworkPrefix) {
     type Error = AddressEncoderError;
     fn try_from(contract: OracleContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s =
-            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
 
-        Ok(OracleContractParameters {
-            p2s,
-            pool_nft_index: contract.pool_nft_index,
-        })
+        Ok((
+            OracleContractParameters {
+                p2s: a.address(),
+                pool_nft_index: contract.pool_nft_index,
+            },
+            a.network(),
+        ))
     }
 }
 
@@ -292,16 +326,18 @@ impl From<PoolContractParameters> for PoolContractParametersSerde {
     }
 }
 
-impl TryFrom<PoolContractParametersSerde> for PoolContractParameters {
+impl TryFrom<PoolContractParametersSerde> for (PoolContractParameters, NetworkPrefix) {
     type Error = AddressEncoderError;
     fn try_from(contract: PoolContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s =
-            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
-        Ok(PoolContractParameters {
-            p2s,
-            refresh_nft_index: contract.refresh_nft_index,
-            update_nft_index: contract.update_nft_index,
-        })
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
+        Ok((
+            PoolContractParameters {
+                p2s: a.address(),
+                refresh_nft_index: contract.refresh_nft_index,
+                update_nft_index: contract.update_nft_index,
+            },
+            a.network(),
+        ))
     }
 }
 
@@ -338,24 +374,26 @@ impl From<RefreshContractParameters> for RefreshContractParametersSerde {
     }
 }
 
-impl TryFrom<RefreshContractParametersSerde> for RefreshContractParameters {
+impl TryFrom<RefreshContractParametersSerde> for (RefreshContractParameters, NetworkPrefix) {
     type Error = AddressEncoderError;
     fn try_from(contract: RefreshContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s =
-            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
-        Ok(RefreshContractParameters {
-            p2s,
-            pool_nft_index: contract.pool_nft_index,
-            oracle_token_id_index: contract.oracle_token_id_index,
-            min_data_points_index: contract.min_data_points_index,
-            min_data_points: contract.min_data_points,
-            buffer_index: contract.buffer_index,
-            buffer_length: contract.buffer_length,
-            max_deviation_percent_index: contract.max_deviation_percent_index,
-            max_deviation_percent: contract.max_deviation_percent,
-            epoch_length_index: contract.epoch_length_index,
-            epoch_length: contract.epoch_length,
-        })
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
+        Ok((
+            RefreshContractParameters {
+                p2s: a.address(),
+                pool_nft_index: contract.pool_nft_index,
+                oracle_token_id_index: contract.oracle_token_id_index,
+                min_data_points_index: contract.min_data_points_index,
+                min_data_points: contract.min_data_points,
+                buffer_index: contract.buffer_index,
+                buffer_length: contract.buffer_length,
+                max_deviation_percent_index: contract.max_deviation_percent_index,
+                max_deviation_percent: contract.max_deviation_percent,
+                epoch_length_index: contract.epoch_length_index,
+                epoch_length: contract.epoch_length,
+            },
+            a.network(),
+        ))
     }
 }
 
@@ -378,17 +416,19 @@ impl From<BallotContractParameters> for BallotContractParametersSerde {
     }
 }
 
-impl TryFrom<BallotContractParametersSerde> for BallotContractParameters {
+impl TryFrom<BallotContractParametersSerde> for (BallotContractParameters, NetworkPrefix) {
     type Error = AddressEncoderError;
     fn try_from(contract: BallotContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s =
-            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
-        Ok(BallotContractParameters {
-            p2s,
-            min_storage_rent_index: contract.min_storage_rent_index,
-            min_storage_rent: contract.min_storage_rent,
-            update_nft_index: contract.update_nft_index,
-        })
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
+        Ok((
+            BallotContractParameters {
+                p2s: a.address(),
+                min_storage_rent_index: contract.min_storage_rent_index,
+                min_storage_rent: contract.min_storage_rent,
+                update_nft_index: contract.update_nft_index,
+            },
+            a.network(),
+        ))
     }
 }
 
@@ -402,19 +442,21 @@ struct UpdateContractParametersSerde {
     min_votes: u64,
 }
 
-impl TryFrom<UpdateContractParametersSerde> for UpdateContractParameters {
+impl TryFrom<UpdateContractParametersSerde> for (UpdateContractParameters, NetworkPrefix) {
     type Error = AddressEncoderError;
 
     fn try_from(contract: UpdateContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s =
-            AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&contract.p2s)?;
-        Ok(UpdateContractParameters {
-            p2s,
-            pool_nft_index: contract.pool_nft_index,
-            ballot_token_index: contract.ballot_token_index,
-            min_votes_index: contract.min_votes_index,
-            min_votes: contract.min_votes,
-        })
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
+        Ok((
+            UpdateContractParameters {
+                p2s: a.address(),
+                pool_nft_index: contract.pool_nft_index,
+                ballot_token_index: contract.ballot_token_index,
+                min_votes_index: contract.min_votes_index,
+                min_votes: contract.min_votes,
+            },
+            a.network(),
+        ))
     }
 }
 
@@ -439,28 +481,61 @@ pub struct UpdateBootstrapConfigSerde {
     addresses: AddressesSerde,
 }
 
-impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
-    type Error = AddressEncoderError;
-    fn try_from(c: UpdateBootstrapConfigSerde) -> Result<UpdateBootstrapConfig, Self::Error> {
+/// The network prefix of the 2nd element is the one in use by the existing oracle pool.
+impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapConfig {
+    type Error = SerdeConversionError;
+    fn try_from(
+        t: (UpdateBootstrapConfigSerde, NetworkPrefix),
+    ) -> Result<UpdateBootstrapConfig, Self::Error> {
+        let c = t.0;
+
+        let existing_network_prefix = t.1;
+
+        // Here we collect the network prefixes of any contract updates, to check for equality with
+        // existing_network_prefix.
+        let mut prefixes = vec![];
+
         let pool_contract_parameters = c
             .pool_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
+        if let Some((_, prefix)) = pool_contract_parameters {
+            prefixes.push(prefix);
+        }
+
         let refresh_contract_parameters = c
             .refresh_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
+        if let Some((_, prefix)) = refresh_contract_parameters {
+            prefixes.push(prefix);
+        }
+
         let update_contract_parameters = c
             .update_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
-        let addresses_with_prefix: AddressesWithPrefix = c.addresses.try_into()?;
+        if let Some((_, prefix)) = update_contract_parameters {
+            prefixes.push(prefix);
+        }
+
+        let AddressesWithPrefix { addresses, prefix } = c.addresses.try_into()?;
+        prefixes.push(prefix);
+
+        for p in prefixes {
+            if p != existing_network_prefix {
+                return Err(SerdeConversionError::NetworkPrefixesDiffer);
+            }
+        }
         Ok(UpdateBootstrapConfig {
-            pool_contract_parameters,
-            refresh_contract_parameters,
-            update_contract_parameters,
+            pool_contract_parameters: pool_contract_parameters
+                .map(|p: (PoolContractParameters, NetworkPrefix)| p.0),
+            refresh_contract_parameters: refresh_contract_parameters
+                .map(|p: (RefreshContractParameters, NetworkPrefix)| p.0),
+            update_contract_parameters: update_contract_parameters
+                .map(|p: (UpdateContractParameters, NetworkPrefix)| p.0),
             tokens_to_mint: c.tokens_to_mint,
-            addresses: addresses_with_prefix.addresses,
+            addresses,
         })
     }
 }

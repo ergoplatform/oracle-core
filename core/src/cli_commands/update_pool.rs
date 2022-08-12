@@ -349,7 +349,7 @@ mod tests {
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::{
             chain::{
-                address::{AddressEncoder, NetworkPrefix},
+                address::AddressEncoder,
                 ergo_box::{box_value::BoxValue, ErgoBox},
                 token::{Token, TokenId},
             },
@@ -481,10 +481,9 @@ mod tests {
             let ballot_box_parameters = BallotBoxWrapperParameters {
                 contract_parameters: ballot_contract_parameters.clone(),
                 vote_parameters: None,
-                ballot_token_owner_address: AddressEncoder::new(NetworkPrefix::Mainnet)
-                    .address_to_str(&ergo_lib::ergotree_ir::chain::address::Address::P2Pk(
-                        secret.public_image(),
-                    )),
+                ballot_token_owner_address: ergo_lib::ergotree_ir::chain::address::Address::P2Pk(
+                    secret.public_image(),
+                ),
             };
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,
