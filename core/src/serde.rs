@@ -129,9 +129,9 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             ballot_token_owner_address,
         };
 
-        let addresses_with_prefix = AddressesWithPrefix::try_from(c.addresses)?;
+        let (addresses, addresses_prefix) = <(Addresses, NetworkPrefix)>::try_from(c.addresses)?;
 
-        if addresses_with_prefix.prefix == network_prefix
+        if addresses_prefix == network_prefix
             && ballot_contract_prefix == network_prefix
             && update_contract_prefix == network_prefix
             && refresh_contract_prefix == network_prefix
@@ -154,7 +154,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 update_contract_parameters,
                 ballot_parameters,
                 token_ids: c.token_ids,
-                addresses: addresses_with_prefix.addresses,
+                addresses,
             })
         } else {
             Err(SerdeConversionError::NetworkPrefixesDiffer)
@@ -182,11 +182,6 @@ struct AddressesSerde {
     wallet_address_for_chain_transaction: String,
 }
 
-struct AddressesWithPrefix {
-    addresses: Addresses,
-    prefix: NetworkPrefix,
-}
-
 impl From<(Addresses, NetworkPrefix)> for AddressesSerde {
     fn from(t: (Addresses, NetworkPrefix)) -> Self {
         let addresses = t.0;
@@ -200,7 +195,7 @@ impl From<(Addresses, NetworkPrefix)> for AddressesSerde {
     }
 }
 
-impl TryFrom<AddressesSerde> for AddressesWithPrefix {
+impl TryFrom<AddressesSerde> for (Addresses, NetworkPrefix) {
     type Error = AddressEncoderError;
     fn try_from(addresses: AddressesSerde) -> Result<Self, Self::Error> {
         let oracle_token_network_addr = AddressEncoder::unchecked_parse_network_address_from_str(
@@ -209,13 +204,13 @@ impl TryFrom<AddressesSerde> for AddressesWithPrefix {
         let prefix = oracle_token_network_addr.network();
         let wallet_address_for_chain_transaction = AddressEncoder::new(prefix)
             .parse_address_from_str(&addresses.wallet_address_for_chain_transaction)?;
-        Ok(AddressesWithPrefix {
-            addresses: Addresses {
+        Ok((
+            Addresses {
                 address_for_oracle_tokens: oracle_token_network_addr.address(),
                 wallet_address_for_chain_transaction,
             },
             prefix,
-        })
+        ))
     }
 }
 
@@ -255,12 +250,12 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             <(UpdateContractParameters, NetworkPrefix)>::try_from(c.update_contract_parameters)?;
         let (ballot_contract_parameters, ballot_contract_prefix) =
             <(BallotContractParameters, NetworkPrefix)>::try_from(c.ballot_contract_parameters)?;
-        let AddressesWithPrefix { addresses, prefix } = AddressesWithPrefix::try_from(c.addresses)?;
+        let (addresses, addresses_prefix) = <(Addresses, NetworkPrefix)>::try_from(c.addresses)?;
 
-        if pool_contract_prefix == prefix
-            && refresh_contract_prefix == prefix
-            && update_contract_prefix == prefix
-            && ballot_contract_prefix == prefix
+        if pool_contract_prefix == addresses_prefix
+            && refresh_contract_prefix == addresses_prefix
+            && update_contract_prefix == addresses_prefix
+            && ballot_contract_prefix == addresses_prefix
         {
             Ok(BootstrapConfig {
                 pool_contract_parameters,
@@ -519,8 +514,8 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             prefixes.push(prefix);
         }
 
-        let AddressesWithPrefix { addresses, prefix } = c.addresses.try_into()?;
-        prefixes.push(prefix);
+        let (addresses, addresses_prefix) = <(Addresses, NetworkPrefix)>::try_from(c.addresses)?;
+        prefixes.push(addresses_prefix);
 
         for p in prefixes {
             if p != existing_network_prefix {
