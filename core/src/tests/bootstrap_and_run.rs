@@ -20,6 +20,7 @@ use crate::cli_commands::bootstrap::NftMintDetails;
 use crate::cli_commands::bootstrap::TokenMintDetails;
 use crate::cli_commands::bootstrap::TokensToMint;
 use crate::contracts::ballot::BallotContractParameters;
+use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContractParameters;
 use crate::contracts::refresh::RefreshContractParameters;
 use crate::contracts::update::UpdateContractParameters;
@@ -81,6 +82,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
                 quantity: 100_000_000,
             },
         },
+        oracle_contract_parameters: OracleContractParameters::default(),
         refresh_contract_parameters: RefreshContractParameters::default(),
         pool_contract_parameters: PoolContractParameters::default(),
         update_contract_parameters: UpdateContractParameters::default(),

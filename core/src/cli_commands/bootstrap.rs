@@ -35,6 +35,7 @@ use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate, RefreshBoxWrapperInputs},
     contracts::{
         ballot::BallotContractParameters,
+        oracle::OracleContractParameters,
         pool::{PoolContract, PoolContractInputs, PoolContractParameters},
         refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
         update::{
@@ -99,6 +100,7 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
     let address = AddressEncoder::new(NetworkPrefix::Mainnet)
         .parse_address_from_str("9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw")?;
 
+    let oracle_contract_parameters = OracleContractParameters::default();
     let config = BootstrapConfig {
         tokens_to_mint: TokensToMint {
             pool_nft: NftMintDetails {
@@ -143,6 +145,7 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
         pool_contract_parameters: PoolContractParameters::default(),
         update_contract_parameters: UpdateContractParameters::default(),
         ballot_contract_parameters: BallotContractParameters::default(),
+        oracle_contract_parameters,
     };
 
     let config_serde = BootstrapConfigSerde::from(config);
@@ -589,6 +592,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 #[derive(Debug, Clone, Deserialize)]
 #[serde(try_from = "crate::serde::BootstrapConfigSerde")]
 pub struct BootstrapConfig {
+    pub oracle_contract_parameters: OracleContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
     pub update_contract_parameters: UpdateContractParameters,
@@ -749,6 +753,7 @@ pub(crate) mod tests {
                     quantity: 100_000_000,
                 },
             },
+            oracle_contract_parameters: OracleContractParameters::default(),
             refresh_contract_parameters: RefreshContractParameters::default(),
             pool_contract_parameters: PoolContractParameters::default(),
             update_contract_parameters: UpdateContractParameters::default(),

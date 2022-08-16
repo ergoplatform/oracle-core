@@ -164,6 +164,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 /// Used to (de)serialize `BootstrapConfig` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootstrapConfigSerde {
+    oracle_contract_parameters: OracleContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     update_contract_parameters: UpdateContractParametersSerde,
@@ -216,6 +217,7 @@ impl TryFrom<AddressesSerde> for Addresses {
 impl From<BootstrapConfig> for BootstrapConfigSerde {
     fn from(c: BootstrapConfig) -> Self {
         BootstrapConfigSerde {
+            oracle_contract_parameters: c.oracle_contract_parameters.into(),
             refresh_contract_parameters: RefreshContractParametersSerde::from(
                 c.refresh_contract_parameters,
             ),
@@ -361,6 +363,15 @@ impl From<RefreshContractParameters> for RefreshContractParametersSerde {
             max_deviation_percent: p.max_deviation_percent,
             epoch_length_index: p.epoch_length_index,
             epoch_length: p.epoch_length,
+        }
+    }
+}
+
+impl From<OracleContractParametersSerde> for OracleContractParameters {
+    fn from(p: OracleContractParametersSerde) -> Self {
+        OracleContractParameters {
+            p2s: AddressEncoder::unchecked_parse_network_address_from_str(&p.p2s).unwrap(),
+            pool_nft_index: p.pool_nft_index,
         }
     }
 }

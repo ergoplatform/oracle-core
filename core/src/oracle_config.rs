@@ -103,7 +103,7 @@ impl OracleConfig {
             node_port: bootstrap.node_port,
             node_api_key: bootstrap.node_api_key,
             // TODO: rename to tx_fee and use insteaf of BoxValue::SAFE_USER_MIN
-            base_fee: bootstrap.base_fee,
+            base_fee: todo!(), // bootstrap.base_fee,
             log_level: Some(LevelFilter::Info),
             // TODO: move to BootstrapConfig
             core_api_port: todo!(),
@@ -116,8 +116,8 @@ impl OracleConfig {
             oracle_contract_parameters: bootstrap.oracle_contract_parameters,
             pool_contract_parameters: bootstrap.pool_contract_parameters,
             refresh_contract_parameters: bootstrap.refresh_contract_parameters,
-            ballot_parameters: bootstrap.ballot_contract_parameters,
-            update_contract_parameters: todo!(),
+            ballot_parameters: todo!(), // bootstrap.ballot_contract_parameters,
+            update_contract_parameters: bootstrap.update_contract_parameters,
             token_ids,
             addresses: bootstrap.addresses,
         }
