@@ -1,4 +1,7 @@
-use std::{convert::TryInto, io::Write};
+use std::{
+    convert::{TryFrom, TryInto},
+    io::Write,
+};
 
 use derive_more::From;
 use ergo_lib::{
@@ -8,7 +11,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{Address, AddressEncoder, AddressEncoderError},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -40,6 +43,7 @@ use crate::{
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, ORACLE_CONFIG},
+    serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     wallet::WalletDataSource,
 };
 
@@ -54,8 +58,7 @@ pub struct UpdateTokensToMint {
     pub reward_tokens: Option<TokenMintDetails>,
 }
 
-#[derive(Clone, Deserialize)]
-#[serde(try_from = "crate::serde::UpdateBootstrapConfigSerde")]
+#[derive(Clone)]
 pub struct UpdateBootstrapConfig {
     pub pool_contract_parameters: Option<PoolContractParameters>, // New pool script, etc. Note that we don't actually mint any new pool NFT in the update step, instead this is simply passed to the new oracle config for convenience
     pub refresh_contract_parameters: Option<RefreshContractParameters>,
@@ -66,20 +69,19 @@ pub struct UpdateBootstrapConfig {
 
 pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError> {
     let s = std::fs::read_to_string(config_file_name)?;
-    let config: UpdateBootstrapConfig = serde_yaml::from_str(&s)?;
+    let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
     let node_interface = new_node_interface();
-    let prefix = if ORACLE_CONFIG.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
+    let (change_address, network_prefix) = {
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(
+            &node_interface
+                .wallet_status()?
+                .change_address
+                .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
+        )?;
+        (a.address(), a.network())
     };
-    let change_address = AddressEncoder::new(prefix).parse_address_from_str(
-        &node_interface
-            .wallet_status()?
-            .change_address
-            .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
-    )?;
+    let config = UpdateBootstrapConfig::try_from((config_serde, network_prefix))?;
     let update_bootstrap_input = PrepareUpdateInput {
         config: config.clone(),
         wallet: &node_interface,
@@ -100,7 +102,8 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
 
     info!("Update chain-transaction complete");
     info!("Writing new config file to oracle_config_updated.yaml");
-    let s = serde_yaml::to_string(&new_config)?;
+    let config = OracleConfigSerde::from(new_config);
+    let s = serde_yaml::to_string(&config)?;
     let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
     info!("Updated oracle configuration file oracle_config_updated.yaml");
@@ -156,6 +159,7 @@ pub(crate) fn perform_update_chained_transaction(
     let wallet_pk_ergo_tree = config
         .addresses
         .wallet_address_for_chain_transaction
+        .address()
         .script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
@@ -373,6 +377,8 @@ pub enum PrepareUpdateError {
     NoOpUpgrade,
     #[error("No mint details were provided for update/refresh contract in tokens_to_mint")]
     NoMintDetails,
+    #[error("Serde conversion error {0}")]
+    SerdeConversion(SerdeConversionError),
 }
 
 #[cfg(test)]
@@ -381,7 +387,7 @@ mod test {
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::AddressEncoder,
+            address::{AddressEncoder, NetworkAddress, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
         },
         wallet::Wallet,
@@ -458,9 +464,12 @@ ballot_parameters:
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
-        let address = Address::P2Pk(secret.public_image());
+        let network_address = NetworkAddress::new(
+            NetworkPrefix::Testnet,
+            &Address::P2Pk(secret.public_image()),
+        );
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let ergo_tree = address.script().unwrap();
+        let ergo_tree = network_address.address().script().unwrap();
 
         let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
         let unspent_boxes = vec![ErgoBox::new(
@@ -508,8 +517,8 @@ ballot_parameters:
             pool_contract_parameters: Some(PoolContractParameters::default()),
             update_contract_parameters: Some(UpdateContractParameters::default()),
             addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
-                wallet_address_for_chain_transaction: address.clone(),
+                address_for_oracle_tokens: network_address.clone(),
+                wallet_address_for_chain_transaction: network_address,
             },
         };
 

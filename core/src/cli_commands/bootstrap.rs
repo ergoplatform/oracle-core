@@ -43,6 +43,7 @@ use crate::{
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::TokenIds,
+    serde::BootstrapConfigSerde,
     wallet::WalletDataSource,
 };
 
@@ -57,18 +58,13 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
     assert_wallet_unlocked(&node);
-    let prefix = if config.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
     let change_address_str = node
         .wallet_status()?
         .change_address
         .ok_or(BootstrapError::NoChangeAddressSetInNode)?;
     debug!("Change address: {}", change_address_str);
 
-    let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
+    let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
         wallet: &node as &dyn WalletDataSource,
@@ -91,52 +87,13 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     Ok(())
 }
 
-pub fn generate_bootstrap_config_template(
-    config_file_name: String,
-    testnet: bool,
-) -> Result<(), BootstrapError> {
+pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<(), BootstrapError> {
     if Path::new(&config_file_name).exists() {
         return Err(BootstrapError::ConfigFilenameAlreadyExists);
     }
     let address = AddressEncoder::new(NetworkPrefix::Mainnet)
         .parse_address_from_str("9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw")?;
 
-    let refresh_contract_parameters = if !testnet {
-        RefreshContractParameters::default()
-    } else {
-        let default = RefreshContractParameters::default();
-        RefreshContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
-    let pool_contract_parameters = if !testnet {
-        PoolContractParameters::default()
-    } else {
-        let default = PoolContractParameters::default();
-        PoolContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
-    let update_contract_parameters = if !testnet {
-        UpdateContractParameters::default()
-    } else {
-        let default = UpdateContractParameters::default();
-        UpdateContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
-    let ballot_contract_parameters = if !testnet {
-        BallotContractParameters::default()
-    } else {
-        let default = BallotContractParameters::default();
-        BallotContractParameters {
-            p2s: NetworkAddress::new(NetworkPrefix::Testnet, &default.p2s.address()),
-            ..default
-        }
-    };
     let config = BootstrapConfig {
         tokens_to_mint: TokensToMint {
             pool_nft: NftMintDetails {
@@ -168,20 +125,24 @@ pub fn generate_bootstrap_config_template(
             },
         },
         addresses: Addresses {
-            address_for_oracle_tokens: address.clone(),
-            wallet_address_for_chain_transaction: address,
+            address_for_oracle_tokens: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
+            wallet_address_for_chain_transaction: NetworkAddress::new(
+                NetworkPrefix::Mainnet,
+                &address,
+            ),
         },
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        on_mainnet: !testnet,
-        refresh_contract_parameters,
-        pool_contract_parameters,
-        update_contract_parameters,
-        ballot_contract_parameters,
+        refresh_contract_parameters: RefreshContractParameters::default(),
+        pool_contract_parameters: PoolContractParameters::default(),
+        update_contract_parameters: UpdateContractParameters::default(),
+        ballot_contract_parameters: BallotContractParameters::default(),
     };
 
-    let s = serde_yaml::to_string(&config)?;
+    let config_serde = BootstrapConfigSerde::from(config);
+
+    let s = serde_yaml::to_string(&config_serde)?;
     let mut file = std::fs::File::create(&config_file_name)?;
     file.write_all(s.as_bytes())?;
     Ok(())
@@ -249,6 +210,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let wallet_pk_ergo_tree = config
         .addresses
         .wallet_address_for_chain_transaction
+        .address()
         .script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
@@ -401,7 +363,11 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     info!("Minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     debug!("inputs for oracle tokens mint: {:?}", inputs);
-    let oracle_tokens_pk_ergo_tree = config.addresses.address_for_oracle_tokens.script()?;
+    let oracle_tokens_pk_ergo_tree = config
+        .addresses
+        .address_for_oracle_tokens
+        .address()
+        .script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -619,11 +585,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    try_from = "crate::serde::BootstrapConfigSerde",
-    into = "crate::serde::BootstrapConfigSerde"
-)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "crate::serde::BootstrapConfigSerde")]
 pub struct BootstrapConfig {
     pub refresh_contract_parameters: RefreshContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
@@ -633,14 +596,13 @@ pub struct BootstrapConfig {
     pub node_ip: String,
     pub node_port: String,
     pub node_api_key: String,
-    pub on_mainnet: bool,
     pub addresses: Addresses,
 }
 
 #[derive(Clone, Debug)]
 pub struct Addresses {
-    pub address_for_oracle_tokens: Address,
-    pub wallet_address_for_chain_transaction: Address,
+    pub address_for_oracle_tokens: NetworkAddress,
+    pub wallet_address_for_chain_transaction: NetworkAddress,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -745,7 +707,6 @@ pub(crate) mod tests {
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
         let address = Address::P2Pk(secret.public_image());
-        let is_mainnet = address.content_bytes()[0] < NetworkPrefix::Testnet as u8;
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = address.script().unwrap();
 
@@ -800,13 +761,15 @@ pub(crate) mod tests {
             update_contract_parameters: UpdateContractParameters::default(),
             ballot_contract_parameters: BallotContractParameters::default(),
             addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
-                wallet_address_for_chain_transaction: address.clone(),
+                address_for_oracle_tokens: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
+                wallet_address_for_chain_transaction: NetworkAddress::new(
+                    NetworkPrefix::Mainnet,
+                    &address,
+                ),
             },
             node_ip: "127.0.0.1".into(),
             node_port: "9053".into(),
             node_api_key: "hello".into(),
-            on_mainnet: is_mainnet,
         };
 
         let height = ctx.pre_header.height;

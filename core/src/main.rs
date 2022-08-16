@@ -43,7 +43,6 @@ use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::debug;
@@ -105,9 +104,6 @@ enum Command {
         /// Set this flag to output a bootstrap config template file to the given filename. If
         /// filename already exists, return error.
         generate_config_template: bool,
-        #[clap(short, long)]
-        /// Set this flag to use testnet prefix for bootstrap config template file
-        testnet: bool,
     },
 
     /// Run the oracle-pool
@@ -171,14 +167,10 @@ fn main() {
         Command::Bootstrap {
             yaml_config_name,
             generate_config_template,
-            testnet,
         } => {
             if let Err(e) = (|| -> Result<(), anyhow::Error> {
                 if generate_config_template {
-                    cli_commands::bootstrap::generate_bootstrap_config_template(
-                        yaml_config_name,
-                        testnet,
-                    )?;
+                    cli_commands::bootstrap::generate_bootstrap_config_template(yaml_config_name)?;
                 } else {
                     cli_commands::bootstrap::bootstrap(yaml_config_name)?;
                 }
@@ -324,7 +316,6 @@ fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
     let change_address_str = get_wallet_status()?
         .change_address
         .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
-    let addr =
-        AddressEncoder::new(NetworkPrefix::Mainnet).parse_address_from_str(&change_address_str)?;
+    let addr = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     Ok(addr)
 }

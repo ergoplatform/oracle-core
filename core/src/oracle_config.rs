@@ -10,14 +10,14 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::{
     ergo_chain_types::Digest32,
-    ergotree_ir::chain::{address::NetworkPrefix, token::TokenId},
+    ergotree_ir::chain::{address::NetworkAddress, token::TokenId},
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(
     try_from = "crate::serde::OracleConfigSerde",
     into = "crate::serde::OracleConfigSerde"
@@ -30,7 +30,6 @@ pub struct OracleConfig {
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: String,
-    pub on_mainnet: bool,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
     pub oracle_contract_parameters: OracleContractParameters,
@@ -48,7 +47,7 @@ pub struct BallotBoxWrapperParameters {
     pub vote_parameters: Option<CastBallotBoxVoteParameters>,
     /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
     /// set here.
-    pub ballot_token_owner_address: String,
+    pub ballot_token_owner_address: NetworkAddress,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -96,23 +95,7 @@ pub struct TokenIds {
 
 impl OracleConfig {
     fn load() -> Result<Self, anyhow::Error> {
-        let config = Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)?;
-
-        // Check network prefixes
-        let prefix = if config.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        if prefix == config.oracle_contract_parameters.p2s.network()
-            && prefix == config.pool_contract_parameters.p2s.network()
-            && prefix == config.refresh_contract_parameters.p2s.network()
-            && prefix == config.ballot_parameters.contract_parameters.p2s.network()
-        {
-            Ok(config)
-        } else {
-            Err(anyhow!("Network prefixes are not constant"))
-        }
+        Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {

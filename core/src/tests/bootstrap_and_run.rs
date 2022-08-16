@@ -7,6 +7,8 @@ use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::Transaction;
 use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
 use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::wallet::Wallet;
 use sigma_test_util::force_any_val;
@@ -44,10 +46,10 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
 
 fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> OracleConfigFields {
     let ctx = force_any_val::<ErgoStateContext>();
-    let is_mainnet = true;
 
     let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
     let change_address = address;
+    let network_address = NetworkAddress::new(NetworkPrefix::Mainnet, address);
 
     let state = BootstrapConfig {
         tokens_to_mint: TokensToMint {
@@ -84,13 +86,12 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         update_contract_parameters: UpdateContractParameters::default(),
         ballot_contract_parameters: BallotContractParameters::default(),
         addresses: Addresses {
-            address_for_oracle_tokens: address.clone(),
-            wallet_address_for_chain_transaction: address.clone(),
+            address_for_oracle_tokens: network_address.clone(),
+            wallet_address_for_chain_transaction: network_address,
         },
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
         node_api_key: "hello".into(),
-        on_mainnet: is_mainnet,
     };
 
     let height = ctx.pre_header.height;

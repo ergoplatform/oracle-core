@@ -8,7 +8,7 @@ use ergo_lib::{
     ergo_chain_types::{Digest32, DigestNError},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
-        address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+        address::{Address, AddressEncoder, AddressEncoderError},
         ergo_box::box_value::BoxValue,
         token::{Token, TokenAmount, TokenId},
     },
@@ -71,13 +71,9 @@ pub fn vote_update_pool(
         .change_address
         .ok_or(VoteUpdatePoolError::NoChangeAddressSetInNode)?;
 
-    let network_prefix = if ORACLE_CONFIG.on_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
-    let change_address =
-        AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
+    let change_network_address =
+        AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
+    let network_prefix = change_network_address.network();
     let height = current_block_height()? as u32;
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let reward_token_id = TokenId::from_base64(&reward_token_id_str)?;
@@ -92,7 +88,7 @@ pub fn vote_update_pool(
             reward_token_amount,
             update_box_creation_height,
             height,
-            change_address,
+            change_network_address.address(),
         )?
     } else {
         // Ballot token is assumed to be in some unspent box of the node's wallet.
@@ -102,13 +98,14 @@ pub fn vote_update_pool(
             reward_token_id.clone(),
             reward_token_amount,
             update_box_creation_height,
-            AddressEncoder::new(network_prefix).parse_address_from_str(
-                &ORACLE_CONFIG.ballot_parameters.ballot_token_owner_address,
-            )?,
+            ORACLE_CONFIG
+                .ballot_parameters
+                .ballot_token_owner_address
+                .address(),
             &ORACLE_CONFIG.ballot_parameters.contract_parameters,
             &ORACLE_CONFIG.token_ids,
             height,
-            change_address,
+            change_network_address.address(),
         )?
     };
     println!(
@@ -268,7 +265,7 @@ mod tests {
         ergo_chain_types::Digest32,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::{Address, AddressEncoder},
+            address::{Address, AddressEncoder, NetworkAddress},
             ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
             token::{Token, TokenId},
         },
@@ -365,10 +362,8 @@ mod tests {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
-        let ballot_token_owner_address = AddressEncoder::encode_address_as_string(
-            network_prefix,
-            &Address::P2Pk(secret.public_image()),
-        );
+        let ballot_token_owner_address =
+            NetworkAddress::new(network_prefix, &Address::P2Pk(secret.public_image()));
         let wrapper_parameters = BallotBoxWrapperParameters {
             contract_parameters: ballot_contract_parameters.clone(),
             ballot_token_owner_address,
