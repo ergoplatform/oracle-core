@@ -477,11 +477,6 @@ mod tests {
             let secret = DlogProverInput::random();
             let ballot_box_parameters = BallotBoxWrapperParameters {
                 contract_parameters: ballot_contract_parameters.clone(),
-                vote_parameters: None,
-                ballot_token_owner_address: NetworkAddress::new(
-                    new_pool_contract_inputs.contract_parameters.p2s.network(),
-                    &ergo_lib::ergotree_ir::chain::address::Address::P2Pk(secret.public_image()),
-                ),
             };
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,

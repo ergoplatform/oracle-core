@@ -132,11 +132,9 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
             },
         },
         addresses: Addresses {
-            address_for_oracle_tokens: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
-            wallet_address_for_chain_transaction: NetworkAddress::new(
-                NetworkPrefix::Mainnet,
-                &address,
-            ),
+            address_for_oracle_tokens: address.clone(),
+            wallet_address_for_chain_transaction: address,
+            ballot_token_owner_address: todo!(),
         },
         node_ip: "127.0.0.1".into(),
         node_port: 9053,
@@ -608,6 +606,7 @@ pub struct BootstrapConfig {
 pub struct Addresses {
     pub address_for_oracle_tokens: NetworkAddress,
     pub wallet_address_for_chain_transaction: NetworkAddress,
+    pub ballot_token_owner_address: NetworkAddress,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -764,6 +763,7 @@ pub(crate) mod tests {
                     NetworkPrefix::Mainnet,
                     &address,
                 ),
+                ballot_token_owner_address: todo!(),
             },
             node_ip: "127.0.0.1".into(),
             node_port: 9053,

@@ -22,9 +22,7 @@ use crate::{
         update::UpdateContractParameters,
     },
     datapoint_source::PredefinedDataPointSource,
-    oracle_config::{
-        BallotBoxWrapperParameters, CastBallotBoxVoteParameters, OracleConfig, TokenIds,
-    },
+    oracle_config::{BallotBoxWrapperParameters, OracleConfig, TokenIds},
 };
 
 /// Used to (de)serialize `OracleConfig` instance.
@@ -68,8 +66,6 @@ impl From<OracleConfig> for OracleConfigSerde {
             contract_parameters: BallotContractParametersSerde::from(
                 c.ballot_parameters.contract_parameters,
             ),
-            vote_parameters: c.ballot_parameters.vote_parameters,
-            ballot_token_owner_address: c.ballot_parameters.ballot_token_owner_address.to_base58(),
         };
         let update_contract_parameters =
             UpdateContractParametersSerde::from(c.update_contract_parameters);
@@ -180,6 +176,7 @@ pub struct BootstrapConfigSerde {
 struct AddressesSerde {
     address_for_oracle_tokens: String,
     wallet_address_for_chain_transaction: String,
+    pub ballot_token_owner_address: String,
 }
 
 impl From<Addresses> for AddressesSerde {
@@ -189,6 +186,7 @@ impl From<Addresses> for AddressesSerde {
             wallet_address_for_chain_transaction: addresses
                 .wallet_address_for_chain_transaction
                 .to_base58(),
+            ballot_token_owner_address: addresses.ballot_token_owner_address.to_base58(),
         }
     }
 }
@@ -552,6 +550,4 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BallotBoxWrapperParametersSerde {
     contract_parameters: BallotContractParametersSerde,
-    vote_parameters: Option<CastBallotBoxVoteParameters>,
-    ballot_token_owner_address: String,
 }

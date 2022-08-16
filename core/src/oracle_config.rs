@@ -47,10 +47,6 @@ pub struct OracleConfig {
 #[derive(Debug, Clone)]
 pub struct BallotBoxWrapperParameters {
     pub contract_parameters: BallotContractParameters,
-    pub vote_parameters: Option<CastBallotBoxVoteParameters>,
-    /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
-    /// set here.
-    pub ballot_token_owner_address: NetworkAddress,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

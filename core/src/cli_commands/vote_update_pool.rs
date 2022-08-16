@@ -98,10 +98,7 @@ pub fn vote_update_pool(
             reward_token_id.clone(),
             reward_token_amount,
             update_box_creation_height,
-            ORACLE_CONFIG
-                .ballot_parameters
-                .ballot_token_owner_address
-                .address(),
+            ORACLE_CONFIG.addresses.ballot_token_owner_address.address(),
             &ORACLE_CONFIG.ballot_parameters.contract_parameters,
             &ORACLE_CONFIG.token_ids,
             height,
@@ -274,7 +271,7 @@ mod tests {
     use crate::{
         box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper, BallotBoxWrapperInputs},
         contracts::ballot::{BallotContract, BallotContractParameters},
-        oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters, BASE_FEE},
+        oracle_config::{BallotBoxWrapperParameters, BASE_FEE},
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, BallotBoxMock,
             WalletDataMock,
@@ -358,17 +355,8 @@ mod tests {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
-        let ballot_token_owner_address =
-            NetworkAddress::new(network_prefix, &Address::P2Pk(secret.public_image()));
         let wrapper_parameters = BallotBoxWrapperParameters {
             contract_parameters: ballot_contract_parameters.clone(),
-            ballot_token_owner_address,
-            vote_parameters: Some(CastBallotBoxVoteParameters {
-                reward_token_id: force_any_val::<TokenId>(),
-                reward_token_quantity: 100000,
-                pool_box_address_hash: force_any_val::<Digest32>(),
-                update_box_creation_height: force_any_val::<i32>().abs(),
-            }),
         };
         let inputs = BallotBoxWrapperInputs {
             parameters: &wrapper_parameters,
@@ -395,7 +383,12 @@ mod tests {
         )
         .unwrap();
         let ballot_box_mock = BallotBoxMock {
-            ballot_box: BallotBoxWrapper::new(in_ballot_box.clone(), inputs).unwrap(),
+            ballot_box: BallotBoxWrapper::new(
+                in_ballot_box.clone(),
+                inputs,
+                &Address::P2Pk(secret.public_image()),
+            )
+            .unwrap(),
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
