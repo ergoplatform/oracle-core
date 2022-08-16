@@ -90,7 +90,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
             wallet_address_for_chain_transaction: network_address,
         },
         node_ip: "127.0.0.1".into(),
-        node_port: "9053".into(),
+        node_port: 9053,
         node_api_key: "hello".into(),
     };
 

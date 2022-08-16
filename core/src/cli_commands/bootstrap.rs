@@ -57,7 +57,11 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
 
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
-    let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
+    let node = NodeInterface::new(
+        &config.node_api_key,
+        &config.node_ip,
+        &config.node_port.to_string(),
+    );
     assert_wallet_unlocked(&node);
     let change_address_str = node
         .wallet_status()?
@@ -133,7 +137,7 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
             ),
         },
         node_ip: "127.0.0.1".into(),
-        node_port: "9053".into(),
+        node_port: 9053,
         node_api_key: "hello".into(),
         refresh_contract_parameters: RefreshContractParameters::default(),
         pool_contract_parameters: PoolContractParameters::default(),
@@ -591,7 +595,7 @@ pub struct BootstrapConfig {
     pub ballot_contract_parameters: BallotContractParameters,
     pub tokens_to_mint: TokensToMint,
     pub node_ip: String,
-    pub node_port: String,
+    pub node_port: u16,
     pub node_api_key: String,
     pub addresses: Addresses,
 }
@@ -757,7 +761,7 @@ pub(crate) mod tests {
                 ),
             },
             node_ip: "127.0.0.1".into(),
-            node_port: "9053".into(),
+            node_port: 9053,
             node_api_key: "hello".into(),
         };
 

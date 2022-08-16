@@ -170,7 +170,7 @@ pub struct BootstrapConfigSerde {
     ballot_contract_parameters: BallotContractParametersSerde,
     tokens_to_mint: TokensToMint,
     node_ip: String,
-    node_port: String,
+    node_port: u16,
     node_api_key: String,
     addresses: AddressesSerde,
 }
