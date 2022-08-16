@@ -117,6 +117,7 @@ impl OracleConfig {
             pool_contract_parameters: bootstrap.pool_contract_parameters,
             refresh_contract_parameters: bootstrap.refresh_contract_parameters,
             ballot_parameters: bootstrap.ballot_contract_parameters,
+            update_contract_parameters: todo!(),
             token_ids,
             addresses: bootstrap.addresses,
         }
