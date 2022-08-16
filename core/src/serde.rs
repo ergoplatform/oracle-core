@@ -22,7 +22,7 @@ use crate::{
         update::UpdateContractParameters,
     },
     datapoint_source::PredefinedDataPointSource,
-    oracle_config::{BallotBoxWrapperParameters, OracleConfig, TokenIds},
+    oracle_config::{OracleConfig, TokenIds},
 };
 
 /// Used to (de)serialize `OracleConfig` instance.
@@ -41,7 +41,7 @@ pub(crate) struct OracleConfigSerde {
     pool_contract_parameters: PoolContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
     update_contract_parameters: UpdateContractParametersSerde,
-    ballot_parameters: BallotBoxWrapperParametersSerde,
+    ballot_contract_parameters: BallotContractParametersSerde,
     token_ids: TokenIds,
     addresses: AddressesSerde,
 }
@@ -62,11 +62,8 @@ impl From<OracleConfig> for OracleConfigSerde {
             PoolContractParametersSerde::from(c.pool_contract_parameters);
         let refresh_contract_parameters =
             RefreshContractParametersSerde::from(c.refresh_contract_parameters);
-        let ballot_parameters = BallotBoxWrapperParametersSerde {
-            contract_parameters: BallotContractParametersSerde::from(
-                c.ballot_parameters.contract_parameters,
-            ),
-        };
+        let ballot_contract_parameters =
+            BallotContractParametersSerde::from(c.ballot_contract_parameters);
         let update_contract_parameters =
             UpdateContractParametersSerde::from(c.update_contract_parameters);
 
@@ -83,6 +80,10 @@ impl From<OracleConfig> for OracleConfigSerde {
             oracle_contract_parameters,
             pool_contract_parameters,
             refresh_contract_parameters,
+<<<<<<< HEAD
+=======
+            ballot_contract_parameters,
+>>>>>>> 414f46d (remove BallotBoxWrapperParameters;)
             update_contract_parameters,
             ballot_parameters,
             token_ids: c.token_ids,
@@ -545,9 +546,4 @@ where
     //   "invalid type: string ..., expected a borrowed string"
     let s: String = serde::de::Deserialize::deserialize(deserializer)?;
     TokenId::from_base64(&s).map_err(serde::de::Error::custom)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BallotBoxWrapperParametersSerde {
-    contract_parameters: BallotContractParametersSerde,
 }

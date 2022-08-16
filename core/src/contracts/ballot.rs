@@ -45,7 +45,7 @@ pub struct BallotContractInputs<'a> {
 impl<'a> From<BallotBoxWrapperInputs<'a>> for BallotContractInputs<'a> {
     fn from(b: BallotBoxWrapperInputs<'a>) -> Self {
         BallotContractInputs {
-            contract_parameters: &b.parameters.contract_parameters,
+            contract_parameters: &b.parameters,
             update_nft_token_id: b.update_nft_token_id,
         }
     }

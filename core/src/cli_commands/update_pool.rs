@@ -349,7 +349,7 @@ mod tests {
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::{
             chain::{
-                address::{AddressEncoder, NetworkAddress},
+                address::AddressEncoder,
                 ergo_box::ErgoBox,
                 token::{Token, TokenId},
             },
@@ -370,7 +370,7 @@ mod tests {
             pool::{PoolContract, PoolContractInputs},
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
-        oracle_config::{BallotBoxWrapperParameters, TokenIds, BASE_FEE},
+        oracle_config::{TokenIds, BASE_FEE},
         pool_commands::test_utils::{
             make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock, UpdateBoxMock, WalletDataMock,
         },
@@ -475,9 +475,6 @@ mod tests {
 
         for _ in 0..6 {
             let secret = DlogProverInput::random();
-            let ballot_box_parameters = BallotBoxWrapperParameters {
-                contract_parameters: ballot_contract_parameters.clone(),
-            };
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,
                 secret.public_image(),
@@ -499,7 +496,7 @@ mod tests {
                 VoteBallotBoxWrapper::new(
                     ballot_box,
                     crate::box_kind::BallotBoxWrapperInputs {
-                        parameters: &ballot_box_parameters,
+                        parameters: &ballot_contract_parameters,
                         ballot_token_id: &token_ids.ballot_token_id,
                         update_nft_token_id: &token_ids.update_nft_token_id,
                     },

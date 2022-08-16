@@ -1,6 +1,6 @@
 use crate::{
-    contracts::ballot::{BallotContract, BallotContractError},
-    oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
+    contracts::ballot::{BallotContract, BallotContractError, BallotContractParameters},
+    oracle_config::CastBallotBoxVoteParameters,
 };
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -81,7 +81,7 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        let prefix = inputs.parameters.contract_parameters.p2s.network();
+        let prefix = inputs.parameters.p2s.network();
         if ballot_token_owner_address != &Address::P2Pk(ProveDlog::from(ec)) {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
@@ -93,7 +93,7 @@ impl BallotBoxWrapper {
 
 #[derive(Clone, Copy, Debug)]
 pub struct BallotBoxWrapperInputs<'a> {
-    pub parameters: &'a BallotBoxWrapperParameters,
+    pub parameters: &'a BallotContractParameters,
     /// Ballot token is expected to reside in `tokens(0)` of the ballot box.
     pub ballot_token_id: &'a TokenId,
     /// This token id appears as a constant in the ballot contract.

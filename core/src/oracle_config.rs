@@ -39,14 +39,9 @@ pub struct OracleConfig {
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
     pub update_contract_parameters: UpdateContractParameters,
-    pub ballot_parameters: BallotBoxWrapperParameters,
+    pub ballot_contract_parameters: BallotContractParameters,
     pub token_ids: TokenIds,
     pub addresses: Addresses,
-}
-
-#[derive(Debug, Clone)]
-pub struct BallotBoxWrapperParameters {
-    pub contract_parameters: BallotContractParameters,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -112,7 +107,7 @@ impl OracleConfig {
             oracle_contract_parameters: bootstrap.oracle_contract_parameters,
             pool_contract_parameters: bootstrap.pool_contract_parameters,
             refresh_contract_parameters: bootstrap.refresh_contract_parameters,
-            ballot_parameters: todo!(), // bootstrap.ballot_contract_parameters,
+            ballot_contract_parameters: todo!(), // bootstrap.ballot_contract_parameters,
             update_contract_parameters: bootstrap.update_contract_parameters,
             token_ids,
             addresses: bootstrap.addresses,
