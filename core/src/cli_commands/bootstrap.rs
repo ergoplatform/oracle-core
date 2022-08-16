@@ -9,7 +9,9 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{
+                Address, AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
+            },
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -85,10 +87,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     Ok(())
 }
 
-pub fn generate_bootstrap_config_template(
-    config_file_name: String,
-    testnet: bool,
-) -> Result<(), BootstrapError> {
+pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<(), BootstrapError> {
     if Path::new(&config_file_name).exists() {
         return Err(BootstrapError::ConfigFilenameAlreadyExists);
     }
@@ -126,8 +125,11 @@ pub fn generate_bootstrap_config_template(
             },
         },
         addresses: Addresses {
-            address_for_oracle_tokens: address.clone(),
-            wallet_address_for_chain_transaction: address,
+            address_for_oracle_tokens: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
+            wallet_address_for_chain_transaction: NetworkAddress::new(
+                NetworkPrefix::Mainnet,
+                &address,
+            ),
         },
         node_ip: "127.0.0.1".into(),
         node_port: "9053".into(),
@@ -138,12 +140,7 @@ pub fn generate_bootstrap_config_template(
         ballot_contract_parameters: BallotContractParameters::default(),
     };
 
-    let network_prefix = if testnet {
-        NetworkPrefix::Testnet
-    } else {
-        NetworkPrefix::Mainnet
-    };
-    let config_serde = BootstrapConfigSerde::from((config, network_prefix));
+    let config_serde = BootstrapConfigSerde::from(config);
 
     let s = serde_yaml::to_string(&config_serde)?;
     let mut file = std::fs::File::create(&config_file_name)?;
@@ -213,6 +210,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let wallet_pk_ergo_tree = config
         .addresses
         .wallet_address_for_chain_transaction
+        .address()
         .script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
@@ -365,7 +363,11 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     info!("Minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     debug!("inputs for oracle tokens mint: {:?}", inputs);
-    let oracle_tokens_pk_ergo_tree = config.addresses.address_for_oracle_tokens.script()?;
+    let oracle_tokens_pk_ergo_tree = config
+        .addresses
+        .address_for_oracle_tokens
+        .address()
+        .script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -599,8 +601,8 @@ pub struct BootstrapConfig {
 
 #[derive(Clone, Debug)]
 pub struct Addresses {
-    pub address_for_oracle_tokens: Address,
-    pub wallet_address_for_chain_transaction: Address,
+    pub address_for_oracle_tokens: NetworkAddress,
+    pub wallet_address_for_chain_transaction: NetworkAddress,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -759,8 +761,11 @@ pub(crate) mod tests {
             update_contract_parameters: UpdateContractParameters::default(),
             ballot_contract_parameters: BallotContractParameters::default(),
             addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
-                wallet_address_for_chain_transaction: address.clone(),
+                address_for_oracle_tokens: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
+                wallet_address_for_chain_transaction: NetworkAddress::new(
+                    NetworkPrefix::Mainnet,
+                    &address,
+                ),
             },
             node_ip: "127.0.0.1".into(),
             node_port: "9053".into(),

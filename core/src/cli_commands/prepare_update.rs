@@ -102,7 +102,7 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
 
     info!("Update chain-transaction complete");
     info!("Writing new config file to oracle_config_updated.yaml");
-    let config = OracleConfigSerde::from((new_config, network_prefix));
+    let config = OracleConfigSerde::from(new_config);
     let s = serde_yaml::to_string(&config)?;
     let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
@@ -159,6 +159,7 @@ pub(crate) fn perform_update_chained_transaction(
     let wallet_pk_ergo_tree = config
         .addresses
         .wallet_address_for_chain_transaction
+        .address()
         .script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
@@ -386,7 +387,7 @@ mod test {
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::AddressEncoder,
+            address::{AddressEncoder, NetworkAddress, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
         },
         wallet::Wallet,
@@ -463,9 +464,12 @@ ballot_parameters:
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
-        let address = Address::P2Pk(secret.public_image());
+        let network_address = NetworkAddress::new(
+            NetworkPrefix::Testnet,
+            &Address::P2Pk(secret.public_image()),
+        );
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let ergo_tree = address.script().unwrap();
+        let ergo_tree = network_address.address().script().unwrap();
 
         let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
         let unspent_boxes = vec![ErgoBox::new(
@@ -513,8 +517,8 @@ ballot_parameters:
             pool_contract_parameters: Some(PoolContractParameters::default()),
             update_contract_parameters: Some(UpdateContractParameters::default()),
             addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
-                wallet_address_for_chain_transaction: address.clone(),
+                address_for_oracle_tokens: network_address.clone(),
+                wallet_address_for_chain_transaction: network_address,
             },
         };
 

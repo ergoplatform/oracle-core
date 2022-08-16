@@ -66,14 +66,15 @@ pub fn transfer_oracle_token(
     if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
         let rewards_destination =
             AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
-        let network_prefix = rewards_destination.network();
 
         let change_address_str = get_wallet_status()?
             .change_address
             .ok_or(TransferOracleTokenActionError::NoChangeAddressSetInNode)?;
 
-        let change_address =
-            AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
+        let (change_address, network_prefix) = {
+            let a = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
+            (a.address(), a.network())
+        };
         let unsigned_tx = build_transfer_oracle_token_tx(
             local_datapoint_box_source,
             wallet,

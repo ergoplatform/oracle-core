@@ -1,5 +1,5 @@
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -56,6 +56,7 @@ impl BallotContract {
         let parameters = inputs.contract_parameters;
         let ergo_tree = parameters
             .p2s
+            .address()
             .script()?
             .with_constant(
                 parameters.min_storage_rent_index,
@@ -128,7 +129,7 @@ impl BallotContract {
 #[derive(Debug, Clone)]
 /// Parameters for the ballot contract
 pub struct BallotContractParameters {
-    pub p2s: Address,
+    pub p2s: NetworkAddress,
     pub min_storage_rent_index: usize,
     pub min_storage_rent: u64,
     pub update_nft_index: usize,

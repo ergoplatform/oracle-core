@@ -10,7 +10,7 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::{
     ergo_chain_types::Digest32,
-    ergotree_ir::chain::{address::Address, token::TokenId},
+    ergotree_ir::chain::{address::NetworkAddress, token::TokenId},
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,10 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(try_from = "crate::serde::OracleConfigSerde")]
+#[serde(
+    try_from = "crate::serde::OracleConfigSerde",
+    into = "crate::serde::OracleConfigSerde"
+)]
 pub struct OracleConfig {
     pub node_ip: String,
     pub node_port: u16,
@@ -44,7 +47,7 @@ pub struct BallotBoxWrapperParameters {
     pub vote_parameters: Option<CastBallotBoxVoteParameters>,
     /// Operator may not have a ballot token yet, but we assume that the address that 'owns' it is
     /// set here.
-    pub ballot_token_owner_address: Address,
+    pub ballot_token_owner_address: NetworkAddress,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

@@ -101,7 +101,7 @@ pub fn vote_update_pool(
             ORACLE_CONFIG
                 .ballot_parameters
                 .ballot_token_owner_address
-                .clone(),
+                .address(),
             &ORACLE_CONFIG.ballot_parameters.contract_parameters,
             &ORACLE_CONFIG.token_ids,
             height,
@@ -265,7 +265,7 @@ mod tests {
         ergo_chain_types::Digest32,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::{Address, AddressEncoder},
+            address::{Address, AddressEncoder, NetworkAddress},
             ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
             token::{Token, TokenId},
         },
@@ -362,7 +362,8 @@ mod tests {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
-        let ballot_token_owner_address = Address::P2Pk(secret.public_image());
+        let ballot_token_owner_address =
+            NetworkAddress::new(network_prefix, &Address::P2Pk(secret.public_image()));
         let wrapper_parameters = BallotBoxWrapperParameters {
             contract_parameters: ballot_contract_parameters.clone(),
             ballot_token_owner_address,

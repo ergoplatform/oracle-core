@@ -80,7 +80,9 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        if inputs.parameters.ballot_token_owner_address != Address::P2Pk(ProveDlog::from(ec)) {
+        if inputs.parameters.ballot_token_owner_address.address()
+            != Address::P2Pk(ProveDlog::from(ec))
+        {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
 

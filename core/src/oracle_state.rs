@@ -19,7 +19,7 @@ use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 
-use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder};
+use ergo_lib::ergotree_ir::chain::address::{Address, NetworkAddress};
 use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, NonMandatoryRegisterId};
 use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
@@ -258,11 +258,10 @@ impl<'a> OraclePool<'a> {
                 scans.push(local_scan);
             }
 
-            let network_prefix =
-                AddressEncoder::unchecked_parse_network_address_from_str(&config.oracle_address)?
-                    .network();
-            let ballot_token_owner_address_str = AddressEncoder::new(network_prefix)
-                .address_to_str(&config.ballot_parameters.ballot_token_owner_address);
+            let ballot_token_owner_address_str = config
+                .ballot_parameters
+                .ballot_token_owner_address
+                .to_base58();
             let ballot_contract_address =
                 BallotContract::new(ballot_box_wrapper_inputs.into())?.ergo_tree();
             // Local ballot box may not exist yet.
@@ -543,13 +542,20 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
                     .ok_or(BallotBoxError::NoGroupElementInR4)?
                     .try_extract_into::<ergo_lib::ergo_chain_types::EcPoint>()?;
 
-                let ballot_token_owner_address = Address::P2Pk(ProveDlog::from(ec));
+                let ballot_token_owner_address = NetworkAddress::new(
+                    self.ballot_box_wrapper_inputs
+                        .parameters
+                        .ballot_token_owner_address
+                        .network(),
+                    &Address::P2Pk(ProveDlog::from(ec)),
+                );
 
                 let ballot_box_wrapper_parameters = BallotBoxWrapperParameters {
                     vote_parameters: None,
                     ballot_token_owner_address,
                     ..self.ballot_box_wrapper_inputs.parameters.clone()
                 };
+
                 let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
                     parameters: &ballot_box_wrapper_parameters,
                     ..self.ballot_box_wrapper_inputs
