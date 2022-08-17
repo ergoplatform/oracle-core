@@ -7,7 +7,7 @@ use ergo_lib::{
     ergo_chain_types::{Digest32, EcPoint},
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError},
+            address::{Address, AddressEncoderError},
             ergo_box::{box_value::BoxValue, ErgoBox, ErgoBoxCandidate, NonMandatoryRegisterId},
             token::{Token, TokenId},
         },
@@ -80,10 +80,9 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        let prefix = inputs.parameters.contract_parameters.p2s.network();
-        let config_from_address = AddressEncoder::new(prefix)
-            .parse_address_from_str(&inputs.parameters.ballot_token_owner_address)?;
-        if config_from_address != Address::P2Pk(ProveDlog::from(ec)) {
+        if inputs.parameters.ballot_token_owner_address.address()
+            != Address::P2Pk(ProveDlog::from(ec))
+        {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
 
