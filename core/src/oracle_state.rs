@@ -19,10 +19,9 @@ use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 
-use ergo_lib::ergotree_ir::chain::address::{Address, NetworkAddress};
-use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, NonMandatoryRegisterId};
-use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
-use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
+use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
 use thiserror::Error;
@@ -159,6 +158,7 @@ pub struct BallotBoxesScan<'a> {
 pub struct UpdateBoxScan<'a> {
     scan: Scan,
     update_box_wrapper_inputs: UpdateBoxWrapperInputs<'a>,
+    ballot_token_owner_address: Address,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -259,10 +259,8 @@ impl<'a> OraclePool<'a> {
                 scans.push(local_scan);
             }
 
-            let ballot_token_owner_address_str = config
-                .ballot_parameters
-                .ballot_token_owner_address
-                .to_base58();
+            let ballot_token_owner_address_str =
+                config.addresses.ballot_token_owner_address.to_base58();
             let ballot_contract_address =
                 BallotContract::new(ballot_box_wrapper_inputs.into())?.ergo_tree();
             // Local ballot box may not exist yet.
@@ -351,6 +349,7 @@ impl<'a> OraclePool<'a> {
         let update_box_scan = UpdateBoxScan {
             scan: Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string()),
             update_box_wrapper_inputs,
+            ballot_token_owner_address: config.addresses.ballot_token_owner_address.address(),
         };
 
         // Create `OraclePool` struct
@@ -541,20 +540,6 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
             .get_boxes()?
             .into_iter()
             .map(|ballot_box| {
-                // Build Parameters for each Ballot Box
-                let ec = ballot_box
-                    .get_register(NonMandatoryRegisterId::R4.into())
-                    .ok_or(BallotBoxError::NoGroupElementInR4)?
-                    .try_extract_into::<ergo_lib::ergo_chain_types::EcPoint>()?;
-
-                let ballot_token_owner_address = NetworkAddress::new(
-                    self.ballot_box_wrapper_inputs
-                        .parameters
-                        .ballot_token_owner_address
-                        .network(),
-                )
-                .address_to_str(&Address::P2Pk(ProveDlog::from(ec)));
-
                 let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
                     parameters: &self.ballot_box_wrapper_inputs.parameters,
                     ..self.ballot_box_wrapper_inputs

@@ -12,7 +12,7 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::{
     ergo_chain_types::Digest32,
-    ergotree_ir::chain::{address::NetworkAddress, ergo_box::box_value::BoxValue, token::TokenId},
+    ergotree_ir::chain::{ergo_box::box_value::BoxValue, token::TokenId},
     wallet::tx_builder::SUGGESTED_TX_FEE,
 };
 use log::LevelFilter;
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(
     try_from = "crate::serde::OracleConfigSerde",
     into = "crate::serde::OracleConfigSerde"
@@ -99,7 +99,6 @@ impl OracleConfig {
             // TODO: move to BootstrapConfig
             core_api_port: todo!(),
             oracle_address: todo!(),
-            on_mainnet: todo!(),
             // TODO: move to BootstrapConfig
             data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
             // TODO: move to BootstrapConfig

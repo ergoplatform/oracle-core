@@ -9,9 +9,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{
-                Address, AddressEncoder, AddressEncoderError, NetworkAddress, NetworkPrefix,
-            },
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkAddress},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -97,8 +95,9 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
     if Path::new(&config_file_name).exists() {
         return Err(BootstrapError::ConfigFilenameAlreadyExists);
     }
-    let address = AddressEncoder::new(NetworkPrefix::Mainnet)
-        .parse_address_from_str("9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw")?;
+    let address = AddressEncoder::unchecked_parse_network_address_from_str(
+        "9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw",
+    )?;
 
     let oracle_contract_parameters = OracleContractParameters::default();
     let config = BootstrapConfig {
@@ -133,8 +132,8 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
         },
         addresses: Addresses {
             address_for_oracle_tokens: address.clone(),
-            wallet_address_for_chain_transaction: address,
-            ballot_token_owner_address: todo!(),
+            wallet_address_for_chain_transaction: address.clone(),
+            ballot_token_owner_address: address,
         },
         node_ip: "127.0.0.1".into(),
         node_port: 9053,
@@ -670,7 +669,7 @@ pub(crate) mod tests {
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::AddressEncoder,
+            address::{AddressEncoder, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
             token::TokenId,
         },

@@ -80,12 +80,8 @@ impl From<OracleConfig> for OracleConfigSerde {
             oracle_contract_parameters,
             pool_contract_parameters,
             refresh_contract_parameters,
-<<<<<<< HEAD
-=======
             ballot_contract_parameters,
->>>>>>> 414f46d (remove BallotBoxWrapperParameters;)
             update_contract_parameters,
-            ballot_parameters,
             token_ids: c.token_ids,
             addresses: AddressesSerde::from(c.addresses),
         }
@@ -112,17 +108,12 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         let update_contract_prefix = update_contract_parameters.p2s.network();
 
         let ballot_token_owner_address = AddressEncoder::unchecked_parse_network_address_from_str(
-            &c.ballot_parameters.ballot_token_owner_address,
+            &c.addresses.ballot_token_owner_address,
         )?;
         let network_prefix = ballot_token_owner_address.network();
         let ballot_contract_parameters =
-            BallotContractParameters::try_from(c.ballot_parameters.contract_parameters)?;
+            BallotContractParameters::try_from(c.ballot_contract_parameters)?;
         let ballot_contract_prefix = ballot_contract_parameters.p2s.network();
-        let ballot_parameters = BallotBoxWrapperParameters {
-            contract_parameters: ballot_contract_parameters,
-            vote_parameters: c.ballot_parameters.vote_parameters,
-            ballot_token_owner_address,
-        };
 
         let addresses = Addresses::try_from(c.addresses)?;
         let addresses_prefix = addresses.address_for_oracle_tokens.network();
@@ -148,7 +139,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 pool_contract_parameters,
                 refresh_contract_parameters,
                 update_contract_parameters,
-                ballot_parameters,
+                ballot_contract_parameters,
                 token_ids: c.token_ids,
                 addresses,
             })
@@ -206,6 +197,7 @@ impl TryFrom<AddressesSerde> for Addresses {
             Ok(Addresses {
                 address_for_oracle_tokens,
                 wallet_address_for_chain_transaction,
+                ballot_token_owner_address: todo!(),
             })
         } else {
             Err(SerdeConversionError::NetworkPrefixesDiffer)
@@ -254,6 +246,8 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
         let ballot_contract_prefix = ballot_contract_parameters.p2s.network();
         let addresses = Addresses::try_from(c.addresses)?;
         let addresses_prefix = addresses.address_for_oracle_tokens.network();
+        let oracle_contract_parameters =
+            OracleContractParameters::try_from(c.oracle_contract_parameters)?;
 
         if pool_contract_prefix == addresses_prefix
             && refresh_contract_prefix == addresses_prefix
@@ -261,6 +255,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             && ballot_contract_prefix == addresses_prefix
         {
             Ok(BootstrapConfig {
+                oracle_contract_parameters: todo!(),
                 pool_contract_parameters,
                 refresh_contract_parameters,
                 update_contract_parameters,
@@ -362,15 +357,6 @@ impl From<RefreshContractParameters> for RefreshContractParametersSerde {
             max_deviation_percent: p.max_deviation_percent,
             epoch_length_index: p.epoch_length_index,
             epoch_length: p.epoch_length,
-        }
-    }
-}
-
-impl From<OracleContractParametersSerde> for OracleContractParameters {
-    fn from(p: OracleContractParametersSerde) -> Self {
-        OracleContractParameters {
-            p2s: AddressEncoder::unchecked_parse_network_address_from_str(&p.p2s).unwrap(),
-            pool_nft_index: p.pool_nft_index,
         }
     }
 }
