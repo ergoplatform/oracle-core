@@ -467,17 +467,13 @@ pub struct UpdateBootstrapConfigSerde {
 impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapConfig {
     type Error = SerdeConversionError;
     fn try_from(
-        t: (UpdateBootstrapConfigSerde, NetworkPrefix),
+        (config_serde, existing_network_prefix): (UpdateBootstrapConfigSerde, NetworkPrefix),
     ) -> Result<UpdateBootstrapConfig, Self::Error> {
-        let c = t.0;
-
-        let existing_network_prefix = t.1;
-
         // Here we collect the network prefixes of any contract updates, to check for equality with
         // existing_network_prefix.
         let mut prefixes = vec![];
 
-        let pool_contract_parameters: Option<PoolContractParameters> = c
+        let pool_contract_parameters: Option<PoolContractParameters> = config_serde
             .pool_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
@@ -485,7 +481,7 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             prefixes.push(p.p2s.network());
         }
 
-        let refresh_contract_parameters: Option<RefreshContractParameters> = c
+        let refresh_contract_parameters: Option<RefreshContractParameters> = config_serde
             .refresh_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
@@ -493,7 +489,7 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             prefixes.push(p.p2s.network());
         }
 
-        let update_contract_parameters: Option<UpdateContractParameters> = c
+        let update_contract_parameters: Option<UpdateContractParameters> = config_serde
             .update_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
@@ -501,7 +497,7 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             prefixes.push(p.p2s.network());
         }
 
-        let addresses = Addresses::try_from(c.addresses)?;
+        let addresses = Addresses::try_from(config_serde.addresses)?;
         let addresses_prefix = addresses.address_for_oracle_tokens.network();
         prefixes.push(addresses_prefix);
 
@@ -514,7 +510,7 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             pool_contract_parameters,
             refresh_contract_parameters,
             update_contract_parameters,
-            tokens_to_mint: c.tokens_to_mint,
+            tokens_to_mint: config_serde.tokens_to_mint,
             addresses,
         })
     }
