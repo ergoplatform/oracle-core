@@ -15,7 +15,6 @@ mod collect;
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, From)]
 pub enum PoolAction {
-    Bootstrap(BootstrapAction),
     Refresh(RefreshAction),
     PublishDatapoint(PublishDataPointAction),
 }
@@ -51,7 +50,6 @@ pub enum ActionExecError {
 
 pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     match action {
-        PoolAction::Bootstrap(_) => todo!(),
         PoolAction::Refresh(action) => execute_refresh_action(action),
         PoolAction::PublishDatapoint(action) => execute_publish_datapoint_action(action),
     }

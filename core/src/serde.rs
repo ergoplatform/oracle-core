@@ -193,11 +193,14 @@ impl TryFrom<AddressesSerde> for Addresses {
             AddressEncoder::unchecked_parse_network_address_from_str(
                 &addresses.wallet_address_for_chain_transaction,
             )?;
+        let ballot_token_owner_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            &addresses.ballot_token_owner_address,
+        )?;
         if address_for_oracle_tokens.network() == wallet_address_for_chain_transaction.network() {
             Ok(Addresses {
                 address_for_oracle_tokens,
                 wallet_address_for_chain_transaction,
-                ballot_token_owner_address: todo!(),
+                ballot_token_owner_address,
             })
         } else {
             Err(SerdeConversionError::NetworkPrefixesDiffer)
@@ -255,7 +258,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             && ballot_contract_prefix == addresses_prefix
         {
             Ok(BootstrapConfig {
-                oracle_contract_parameters: todo!(),
+                oracle_contract_parameters,
                 pool_contract_parameters,
                 refresh_contract_parameters,
                 update_contract_parameters,

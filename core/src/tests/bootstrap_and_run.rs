@@ -89,8 +89,8 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         ballot_contract_parameters: BallotContractParameters::default(),
         addresses: Addresses {
             address_for_oracle_tokens: network_address.clone(),
-            wallet_address_for_chain_transaction: network_address,
-            ballot_token_owner_address: todo!(),
+            wallet_address_for_chain_transaction: network_address.clone(),
+            ballot_token_owner_address: network_address,
         },
         node_ip: "127.0.0.1".into(),
         node_port: 9053,

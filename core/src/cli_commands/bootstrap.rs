@@ -701,9 +701,12 @@ pub(crate) mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
-        let address = Address::P2Pk(secret.public_image());
+        let address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image()),
+        );
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let ergo_tree = address.script().unwrap();
+        let ergo_tree = address.address().script().unwrap();
 
         let value = BASE_FEE.checked_mul_u32(10000).unwrap();
         let unspent_boxes = vec![ErgoBox::new(
@@ -757,12 +760,9 @@ pub(crate) mod tests {
             update_contract_parameters: UpdateContractParameters::default(),
             ballot_contract_parameters: BallotContractParameters::default(),
             addresses: Addresses {
-                address_for_oracle_tokens: NetworkAddress::new(NetworkPrefix::Mainnet, &address),
-                wallet_address_for_chain_transaction: NetworkAddress::new(
-                    NetworkPrefix::Mainnet,
-                    &address,
-                ),
-                ballot_token_owner_address: todo!(),
+                address_for_oracle_tokens: address.clone(),
+                wallet_address_for_chain_transaction: address.clone(),
+                ballot_token_owner_address: address,
             },
             node_ip: "127.0.0.1".into(),
             node_port: 9053,

@@ -98,15 +98,16 @@ impl OracleConfig {
             log_level: Some(LevelFilter::Info),
             // TODO: move to BootstrapConfig
             core_api_port: todo!(),
+            // TODO: move to Addresses?
             oracle_address: todo!(),
             // TODO: move to BootstrapConfig
             data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
             // TODO: move to BootstrapConfig
-            data_point_source_custom_script: todo!(),
+            data_point_source_custom_script: None,
             oracle_contract_parameters: bootstrap.oracle_contract_parameters,
             pool_contract_parameters: bootstrap.pool_contract_parameters,
             refresh_contract_parameters: bootstrap.refresh_contract_parameters,
-            ballot_contract_parameters: todo!(), // bootstrap.ballot_contract_parameters,
+            ballot_contract_parameters: bootstrap.ballot_contract_parameters,
             update_contract_parameters: bootstrap.update_contract_parameters,
             token_ids,
             addresses: bootstrap.addresses,

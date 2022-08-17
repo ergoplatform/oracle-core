@@ -81,7 +81,6 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        let prefix = inputs.parameters.p2s.network();
         if ballot_token_owner_address != &Address::P2Pk(ProveDlog::from(ec)) {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }

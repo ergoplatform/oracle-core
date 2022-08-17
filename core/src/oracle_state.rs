@@ -259,8 +259,6 @@ impl<'a> OraclePool<'a> {
                 scans.push(local_scan);
             }
 
-            let ballot_token_owner_address_str =
-                config.addresses.ballot_token_owner_address.to_base58();
             let ballot_contract_address =
                 BallotContract::new(ballot_box_wrapper_inputs.into())?.ergo_tree();
             // Local ballot box may not exist yet.
@@ -541,7 +539,7 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
             .into_iter()
             .map(|ballot_box| {
                 let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
-                    parameters: &self.ballot_box_wrapper_inputs.parameters,
+                    parameters: self.ballot_box_wrapper_inputs.parameters,
                     ..self.ballot_box_wrapper_inputs
                 };
                 Ok(VoteBallotBoxWrapper::new(

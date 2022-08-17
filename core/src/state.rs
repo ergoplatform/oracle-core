@@ -22,14 +22,9 @@ pub enum PoolState {
     LiveEpoch(LiveEpochState),
 }
 
-pub fn process(
-    pool_state: PoolState,
-    // op: OraclePool,
-    // parameters: PoolParameters,
-    height: u64,
-) -> Result<Option<PoolCommand>, StageError> {
+pub fn process(pool_state: PoolState, height: u64) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
-        PoolState::NeedsBootstrap => todo!(),
+        PoolState::NeedsBootstrap => Ok(None),
         PoolState::LiveEpoch(live_epoch) => {
             let epoch_is_over =
                 height >= live_epoch.epoch_ends && live_epoch.commit_datapoint_in_epoch;

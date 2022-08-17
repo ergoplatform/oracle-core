@@ -10,7 +10,7 @@
 #![deny(unused_mut)]
 #![deny(unused_imports)]
 #![deny(clippy::wildcard_enum_match_arm)]
-// #![deny(clippy::todo)]
+#![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
 
 #[macro_use]
