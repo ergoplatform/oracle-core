@@ -55,9 +55,7 @@ impl<'a> From<PoolBoxWrapperInputs<'a>> for PoolContractInputs<'a> {
 }
 
 impl<'a> From<(&'a PoolContractParameters, &'a TokenIds)> for PoolContractInputs<'a> {
-    fn from(t: (&'a PoolContractParameters, &'a TokenIds)) -> Self {
-        let contract_parameters = t.0;
-        let token_ids = t.1;
+    fn from((contract_parameters, token_ids): (&'a PoolContractParameters, &'a TokenIds)) -> Self {
         PoolContractInputs {
             contract_parameters,
             refresh_nft_token_id: &token_ids.refresh_nft_token_id,
