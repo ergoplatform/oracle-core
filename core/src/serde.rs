@@ -161,7 +161,11 @@ pub struct BootstrapConfigSerde {
     node_ip: String,
     node_port: u16,
     node_api_key: String,
+    pub core_api_port: u16,
+    pub data_point_source: Option<PredefinedDataPointSource>,
+    pub data_point_source_custom_script: Option<String>,
     addresses: AddressesSerde,
+    pub base_fee: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -227,6 +231,10 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
             node_port: c.node_port,
             node_api_key: c.node_api_key,
             addresses: AddressesSerde::from(c.addresses),
+            core_api_port: c.core_api_port,
+            data_point_source: c.data_point_source,
+            data_point_source_custom_script: c.data_point_source_custom_script,
+            base_fee: c.base_fee,
         }
     }
 }
@@ -268,6 +276,10 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
                 node_port: c.node_port,
                 node_api_key: c.node_api_key,
                 addresses,
+                core_api_port: c.core_api_port,
+                data_point_source: c.data_point_source,
+                data_point_source_custom_script: c.data_point_source_custom_script,
+                base_fee: c.base_fee,
             })
         } else {
             Err(SerdeConversionError::NetworkPrefixesDiffer)

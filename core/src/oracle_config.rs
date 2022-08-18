@@ -93,17 +93,14 @@ impl OracleConfig {
             node_ip: bootstrap.node_ip,
             node_port: bootstrap.node_port,
             node_api_key: bootstrap.node_api_key,
-            // TODO: rename to tx_fee and use insteaf of BoxValue::SAFE_USER_MIN
-            base_fee: todo!(), // bootstrap.base_fee,
-            log_level: Some(LevelFilter::Info),
-            // TODO: move to BootstrapConfig
-            core_api_port: todo!(),
-            // TODO: move to Addresses?
+            // TODO: use insteaf of BoxValue::SAFE_USER_MIN
+            base_fee: bootstrap.base_fee,
+            log_level: None,
+            core_api_port: bootstrap.core_api_port,
+            // TODO: move to Addresses? Break Addresses into separate fields here?
             oracle_address: todo!(),
-            // TODO: move to BootstrapConfig
-            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
-            // TODO: move to BootstrapConfig
-            data_point_source_custom_script: None,
+            data_point_source: bootstrap.data_point_source,
+            data_point_source_custom_script: bootstrap.data_point_source_custom_script,
             oracle_contract_parameters: bootstrap.oracle_contract_parameters,
             pool_contract_parameters: bootstrap.pool_contract_parameters,
             refresh_contract_parameters: bootstrap.refresh_contract_parameters,

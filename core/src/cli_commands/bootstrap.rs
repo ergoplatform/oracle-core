@@ -21,7 +21,7 @@ use ergo_lib::{
     },
     wallet::{
         box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
-        tx_builder::{TxBuilder, TxBuilderError},
+        tx_builder::{self, TxBuilder, TxBuilderError},
     },
 };
 use ergo_node_interface::{node_interface::NodeError, NodeInterface};
@@ -40,6 +40,7 @@ use crate::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
     },
+    datapoint_source::PredefinedDataPointSource,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_config::{OracleConfig, TokenIds},
@@ -95,56 +96,8 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
     if Path::new(&config_file_name).exists() {
         return Err(BootstrapError::ConfigFilenameAlreadyExists);
     }
-    let address = AddressEncoder::unchecked_parse_network_address_from_str(
-        "9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw",
-    )?;
 
-    let oracle_contract_parameters = OracleContractParameters::default();
-    let config = BootstrapConfig {
-        tokens_to_mint: TokensToMint {
-            pool_nft: NftMintDetails {
-                name: "pool NFT".into(),
-                description: "Pool NFT".into(),
-            },
-            refresh_nft: NftMintDetails {
-                name: "refresh NFT".into(),
-                description: "refresh NFT".into(),
-            },
-            update_nft: NftMintDetails {
-                name: "update NFT".into(),
-                description: "update NFT".into(),
-            },
-            oracle_tokens: TokenMintDetails {
-                name: "oracle token".into(),
-                description: "oracle token".into(),
-                quantity: 15,
-            },
-            ballot_tokens: TokenMintDetails {
-                name: "ballot token".into(),
-                description: "ballot token".into(),
-                quantity: 15,
-            },
-            reward_tokens: TokenMintDetails {
-                name: "reward token".into(),
-                description: "reward token".into(),
-                quantity: 100_000_000,
-            },
-        },
-        addresses: Addresses {
-            address_for_oracle_tokens: address.clone(),
-            wallet_address_for_chain_transaction: address.clone(),
-            ballot_token_owner_address: address,
-        },
-        node_ip: "127.0.0.1".into(),
-        node_port: 9053,
-        node_api_key: "hello".into(),
-        refresh_contract_parameters: RefreshContractParameters::default(),
-        pool_contract_parameters: PoolContractParameters::default(),
-        update_contract_parameters: UpdateContractParameters::default(),
-        ballot_contract_parameters: BallotContractParameters::default(),
-        oracle_contract_parameters,
-    };
-
+    let config = BootstrapConfig::default();
     let config_serde = BootstrapConfigSerde::from(config);
 
     let s = serde_yaml::to_string(&config_serde)?;
@@ -598,7 +551,68 @@ pub struct BootstrapConfig {
     pub node_ip: String,
     pub node_port: u16,
     pub node_api_key: String,
+    pub core_api_port: u16,
+    pub data_point_source: Option<PredefinedDataPointSource>,
+    pub data_point_source_custom_script: Option<String>,
     pub addresses: Addresses,
+    pub base_fee: u64,
+}
+
+impl Default for BootstrapConfig {
+    fn default() -> Self {
+        let address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw",
+        )
+        .unwrap();
+        BootstrapConfig {
+            tokens_to_mint: TokensToMint {
+                pool_nft: NftMintDetails {
+                    name: "pool NFT".into(),
+                    description: "Pool NFT".into(),
+                },
+                refresh_nft: NftMintDetails {
+                    name: "refresh NFT".into(),
+                    description: "refresh NFT".into(),
+                },
+                update_nft: NftMintDetails {
+                    name: "update NFT".into(),
+                    description: "update NFT".into(),
+                },
+                oracle_tokens: TokenMintDetails {
+                    name: "oracle token".into(),
+                    description: "oracle token".into(),
+                    quantity: 15,
+                },
+                ballot_tokens: TokenMintDetails {
+                    name: "ballot token".into(),
+                    description: "ballot token".into(),
+                    quantity: 15,
+                },
+                reward_tokens: TokenMintDetails {
+                    name: "reward token".into(),
+                    description: "reward token".into(),
+                    quantity: 100_000_000,
+                },
+            },
+            addresses: Addresses {
+                address_for_oracle_tokens: address.clone(),
+                wallet_address_for_chain_transaction: address.clone(),
+                ballot_token_owner_address: address,
+            },
+            node_ip: "127.0.0.1".into(),
+            node_port: 9053,
+            node_api_key: "hello".into(),
+            refresh_contract_parameters: RefreshContractParameters::default(),
+            pool_contract_parameters: PoolContractParameters::default(),
+            update_contract_parameters: UpdateContractParameters::default(),
+            ballot_contract_parameters: BallotContractParameters::default(),
+            oracle_contract_parameters: OracleContractParameters::default(),
+            core_api_port: 9010,
+            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
+            data_point_source_custom_script: None,
+            base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -724,55 +738,20 @@ pub(crate) mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
-        let state = BootstrapConfig {
-            tokens_to_mint: TokensToMint {
-                pool_nft: NftMintDetails {
-                    name: "pool NFT".into(),
-                    description: "Pool NFT".into(),
-                },
-                refresh_nft: NftMintDetails {
-                    name: "refresh NFT".into(),
-                    description: "refresh NFT".into(),
-                },
-                update_nft: NftMintDetails {
-                    name: "update NFT".into(),
-                    description: "update NFT".into(),
-                },
-                oracle_tokens: TokenMintDetails {
-                    name: "oracle token".into(),
-                    description: "oracle token".into(),
-                    quantity: 15,
-                },
-                ballot_tokens: TokenMintDetails {
-                    name: "ballot token".into(),
-                    description: "ballot token".into(),
-                    quantity: 15,
-                },
-                reward_tokens: TokenMintDetails {
-                    name: "reward token".into(),
-                    description: "reward token".into(),
-                    quantity: 100_000_000,
-                },
-            },
-            oracle_contract_parameters: OracleContractParameters::default(),
-            refresh_contract_parameters: RefreshContractParameters::default(),
-            pool_contract_parameters: PoolContractParameters::default(),
-            update_contract_parameters: UpdateContractParameters::default(),
-            ballot_contract_parameters: BallotContractParameters::default(),
+        let default_bootstrap_config = BootstrapConfig::default();
+        let bootstrap_config = BootstrapConfig {
             addresses: Addresses {
                 address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
                 ballot_token_owner_address: address,
             },
-            node_ip: "127.0.0.1".into(),
-            node_port: 9053,
-            node_api_key: "hello".into(),
+            ..default_bootstrap_config
         };
 
         let height = ctx.pre_header.height;
         let submit_tx = SubmitTxMock::default();
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
-            config: state.clone(),
+            config: bootstrap_config.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
             },
@@ -817,7 +796,9 @@ pub(crate) mod tests {
             update_contract_inputs,
         )
         .unwrap();
-        assert!(update_contract.min_votes() == state.update_contract_parameters.min_votes);
+        assert!(
+            update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes
+        );
         assert!(update_contract.pool_nft_token_id() == token_ids.pool_nft_token_id);
         assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id);
         let s = serde_yaml::to_string(&oracle_config).unwrap();
