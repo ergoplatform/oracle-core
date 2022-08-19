@@ -164,6 +164,7 @@ fn main() {
 
     debug!("Args: {:?}", args);
 
+    #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::Bootstrap {
             yaml_config_name,
@@ -183,11 +184,18 @@ fn main() {
                 }
             };
         }
+        oracle_command => handle_oracle_command(oracle_command),
+    }
+}
 
+/// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
+fn handle_oracle_command(command: Command) {
+    assert_wallet_unlocked(&new_node_interface());
+    let op = OraclePool::new().unwrap();
+    match command {
         Command::Run { read_only } => {
-            assert_wallet_unlocked(&new_node_interface());
             let (_, repost_receiver) = bounded(1);
-            let op = Arc::new(OraclePool::new().unwrap());
+            let op = Arc::new(op);
 
             // Start Oracle Core GET API Server
             thread::Builder::new()
@@ -210,9 +218,7 @@ fn main() {
         }
 
         Command::ExtractRewardTokens { rewards_address } => {
-            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
-            let op = OraclePool::new().unwrap();
             if let Err(e) = cli_commands::extract_reward_tokens::extract_reward_tokens(
                 &wallet,
                 op.get_local_datapoint_box_source(),
@@ -224,8 +230,6 @@ fn main() {
         }
 
         Command::PrintRewardTokens => {
-            assert_wallet_unlocked(&new_node_interface());
-            let op = OraclePool::new().unwrap();
             if let Err(e) = cli_commands::print_reward_tokens::print_reward_tokens(
                 op.get_local_datapoint_box_source(),
             ) {
@@ -237,8 +241,6 @@ fn main() {
         Command::TransferOracleToken {
             oracle_token_address,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
-            let op = OraclePool::new().unwrap();
             let wallet = WalletData {};
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
                 &wallet,
@@ -256,9 +258,7 @@ fn main() {
             reward_token_amount,
             update_box_creation_height,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
-            let op = OraclePool::new().unwrap();
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 &wallet,
                 op.get_local_ballot_box_source(),
@@ -276,8 +276,6 @@ fn main() {
             reward_token_id,
             reward_token_amount,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
-            let op = OraclePool::new().unwrap();
             let new_reward_tokens =
                 reward_token_id
                     .zip(reward_token_amount)
@@ -293,12 +291,12 @@ fn main() {
             }
         }
         Command::PrepareUpdate { update_file } => {
-            assert_wallet_unlocked(&new_node_interface());
             if let Err(e) = cli_commands::prepare_update::prepare_update(update_file) {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
+        _ => unreachable!(),
     }
 }
 
