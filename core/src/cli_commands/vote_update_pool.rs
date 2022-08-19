@@ -61,12 +61,12 @@ pub enum VoteUpdatePoolError {
 
 pub fn vote_update_pool(
     wallet: &dyn WalletDataSource,
+    local_ballot_box_source: Option<&dyn LocalBallotBoxSource>,
     new_pool_box_address_hash_str: String,
     reward_token_id_str: String,
     reward_token_amount: u32,
     update_box_creation_height: u32,
 ) -> Result<(), VoteUpdatePoolError> {
-    let op = OraclePool::new().unwrap();
     let change_address_str = get_wallet_status()?
         .change_address
         .ok_or(VoteUpdatePoolError::NoChangeAddressSetInNode)?;
@@ -77,7 +77,7 @@ pub fn vote_update_pool(
     let height = current_block_height()? as u32;
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let reward_token_id = TokenId::from_base64(&reward_token_id_str)?;
-    let unsigned_tx = if let Some(local_ballot_box_source) = op.get_local_ballot_box_source() {
+    let unsigned_tx = if let Some(local_ballot_box_source) = local_ballot_box_source {
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // which stipulates that the address in R4 is the 'owner' of the token
         build_tx_with_existing_ballot_box(

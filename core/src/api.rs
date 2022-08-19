@@ -4,12 +4,12 @@ use crate::oracle_state::{OraclePool, StageDataSource};
 use crate::state::PoolState;
 use crossbeam::Receiver;
 use serde_json::json;
+use std::sync::Arc;
 
 /// Starts the GET API server which can be made publicly available without security risk
-pub fn start_get_api(repost_receiver: Receiver<bool>) {
+pub fn start_get_api(op: Arc<OraclePool<'static>>, repost_receiver: Receiver<bool>) {
     let mut app = sincere::App::new();
-    let op = OraclePool::new().unwrap();
-    let datapoint_stage = op.datapoint_stage;
+    let datapoint_stage = &op.datapoint_stage;
 
     // Basic welcome endpoint
     app.get("/", move |context| {
@@ -36,8 +36,11 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             .unwrap();
     });
 
+    let app_op = op.clone();
     // Basic information about the oracle pool
     app.get("/poolInfo", move |context| {
+        let op = app_op.clone();
+        let datapoint_stage = &op.datapoint_stage;
         let parameters = &ORACLE_CONFIG;
         let num_of_oracles = datapoint_stage.stage.number_of_boxes().unwrap_or(10);
 
@@ -72,9 +75,10 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
             .unwrap();
     });
 
+    let app_op = op.clone();
     // Status of the oracle
     app.get("/oracleStatus", move |context| {
-        let op = OraclePool::new().unwrap();
+        let op = app_op.clone();
 
         // Check whether waiting for datapoint to be submit to oracle core
         let waiting_for_submit = match op.get_live_epoch_state() {
@@ -113,7 +117,7 @@ pub fn start_get_api(repost_receiver: Receiver<bool>) {
 
     // Status of the oracle pool
     app.get("/poolStatus", move |context| {
-        let op = OraclePool::new().unwrap();
+        let op = op.clone();
 
         // Current stage of the oracle pool box
         let current_stage = match op.check_oracle_pool_stage() {

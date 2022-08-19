@@ -60,10 +60,10 @@ pub enum TransferOracleTokenActionError {
 
 pub fn transfer_oracle_token(
     wallet: &dyn WalletDataSource,
+    local_datapoint_box_source: Option<&dyn LocalDatapointBoxSource>,
     rewards_destination_str: String,
 ) -> Result<(), TransferOracleTokenActionError> {
-    let op = OraclePool::new().unwrap();
-    if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+    if let Some(local_datapoint_box_source) = local_datapoint_box_source {
         let rewards_destination =
             AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
 
