@@ -26,7 +26,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
+    oracle_state::{LocalDatapointBoxSource, StageError},
     wallet::WalletDataSource,
 };
 

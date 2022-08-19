@@ -27,7 +27,7 @@ use crate::{
     },
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{TokenIds, ORACLE_CONFIG},
-    oracle_state::{LocalBallotBoxSource, OraclePool, StageError},
+    oracle_state::{LocalBallotBoxSource, StageError},
     wallet::WalletDataSource,
 };
 use derive_more::From;

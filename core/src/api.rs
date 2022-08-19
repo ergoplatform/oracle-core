@@ -9,7 +9,6 @@ use std::sync::Arc;
 /// Starts the GET API server which can be made publicly available without security risk
 pub fn start_get_api(op: Arc<OraclePool<'static>>, repost_receiver: Receiver<bool>) {
     let mut app = sincere::App::new();
-    let datapoint_stage = &op.datapoint_stage;
 
     // Basic welcome endpoint
     app.get("/", move |context| {
