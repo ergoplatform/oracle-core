@@ -93,7 +93,6 @@ impl OracleConfig {
             node_ip: bootstrap.node_ip,
             node_port: bootstrap.node_port,
             node_api_key: bootstrap.node_api_key,
-            // TODO: use insteaf of BoxValue::SAFE_USER_MIN
             base_fee: bootstrap.base_fee,
             log_level: None,
             core_api_port: bootstrap.core_api_port,
