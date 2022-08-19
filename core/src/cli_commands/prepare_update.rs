@@ -517,7 +517,6 @@ ballot_parameters:
             pool_contract_parameters: Some(PoolContractParameters::default()),
             update_contract_parameters: Some(UpdateContractParameters::default()),
             addresses: Addresses {
-                address_for_oracle_tokens: network_address.clone(),
                 wallet_address_for_chain_transaction: network_address.clone(),
                 ballot_token_owner_address: network_address,
             },

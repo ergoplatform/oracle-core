@@ -1,6 +1,6 @@
 use derive_more::From;
 use ergo_lib::ergo_chain_types::DigestNError;
-use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder, AddressEncoderError};
+use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoderError};
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
@@ -73,22 +73,17 @@ pub fn build_action(
                 op.get_local_datapoint_box_source()
             {
                 PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source)
-            } else {
-                let address = AddressEncoder::unchecked_parse_address_from_str(
-                    &ORACLE_CONFIG.oracle_address,
-                )?;
-                if let Address::P2Pk(public_key) = address {
-                    let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((
-                        &ORACLE_CONFIG.oracle_contract_parameters,
-                        &ORACLE_CONFIG.token_ids,
-                    ));
-                    PublishDataPointCommandInputs::FirstDataPoint {
-                        public_key,
-                        oracle_box_wrapper_inputs,
-                    }
-                } else {
-                    return Err(PoolCommandError::WrongOracleAddressType);
+            } else if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
+                let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::from((
+                    &ORACLE_CONFIG.oracle_contract_parameters,
+                    &ORACLE_CONFIG.token_ids,
+                ));
+                PublishDataPointCommandInputs::FirstDataPoint {
+                    public_key,
+                    oracle_box_wrapper_inputs,
                 }
+            } else {
+                return Err(PoolCommandError::WrongOracleAddressType);
             };
             build_publish_datapoint_action(
                 pool_box_source,

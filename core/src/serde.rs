@@ -74,7 +74,7 @@ impl From<OracleConfig> for OracleConfigSerde {
             base_fee: c.base_fee,
             log_level: c.log_level,
             core_api_port: c.core_api_port,
-            oracle_address: c.oracle_address,
+            oracle_address: c.oracle_address.to_base58(),
             data_point_source: c.data_point_source,
             data_point_source_custom_script: c.data_point_source_custom_script,
             oracle_contract_parameters,
@@ -116,7 +116,10 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         let ballot_contract_prefix = ballot_contract_parameters.p2s.network();
 
         let addresses = Addresses::try_from(c.addresses)?;
-        let addresses_prefix = addresses.address_for_oracle_tokens.network();
+        let addresses_prefix = addresses.wallet_address_for_chain_transaction.network();
+
+        let oracle_address =
+            AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
 
         if addresses_prefix == network_prefix
             && ballot_contract_prefix == network_prefix
@@ -132,7 +135,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 base_fee: c.base_fee,
                 log_level: c.log_level,
                 core_api_port: c.core_api_port,
-                oracle_address: c.oracle_address,
+                oracle_address,
                 data_point_source: c.data_point_source,
                 data_point_source_custom_script: c.data_point_source_custom_script,
                 oracle_contract_parameters,
@@ -161,16 +164,16 @@ pub struct BootstrapConfigSerde {
     node_ip: String,
     node_port: u16,
     node_api_key: String,
-    pub core_api_port: u16,
-    pub data_point_source: Option<PredefinedDataPointSource>,
-    pub data_point_source_custom_script: Option<String>,
+    core_api_port: u16,
+    data_point_source: Option<PredefinedDataPointSource>,
+    data_point_source_custom_script: Option<String>,
     addresses: AddressesSerde,
-    pub base_fee: u64,
+    oracle_address: String,
+    base_fee: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct AddressesSerde {
-    address_for_oracle_tokens: String,
     wallet_address_for_chain_transaction: String,
     pub ballot_token_owner_address: String,
 }
@@ -178,7 +181,6 @@ struct AddressesSerde {
 impl From<Addresses> for AddressesSerde {
     fn from(addresses: Addresses) -> Self {
         AddressesSerde {
-            address_for_oracle_tokens: addresses.address_for_oracle_tokens.to_base58(),
             wallet_address_for_chain_transaction: addresses
                 .wallet_address_for_chain_transaction
                 .to_base58(),
@@ -190,9 +192,6 @@ impl From<Addresses> for AddressesSerde {
 impl TryFrom<AddressesSerde> for Addresses {
     type Error = SerdeConversionError;
     fn try_from(addresses: AddressesSerde) -> Result<Self, Self::Error> {
-        let address_for_oracle_tokens = AddressEncoder::unchecked_parse_network_address_from_str(
-            &addresses.address_for_oracle_tokens,
-        )?;
         let wallet_address_for_chain_transaction =
             AddressEncoder::unchecked_parse_network_address_from_str(
                 &addresses.wallet_address_for_chain_transaction,
@@ -200,9 +199,8 @@ impl TryFrom<AddressesSerde> for Addresses {
         let ballot_token_owner_address = AddressEncoder::unchecked_parse_network_address_from_str(
             &addresses.ballot_token_owner_address,
         )?;
-        if address_for_oracle_tokens.network() == wallet_address_for_chain_transaction.network() {
+        if ballot_token_owner_address.network() == wallet_address_for_chain_transaction.network() {
             Ok(Addresses {
-                address_for_oracle_tokens,
                 wallet_address_for_chain_transaction,
                 ballot_token_owner_address,
             })
@@ -231,6 +229,7 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
             node_port: c.node_port,
             node_api_key: c.node_api_key,
             addresses: AddressesSerde::from(c.addresses),
+            oracle_address: c.oracle_address.to_base58(),
             core_api_port: c.core_api_port,
             data_point_source: c.data_point_source,
             data_point_source_custom_script: c.data_point_source_custom_script,
@@ -256,9 +255,11 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             BallotContractParameters::try_from(c.ballot_contract_parameters)?;
         let ballot_contract_prefix = ballot_contract_parameters.p2s.network();
         let addresses = Addresses::try_from(c.addresses)?;
-        let addresses_prefix = addresses.address_for_oracle_tokens.network();
+        let addresses_prefix = addresses.ballot_token_owner_address.network();
         let oracle_contract_parameters =
             OracleContractParameters::try_from(c.oracle_contract_parameters)?;
+        let oracle_address =
+            AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
 
         if pool_contract_prefix == addresses_prefix
             && refresh_contract_prefix == addresses_prefix
@@ -276,6 +277,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
                 node_port: c.node_port,
                 node_api_key: c.node_api_key,
                 addresses,
+                oracle_address,
                 core_api_port: c.core_api_port,
                 data_point_source: c.data_point_source,
                 data_point_source_custom_script: c.data_point_source_custom_script,
@@ -508,8 +510,8 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             prefixes.push(p.p2s.network());
         }
 
-        let addresses = Addresses::try_from(config_serde.addresses)?;
-        let addresses_prefix = addresses.address_for_oracle_tokens.network();
+        let addresses = Addresses::try_from(c.addresses)?;
+        let addresses_prefix = addresses.ballot_token_owner_address.network();
         prefixes.push(addresses_prefix);
 
         for p in prefixes {

@@ -12,6 +12,7 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::{
     ergo_chain_types::Digest32,
+    ergotree_ir::chain::address::NetworkAddress,
     ergotree_ir::chain::{ergo_box::box_value::BoxValue, token::TokenId},
     wallet::tx_builder::SUGGESTED_TX_FEE,
 };
@@ -32,7 +33,7 @@ pub struct OracleConfig {
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
-    pub oracle_address: String,
+    pub oracle_address: NetworkAddress,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
     pub oracle_contract_parameters: OracleContractParameters,
@@ -97,8 +98,7 @@ impl OracleConfig {
             base_fee: bootstrap.base_fee,
             log_level: None,
             core_api_port: bootstrap.core_api_port,
-            // TODO: move to Addresses? Break Addresses into separate fields here?
-            oracle_address: todo!(),
+            oracle_address: bootstrap.oracle_address,
             data_point_source: bootstrap.data_point_source,
             data_point_source_custom_script: bootstrap.data_point_source_custom_script,
             oracle_contract_parameters: bootstrap.oracle_contract_parameters,

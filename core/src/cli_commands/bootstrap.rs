@@ -321,11 +321,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     info!("Minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     debug!("inputs for oracle tokens mint: {:?}", inputs);
-    let oracle_tokens_pk_ergo_tree = config
-        .addresses
-        .address_for_oracle_tokens
-        .address()
-        .script()?;
+    let oracle_tokens_pk_ergo_tree = config.oracle_address.address().script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -555,6 +551,7 @@ pub struct BootstrapConfig {
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
     pub addresses: Addresses,
+    pub oracle_address: NetworkAddress,
     pub base_fee: u64,
 }
 
@@ -595,10 +592,10 @@ impl Default for BootstrapConfig {
                 },
             },
             addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
-                ballot_token_owner_address: address,
+                ballot_token_owner_address: address.clone(),
             },
+            oracle_address: address,
             node_ip: "127.0.0.1".into(),
             node_port: 9053,
             node_api_key: "hello".into(),
@@ -617,7 +614,6 @@ impl Default for BootstrapConfig {
 
 #[derive(Clone, Debug)]
 pub struct Addresses {
-    pub address_for_oracle_tokens: NetworkAddress,
     pub wallet_address_for_chain_transaction: NetworkAddress,
     pub ballot_token_owner_address: NetworkAddress,
 }
@@ -741,10 +737,10 @@ pub(crate) mod tests {
         let default_bootstrap_config = BootstrapConfig::default();
         let bootstrap_config = BootstrapConfig {
             addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
                 wallet_address_for_chain_transaction: address.clone(),
-                ballot_token_owner_address: address,
+                ballot_token_owner_address: address.clone(),
             },
+            oracle_address: address,
             ..default_bootstrap_config
         };
 

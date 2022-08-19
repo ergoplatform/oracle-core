@@ -6,6 +6,7 @@ use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 use crate::node_interface::{get_scan_boxes, register_scan, serialize_box, serialize_boxes};
 
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
@@ -175,10 +176,10 @@ pub fn register_refresh_box_scan(
 pub fn register_local_oracle_datapoint_scan(
     oracle_pool_participant_token: &TokenId,
     datapoint_address: &ErgoTree,
-    oracle_address: &String,
+    oracle_address: &NetworkAddress,
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
-    let oracle_add_bytes = address_to_raw_for_register(oracle_address)?;
+    let oracle_add_bytes = address_to_raw_for_register(&oracle_address.to_base58())?;
     let datapoint_bytes = datapoint_address.to_scan_bytes();
 
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
