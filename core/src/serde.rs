@@ -116,7 +116,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         let ballot_contract_prefix = ballot_contract_parameters.p2s.network();
 
         let addresses = Addresses::try_from(c.addresses)?;
-        let addresses_prefix = addresses.wallet_address_for_chain_transaction.network();
+        let addresses_prefix = addresses.ballot_token_owner_address.network();
 
         let oracle_address =
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
@@ -174,16 +174,12 @@ pub struct BootstrapConfigSerde {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct AddressesSerde {
-    wallet_address_for_chain_transaction: String,
-    pub ballot_token_owner_address: String,
+    ballot_token_owner_address: String,
 }
 
 impl From<Addresses> for AddressesSerde {
     fn from(addresses: Addresses) -> Self {
         AddressesSerde {
-            wallet_address_for_chain_transaction: addresses
-                .wallet_address_for_chain_transaction
-                .to_base58(),
             ballot_token_owner_address: addresses.ballot_token_owner_address.to_base58(),
         }
     }
@@ -192,21 +188,12 @@ impl From<Addresses> for AddressesSerde {
 impl TryFrom<AddressesSerde> for Addresses {
     type Error = SerdeConversionError;
     fn try_from(addresses: AddressesSerde) -> Result<Self, Self::Error> {
-        let wallet_address_for_chain_transaction =
-            AddressEncoder::unchecked_parse_network_address_from_str(
-                &addresses.wallet_address_for_chain_transaction,
-            )?;
         let ballot_token_owner_address = AddressEncoder::unchecked_parse_network_address_from_str(
             &addresses.ballot_token_owner_address,
         )?;
-        if ballot_token_owner_address.network() == wallet_address_for_chain_transaction.network() {
-            Ok(Addresses {
-                wallet_address_for_chain_transaction,
-                ballot_token_owner_address,
-            })
-        } else {
-            Err(SerdeConversionError::NetworkPrefixesDiffer)
-        }
+        Ok(Addresses {
+            ballot_token_owner_address,
+        })
     }
 }
 

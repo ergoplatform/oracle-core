@@ -165,11 +165,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // This variable represents the index `i` described above.
     let mut num_transactions_left = 8;
 
-    let wallet_pk_ergo_tree = config
-        .addresses
-        .wallet_address_for_chain_transaction
-        .address()
-        .script()?;
+    let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -592,7 +588,6 @@ impl Default for BootstrapConfig {
                 },
             },
             addresses: Addresses {
-                wallet_address_for_chain_transaction: address.clone(),
                 ballot_token_owner_address: address.clone(),
             },
             oracle_address: address,
@@ -614,7 +609,6 @@ impl Default for BootstrapConfig {
 
 #[derive(Clone, Debug)]
 pub struct Addresses {
-    pub wallet_address_for_chain_transaction: NetworkAddress,
     pub ballot_token_owner_address: NetworkAddress,
 }
 
@@ -737,7 +731,6 @@ pub(crate) mod tests {
         let default_bootstrap_config = BootstrapConfig::default();
         let bootstrap_config = BootstrapConfig {
             addresses: Addresses {
-                wallet_address_for_chain_transaction: address.clone(),
                 ballot_token_owner_address: address.clone(),
             },
             oracle_address: address,

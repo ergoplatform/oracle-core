@@ -156,11 +156,7 @@ pub(crate) fn perform_update_chained_transaction(
         num_transactions_left += 1;
     }
 
-    let wallet_pk_ergo_tree = config
-        .addresses
-        .wallet_address_for_chain_transaction
-        .address()
-        .script()?;
+    let wallet_pk_ergo_tree = old_config.oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -468,6 +464,10 @@ ballot_parameters:
             NetworkPrefix::Testnet,
             &Address::P2Pk(secret.public_image()),
         );
+        let old_config = OracleConfig {
+            oracle_address: network_address.clone(),
+            ..old_config
+        };
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = network_address.address().script().unwrap();
 
@@ -517,7 +517,6 @@ ballot_parameters:
             pool_contract_parameters: Some(PoolContractParameters::default()),
             update_contract_parameters: Some(UpdateContractParameters::default()),
             addresses: Addresses {
-                wallet_address_for_chain_transaction: network_address.clone(),
                 ballot_token_owner_address: network_address,
             },
         };

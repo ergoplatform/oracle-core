@@ -46,7 +46,6 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
 
     let state = BootstrapConfig {
         addresses: Addresses {
-            wallet_address_for_chain_transaction: network_address.clone(),
             ballot_token_owner_address: network_address.clone(),
         },
         oracle_address: network_address,
