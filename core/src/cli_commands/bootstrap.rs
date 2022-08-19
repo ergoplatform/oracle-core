@@ -546,7 +546,6 @@ pub struct BootstrapConfig {
     pub core_api_port: u16,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
-    pub addresses: Addresses,
     pub oracle_address: NetworkAddress,
     pub base_fee: u64,
 }
@@ -587,9 +586,6 @@ impl Default for BootstrapConfig {
                     quantity: 100_000_000,
                 },
             },
-            addresses: Addresses {
-                ballot_token_owner_address: address.clone(),
-            },
             oracle_address: address,
             node_ip: "127.0.0.1".into(),
             node_port: 9053,
@@ -605,11 +601,6 @@ impl Default for BootstrapConfig {
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct Addresses {
-    pub ballot_token_owner_address: NetworkAddress,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -730,9 +721,6 @@ pub(crate) mod tests {
 
         let default_bootstrap_config = BootstrapConfig::default();
         let bootstrap_config = BootstrapConfig {
-            addresses: Addresses {
-                ballot_token_owner_address: address.clone(),
-            },
             oracle_address: address,
             ..default_bootstrap_config
         };

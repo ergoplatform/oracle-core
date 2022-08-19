@@ -47,7 +47,7 @@ use crate::{
     wallet::WalletDataSource,
 };
 
-use super::bootstrap::{Addresses, NftMintDetails, TokenMintDetails};
+use super::bootstrap::{NftMintDetails, TokenMintDetails};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UpdateTokensToMint {
@@ -64,7 +64,6 @@ pub struct UpdateBootstrapConfig {
     pub refresh_contract_parameters: Option<RefreshContractParameters>,
     pub update_contract_parameters: Option<UpdateContractParameters>,
     pub tokens_to_mint: UpdateTokensToMint,
-    pub addresses: Addresses,
 }
 
 pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError> {
@@ -516,9 +515,6 @@ ballot_parameters:
             refresh_contract_parameters: Some(RefreshContractParameters::default()),
             pool_contract_parameters: Some(PoolContractParameters::default()),
             update_contract_parameters: Some(UpdateContractParameters::default()),
-            addresses: Addresses {
-                ballot_token_owner_address: network_address,
-            },
         };
 
         let height = ctx.pre_header.height;

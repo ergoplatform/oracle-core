@@ -158,7 +158,6 @@ pub struct BallotBoxesScan<'a> {
 pub struct UpdateBoxScan<'a> {
     scan: Scan,
     update_box_wrapper_inputs: UpdateBoxWrapperInputs<'a>,
-    ballot_token_owner_address: Address,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -265,7 +264,7 @@ impl<'a> OraclePool<'a> {
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,
                 &config.token_ids.ballot_token_id,
-                &config.addresses.ballot_token_owner_address.to_base58(),
+                &config.oracle_address,
             ) {
                 scans.push(local_scan);
             }
@@ -322,7 +321,7 @@ impl<'a> OraclePool<'a> {
             local_ballot_box_scan = Some(LocalBallotBoxScan {
                 scan: Scan::new(local_scan_str, &scan_json[local_scan_str].to_string()),
                 ballot_box_wrapper_inputs,
-                ballot_token_owner_address: config.addresses.ballot_token_owner_address.address(),
+                ballot_token_owner_address: config.oracle_address.address(),
             });
         }
 
@@ -347,7 +346,6 @@ impl<'a> OraclePool<'a> {
         let update_box_scan = UpdateBoxScan {
             scan: Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string()),
             update_box_wrapper_inputs,
-            ballot_token_owner_address: config.addresses.ballot_token_owner_address.address(),
         };
 
         // Create `OraclePool` struct

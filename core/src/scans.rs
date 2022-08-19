@@ -233,10 +233,10 @@ pub fn register_datapoint_scan(
 pub fn register_local_ballot_box_scan(
     ballot_contract_address: &ErgoTree,
     ballot_token_id: &TokenId,
-    ballot_token_owner_address: &String,
+    ballot_token_owner_address: &NetworkAddress,
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
-    let ballot_add_bytes = address_to_raw_for_register(ballot_token_owner_address)?;
+    let ballot_add_bytes = address_to_raw_for_register(&ballot_token_owner_address.to_base58())?;
     let ballot_contract_bytes = ballot_contract_address.to_scan_bytes();
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {

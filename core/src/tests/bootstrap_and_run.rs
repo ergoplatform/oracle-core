@@ -13,7 +13,6 @@ use ergo_lib::wallet::Wallet;
 use sigma_test_util::force_any_val;
 
 use crate::cli_commands::bootstrap::perform_bootstrap_chained_transaction;
-use crate::cli_commands::bootstrap::Addresses;
 use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
 use crate::node_interface;
@@ -45,9 +44,6 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
     let network_address = NetworkAddress::new(NetworkPrefix::Mainnet, address);
 
     let state = BootstrapConfig {
-        addresses: Addresses {
-            ballot_token_owner_address: network_address.clone(),
-        },
         oracle_address: network_address,
         ..BootstrapConfig::default()
     };

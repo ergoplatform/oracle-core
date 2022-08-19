@@ -98,7 +98,7 @@ pub fn vote_update_pool(
             reward_token_id.clone(),
             reward_token_amount,
             update_box_creation_height,
-            ORACLE_CONFIG.addresses.ballot_token_owner_address.address(),
+            ORACLE_CONFIG.oracle_address.address(),
             &ORACLE_CONFIG.ballot_contract_parameters,
             &ORACLE_CONFIG.token_ids,
             height,
