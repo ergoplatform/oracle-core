@@ -57,10 +57,11 @@ use pool_commands::build_action;
 use state::process;
 use state::PoolState;
 use std::convert::TryInto;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
+
+use crate::api::start_rest_server;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
@@ -111,6 +112,9 @@ enum Command {
     Run {
         #[clap(long)]
         read_only: bool,
+        #[clap(long)]
+        /// Set this flag to enable the REST API. NOTE: SSL is not used!
+        enable_rest_api: bool,
     },
 
     /// Extract reward tokens to a chosen address
@@ -193,20 +197,19 @@ fn handle_oracle_command(command: Command) {
     assert_wallet_unlocked(&new_node_interface());
     let op = OraclePool::new().unwrap();
     match command {
-        Command::Run { read_only } => {
-            let (_, repost_receiver) = bounded(1);
-            let op = Arc::new(op);
+        Command::Run {
+            read_only,
+            enable_rest_api,
+        } => {
+            assert_wallet_unlocked(&new_node_interface());
+            let (_, repost_receiver) = bounded::<bool>(1);
+            let op = OraclePool::new().unwrap();
 
             // Start Oracle Core GET API Server
-            thread::Builder::new()
-                .name("Oracle Core GET API Thread".to_string())
-                .spawn({
-                    let op = op.clone();
-                    move || {
-                        api::start_get_api(op, repost_receiver);
-                    }
-                })
-                .ok();
+            if enable_rest_api {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(start_rest_server(repost_receiver));
+            }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
                     error!("Fatal error: {:?}", e);
