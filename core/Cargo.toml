@@ -13,7 +13,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 json = "0.12.4"
 serde_json = "1.0.57"
-sincere = "0.6.6"
 thiserror = "1.0.20"
 anyhow = "1.0.32"
 base16 = "0.2.1"
@@ -23,7 +22,10 @@ openssl = { version = "0.10", features = ["vendored"] }
 log = "0.4.11"
 log-panics = "2.0.0"
 log4rs = "1.1.1"
-crossbeam = "0.7.3"
+crossbeam = "0.8"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.3.0", features = ["cors"] }
+axum = "0.5"
 ergo-lib = { version = "0.17.0" }
 # ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "3ada03f6a803a4541ae6d36c28a74efe87c2325b" }
 ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "84ac6ed680cf3a33b4089fea5e377a07d4df64b4" }
