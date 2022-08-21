@@ -102,8 +102,12 @@ impl OracleConfig {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
     }
 
-    pub fn data_point_source(&self) -> Result<Box<dyn DataPointSource>, anyhow::Error> {
-        let data_point_source: Box<dyn DataPointSource> = if let Some(external_script_name) =
+    pub fn data_point_source(
+        &self,
+    ) -> Result<Box<dyn DataPointSource + Send + Sync>, anyhow::Error> {
+        let data_point_source: Box<dyn DataPointSource + Send + Sync> = if let Some(
+            external_script_name,
+        ) =
             self.data_point_source_custom_script.clone()
         {
             Box::new(ExternalScript::new(external_script_name.clone()))

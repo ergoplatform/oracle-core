@@ -68,6 +68,7 @@ pub enum UpdatePoolError {
 }
 
 pub fn update_pool(
+    op: &OraclePool,
     new_pool_box_hash_str: Option<String>,
     new_reward_tokens: Option<Token>,
 ) -> Result<(), UpdatePoolError> {
@@ -75,7 +76,6 @@ pub fn update_pool(
     let s = std::fs::read_to_string("oracle_config_updated.yaml")?;
     let new_oracle_config: OracleConfig = serde_yaml::from_str(&s)?;
     let wallet = crate::wallet::WalletData {};
-    let op = OraclePool::new().unwrap();
     let change_address_str = get_wallet_status()?
         .change_address
         .ok_or(UpdatePoolError::NoChangeAddressSetInNode)?;

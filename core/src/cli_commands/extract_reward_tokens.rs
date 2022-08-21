@@ -27,7 +27,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
+    oracle_state::{LocalDatapointBoxSource, StageError},
     wallet::WalletDataSource,
 };
 
@@ -61,10 +61,10 @@ pub enum ExtractRewardTokensActionError {
 
 pub fn extract_reward_tokens(
     wallet: &dyn WalletDataSource,
+    local_datapoint_box_source: Option<&dyn LocalDatapointBoxSource>,
     rewards_destination_str: String,
 ) -> Result<(), ExtractRewardTokensActionError> {
-    let op = OraclePool::new().unwrap();
-    if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
+    if let Some(local_datapoint_box_source) = local_datapoint_box_source {
         let rewards_destination =
             AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
         let network_prefix = rewards_destination.network();
