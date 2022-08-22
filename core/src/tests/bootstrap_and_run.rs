@@ -9,7 +9,6 @@ use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInp
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
-use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::wallet::Wallet;
 use sigma_test_util::force_any_val;
 
@@ -27,6 +26,7 @@ use crate::contracts::refresh::RefreshContractParameters;
 use crate::contracts::update::UpdateContractParameters;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
+use crate::oracle_config::SAFE_USER_MIN;
 use crate::pool_commands::test_utils::init_log_tests;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
@@ -105,8 +105,8 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         },
         tx_signer: &mut LocalTxSigner { ctx: &ctx, wallet },
         submit_tx: &mut submit_tx_mock,
-        tx_fee: BoxValue::SAFE_USER_MIN,
-        erg_value_per_box: BoxValue::SAFE_USER_MIN,
+        tx_fee: *SAFE_USER_MIN,
+        erg_value_per_box: *SAFE_USER_MIN,
         change_address: change_address.clone(),
         height,
     })

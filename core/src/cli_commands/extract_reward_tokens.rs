@@ -28,7 +28,7 @@ use crate::{
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_state::{LocalDatapointBoxSource, StageError},
-    wallet::WalletDataSource,
+    wallet::WalletDataSource, oracle_config::SAFE_USER_MIN,
 };
 
 #[derive(Debug, Error, From)]
@@ -138,7 +138,7 @@ fn build_extract_reward_tokens_tx(
 
         // Build box to hold extracted tokens
         let mut builder = ErgoBoxCandidateBuilder::new(
-            BoxValue::SAFE_USER_MIN,
+            *SAFE_USER_MIN,
             rewards_destination.script()?,
             height,
         );
@@ -154,7 +154,7 @@ fn build_extract_reward_tokens_tx(
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
 
         // `SAFE_USER_MIN` each for the fee and the box holding the extracted reward tokens.
-        let target_balance = BoxValue::SAFE_USER_MIN.checked_mul_u32(2).unwrap();
+        let target_balance = SAFE_USER_MIN.checked_mul_u32(2).unwrap();
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
@@ -168,7 +168,7 @@ fn build_extract_reward_tokens_tx(
             box_selection,
             vec![oracle_box_candidate, reward_box_candidate],
             height,
-            BoxValue::SAFE_USER_MIN,
+            *SAFE_USER_MIN,
             change_address,
             BoxValue::MIN,
         );
@@ -198,7 +198,6 @@ mod tests {
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-    use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
@@ -222,7 +221,7 @@ mod tests {
                 200,
                 1,
                 &token_ids,
-                BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
             oracle_box_wrapper_inputs,
@@ -238,7 +237,7 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {

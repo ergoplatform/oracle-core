@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use crate::{
     cli_commands::bootstrap::Addresses,
     contracts::{
@@ -10,7 +12,7 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::{
     ergo_chain_types::Digest32,
-    ergotree_ir::chain::{address::NetworkAddress, token::TokenId},
+    ergotree_ir::chain::{address::NetworkAddress, ergo_box::box_value::BoxValue, token::TokenId},
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -125,6 +127,7 @@ lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
         OracleConfig::load().map_err(|e| e.to_string());
+    pub static ref SAFE_USER_MIN: BoxValue = BoxValue::try_from(ORACLE_CONFIG.base_fee).unwrap();
 }
 
 /// Returns "core_api_port" from the config file

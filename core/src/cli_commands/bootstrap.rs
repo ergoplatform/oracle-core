@@ -42,7 +42,7 @@ use crate::{
         },
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::TokenIds,
+    oracle_config::{TokenIds, SAFE_USER_MIN},
     serde::BootstrapConfigSerde,
     wallet::WalletDataSource,
 };
@@ -70,8 +70,8 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
         wallet: &node as &dyn WalletDataSource,
         tx_signer: &node as &dyn SignTransaction,
         submit_tx: &node as &dyn SubmitTransaction,
-        tx_fee: BoxValue::SAFE_USER_MIN,
-        erg_value_per_box: BoxValue::SAFE_USER_MIN,
+        tx_fee: *SAFE_USER_MIN,
+        erg_value_per_box: *SAFE_USER_MIN,
         change_address,
         height: node.current_block_height()? as u32,
     };
@@ -710,7 +710,7 @@ pub(crate) mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = address.script().unwrap();
 
-        let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
+        let value = SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
         let unspent_boxes = vec![ErgoBox::new(
             value,
             ergo_tree.clone(),
@@ -784,8 +784,8 @@ pub(crate) mod tests {
                 wallet: &wallet,
             },
             submit_tx: &submit_tx,
-            tx_fee: BoxValue::SAFE_USER_MIN,
-            erg_value_per_box: BoxValue::SAFE_USER_MIN,
+            tx_fee: *SAFE_USER_MIN,
+            erg_value_per_box: *SAFE_USER_MIN,
             change_address,
             height,
         })
