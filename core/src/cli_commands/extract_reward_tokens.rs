@@ -27,8 +27,9 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
+    oracle_config::SAFE_USER_MIN,
     oracle_state::{LocalDatapointBoxSource, StageError},
-    wallet::WalletDataSource, oracle_config::SAFE_USER_MIN,
+    wallet::WalletDataSource,
 };
 
 #[derive(Debug, Error, From)]
@@ -137,11 +138,8 @@ fn build_extract_reward_tokens_tx(
         )?;
 
         // Build box to hold extracted tokens
-        let mut builder = ErgoBoxCandidateBuilder::new(
-            *SAFE_USER_MIN,
-            rewards_destination.script()?,
-            height,
-        );
+        let mut builder =
+            ErgoBoxCandidateBuilder::new(*SAFE_USER_MIN, rewards_destination.script()?, height);
 
         let extracted_reward_tokens = Token {
             token_id: in_oracle_box.reward_token().token_id.clone(),

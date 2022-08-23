@@ -127,7 +127,10 @@ lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
         OracleConfig::load().map_err(|e| e.to_string());
-    pub static ref SAFE_USER_MIN: BoxValue = BoxValue::try_from(ORACLE_CONFIG.base_fee).unwrap();
+    pub static ref SAFE_USER_MIN: BoxValue = MAYBE_ORACLE_CONFIG
+        .as_ref()
+        .map(|c| BoxValue::try_from(c.base_fee).unwrap())
+        .unwrap_or(BoxValue::SAFE_USER_MIN);
 }
 
 /// Returns "core_api_port" from the config file

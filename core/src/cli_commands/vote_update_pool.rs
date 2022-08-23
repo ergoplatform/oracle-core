@@ -227,9 +227,7 @@ fn build_tx_for_first_ballot_box(
             height,
         )?;
         let box_selector = SimpleBoxSelector::new();
-        let selection_target_balance = target_balance
-            .checked_add(&*SAFE_USER_MIN)
-            .unwrap();
+        let selection_target_balance = target_balance.checked_add(&*SAFE_USER_MIN).unwrap();
         let selection =
             box_selector.select(unspent_boxes, selection_target_balance, &[ballot_token])?;
         let box_selection = BoxSelection {
@@ -307,9 +305,7 @@ mod tests {
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            SAFE_USER_MIN
-                .checked_mul_u32(100_000_000)
-                .unwrap(),
+            SAFE_USER_MIN.checked_mul_u32(100_000_000).unwrap(),
             Some(BoxTokens::from_vec(vec![ballot_token]).unwrap()),
         );
         let wallet_mock = WalletDataMock {
@@ -403,9 +399,7 @@ mod tests {
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            SAFE_USER_MIN
-                .checked_mul_u32(100_000_000)
-                .unwrap(),
+            SAFE_USER_MIN.checked_mul_u32(100_000_000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {

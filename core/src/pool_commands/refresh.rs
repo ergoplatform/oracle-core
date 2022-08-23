@@ -288,8 +288,8 @@ mod tests {
     use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractParameters;
-    use crate::oracle_config::SAFE_USER_MIN;
     use crate::oracle_config::TokenIds;
+    use crate::oracle_config::SAFE_USER_MIN;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{

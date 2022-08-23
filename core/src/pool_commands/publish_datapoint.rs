@@ -25,8 +25,9 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapperInputs, PoolBox},
     contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
+    oracle_config::SAFE_USER_MIN,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
-    wallet::WalletDataSource, oracle_config::SAFE_USER_MIN,
+    wallet::WalletDataSource,
 };
 
 use super::PublishDataPointCommandInputs;
