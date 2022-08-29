@@ -26,7 +26,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::SAFE_USER_MIN,
+    oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -134,7 +134,7 @@ fn build_transfer_oracle_token_tx(
 
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
 
-        let target_balance = *SAFE_USER_MIN;
+        let target_balance = *BASE_FEE;
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
@@ -199,7 +199,7 @@ mod tests {
                 200,
                 1,
                 &token_ids,
-                SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                BASE_FEE.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
             oracle_box_wrapper_inputs,
@@ -215,7 +215,7 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {

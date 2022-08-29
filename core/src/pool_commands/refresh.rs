@@ -8,7 +8,7 @@ use crate::box_kind::PoolBox;
 use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
-use crate::oracle_config::SAFE_USER_MIN;
+use crate::oracle_config::BASE_FEE;
 use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
@@ -62,7 +62,7 @@ pub fn build_refresh_action(
     height: u32,
     change_address: Address,
 ) -> Result<RefreshAction, RefrechActionError> {
-    let tx_fee = *SAFE_USER_MIN;
+    let tx_fee = *BASE_FEE;
 
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
@@ -289,7 +289,7 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractParameters;
     use crate::oracle_config::TokenIds;
-    use crate::oracle_config::SAFE_USER_MIN;
+    use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{
@@ -400,11 +400,11 @@ mod tests {
             oracle_token_id: &token_ids.oracle_token_id,
             pool_nft_token_id: &token_ids.pool_nft_token_id,
         };
-        let in_refresh_box = make_refresh_box(*SAFE_USER_MIN, inputs, height - 32);
+        let in_refresh_box = make_refresh_box(*BASE_FEE, inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,
-            *SAFE_USER_MIN,
+            *BASE_FEE,
             height - 32, // from previous epoch
             &pool_contract_parameters,
             &token_ids,
@@ -426,7 +426,7 @@ mod tests {
             oracle_pub_keys,
             vec![194, 70, 196, 197, 198, 200],
             1,
-            SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+            BASE_FEE.checked_mul_u32(100).unwrap(),
             height - 9,
             &oracle_contract_parameters,
             &token_ids,
@@ -449,7 +449,7 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {

@@ -27,7 +27,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::SAFE_USER_MIN,
+    oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -139,7 +139,7 @@ fn build_extract_reward_tokens_tx(
 
         // Build box to hold extracted tokens
         let mut builder =
-            ErgoBoxCandidateBuilder::new(*SAFE_USER_MIN, rewards_destination.script()?, height);
+            ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height);
 
         let extracted_reward_tokens = Token {
             token_id: in_oracle_box.reward_token().token_id.clone(),
@@ -151,8 +151,8 @@ fn build_extract_reward_tokens_tx(
 
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
 
-        // `SAFE_USER_MIN` each for the fee and the box holding the extracted reward tokens.
-        let target_balance = SAFE_USER_MIN.checked_mul_u32(2).unwrap();
+        // `BASE_FEE` each for the fee and the box holding the extracted reward tokens.
+        let target_balance = BASE_FEE.checked_mul_u32(2).unwrap();
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
@@ -166,7 +166,7 @@ fn build_extract_reward_tokens_tx(
             box_selection,
             vec![oracle_box_candidate, reward_box_candidate],
             height,
-            *SAFE_USER_MIN,
+            *BASE_FEE,
             change_address,
             BoxValue::MIN,
         );
@@ -219,7 +219,7 @@ mod tests {
                 200,
                 1,
                 &token_ids,
-                SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                BASE_FEE.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
             oracle_box_wrapper_inputs,
@@ -235,7 +235,7 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {

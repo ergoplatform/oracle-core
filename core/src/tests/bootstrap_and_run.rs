@@ -26,7 +26,7 @@ use crate::contracts::refresh::RefreshContractParameters;
 use crate::contracts::update::UpdateContractParameters;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
-use crate::oracle_config::SAFE_USER_MIN;
+use crate::oracle_config::BASE_FEE;
 use crate::pool_commands::test_utils::init_log_tests;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
@@ -105,8 +105,8 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         },
         tx_signer: &mut LocalTxSigner { ctx: &ctx, wallet },
         submit_tx: &mut submit_tx_mock,
-        tx_fee: *SAFE_USER_MIN,
-        erg_value_per_box: *SAFE_USER_MIN,
+        tx_fee: *BASE_FEE,
+        erg_value_per_box: *BASE_FEE,
         change_address: change_address.clone(),
         height,
     })
