@@ -259,7 +259,7 @@ impl<'a> OraclePool<'a> {
             }
 
             let ballot_contract_address =
-                BallotContract::new(ballot_box_wrapper_inputs.into())?.ergo_tree();
+                BallotContract::load(ballot_box_wrapper_inputs.into())?.ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,

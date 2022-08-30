@@ -527,7 +527,17 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         reward_token_id: reward_token.token_id,
         ballot_token_id: ballot_token.token_id,
     };
-    Ok(OracleConfig::create(config, token_ids))
+    // update contract parameters
+    let new_config = BootstrapConfig {
+        // oracle_contract_parameters: todo!(),
+        refresh_contract_parameters: refresh_contract
+            .parameters(config.refresh_contract_parameters.p2s.network()),
+        pool_contract_parameters,
+        // update_contract_parameters: todo!(),
+        // ballot_contract_parameters: todo!(),
+        ..config.clone()
+    };
+    Ok(OracleConfig::create(new_config, token_ids))
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.

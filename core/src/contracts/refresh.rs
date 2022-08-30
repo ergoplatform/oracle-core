@@ -1,4 +1,5 @@
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -267,6 +268,10 @@ impl RefreshContract {
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap()
+    }
+
+    pub fn parameters(&self, network_prefix: NetworkPrefix) -> RefreshContractParameters {
+        todo!()
     }
 }
 

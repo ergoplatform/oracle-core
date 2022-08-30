@@ -52,7 +52,13 @@ impl<'a> From<BallotBoxWrapperInputs<'a>> for BallotContractInputs<'a> {
 }
 
 impl BallotContract {
-    pub fn new(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
+    pub fn load(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
+        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
+        Ok(contract)
+    }
+
+    pub fn create(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
         let parameters = inputs.contract_parameters;
         let ergo_tree = parameters
             .p2s
@@ -149,7 +155,7 @@ mod tests {
             contract_parameters: &contract_parameters,
             update_nft_token_id,
         };
-        let c = BallotContract::new(inputs).unwrap();
+        let c = BallotContract::create(inputs).unwrap();
         assert_eq!(c.update_nft_token_id(), *update_nft_token_id);
     }
 }

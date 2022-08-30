@@ -469,7 +469,7 @@ mod tests {
             contract_parameters: &ballot_contract_parameters,
             update_nft_token_id: &token_ids.update_nft_token_id,
         };
-        let ballot_contract = BallotContract::new(ballot_contract_inputs).unwrap();
+        let ballot_contract = BallotContract::create(ballot_contract_inputs).unwrap();
 
         let mut ballot_boxes = vec![];
 

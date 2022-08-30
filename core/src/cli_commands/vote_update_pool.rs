@@ -207,7 +207,7 @@ fn build_tx_for_first_ballot_box(
         contract_parameters: ballot_contract_parameters,
         update_nft_token_id: &token_ids.update_nft_token_id,
     };
-    let contract = BallotContract::new(inputs)?;
+    let contract = BallotContract::load(inputs)?;
     let ballot_token = Token {
         token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
@@ -362,7 +362,7 @@ mod tests {
         };
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::new(inputs.into()).unwrap(),
+                &BallotContract::create(inputs.into()).unwrap(),
                 secret.public_image(),
                 height - 2,
                 ballot_token,
