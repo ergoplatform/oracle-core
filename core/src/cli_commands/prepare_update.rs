@@ -42,7 +42,7 @@ use crate::{
         },
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
-    oracle_config::{OracleConfig, ORACLE_CONFIG},
+    oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     wallet::WalletDataSource,
 };
@@ -87,8 +87,8 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
         wallet: &node_interface,
         tx_signer: &node_interface,
         submit_tx: &node_interface,
-        tx_fee: BoxValue::SAFE_USER_MIN,
-        erg_value_per_box: BoxValue::SAFE_USER_MIN,
+        tx_fee: *BASE_FEE,
+        erg_value_per_box: *BASE_FEE,
         change_address,
         height: node_interface
             .current_block_height()
@@ -471,7 +471,7 @@ ballot_parameters:
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = network_address.address().script().unwrap();
 
-        let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
+        let value = BASE_FEE.checked_mul_u32(10000).unwrap();
         let unspent_boxes = vec![ErgoBox::new(
             value,
             ergo_tree.clone(),
@@ -534,8 +534,8 @@ ballot_parameters:
                 wallet: &wallet,
             },
             submit_tx: &submit_tx,
-            tx_fee: BoxValue::SAFE_USER_MIN,
-            erg_value_per_box: BoxValue::SAFE_USER_MIN,
+            tx_fee: *BASE_FEE,
+            erg_value_per_box: *BASE_FEE,
             change_address,
             height,
             old_config: old_config.clone(),

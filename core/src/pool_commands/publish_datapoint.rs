@@ -25,6 +25,7 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapperInputs, PoolBox},
     contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
+    oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -112,7 +113,7 @@ pub fn build_subsequent_publish_datapoint_action(
     )?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let tx_fee = BoxValue::SAFE_USER_MIN;
+    let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
     let mut input_boxes = vec![in_oracle_box.get_box().clone()];
@@ -149,7 +150,7 @@ pub fn build_publish_first_datapoint_action(
     inputs: OracleBoxWrapperInputs,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let tx_fee = BoxValue::SAFE_USER_MIN;
+    let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
     let oracle_token = Token {
         token_id: inputs.oracle_token_id.clone(),
@@ -177,7 +178,7 @@ pub fn build_publish_first_datapoint_action(
         1,
         oracle_token,
         reward_token,
-        BoxValue::SAFE_USER_MIN,
+        *BASE_FEE,
         height,
     )?;
 
@@ -246,7 +247,6 @@ mod tests {
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-    use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::{BoxTokens, ErgoBox, NonMandatoryRegisters};
     use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
     use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
@@ -277,7 +277,7 @@ mod tests {
         let in_pool_box = make_pool_box(
             200,
             1,
-            BoxValue::SAFE_USER_MIN,
+            *BASE_FEE,
             height - 32, // from previous epoch
             &pool_contract_parameters,
             &token_ids,
@@ -298,7 +298,7 @@ mod tests {
                 200,
                 1,
                 &token_ids,
-                BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+                BASE_FEE.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
             oracle_box_wrapper_inputs,
@@ -314,7 +314,7 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {
@@ -375,7 +375,7 @@ mod tests {
         let expr: Expr = c.into();
         let ergo_tree = ErgoTree::try_from(expr).unwrap();
 
-        let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
+        let value = BASE_FEE.checked_mul_u32(10000).unwrap();
         let box_with_tokens = ErgoBox::new(
             value,
             ergo_tree.clone(),
@@ -389,7 +389,7 @@ mod tests {
         let unspent_boxes = vec![
             box_with_tokens.clone(),
             ErgoBox::new(
-                BoxValue::SAFE_USER_MIN,
+                *BASE_FEE,
                 ergo_tree.clone(),
                 None,
                 NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),

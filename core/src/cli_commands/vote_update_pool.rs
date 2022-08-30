@@ -26,7 +26,7 @@ use crate::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::{TokenIds, ORACLE_CONFIG},
+    oracle_config::{TokenIds, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
     wallet::WalletDataSource,
 };
@@ -174,7 +174,7 @@ fn build_tx_with_existing_ballot_box(
         box_selection,
         vec![ballot_box_candidate],
         height,
-        BoxValue::SAFE_USER_MIN,
+        *BASE_FEE,
         change_address,
         BoxValue::MIN,
     );
@@ -227,9 +227,7 @@ fn build_tx_for_first_ballot_box(
             height,
         )?;
         let box_selector = SimpleBoxSelector::new();
-        let selection_target_balance = target_balance
-            .checked_add(&BoxValue::SAFE_USER_MIN)
-            .unwrap();
+        let selection_target_balance = target_balance.checked_add(&*BASE_FEE).unwrap();
         let selection =
             box_selector.select(unspent_boxes, selection_target_balance, &[ballot_token])?;
         let box_selection = BoxSelection {
@@ -240,7 +238,7 @@ fn build_tx_for_first_ballot_box(
             box_selection,
             vec![ballot_box_candidate],
             height,
-            BoxValue::SAFE_USER_MIN,
+            *BASE_FEE,
             change_address,
             BoxValue::MIN,
         );
@@ -276,7 +274,7 @@ mod tests {
     use crate::{
         box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper, BallotBoxWrapperInputs},
         contracts::ballot::{BallotContract, BallotContractParameters},
-        oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
+        oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters, BASE_FEE},
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, BallotBoxMock,
             WalletDataMock,
@@ -307,9 +305,7 @@ mod tests {
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN
-                .checked_mul_u32(100_000_000)
-                .unwrap(),
+            BASE_FEE.checked_mul_u32(100_000_000).unwrap(),
             Some(BoxTokens::from_vec(vec![ballot_token]).unwrap()),
         );
         let wallet_mock = WalletDataMock {
@@ -403,9 +399,7 @@ mod tests {
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN
-                .checked_mul_u32(100_000_000)
-                .unwrap(),
+            BASE_FEE.checked_mul_u32(100_000_000).unwrap(),
             None,
         );
         let wallet_mock = WalletDataMock {

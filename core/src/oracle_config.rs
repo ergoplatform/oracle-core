@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use crate::{
     cli_commands::bootstrap::Addresses,
     contracts::{
@@ -10,7 +12,8 @@ use crate::{
 use anyhow::anyhow;
 use ergo_lib::{
     ergo_chain_types::Digest32,
-    ergotree_ir::chain::{address::NetworkAddress, token::TokenId},
+    ergotree_ir::chain::{address::NetworkAddress, ergo_box::box_value::BoxValue, token::TokenId},
+    wallet::tx_builder::SUGGESTED_TX_FEE,
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -125,6 +128,10 @@ lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
         OracleConfig::load().map_err(|e| e.to_string());
+    pub static ref BASE_FEE: BoxValue = MAYBE_ORACLE_CONFIG
+        .as_ref()
+        .map(|c| BoxValue::try_from(c.base_fee).unwrap())
+        .unwrap_or_else(|_| SUGGESTED_TX_FEE());
 }
 
 /// Returns "core_api_port" from the config file

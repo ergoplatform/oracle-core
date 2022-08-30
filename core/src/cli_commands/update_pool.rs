@@ -28,7 +28,7 @@ use crate::{
     contracts::pool::PoolContract,
     contracts::pool::PoolContractInputs,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::{CastBallotBoxVoteParameters, OracleConfig, ORACLE_CONFIG},
+    oracle_config::{CastBallotBoxVoteParameters, OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
     wallet::WalletDataSource,
 };
@@ -277,7 +277,7 @@ fn build_update_pool_box_tx(
         return Err(UpdatePoolError::NoUsableWalletBoxes);
     }
 
-    let target_balance = BoxValue::SAFE_USER_MIN;
+    let target_balance = *BASE_FEE;
     let target_tokens = if reward_tokens.token_id != old_pool_box.reward_token().token_id {
         vec![reward_tokens.clone()]
     } else {
@@ -317,7 +317,7 @@ fn build_update_pool_box_tx(
         box_selection.clone(),
         outputs.clone(),
         height,
-        BoxValue::SAFE_USER_MIN,
+        *BASE_FEE,
         change_address,
         BoxValue::MIN,
     );
@@ -350,7 +350,7 @@ mod tests {
         ergotree_ir::{
             chain::{
                 address::{AddressEncoder, NetworkAddress},
-                ergo_box::{box_value::BoxValue, ErgoBox},
+                ergo_box::ErgoBox,
                 token::{Token, TokenId},
             },
             serialization::SigmaSerializable,
@@ -370,7 +370,7 @@ mod tests {
             pool::{PoolContract, PoolContractInputs},
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
-        oracle_config::{BallotBoxWrapperParameters, TokenIds},
+        oracle_config::{BallotBoxWrapperParameters, TokenIds, BASE_FEE},
         pool_commands::test_utils::{
             make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock, UpdateBoxMock, WalletDataMock,
         },
@@ -419,11 +419,8 @@ mod tests {
             ballot_token_id: &token_ids.ballot_token_id,
         };
         let update_contract = UpdateContract::new(update_contract_inputs).unwrap();
-        let mut update_box_candidate = ErgoBoxCandidateBuilder::new(
-            BoxValue::SAFE_USER_MIN,
-            update_contract.ergo_tree(),
-            height,
-        );
+        let mut update_box_candidate =
+            ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height);
         update_box_candidate.add_token(Token {
             token_id: token_ids.update_nft_token_id.clone(),
             amount: 1.try_into().unwrap(),
@@ -449,7 +446,7 @@ mod tests {
                 amount: 1.try_into().unwrap(),
             },
             reward_tokens.clone(),
-            BoxValue::SAFE_USER_MIN,
+            *BASE_FEE,
             height,
         )
         .unwrap();
@@ -521,9 +518,7 @@ mod tests {
         let wallet_unspent_box = make_wallet_unspent_box(
             // create a wallet box with new reward tokens
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN
-                .checked_mul_u32(4_000_000_000)
-                .unwrap(),
+            BASE_FEE.checked_mul_u32(4_000_000_000).unwrap(),
             Some(vec![new_reward_tokens.clone()].try_into().unwrap()),
         );
         let wallet_mock = WalletDataMock {
