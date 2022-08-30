@@ -131,7 +131,7 @@ lazy_static! {
     pub static ref BASE_FEE: BoxValue = MAYBE_ORACLE_CONFIG
         .as_ref()
         .map(|c| BoxValue::try_from(c.base_fee).unwrap())
-        .unwrap_or(SUGGESTED_TX_FEE());
+        .unwrap_or_else(|_| SUGGESTED_TX_FEE());
 }
 
 /// Returns "core_api_port" from the config file
