@@ -366,7 +366,7 @@ mod tests {
             PoolBoxWrapperInputs, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
         },
         contracts::{
-            ballot::{BallotContract, BallotContractInputs},
+            ballot::{BallotContract, BallotContractInputs, BallotContractParameters},
             pool::{PoolContract, PoolContractInputs},
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
@@ -464,12 +464,12 @@ mod tests {
             .unwrap();
         let pool_box_hash = blake2b256_hash(&pool_box_bytes);
 
-        let ballot_contract_parameters = Default::default();
-        let ballot_contract_inputs = BallotContractInputs {
-            contract_parameters: &ballot_contract_parameters,
-            update_nft_token_id: &token_ids.update_nft_token_id,
-        };
-        let ballot_contract = BallotContract::create(ballot_contract_inputs).unwrap();
+        let ballot_contract_parameters = BallotContractParameters::default();
+        let ballot_contract_inputs = BallotContractInputs::new(
+            ballot_contract_parameters.clone(),
+            token_ids.update_nft_token_id.clone(),
+        );
+        let ballot_contract = BallotContract::load(ballot_contract_inputs).unwrap();
 
         let mut ballot_boxes = vec![];
 

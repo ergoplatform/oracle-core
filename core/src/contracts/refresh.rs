@@ -1,3 +1,4 @@
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
@@ -6,6 +7,7 @@ use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
 
 use crate::box_kind::RefreshBoxWrapperInputs;
@@ -271,7 +273,22 @@ impl RefreshContract {
     }
 
     pub fn parameters(&self, network_prefix: NetworkPrefix) -> RefreshContractParameters {
-        todo!()
+        RefreshContractParameters {
+            p2s: NetworkAddress::new(
+                network_prefix,
+                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
+            ),
+            pool_nft_index: self.pool_nft_index,
+            oracle_token_id_index: self.oracle_token_id_index,
+            min_data_points_index: self.min_data_points_index,
+            min_data_points: self.min_data_points(),
+            buffer_index: self.buffer_index,
+            buffer_length: self.buffer(),
+            max_deviation_percent_index: self.max_deviation_percent_index,
+            max_deviation_percent: self.max_deviation_percent(),
+            epoch_length_index: self.epoch_length_index,
+            epoch_length: self.epoch_length(),
+        }
     }
 }
 

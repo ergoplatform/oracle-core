@@ -1,11 +1,14 @@
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
 
 use crate::box_kind::BallotBoxWrapperInputs;
@@ -37,19 +40,44 @@ pub enum BallotContractError {
     TryExtractFrom(TryExtractFromError),
 }
 
-pub struct BallotContractInputs<'a> {
-    pub contract_parameters: &'a BallotContractParameters,
-    pub update_nft_token_id: &'a TokenId,
+pub struct BallotContractInputs {
+    contract_parameters: BallotContractParameters,
+    pub update_nft_token_id: TokenId,
 }
 
-impl<'a> From<BallotBoxWrapperInputs<'a>> for BallotContractInputs<'a> {
-    fn from(b: BallotBoxWrapperInputs<'a>) -> Self {
-        BallotContractInputs {
-            contract_parameters: b.parameters,
-            update_nft_token_id: b.update_nft_token_id,
+impl BallotContractInputs {
+    pub fn new(
+        contract_parameters: BallotContractParameters,
+        update_nft_token_id: TokenId,
+    ) -> Self {
+        let network_prefix = contract_parameters.p2s.network();
+        let ballot_contract = BallotContract::create(BallotContractInputs {
+            contract_parameters,
+            update_nft_token_id: update_nft_token_id.clone(),
+        })
+        .unwrap();
+        let new_parameters = ballot_contract.parameters(network_prefix);
+        Self {
+            contract_parameters: new_parameters,
+            update_nft_token_id,
         }
     }
+
+    pub fn parameters(&self) -> &BallotContractParameters {
+        &self.contract_parameters
+    }
 }
+
+// TODO: make WrapperInputs checked ctor first the same as above
+
+// impl<'a> From<BallotBoxWrapperInputs<'a>> for BallotContractInputs {
+//     fn from(b: BallotBoxWrapperInputs<'a>) -> Self {
+//         BallotContractInputs {
+//             contract_parameters: b.parameters.clone(),
+//             update_nft_token_id: b.update_nft_token_id.clone(),
+//         }
+//     }
+// }
 
 impl BallotContract {
     pub fn load(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
@@ -58,8 +86,8 @@ impl BallotContract {
         Ok(contract)
     }
 
-    pub fn create(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
-        let parameters = inputs.contract_parameters;
+    fn create(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
+        let parameters = inputs.contract_parameters.clone();
         let ergo_tree = parameters
             .p2s
             .address()
@@ -99,7 +127,7 @@ impl BallotContract {
             .map_err(|_| BallotContractError::NoUpdateNftId)?
             .ok_or(BallotContractError::NoUpdateNftId)?
             .try_extract_into::<TokenId>()?;
-        if token_id != *inputs.update_nft_token_id {
+        if token_id != inputs.update_nft_token_id {
             return Err(BallotContractError::UnknownUpdateNftId);
         }
         Ok(Self {
@@ -130,6 +158,18 @@ impl BallotContract {
     pub fn ergo_tree(&self) -> ErgoTree {
         self.ergo_tree.clone()
     }
+
+    pub fn parameters(&self, network_prefix: NetworkPrefix) -> BallotContractParameters {
+        BallotContractParameters {
+            p2s: NetworkAddress::new(
+                network_prefix,
+                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
+            ),
+            min_storage_rent_index: self.min_storage_rent_index,
+            min_storage_rent: self.min_storage_rent(),
+            update_nft_index: self.update_nft_index,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -150,12 +190,12 @@ mod tests {
     #[test]
     fn test_constant_parsing() {
         let contract_parameters = BallotContractParameters::default();
-        let update_nft_token_id = &force_any_val::<TokenId>();
+        let update_nft_token_id = force_any_val::<TokenId>();
         let inputs = BallotContractInputs {
-            contract_parameters: &contract_parameters,
-            update_nft_token_id,
+            contract_parameters,
+            update_nft_token_id: update_nft_token_id.clone(),
         };
         let c = BallotContract::create(inputs).unwrap();
-        assert_eq!(c.update_nft_token_id(), *update_nft_token_id);
+        assert_eq!(c.update_nft_token_id(), update_nft_token_id);
     }
 }

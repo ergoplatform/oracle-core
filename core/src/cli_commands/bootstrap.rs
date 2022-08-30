@@ -796,5 +796,12 @@ pub(crate) mod tests {
         let encoded = base64::encode(bytes);
         let ballot_id = TokenId::from_base64(&encoded).unwrap();
         assert_eq!(token_ids.ballot_token_id, ballot_id);
+
+        // Check that refresh contract is updated
+        // TODO: check that it's updated with expected values (token ids, etc.)
+        assert_ne!(
+            oracle_config.refresh_contract_parameters.p2s,
+            bootstrap_config.refresh_contract_parameters.p2s
+        );
     }
 }
