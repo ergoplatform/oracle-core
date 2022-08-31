@@ -83,3 +83,90 @@ impl Default for UpdateContractParameters {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use ergo_lib::{
+        ergo_chain_types::blake2b256_hash, ergotree_ir::serialization::SigmaSerializable,
+    };
+
+    use crate::contracts::{
+        ballot::BallotContractParameters, oracle::OracleContractParameters,
+        pool::PoolContractParameters, refresh::RefreshContractParameters,
+        update::UpdateContractParameters,
+    };
+
+    /// Print out the base64-encoded ergo-tree bytes of each contract
+    #[test]
+    fn print_contract_hashes() {
+        let encoded_hash = |bytes| base64::encode(blake2b256_hash(bytes));
+
+        println!("BASE 64 ENCODING OF BLAKE2B HASH OF CONTRACT ERGO-TREE BYTES");
+        println!("------------------------------------------------------------\n");
+
+        let pool_ergo_tree_bytes = &PoolContractParameters::default()
+            .p2s
+            .address()
+            .script()
+            .unwrap()
+            .sigma_serialize_bytes()
+            .unwrap();
+
+        println!(
+            "Pool contract encoded hash: {}",
+            encoded_hash(pool_ergo_tree_bytes)
+        );
+
+        let refresh_ergo_tree_bytes = &RefreshContractParameters::default()
+            .p2s
+            .address()
+            .script()
+            .unwrap()
+            .sigma_serialize_bytes()
+            .unwrap();
+
+        println!(
+            "Refresh contract encoded hash: {}",
+            encoded_hash(refresh_ergo_tree_bytes)
+        );
+
+        let oracle_ergo_tree_bytes = &OracleContractParameters::default()
+            .p2s
+            .address()
+            .script()
+            .unwrap()
+            .sigma_serialize_bytes()
+            .unwrap();
+
+        println!(
+            "Oracle contract encoded hash: {}",
+            encoded_hash(oracle_ergo_tree_bytes)
+        );
+
+        let ballot_ergo_tree_bytes = &BallotContractParameters::default()
+            .p2s
+            .address()
+            .script()
+            .unwrap()
+            .sigma_serialize_bytes()
+            .unwrap();
+
+        println!(
+            "Ballot contract encoded hash: {}",
+            encoded_hash(ballot_ergo_tree_bytes)
+        );
+
+        let update_ergo_tree_bytes = &UpdateContractParameters::default()
+            .p2s
+            .address()
+            .script()
+            .unwrap()
+            .sigma_serialize_bytes()
+            .unwrap();
+
+        println!(
+            "Update contract encoded hash: {}\n",
+            encoded_hash(update_ergo_tree_bytes)
+        );
+    }
+}
