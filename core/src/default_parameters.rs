@@ -158,3 +158,11 @@ pub fn print_contract_hashes() {
         encoded_hash(update_ergo_tree_bytes)
     );
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn print_contract_hashes() {
+        super::print_contract_hashes();
+    }
+}

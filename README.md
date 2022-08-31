@@ -12,6 +12,10 @@ It is recommended to check that the contracts used are indeed coming from EIP-23
 ```console
 ./oracle-core print-contract-hashes
 ```
+or if running from source files:
+```console
+cargo test print_contract_hashes -- --nocapture
+```
 
 Check these values against those described in EIP-23.
 
