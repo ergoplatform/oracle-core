@@ -10,7 +10,7 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 
 It is recommended to check that the contracts used are indeed coming from EIP-23. Run the following command to get encoded hashes of each contract:
 ```console
-cargo test print_contract_hashes -- --nocapture
+./oracle-core print-contract-hashes
 ```
 
 Check these values against those described in EIP-23.

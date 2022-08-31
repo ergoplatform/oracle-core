@@ -44,4 +44,3 @@ proptest-derive = {version = "0.3.0"}
 sigma-test-util = {version = "0.3.0"}
 ergo-chain-sim = {version = "0.1.0", path="../ergo-chain-sim"}
 env_logger = {version = "0.9.0"}
-base64 = "0.13.0"
