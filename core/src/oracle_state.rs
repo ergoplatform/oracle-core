@@ -5,7 +5,7 @@ use crate::box_kind::{
     PoolBoxWrapperInputs, RefreshBoxError, RefreshBoxWrapper, RefreshBoxWrapperInputs,
     UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
-use crate::contracts::ballot::BallotContract;
+use crate::contracts::ballot::{BallotContract, BallotContractInputs};
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
@@ -210,10 +210,14 @@ impl<'a> OraclePool<'a> {
         let datapoint_contract_address =
             OracleContract::new(oracle_box_wrapper_inputs.into())?.ergo_tree();
 
+        let ballot_contract_inputs = BallotContractInputs::new(
+            config.ballot_contract_parameters.clone(),
+            config.token_ids.update_nft_token_id.clone(),
+        )?;
+
         let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
-            parameters: &config.ballot_contract_parameters,
             ballot_token_id: &config.token_ids.ballot_token_id,
-            update_nft_token_id: &config.token_ids.update_nft_token_id,
+            contract_inputs: ballot_contract_inputs,
         };
         let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
             contract_parameters: &config.pool_contract_parameters,
@@ -259,7 +263,7 @@ impl<'a> OraclePool<'a> {
             }
 
             let ballot_contract_address =
-                BallotContract::load(ballot_box_wrapper_inputs.into())?.ergo_tree();
+                BallotContract::load(&ballot_box_wrapper_inputs.contract_inputs)?.ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,
@@ -320,7 +324,7 @@ impl<'a> OraclePool<'a> {
         if scan_json.has_key(local_scan_str) {
             local_ballot_box_scan = Some(LocalBallotBoxScan {
                 scan: Scan::new(local_scan_str, &scan_json[local_scan_str].to_string()),
-                ballot_box_wrapper_inputs,
+                ballot_box_wrapper_inputs: ballot_box_wrapper_inputs.clone(),
                 ballot_token_owner_address: config.oracle_address.address(),
             });
         }
@@ -506,7 +510,7 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
     fn get_ballot_box(&self) -> Result<BallotBoxWrapper> {
         let box_wrapper = BallotBoxWrapper::new(
             self.scan.get_box()?,
-            self.ballot_box_wrapper_inputs,
+            self.ballot_box_wrapper_inputs.clone(),
             &self.ballot_token_owner_address,
         )?;
         Ok(box_wrapper)
@@ -536,13 +540,9 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
             .get_boxes()?
             .into_iter()
             .map(|ballot_box| {
-                let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
-                    parameters: self.ballot_box_wrapper_inputs.parameters,
-                    ..self.ballot_box_wrapper_inputs
-                };
                 Ok(VoteBallotBoxWrapper::new(
                     ballot_box,
-                    ballot_box_wrapper_inputs,
+                    self.ballot_box_wrapper_inputs.clone(),
                 )?)
             })
             .filter_map(Result::ok) // Filter out boxes that are not participating in voting

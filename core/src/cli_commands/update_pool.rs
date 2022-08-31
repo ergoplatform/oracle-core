@@ -468,8 +468,9 @@ mod tests {
         let ballot_contract_inputs = BallotContractInputs::new(
             ballot_contract_parameters.clone(),
             token_ids.update_nft_token_id.clone(),
-        );
-        let ballot_contract = BallotContract::load(ballot_contract_inputs).unwrap();
+        )
+        .unwrap();
+        let ballot_contract = BallotContract::load(&ballot_contract_inputs).unwrap();
 
         let mut ballot_boxes = vec![];
 
@@ -496,9 +497,8 @@ mod tests {
                 VoteBallotBoxWrapper::new(
                     ballot_box,
                     crate::box_kind::BallotBoxWrapperInputs {
-                        parameters: &ballot_contract_parameters,
                         ballot_token_id: &token_ids.ballot_token_id,
-                        update_nft_token_id: &token_ids.update_nft_token_id,
+                        contract_inputs: ballot_contract_inputs.clone(),
                     },
                 )
                 .unwrap(),

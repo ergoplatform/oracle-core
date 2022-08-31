@@ -292,6 +292,7 @@ impl RefreshContract {
     }
 }
 
+// TODO: make contract_parameters private and make a ctor like in BallotContractInputs
 pub struct RefreshContractInputs<'a> {
     pub contract_parameters: &'a RefreshContractParameters,
     pub oracle_token_id: &'a TokenId,

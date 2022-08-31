@@ -11,8 +11,6 @@ use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
 
-use crate::box_kind::BallotBoxWrapperInputs;
-
 #[derive(Clone, Debug)]
 pub struct BallotContract {
     ergo_tree: ErgoTree,
@@ -40,6 +38,7 @@ pub enum BallotContractError {
     TryExtractFrom(TryExtractFromError),
 }
 
+#[derive(Clone, Debug)]
 pub struct BallotContractInputs {
     contract_parameters: BallotContractParameters,
     pub update_nft_token_id: TokenId,
@@ -49,18 +48,17 @@ impl BallotContractInputs {
     pub fn new(
         contract_parameters: BallotContractParameters,
         update_nft_token_id: TokenId,
-    ) -> Self {
+    ) -> Result<Self, BallotContractError> {
         let network_prefix = contract_parameters.p2s.network();
-        let ballot_contract = BallotContract::create(BallotContractInputs {
+        let ballot_contract = BallotContract::create(&BallotContractInputs {
             contract_parameters,
             update_nft_token_id: update_nft_token_id.clone(),
-        })
-        .unwrap();
+        })?;
         let new_parameters = ballot_contract.parameters(network_prefix);
-        Self {
+        Ok(Self {
             contract_parameters: new_parameters,
             update_nft_token_id,
-        }
+        })
     }
 
     pub fn parameters(&self) -> &BallotContractParameters {
@@ -68,25 +66,14 @@ impl BallotContractInputs {
     }
 }
 
-// TODO: make WrapperInputs checked ctor first the same as above
-
-// impl<'a> From<BallotBoxWrapperInputs<'a>> for BallotContractInputs {
-//     fn from(b: BallotBoxWrapperInputs<'a>) -> Self {
-//         BallotContractInputs {
-//             contract_parameters: b.parameters.clone(),
-//             update_nft_token_id: b.update_nft_token_id.clone(),
-//         }
-//     }
-// }
-
 impl BallotContract {
-    pub fn load(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
+    pub fn load(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
 
-    fn create(inputs: BallotContractInputs) -> Result<Self, BallotContractError> {
+    fn create(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let parameters = inputs.contract_parameters.clone();
         let ergo_tree = parameters
             .p2s
@@ -106,10 +93,10 @@ impl BallotContract {
 
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
-        inputs: BallotContractInputs,
+        inputs: &BallotContractInputs,
     ) -> Result<Self, BallotContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
-        let parameters = inputs.contract_parameters;
+        let parameters = inputs.contract_parameters.clone();
         let min_storage_rent = ergo_tree
             .get_constant(parameters.min_storage_rent_index)
             .map_err(|_| BallotContractError::NoMinStorageRent)?
@@ -181,6 +168,21 @@ pub struct BallotContractParameters {
     pub update_nft_index: usize,
 }
 
+impl BallotContractParameters {
+    pub fn with_update_token_id(
+        &self,
+        update_nft_token_id: TokenId,
+    ) -> Result<BallotContractParameters, BallotContractError> {
+        let network_prefix = self.p2s.network();
+        let ballot_contract = BallotContract::create(&BallotContractInputs {
+            contract_parameters: self.clone(),
+            update_nft_token_id: update_nft_token_id.clone(),
+        })?;
+        let new_parameters = ballot_contract.parameters(network_prefix);
+        Ok(new_parameters)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use sigma_test_util::force_any_val;
@@ -195,7 +197,7 @@ mod tests {
             contract_parameters,
             update_nft_token_id: update_nft_token_id.clone(),
         };
-        let c = BallotContract::create(inputs).unwrap();
+        let c = BallotContract::create(&inputs).unwrap();
         assert_eq!(c.update_nft_token_id(), update_nft_token_id);
     }
 }

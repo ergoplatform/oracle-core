@@ -206,8 +206,8 @@ fn build_tx_for_first_ballot_box(
     let inputs = BallotContractInputs::new(
         ballot_contract_parameters.clone(),
         token_ids.update_nft_token_id.clone(),
-    );
-    let contract = BallotContract::load(inputs)?;
+    )?;
+    let contract = BallotContract::load(&inputs)?;
     let ballot_token = Token {
         token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
@@ -295,12 +295,9 @@ mod tests {
             .unwrap();
 
         let token_ids = generate_token_ids();
-        let ballot_contract_parameters = BallotContractParameters::default();
-
-        let ballot_contract_inputs = BallotContractInputs::new(
-            ballot_contract_parameters.clone(),
-            token_ids.update_nft_token_id.clone(),
-        );
+        let ballot_contract_parameters = BallotContractParameters::default()
+            .with_update_token_id(token_ids.update_nft_token_id.clone())
+            .unwrap();
 
         let ballot_token = Token {
             token_id: token_ids.ballot_token_id.clone(),
@@ -325,7 +322,7 @@ mod tests {
             AddressEncoder::new(network_prefix)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap(),
-            ballot_contract_inputs.parameters(),
+            &ballot_contract_parameters,
             &token_ids,
             height,
             change_address,
@@ -362,13 +359,16 @@ mod tests {
             amount: 1.try_into().unwrap(),
         };
         let inputs = BallotBoxWrapperInputs {
-            parameters: &ballot_contract_parameters,
             ballot_token_id: &token_ids.ballot_token_id,
-            update_nft_token_id: &token_ids.update_nft_token_id,
+            contract_inputs: BallotContractInputs::new(
+                ballot_contract_parameters.clone(),
+                token_ids.update_nft_token_id.clone(),
+            )
+            .unwrap(),
         };
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::load(inputs.into()).unwrap(),
+                &BallotContract::load(&inputs.contract_inputs).unwrap(),
                 secret.public_image(),
                 height - 2,
                 ballot_token,

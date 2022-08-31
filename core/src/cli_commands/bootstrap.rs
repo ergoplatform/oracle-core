@@ -32,7 +32,7 @@ use thiserror::Error;
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate, RefreshBoxWrapperInputs},
     contracts::{
-        ballot::BallotContractParameters,
+        ballot::{BallotContractError, BallotContractParameters},
         oracle::OracleContractParameters,
         pool::{PoolContract, PoolContractInputs, PoolContractParameters},
         refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
@@ -527,6 +527,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         reward_token_id: reward_token.token_id,
         ballot_token_id: ballot_token.token_id,
     };
+
     // update contract parameters
     let new_config = BootstrapConfig {
         // oracle_contract_parameters: todo!(),
@@ -534,7 +535,9 @@ pub(crate) fn perform_bootstrap_chained_transaction(
             .parameters(config.refresh_contract_parameters.p2s.network()),
         pool_contract_parameters,
         // update_contract_parameters: todo!(),
-        // ballot_contract_parameters: todo!(),
+        ballot_contract_parameters: config
+            .ballot_contract_parameters
+            .with_update_token_id(token_ids.update_nft_token_id.clone())?,
         ..config.clone()
     };
     Ok(OracleConfig::create(new_config, token_ids))
@@ -666,6 +669,8 @@ pub enum BootstrapError {
     UpdateContract(UpdateContractError),
     #[error("Bootstrap config file already exists")]
     ConfigFilenameAlreadyExists,
+    #[error("Ballot contract error: {0}")]
+    BallotContractError(BallotContractError),
 }
 
 #[cfg(test)]
@@ -802,6 +807,11 @@ pub(crate) mod tests {
         assert_ne!(
             oracle_config.refresh_contract_parameters.p2s,
             bootstrap_config.refresh_contract_parameters.p2s
+        );
+        // Check that ballot contract is updated
+        assert_ne!(
+            oracle_config.ballot_contract_parameters.p2s,
+            bootstrap_config.ballot_contract_parameters.p2s
         );
     }
 }
