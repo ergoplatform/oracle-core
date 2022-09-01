@@ -8,8 +8,6 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use thiserror::Error;
 
-use crate::box_kind::OracleBoxWrapperInputs;
-
 #[derive(Clone)]
 pub struct OracleContract {
     ergo_tree: ErgoTree,
@@ -30,22 +28,20 @@ pub enum OracleContractError {
     TryExtractFrom(TryExtractFromError),
 }
 
-pub struct OracleContractInputs<'a> {
-    pub contract_parameters: &'a OracleContractParameters,
-    pub pool_nft_token_id: &'a TokenId,
-}
-
-impl<'a> From<OracleBoxWrapperInputs<'a>> for OracleContractInputs<'a> {
-    fn from(b: OracleBoxWrapperInputs<'a>) -> Self {
-        OracleContractInputs {
-            contract_parameters: b.contract_parameters,
-            pool_nft_token_id: b.pool_nft_token_id,
-        }
-    }
+#[derive(Clone, Debug)]
+pub struct OracleContractInputs {
+    pub contract_parameters: OracleContractParameters,
+    pub pool_nft_token_id: TokenId,
 }
 
 impl OracleContract {
-    pub fn new(inputs: OracleContractInputs) -> Result<Self, OracleContractError> {
+    pub fn load(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
+        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
+        Ok(contract)
+    }
+
+    fn create(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
@@ -62,7 +58,7 @@ impl OracleContract {
     /// Create new contract from existing ergo tree, returning error if parameters differ.
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
-        inputs: OracleContractInputs,
+        inputs: &OracleContractInputs,
     ) -> Result<Self, OracleContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
 
@@ -71,7 +67,7 @@ impl OracleContract {
             .map_err(|_| OracleContractError::NoPoolNftId)?
             .ok_or(OracleContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != *inputs.pool_nft_token_id {
+        if pool_nft_token_id != inputs.pool_nft_token_id {
             return Err(OracleContractError::UnknownPoolNftId);
         }
 
@@ -113,10 +109,10 @@ mod tests {
         let contract_parameters = OracleContractParameters::default();
         let token_ids = generate_token_ids();
         let inputs = OracleContractInputs {
-            contract_parameters: &contract_parameters,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
+            contract_parameters,
+            pool_nft_token_id: token_ids.pool_nft_token_id,
         };
-        let c = OracleContract::new(inputs).unwrap();
+        let c = OracleContract::create(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
     }
 }

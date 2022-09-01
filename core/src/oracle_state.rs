@@ -209,7 +209,7 @@ impl<'a> OraclePool<'a> {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::from((&config.oracle_contract_parameters, &config.token_ids));
         let datapoint_contract_address =
-            OracleContract::new(oracle_box_wrapper_inputs.into())?.ergo_tree();
+            OracleContract::load(&oracle_box_wrapper_inputs.contract_inputs)?.ergo_tree();
 
         let ballot_contract_inputs = BallotContractInputs::new(
             config.ballot_contract_parameters.clone(),
