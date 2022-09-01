@@ -19,7 +19,7 @@ async fn root() -> &'static str {
 /// Basic oracle information
 async fn oracle_info() -> impl IntoResponse {
     Json(json! ( {
-            "oracle_address": &ORACLE_CONFIG.oracle_address,
+            "oracle_address": &ORACLE_CONFIG.oracle_address.to_base58(),
         } ))
 }
 

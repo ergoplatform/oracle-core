@@ -466,7 +466,7 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             pool_contract_parameters,
             refresh_contract_parameters,
             update_contract_parameters,
-            tokens_to_mint: c.tokens_to_mint,
+            tokens_to_mint: config_serde.tokens_to_mint,
         })
     }
 }
