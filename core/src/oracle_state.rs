@@ -6,7 +6,7 @@ use crate::box_kind::{
     UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
 use crate::contracts::ballot::{BallotContract, BallotContractInputs};
-use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::{OracleContract, OracleContractInputs};
 use crate::contracts::refresh::RefreshContractInputs;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
@@ -206,8 +206,15 @@ impl<'a> OraclePool<'a> {
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
-        let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((&config.oracle_contract_parameters, &config.token_ids));
+        let oracle_contract_inputs = OracleContractInputs::new(
+            config.oracle_contract_parameters.clone(),
+            config.token_ids.pool_nft_token_id.clone(),
+        )?;
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs {
+            contract_inputs: oracle_contract_inputs,
+            oracle_token_id: &config.token_ids.oracle_token_id,
+            reward_token_id: &config.token_ids.reward_token_id,
+        };
         let datapoint_contract_address =
             OracleContract::load(&oracle_box_wrapper_inputs.contract_inputs)?.ergo_tree();
 
@@ -322,7 +329,7 @@ impl<'a> OraclePool<'a> {
                     "Local Oracle Datapoint Scan",
                     &scan_json[local_scan_str].to_string(),
                 ),
-                oracle_box_wrapper_inputs,
+                oracle_box_wrapper_inputs: oracle_box_wrapper_inputs.clone(),
             });
         };
 
@@ -537,7 +544,7 @@ impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
 impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
         let box_wrapper =
-            OracleBoxWrapper::new(self.scan.get_box()?, self.oracle_box_wrapper_inputs)?;
+            OracleBoxWrapper::new(self.scan.get_box()?, &self.oracle_box_wrapper_inputs)?;
         Ok(box_wrapper)
     }
 }
@@ -602,7 +609,7 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
             .stage
             .get_boxes()?
             .into_iter()
-            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs).unwrap())
+            .map(|b| OracleBoxWrapper::new(b, &self.oracle_box_wrapper_inputs).unwrap())
             .collect();
         Ok(res)
     }

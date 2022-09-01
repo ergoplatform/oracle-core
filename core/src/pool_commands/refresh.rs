@@ -264,6 +264,7 @@ fn build_out_oracle_boxes(
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::convert::TryInto;
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
@@ -364,12 +365,12 @@ mod tests {
         token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((oracle_contract_parameters, token_ids));
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, token_ids)).unwrap();
         datapoints
             .into_iter()
             .zip(pub_keys)
             .map(|(datapoint, pub_key)| {
-                (
+                OracleBoxWrapper::new(
                     make_datapoint_box(
                         pub_key.clone(),
                         datapoint,
@@ -378,10 +379,9 @@ mod tests {
                         value,
                         creation_height,
                     ),
-                    oracle_box_wrapper_inputs,
+                    &oracle_box_wrapper_inputs,
                 )
-                    .try_into()
-                    .unwrap()
+                .unwrap()
             })
             .collect()
     }

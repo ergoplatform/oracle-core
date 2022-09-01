@@ -1,11 +1,14 @@
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
 
 #[derive(Clone)]
@@ -30,8 +33,26 @@ pub enum OracleContractError {
 
 #[derive(Clone, Debug)]
 pub struct OracleContractInputs {
-    pub contract_parameters: OracleContractParameters,
+    contract_parameters: OracleContractParameters,
     pub pool_nft_token_id: TokenId,
+}
+
+impl OracleContractInputs {
+    pub fn new(
+        contract_parameters: OracleContractParameters,
+        pool_nft_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let network_prefix = contract_parameters.p2s.network();
+        let oracle_contract = OracleContract::create(&OracleContractInputs {
+            contract_parameters,
+            pool_nft_token_id: pool_nft_token_id.clone(),
+        })?;
+        let new_parameters = oracle_contract.parameters(network_prefix);
+        Ok(Self {
+            contract_parameters: new_parameters,
+            pool_nft_token_id,
+        })
+    }
 }
 
 impl OracleContract {
@@ -89,6 +110,16 @@ impl OracleContract {
             .try_extract_into::<TokenId>()
             .unwrap()
     }
+
+    pub fn parameters(&self, network_prefix: NetworkPrefix) -> OracleContractParameters {
+        OracleContractParameters {
+            p2s: NetworkAddress::new(
+                network_prefix,
+                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
+            ),
+            pool_nft_index: self.pool_nft_index,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +141,7 @@ mod tests {
         let token_ids = generate_token_ids();
         let inputs = OracleContractInputs {
             contract_parameters,
-            pool_nft_token_id: token_ids.pool_nft_token_id,
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
         };
         let c = OracleContract::create(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);

@@ -183,13 +183,11 @@ pub(crate) fn make_datapoint_box(
     .try_into()
     .unwrap();
     let parameters = OracleContractParameters::default();
-    let oracle_contract_inputs = OracleContractInputs {
-        contract_parameters: &parameters,
-        pool_nft_token_id: &token_ids.pool_nft_token_id,
-    };
+    let oracle_contract_inputs =
+        OracleContractInputs::new(parameters, token_ids.pool_nft_token_id.clone()).unwrap();
     ErgoBox::new(
         value,
-        OracleContract::new(oracle_contract_inputs)
+        OracleContract::load(&oracle_contract_inputs)
             .unwrap()
             .ergo_tree(),
         Some(tokens),

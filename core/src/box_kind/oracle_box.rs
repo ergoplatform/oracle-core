@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
@@ -15,6 +17,8 @@ use thiserror::Error;
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
+use crate::contracts::oracle::OracleContractParameters;
+use crate::oracle_config::TokenIds;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
@@ -57,7 +61,7 @@ pub enum OracleBoxError {
 pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
 impl OracleBoxWrapper {
-    pub fn new(b: ErgoBox, inputs: OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
+    pub fn new(b: ErgoBox, inputs: &OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
         let oracle_token_id = b
             .tokens
             .as_ref()
@@ -162,26 +166,13 @@ pub struct OracleBoxWrapperInputs<'a> {
     pub reward_token_id: &'a TokenId,
 }
 
-// impl<'a> From<(&'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapperInputs<'a> {
-//     fn from(
-//         (contract_parameters, token_ids): (&'a OracleContractParameters, &'a TokenIds),
-//     ) -> Self {
-//         OracleBoxWrapperInputs {
-//             contract_parameters,
-//             oracle_token_id: &token_ids.oracle_token_id,
-//             reward_token_id: &token_ids.reward_token_id,
-//             pool_nft_token_id: &token_ids.pool_nft_token_id,
-//         }
-//     }
-// }
+impl<'a> TryFrom<(&'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapperInputs<'a> {
+    type Error = OracleContractError;
 
-// impl<'a> TryFrom<(ErgoBox, OracleBoxWrapperInputs<'a>)> for OracleBoxWrapper {
-//     type Error = OracleBoxError;
-
-//     fn try_from((b, inputs): (ErgoBox, OracleBoxWrapperInputs)) -> Result<Self, Self::Error> {
-//         OracleBoxWrapper::new(b, inputs)
-//     }
-// }
+    fn try_from(value: (&'a OracleContractParameters, &'a TokenIds)) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
 
 impl From<OracleBoxWrapper> for ErgoBox {
     fn from(w: OracleBoxWrapper) -> Self {
