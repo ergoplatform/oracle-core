@@ -7,6 +7,7 @@ use crate::box_kind::{
 };
 use crate::contracts::ballot::{BallotContract, BallotContractInputs};
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::refresh::RefreshContractInputs;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
@@ -226,11 +227,14 @@ impl<'a> OraclePool<'a> {
             refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
             update_nft_token_id: &config.token_ids.update_nft_token_id,
         };
+        let refresh_contract_inputs = RefreshContractInputs::new(
+            config.refresh_contract_parameters.clone(),
+            config.token_ids.oracle_token_id.clone(),
+            config.token_ids.pool_nft_token_id.clone(),
+        )?;
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
-            contract_parameters: &config.refresh_contract_parameters,
+            contract_inputs: refresh_contract_inputs,
             refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
-            oracle_token_id: &config.token_ids.oracle_token_id,
-            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
         };
         let update_box_wrapper_inputs = UpdateBoxWrapperInputs {
             contract_parameters: &config.update_contract_parameters,
@@ -249,8 +253,11 @@ impl<'a> OraclePool<'a> {
                 .unwrap(),
                 register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
                 register_pool_box_scan(pool_box_wrapper_inputs).unwrap(),
-                register_refresh_box_scan(refresh_box_scan_name, refresh_box_wrapper_inputs)
-                    .unwrap(),
+                register_refresh_box_scan(
+                    refresh_box_scan_name,
+                    refresh_box_wrapper_inputs.clone(),
+                )
+                .unwrap(),
             ];
 
             // Local datapoint box may not exist yet.
@@ -519,8 +526,10 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
 
 impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        let box_wrapper =
-            RefreshBoxWrapper::new(self.scan.get_box()?, self.refresh_box_wrapper_inputs)?;
+        let box_wrapper = RefreshBoxWrapper::new(
+            self.scan.get_box()?,
+            self.refresh_box_wrapper_inputs.clone(),
+        )?;
         Ok(box_wrapper)
     }
 }

@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
-use crate::contracts::refresh::RefreshContractParameters;
+use crate::contracts::refresh::RefreshContractInputs;
 
 pub trait RefreshBox {
     fn contract(&self) -> &RefreshContract;
@@ -34,15 +34,11 @@ pub enum RefreshBoxError {
 #[derive(Clone)]
 pub struct RefreshBoxWrapper(ErgoBox, RefreshContract);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct RefreshBoxWrapperInputs<'a> {
-    pub contract_parameters: &'a RefreshContractParameters,
+    pub contract_inputs: RefreshContractInputs,
     /// Refresh token is expected to reside in `tokens(0)` of the oracle box.
     pub refresh_nft_token_id: &'a TokenId,
-    /// This token id appears as a constant in the refresh contract.
-    pub oracle_token_id: &'a TokenId,
-    /// This token id also appears as a constant in the refresh contract.
-    pub pool_nft_token_id: &'a TokenId,
 }
 
 impl RefreshBoxWrapper {
@@ -59,7 +55,8 @@ impl RefreshBoxWrapper {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
         }
 
-        let contract = RefreshContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
+        let contract =
+            RefreshContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
         Ok(Self(b, contract))
     }
 }

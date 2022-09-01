@@ -30,12 +30,14 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{make_pool_box_candidate, make_refresh_box_candidate, RefreshBoxWrapperInputs},
+    box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
     contracts::{
         ballot::{BallotContractError, BallotContractParameters},
         oracle::OracleContractParameters,
         pool::{PoolContract, PoolContractInputs, PoolContractParameters},
-        refresh::{RefreshContract, RefreshContractError, RefreshContractParameters},
+        refresh::{
+            RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
+        },
         update::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
@@ -447,13 +449,12 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // Create refresh box --------------------------------------------------------------------------
     info!("Create refresh box tx");
 
-    let inputs = RefreshBoxWrapperInputs {
-        contract_parameters: &config.refresh_contract_parameters,
-        refresh_nft_token_id: &token_ids.refresh_nft_token_id,
-        oracle_token_id: &token_ids.oracle_token_id,
-        pool_nft_token_id: &token_ids.pool_nft_token_id,
-    };
-    let refresh_contract = RefreshContract::create(inputs.into())?;
+    let refresh_contract_inputs = RefreshContractInputs::new(
+        config.refresh_contract_parameters.clone(),
+        token_ids.oracle_token_id,
+        token_ids.pool_nft_token_id,
+    )?;
+    let refresh_contract = RefreshContract::load(&refresh_contract_inputs)?;
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,

@@ -277,12 +277,12 @@ pub(crate) fn perform_update_chained_transaction(
     }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
         info!("Creating new refresh NFT");
-        let refresh_contract_inputs = RefreshContractInputs {
-            contract_parameters,
-            oracle_token_id: &new_oracle_config.token_ids.oracle_token_id,
-            pool_nft_token_id: &old_config.token_ids.pool_nft_token_id,
-        };
-        let refresh_contract = RefreshContract::create(refresh_contract_inputs)?;
+        let refresh_contract_inputs = RefreshContractInputs::new(
+            contract_parameters.clone(),
+            new_oracle_config.token_ids.oracle_token_id.clone(),
+            old_config.token_ids.pool_nft_token_id,
+        )?;
+        let refresh_contract = RefreshContract::load(&refresh_contract_inputs)?;
         let refresh_nft_details = config
             .tokens_to_mint
             .refresh_nft

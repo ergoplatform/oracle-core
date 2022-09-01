@@ -150,7 +150,7 @@ pub fn register_refresh_box_scan(
     inputs: RefreshBoxWrapperInputs,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::load(inputs.into())?
+    let tree_bytes = RefreshContract::load(&inputs.contract_inputs)?
         .ergo_tree()
         .to_scan_bytes();
 
