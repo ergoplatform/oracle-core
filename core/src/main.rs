@@ -62,6 +62,7 @@ use std::time::Duration;
 use wallet::WalletData;
 
 use crate::api::start_rest_server;
+use crate::default_parameters::print_contract_hashes;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
@@ -153,6 +154,9 @@ enum Command {
         /// Name of update parameters file (.yaml)
         update_file: String,
     },
+
+    /// Print base 64 encodings of the blake2b hash of ergo-tree bytes of each contract
+    PrintContractHashes,
 }
 
 fn main() {
@@ -187,6 +191,9 @@ fn main() {
                     std::process::exit(exitcode::SOFTWARE);
                 }
             };
+        }
+        Command::PrintContractHashes => {
+            print_contract_hashes();
         }
         oracle_command => handle_oracle_command(oracle_command),
     }
@@ -299,7 +306,7 @@ fn handle_oracle_command(command: Command) {
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
-        _ => unreachable!(),
+        Command::Bootstrap { .. } | Command::PrintContractHashes => unreachable!(),
     }
 }
 

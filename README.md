@@ -6,5 +6,17 @@ The oracle core requires that the user has access to a full node wallet in order
 
 The current oracle core is built to run the protocol specified in the [EIP-0023 PR](https://github.com/ergoplatform/eips/pull/41).
 
+## Verifying contracts
+
+It is recommended to check that the contracts used are indeed coming from EIP-23. Run the following command to get encoded hashes of each contract:
+```console
+./oracle-core print-contract-hashes
+```
+or if running from source files:
+```console
+cargo test check_contract_hashes -- --nocapture
+```
+
+Check these values against those described in EIP-23.
 
 
