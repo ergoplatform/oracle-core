@@ -111,6 +111,7 @@ enum Command {
 
     /// Run the oracle-pool
     Run {
+        /// Run in read-only mode
         #[clap(long)]
         read_only: bool,
         #[clap(long)]
@@ -119,13 +120,19 @@ enum Command {
     },
 
     /// Extract reward tokens to a chosen address
-    ExtractRewardTokens { rewards_address: String },
+    ExtractRewardTokens {
+        /// Base58 encoded address to send reward tokens to
+        rewards_address: String,
+    },
 
     /// Print the number of reward tokens earned by the oracle.
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
-    TransferOracleToken { oracle_token_address: String },
+    TransferOracleToken {
+        /// Base58 encoded address to send oracle token to
+        oracle_token_address: String,
+    },
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
