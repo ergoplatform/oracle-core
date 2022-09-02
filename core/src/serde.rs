@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    box_kind::OracleBoxWrapperInputs,
     cli_commands::{
         bootstrap::{BootstrapConfig, TokensToMint},
         prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
@@ -22,7 +23,7 @@ use crate::{
         update::UpdateContractParameters,
     },
     datapoint_source::PredefinedDataPointSource,
-    oracle_config::{OracleConfig, TokenIds},
+    oracle_config::{OracleConfig, OracleConfigError, TokenIds},
 };
 
 /// Used to (de)serialize `OracleConfig` instance.
@@ -51,12 +52,18 @@ pub enum SerdeConversionError {
     AddressEncoder(AddressEncoderError),
     #[error("Serde conversion error: Network prefixes of addresses differ")]
     NetworkPrefixesDiffer,
+    #[error("Oracle config error: {0}")]
+    OracleConfigError(OracleConfigError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
     fn from(c: OracleConfig) -> Self {
-        let oracle_contract_parameters =
-            OracleContractParametersSerde::from(c.oracle_contract_parameters);
+        let oracle_contract_parameters = OracleContractParametersSerde::from(
+            c.oracle_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
+        );
         let pool_contract_parameters =
             PoolContractParametersSerde::from(c.pool_contract_parameters);
         let refresh_contract_parameters =
@@ -91,6 +98,13 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
     fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
         let oracle_contract_parameters =
             OracleContractParameters::try_from(c.oracle_contract_parameters)?;
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::load(
+            oracle_contract_parameters.clone(),
+            c.token_ids.pool_nft_token_id.clone(),
+            c.token_ids.oracle_token_id.clone(),
+            c.token_ids.reward_token_id.clone(),
+        )
+        .map_err(OracleConfigError::from)?;
         let oracle_contract_prefix = oracle_contract_parameters.p2s.network();
 
         let pool_contract_parameters =
@@ -129,7 +143,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 oracle_address,
                 data_point_source: c.data_point_source,
                 data_point_source_custom_script: c.data_point_source_custom_script,
-                oracle_contract_parameters,
+                oracle_box_wrapper_inputs,
                 pool_contract_parameters,
                 refresh_contract_parameters,
                 update_contract_parameters,

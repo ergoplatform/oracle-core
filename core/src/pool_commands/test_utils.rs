@@ -30,6 +30,7 @@ use crate::box_kind::PoolBoxWrapperInputs;
 use crate::box_kind::UpdateBoxWrapper;
 use crate::box_kind::VoteBallotBoxWrapper;
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
@@ -184,7 +185,7 @@ pub(crate) fn make_datapoint_box(
     .unwrap();
     let parameters = OracleContractParameters::default();
     let oracle_contract_inputs =
-        OracleContractInputs::new(parameters, token_ids.pool_nft_token_id.clone()).unwrap();
+        OracleContractInputs::create(parameters, token_ids.pool_nft_token_id.clone()).unwrap();
     ErgoBox::new(
         value,
         OracleContract::load(&oracle_contract_inputs)
@@ -285,5 +286,20 @@ pub fn generate_token_ids() -> TokenIds {
         oracle_token_id: force_any_val::<TokenId>(),
         reward_token_id: force_any_val::<TokenId>(),
         ballot_token_id: force_any_val::<TokenId>(),
+    }
+}
+
+impl TryFrom<(OracleContractParameters, &TokenIds)> for OracleBoxWrapperInputs {
+    type Error = OracleContractError;
+    fn try_from(
+        (contract_parameters, token_ids): (OracleContractParameters, &TokenIds),
+    ) -> Result<Self, Self::Error> {
+        let contract_inputs =
+            OracleContractInputs::create(contract_parameters, token_ids.pool_nft_token_id.clone())?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id: token_ids.oracle_token_id.clone(),
+            reward_token_id: token_ids.reward_token_id.clone(),
+        })
     }
 }

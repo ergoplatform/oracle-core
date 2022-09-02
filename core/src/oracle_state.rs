@@ -6,7 +6,7 @@ use crate::box_kind::{
     UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
 use crate::contracts::ballot::{BallotContract, BallotContractInputs};
-use crate::contracts::oracle::{OracleContract, OracleContractInputs};
+use crate::contracts::oracle::OracleContract;
 use crate::contracts::refresh::RefreshContractInputs;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
@@ -110,8 +110,8 @@ pub struct Stage {
 pub struct OraclePool<'a> {
     pub data_point_source: Box<dyn DataPointSource + Sync + Send>,
     /// Stages
-    pub datapoint_stage: DatapointStage<'a>,
-    local_oracle_datapoint_scan: Option<LocalOracleDatapointScan<'a>>,
+    pub datapoint_stage: DatapointStage,
+    local_oracle_datapoint_scan: Option<LocalOracleDatapointScan>,
     local_ballot_box_scan: Option<LocalBallotBoxScan<'a>>,
     pool_box_scan: PoolBoxScan<'a>,
     refresh_box_scan: RefreshBoxScan<'a>,
@@ -120,15 +120,15 @@ pub struct OraclePool<'a> {
 }
 
 #[derive(Debug)]
-pub struct DatapointStage<'a> {
+pub struct DatapointStage {
     pub stage: Stage,
-    oracle_box_wrapper_inputs: OracleBoxWrapperInputs<'a>,
+    oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct LocalOracleDatapointScan<'a> {
+pub struct LocalOracleDatapointScan {
     scan: Scan,
-    oracle_box_wrapper_inputs: OracleBoxWrapperInputs<'a>,
+    oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
@@ -206,17 +206,8 @@ impl<'a> OraclePool<'a> {
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
-        let oracle_contract_inputs = OracleContractInputs::new(
-            config.oracle_contract_parameters.clone(),
-            config.token_ids.pool_nft_token_id.clone(),
-        )?;
-        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs {
-            contract_inputs: oracle_contract_inputs,
-            oracle_token_id: &config.token_ids.oracle_token_id,
-            reward_token_id: &config.token_ids.reward_token_id,
-        };
         let datapoint_contract_address =
-            OracleContract::load(&oracle_box_wrapper_inputs.contract_inputs)?.ergo_tree();
+            OracleContract::load(&config.oracle_box_wrapper_inputs.contract_inputs)?.ergo_tree();
 
         let ballot_contract_inputs = BallotContractInputs::new(
             config.ballot_contract_parameters.clone(),
@@ -329,7 +320,7 @@ impl<'a> OraclePool<'a> {
                     "Local Oracle Datapoint Scan",
                     &scan_json[local_scan_str].to_string(),
                 ),
-                oracle_box_wrapper_inputs: oracle_box_wrapper_inputs.clone(),
+                oracle_box_wrapper_inputs: config.oracle_box_wrapper_inputs.clone(),
             });
         };
 
@@ -374,7 +365,7 @@ impl<'a> OraclePool<'a> {
                     contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
                     scan: datapoint_scan,
                 },
-                oracle_box_wrapper_inputs,
+                oracle_box_wrapper_inputs: config.oracle_box_wrapper_inputs.clone(),
             },
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
@@ -541,7 +532,7 @@ impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
     }
 }
 
-impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
+impl LocalDatapointBoxSource for LocalOracleDatapointScan {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
         let box_wrapper =
             OracleBoxWrapper::new(self.scan.get_box()?, &self.oracle_box_wrapper_inputs)?;
@@ -603,7 +594,7 @@ impl StageDataSource for Stage {
     }
 }
 
-impl<'a> DatapointBoxesSource for DatapointStage<'a> {
+impl DatapointBoxesSource for DatapointStage {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>> {
         let res = self
             .stage

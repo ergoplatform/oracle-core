@@ -214,7 +214,7 @@ mod tests {
 
         let parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::try_from((&parameters, &token_ids)).unwrap();
+            OracleBoxWrapperInputs::try_from((parameters, &token_ids)).unwrap();
         let oracle_box = OracleBoxWrapper::new(
             make_datapoint_box(
                 *oracle_pub_key,

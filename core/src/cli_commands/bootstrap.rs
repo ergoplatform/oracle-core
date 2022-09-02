@@ -44,8 +44,8 @@ use crate::{
     },
     datapoint_source::PredefinedDataPointSource,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::BASE_FEE,
     oracle_config::{OracleConfig, TokenIds},
+    oracle_config::{OracleConfigError, BASE_FEE},
     serde::BootstrapConfigSerde,
     wallet::WalletDataSource,
 };
@@ -541,7 +541,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
             .with_update_token_id(token_ids.update_nft_token_id.clone())?,
         ..config.clone()
     };
-    Ok(OracleConfig::create(new_config, token_ids))
+    Ok(OracleConfig::create(new_config, token_ids)?)
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
@@ -672,6 +672,8 @@ pub enum BootstrapError {
     ConfigFilenameAlreadyExists,
     #[error("Ballot contract error: {0}")]
     BallotContractError(BallotContractError),
+    #[error("Oracle config error: {0}")]
+    OracleConfigError(OracleConfigError),
 }
 
 #[cfg(test)]
@@ -813,6 +815,15 @@ pub(crate) mod tests {
         assert_ne!(
             oracle_config.ballot_contract_parameters.p2s,
             bootstrap_config.ballot_contract_parameters.p2s
+        );
+        // Check that oracle contract is updated
+        assert_ne!(
+            oracle_config
+                .oracle_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .p2s,
+            bootstrap_config.oracle_contract_parameters.p2s
         );
     }
 }

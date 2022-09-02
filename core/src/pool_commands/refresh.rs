@@ -365,7 +365,8 @@ mod tests {
         token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, token_ids)).unwrap();
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), token_ids))
+                .unwrap();
         datapoints
             .into_iter()
             .zip(pub_keys)

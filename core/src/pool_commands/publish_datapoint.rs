@@ -292,7 +292,7 @@ mod tests {
         };
 
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::try_from((&oracle_contract_parameters, &token_ids)).unwrap();
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let oracle_box = OracleBoxWrapper::new(
             make_datapoint_box(
                 *oracle_pub_key,
@@ -407,7 +407,7 @@ mod tests {
 
         let oracle_contract_parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::try_from((&oracle_contract_parameters, &token_ids)).unwrap();
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

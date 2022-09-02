@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
@@ -18,7 +16,6 @@ use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
-use crate::oracle_config::TokenIds;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
@@ -70,7 +67,7 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if oracle_token_id != *inputs.oracle_token_id {
+        if oracle_token_id != inputs.oracle_token_id {
             return Err(OracleBoxError::UnknownOracleTokenId);
         }
 
@@ -83,7 +80,7 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if reward_token_id != *inputs.reward_token_id {
+        if reward_token_id != inputs.reward_token_id {
             return Err(OracleBoxError::UnknownRewardTokenId);
         }
 
@@ -158,19 +155,43 @@ impl OracleBox for OracleBoxWrapper {
 }
 
 #[derive(Clone, Debug)]
-pub struct OracleBoxWrapperInputs<'a> {
+pub struct OracleBoxWrapperInputs {
     pub contract_inputs: OracleContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the oracle box.
-    pub oracle_token_id: &'a TokenId,
+    pub oracle_token_id: TokenId,
     /// Reward token is expected to reside in `tokens(1)` of the oracle box.
-    pub reward_token_id: &'a TokenId,
+    pub reward_token_id: TokenId,
 }
 
-impl<'a> TryFrom<(&'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapperInputs<'a> {
-    type Error = OracleContractError;
+impl OracleBoxWrapperInputs {
+    pub fn load(
+        oracle_contract_parameters: OracleContractParameters,
+        pool_token_id: TokenId,
+        oracle_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let contract_inputs =
+            OracleContractInputs::load(oracle_contract_parameters, pool_token_id)?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id,
+            reward_token_id,
+        })
+    }
 
-    fn try_from(value: (&'a OracleContractParameters, &'a TokenIds)) -> Result<Self, Self::Error> {
-        todo!()
+    pub fn create(
+        oracle_contract_parameters: OracleContractParameters,
+        pool_token_id: TokenId,
+        oracle_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let contract_inputs =
+            OracleContractInputs::create(oracle_contract_parameters, pool_token_id)?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id,
+            reward_token_id,
+        })
     }
 }
 

@@ -1,15 +1,17 @@
 use std::convert::TryFrom;
 
 use crate::{
+    box_kind::OracleBoxWrapperInputs,
     cli_commands::bootstrap::BootstrapConfig,
     contracts::{
-        ballot::BallotContractParameters, oracle::OracleContractParameters,
+        ballot::BallotContractParameters, oracle::OracleContractError,
         pool::PoolContractParameters, refresh::RefreshContractParameters,
         update::UpdateContractParameters,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
 use anyhow::anyhow;
+use derive_more::From;
 use ergo_lib::{
     ergo_chain_types::Digest32,
     ergotree_ir::chain::address::NetworkAddress,
@@ -18,6 +20,7 @@ use ergo_lib::{
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
@@ -36,7 +39,7 @@ pub struct OracleConfig {
     pub oracle_address: NetworkAddress,
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
-    pub oracle_contract_parameters: OracleContractParameters,
+    pub oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
     pub pool_contract_parameters: PoolContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
     pub update_contract_parameters: UpdateContractParameters,
@@ -88,8 +91,17 @@ pub struct TokenIds {
 }
 
 impl OracleConfig {
-    pub fn create(bootstrap: BootstrapConfig, token_ids: TokenIds) -> Self {
-        OracleConfig {
+    pub fn create(
+        bootstrap: BootstrapConfig,
+        token_ids: TokenIds,
+    ) -> Result<Self, OracleConfigError> {
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::create(
+            bootstrap.oracle_contract_parameters.clone(),
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.oracle_token_id.clone(),
+            token_ids.reward_token_id.clone(),
+        )?;
+        Ok(OracleConfig {
             node_ip: bootstrap.node_ip,
             node_port: bootstrap.node_port,
             node_api_key: bootstrap.node_api_key,
@@ -99,13 +111,13 @@ impl OracleConfig {
             oracle_address: bootstrap.oracle_address,
             data_point_source: bootstrap.data_point_source,
             data_point_source_custom_script: bootstrap.data_point_source_custom_script,
-            oracle_contract_parameters: bootstrap.oracle_contract_parameters,
+            oracle_box_wrapper_inputs,
             pool_contract_parameters: bootstrap.pool_contract_parameters,
             refresh_contract_parameters: bootstrap.refresh_contract_parameters,
             ballot_contract_parameters: bootstrap.ballot_contract_parameters,
             update_contract_parameters: bootstrap.update_contract_parameters,
             token_ids,
-        }
+        })
     }
 
     fn load() -> Result<Self, anyhow::Error> {
@@ -133,6 +145,12 @@ impl OracleConfig {
         };
         Ok(data_point_source)
     }
+}
+
+#[derive(Debug, From, Error)]
+pub enum OracleConfigError {
+    #[error("Oracle contract error: {0}")]
+    OracleConfigError(OracleContractError),
 }
 
 lazy_static! {

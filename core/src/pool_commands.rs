@@ -6,7 +6,6 @@ use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::box_kind::OracleBoxWrapperInputs;
-use crate::contracts::oracle::OracleContractInputs;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
 use crate::wallet::WalletDataSource;
@@ -75,19 +74,9 @@ pub fn build_action(
             {
                 PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source)
             } else if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
-                let oracle_contract_inputs = OracleContractInputs::new(
-                    ORACLE_CONFIG.oracle_contract_parameters.clone(),
-                    ORACLE_CONFIG.token_ids.pool_nft_token_id.clone(),
-                )?;
-                let oracle_box_wrapper_inputs = OracleBoxWrapperInputs {
-                    contract_inputs: oracle_contract_inputs,
-                    oracle_token_id: &ORACLE_CONFIG.token_ids.oracle_token_id,
-                    reward_token_id: &ORACLE_CONFIG.token_ids.reward_token_id,
-                };
-
                 PublishDataPointCommandInputs::FirstDataPoint {
                     public_key,
-                    oracle_box_wrapper_inputs,
+                    oracle_box_wrapper_inputs: ORACLE_CONFIG.oracle_box_wrapper_inputs.clone(),
                 }
             } else {
                 return Err(PoolCommandError::WrongOracleAddressType);
@@ -112,7 +101,7 @@ pub enum PublishDataPointCommandInputs<'a> {
     LocalDataPointBoxExists(&'a dyn LocalDatapointBoxSource),
     /// The first datapoint will be submitted, so there doesn't exist a local datapoint box now.
     FirstDataPoint {
-        oracle_box_wrapper_inputs: OracleBoxWrapperInputs<'a>,
+        oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
         public_key: ProveDlog,
     },
 }
