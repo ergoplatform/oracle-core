@@ -1,7 +1,7 @@
 [package]
 name = "oracle-core"
 version = "2.0.0-alpha1"
-authors = ["Robert Kornacki <11645932+robkorn@users.noreply.github.com>"]
+authors = ["Robert Kornacki <11645932+robkorn@users.noreply.github.com>", "@greenhat", "@kettlebell", "@SethDusek"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
