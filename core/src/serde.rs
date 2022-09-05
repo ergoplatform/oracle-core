@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::OracleBoxWrapperInputs,
+    box_kind::{OracleBoxWrapperInputs, RefreshBoxWrapperInputs},
     cli_commands::{
         bootstrap::{BootstrapConfig, TokensToMint},
         prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
@@ -66,8 +66,12 @@ impl From<OracleConfig> for OracleConfigSerde {
         );
         let pool_contract_parameters =
             PoolContractParametersSerde::from(c.pool_contract_parameters);
-        let refresh_contract_parameters =
-            RefreshContractParametersSerde::from(c.refresh_contract_parameters);
+        let refresh_contract_parameters = RefreshContractParametersSerde::from(
+            c.refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
+        );
         let ballot_contract_parameters =
             BallotContractParametersSerde::from(c.ballot_contract_parameters);
         let update_contract_parameters =
@@ -127,6 +131,14 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
         let network_prefix = oracle_address.network();
 
+        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::load(
+            refresh_contract_parameters.clone(),
+            c.token_ids.refresh_nft_token_id.clone(),
+            c.token_ids.oracle_token_id.clone(),
+            c.token_ids.reward_token_id.clone(),
+        )
+        .map_err(OracleConfigError::from)?;
+
         if ballot_contract_prefix == network_prefix
             && update_contract_prefix == network_prefix
             && refresh_contract_prefix == network_prefix
@@ -145,7 +157,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 data_point_source_custom_script: c.data_point_source_custom_script,
                 oracle_box_wrapper_inputs,
                 pool_contract_parameters,
-                refresh_contract_parameters,
+                refresh_box_wrapper_inputs,
                 update_contract_parameters,
                 ballot_contract_parameters,
                 token_ids: c.token_ids,

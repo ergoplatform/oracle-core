@@ -10,6 +10,7 @@ use thiserror::Error;
 use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::refresh::RefreshContractInputs;
+use crate::contracts::refresh::RefreshContractParameters;
 
 pub trait RefreshBox {
     fn contract(&self) -> &RefreshContract;
@@ -35,10 +36,46 @@ pub enum RefreshBoxError {
 pub struct RefreshBoxWrapper(ErgoBox, RefreshContract);
 
 #[derive(Clone, Debug)]
-pub struct RefreshBoxWrapperInputs<'a> {
+pub struct RefreshBoxWrapperInputs {
     pub contract_inputs: RefreshContractInputs,
     /// Refresh token is expected to reside in `tokens(0)` of the oracle box.
-    pub refresh_nft_token_id: &'a TokenId,
+    pub refresh_nft_token_id: TokenId,
+}
+
+impl RefreshBoxWrapperInputs {
+    pub fn create(
+        refresh_contract_parameters: RefreshContractParameters,
+        oracle_token_id: TokenId,
+        pool_token_id: TokenId,
+        refresh_nft_token_id: TokenId,
+    ) -> Result<Self, RefreshContractError> {
+        let contract_inputs = RefreshContractInputs::create(
+            refresh_contract_parameters,
+            oracle_token_id,
+            pool_token_id,
+        )?;
+        Ok(RefreshBoxWrapperInputs {
+            contract_inputs,
+            refresh_nft_token_id,
+        })
+    }
+
+    pub fn load(
+        refresh_contract_parameters: RefreshContractParameters,
+        oracle_token_id: TokenId,
+        pool_token_id: TokenId,
+        refresh_nft_token_id: TokenId,
+    ) -> Result<Self, RefreshContractError> {
+        let contract_inputs = RefreshContractInputs::load(
+            refresh_contract_parameters,
+            oracle_token_id,
+            pool_token_id,
+        )?;
+        Ok(RefreshBoxWrapperInputs {
+            contract_inputs,
+            refresh_nft_token_id,
+        })
+    }
 }
 
 impl RefreshBoxWrapper {
@@ -51,7 +88,7 @@ impl RefreshBoxWrapper {
             .ok_or(RefreshBoxError::NoTokens)?
             .token_id
             .clone();
-        if refresh_token_id != *inputs.refresh_nft_token_id {
+        if refresh_token_id != inputs.refresh_nft_token_id {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
         }
 

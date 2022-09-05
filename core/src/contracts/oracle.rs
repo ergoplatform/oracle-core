@@ -28,8 +28,8 @@ pub enum OracleContractError {
     ErgoTreeConstant(ErgoTreeConstantError),
     #[error("oracle contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(#[from] TryExtractFromError),
-    #[error("oracle contract error: {1:?}, expected P2S: {0}")]
-    WrappedWithExpectedP2SAddress(String, Box<OracleContractError>),
+    #[error("contract error: {1:?}, expected P2S: {0}")]
+    WrappedWithExpectedP2SAddress(String, Box<Self>),
 }
 
 #[derive(Clone, Debug)]

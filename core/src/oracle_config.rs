@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 
 use crate::{
-    box_kind::OracleBoxWrapperInputs,
+    box_kind::{OracleBoxWrapperInputs, RefreshBoxWrapperInputs},
     cli_commands::bootstrap::BootstrapConfig,
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractError,
-        pool::PoolContractParameters, refresh::RefreshContractParameters,
+        pool::PoolContractParameters, refresh::RefreshContractError,
         update::UpdateContractParameters,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
@@ -41,7 +41,7 @@ pub struct OracleConfig {
     pub data_point_source_custom_script: Option<String>,
     pub oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
     pub pool_contract_parameters: PoolContractParameters,
-    pub refresh_contract_parameters: RefreshContractParameters,
+    pub refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
     pub update_contract_parameters: UpdateContractParameters,
     pub ballot_contract_parameters: BallotContractParameters,
     pub token_ids: TokenIds,
@@ -101,6 +101,12 @@ impl OracleConfig {
             token_ids.oracle_token_id.clone(),
             token_ids.reward_token_id.clone(),
         )?;
+        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::create(
+            bootstrap.refresh_contract_parameters.clone(),
+            token_ids.refresh_nft_token_id.clone(),
+            token_ids.oracle_token_id.clone(),
+            token_ids.reward_token_id.clone(),
+        )?;
         Ok(OracleConfig {
             node_ip: bootstrap.node_ip,
             node_port: bootstrap.node_port,
@@ -113,7 +119,7 @@ impl OracleConfig {
             data_point_source_custom_script: bootstrap.data_point_source_custom_script,
             oracle_box_wrapper_inputs,
             pool_contract_parameters: bootstrap.pool_contract_parameters,
-            refresh_contract_parameters: bootstrap.refresh_contract_parameters,
+            refresh_box_wrapper_inputs,
             ballot_contract_parameters: bootstrap.ballot_contract_parameters,
             update_contract_parameters: bootstrap.update_contract_parameters,
             token_ids,
@@ -151,6 +157,8 @@ impl OracleConfig {
 pub enum OracleConfigError {
     #[error("Oracle contract error: {0}")]
     OracleConfigError(OracleContractError),
+    #[error("Refresh contract error: {0}")]
+    RefreshConfigError(RefreshContractError),
 }
 
 lazy_static! {
@@ -186,30 +194,6 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     use super::*;
-
-    #[ignore = "until config hierarchy and option names are finalized"]
-    #[test]
-    fn pool_parameter_parsing_works() {
-        let yaml_string = "
-            minimum_pool_box_value: 10000000
-            epoch_length: 20
-            buffer_length: 4
-            max_deviation_percent: 5
-            min_data_points: 4
-            base_fee: 1000000
-            ";
-        let config = OracleConfig::load_from_str(yaml_string).unwrap();
-        let pool_params = config;
-        assert_eq!(pool_params.refresh_contract_parameters.epoch_length, 20);
-        assert_eq!(pool_params.refresh_contract_parameters.buffer_length, 4);
-        assert_eq!(
-            pool_params
-                .refresh_contract_parameters
-                .max_deviation_percent,
-            5
-        );
-        assert_eq!(pool_params.base_fee, 1000000);
-    }
 
     #[test]
     fn token_ids_roundtrip() {

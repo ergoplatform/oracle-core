@@ -114,7 +114,7 @@ pub struct OraclePool<'a> {
     local_oracle_datapoint_scan: Option<LocalOracleDatapointScan>,
     local_ballot_box_scan: Option<LocalBallotBoxScan<'a>>,
     pool_box_scan: PoolBoxScan<'a>,
-    refresh_box_scan: RefreshBoxScan<'a>,
+    refresh_box_scan: RefreshBoxScan,
     ballot_boxes_scan: BallotBoxesScan<'a>,
     update_box_scan: UpdateBoxScan<'a>,
 }
@@ -145,9 +145,9 @@ pub struct PoolBoxScan<'a> {
 }
 
 #[derive(Debug)]
-pub struct RefreshBoxScan<'a> {
+pub struct RefreshBoxScan {
     scan: Scan,
-    refresh_box_wrapper_inputs: RefreshBoxWrapperInputs<'a>,
+    refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
 }
 
 #[derive(Debug)]
@@ -225,14 +225,18 @@ impl<'a> OraclePool<'a> {
             refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
             update_nft_token_id: &config.token_ids.update_nft_token_id,
         };
-        let refresh_contract_inputs = RefreshContractInputs::new(
-            config.refresh_contract_parameters.clone(),
+        let refresh_contract_inputs = RefreshContractInputs::load(
+            config
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
             config.token_ids.oracle_token_id.clone(),
             config.token_ids.pool_nft_token_id.clone(),
         )?;
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
             contract_inputs: refresh_contract_inputs,
-            refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
+            refresh_nft_token_id: config.token_ids.refresh_nft_token_id.clone(),
         };
         let update_box_wrapper_inputs = UpdateBoxWrapperInputs {
             contract_parameters: &config.update_contract_parameters,
@@ -401,7 +405,11 @@ impl<'a> OraclePool<'a> {
 
         // Block height epochs ends is held in R5 of the epoch box
         let epoch_ends = pool_box.get_box().creation_height
-            + ORACLE_CONFIG.refresh_contract_parameters.epoch_length as u32;
+            + ORACLE_CONFIG
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .epoch_length as u32;
 
         let epoch_state = LiveEpochState {
             epoch_id,
@@ -522,7 +530,7 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
     }
 }
 
-impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
+impl RefreshBoxSource for RefreshBoxScan {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
         let box_wrapper = RefreshBoxWrapper::new(
             self.scan.get_box()?,

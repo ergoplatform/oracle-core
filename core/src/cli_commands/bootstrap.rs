@@ -449,7 +449,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // Create refresh box --------------------------------------------------------------------------
     info!("Create refresh box tx");
 
-    let refresh_contract_inputs = RefreshContractInputs::new(
+    let refresh_contract_inputs = RefreshContractInputs::create(
         config.refresh_contract_parameters.clone(),
         token_ids.oracle_token_id,
         token_ids.pool_nft_token_id,
@@ -808,7 +808,11 @@ pub(crate) mod tests {
         // Check that refresh contract is updated
         // TODO: check that it's updated with expected values (token ids, etc.)
         assert_ne!(
-            oracle_config.refresh_contract_parameters.p2s,
+            oracle_config
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .p2s,
             bootstrap_config.refresh_contract_parameters.p2s
         );
         // Check that ballot contract is updated

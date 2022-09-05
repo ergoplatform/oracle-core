@@ -398,7 +398,7 @@ mod tests {
         let refresh_contract_parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
 
-        let refresh_contract_inputs = RefreshContractInputs::new(
+        let refresh_contract_inputs = RefreshContractInputs::create(
             refresh_contract_parameters,
             token_ids.oracle_token_id.clone(),
             token_ids.pool_nft_token_id.clone(),
@@ -406,7 +406,7 @@ mod tests {
         .unwrap();
 
         let inputs = RefreshBoxWrapperInputs {
-            refresh_nft_token_id: &token_ids.refresh_nft_token_id,
+            refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
         let in_refresh_box = make_refresh_box(*BASE_FEE, inputs, height - 32);

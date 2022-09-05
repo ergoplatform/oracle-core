@@ -32,6 +32,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    box_kind::RefreshBoxWrapperInputs,
     contracts::{
         pool::PoolContractParameters,
         refresh::{
@@ -277,7 +278,7 @@ pub(crate) fn perform_update_chained_transaction(
     }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
         info!("Creating new refresh NFT");
-        let refresh_contract_inputs = RefreshContractInputs::new(
+        let refresh_contract_inputs = RefreshContractInputs::create(
             contract_parameters.clone(),
             new_oracle_config.token_ids.oracle_token_id.clone(),
             old_config.token_ids.pool_nft_token_id,
@@ -295,8 +296,11 @@ pub(crate) fn perform_update_chained_transaction(
             1.try_into().unwrap(),
             Some(refresh_contract.ergo_tree()),
         )?;
-        new_oracle_config.token_ids.refresh_nft_token_id = token.token_id;
-        new_oracle_config.refresh_contract_parameters = contract_parameters.clone();
+        new_oracle_config.token_ids.refresh_nft_token_id = token.token_id.clone();
+        new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
+            contract_inputs: refresh_contract_inputs,
+            refresh_nft_token_id: token.token_id,
+        };
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
         info!("Refresh contract tx id: {:?}", tx.id());
         transactions.push(tx);
@@ -419,7 +423,7 @@ addresses:
   ballot_token_owner_address: 3WzD3VNSK4RtDCZe8njzLzRnWbxcfpCneUcQncAVV9JBDE37nLxR
 
 refresh_contract_parameters:
-  p2s: 62TTAg5ZqAM7HwjB169cSSn844L2ZmMq4xjen6QcGt9Bb6ssYBgg3SNHuRiDqJmHYXbdgU179G5WiYPMq5VgUHDPbjJ814wuUgCARX1TiSavG2ycFFbJzqdfj7cmZHhNziVg5f7YsU365P49oCpVxmQoeVUnomDzKMrsn2M1VeAGrrnBdTBcjuSm6M1NURRNmfir3TsazHZbyPPrr6BajikkwxLQ9GiSWnY841qU8ZRHvhqVqiVZa13NiXqfTa36LBGQmsyYQuY4ThdgLkfgsNH24snGcx2UUyYsRSQfK8SWtVjbsjwRF4fDdST4St4ermWXP8JfPmXLFeg3m5NHEyd6W3WrCR2i14tenGKqU6aHzJ3ZCZCfKinaUFqr81NQ4kmH9kzpzs5KfXhyTKRd43jRuU2gP2hDLZ2N4isS1EYCsySp86yrM1VAP91f3sF9MHjUXXAXZHp4EvtnJdtkTgQxCYmV95XuEnBk1Kx2zNvqtERsRnyqbtvv78qY63DMCMiNNkPJeg1YbNk4Li7FzPokiNE4YfPZ3uQVEKzNdrgUCPuMh5ShcBmDV4v35AbbwWWQpfh6j7dLsXzDKMG5i4fuoctfthSBC8ipsbNo563zorHd6iyoFofLeAxNW9eTZC4oZdskhep1wu3BYyYCEdrmtUTXKueK3JTpnzb1uRKYNFWdQKMv2UwfxrxWwaDv7BxFbrRstAc4wznZkjtQ1C2VmKrjU3UuVv235r9tFwojEoCuRbGqtg2DzW
+  p2s: 62TTAg5ZqAM7HwjCGy2AzanRvsZuyNSJiCSkd6feS79NQvVFHkaSRfvffN7pLgHRZkH2Kvk9xPVx7551oZxWXrAFmq7LbRvz2b5EEU8GnUVfhFwfTThPRDUYke2xhj5PF1D3JoYURayGm3qaoGdXskA88RkoNjQydJU21LQDEpDukz9Y84LL5AVy8fYNVCvqM4MccQ96A3Euh9wvpCQrf2rtF6Wyh5v4tnqSCYJCEfhJYsaJf4pmkMYyfMtuKRJFmtJ8K7v1wJdDVLK2huRkgfpvDDgmiP1MaDHZornwLTtr4t9gzdBTZgJmhZvS4qWT26sPPzy4JEPti3jTM84zCpK41v1RE3T7t8P64tBMX9hsANiPZLXwLhHVpYoACevDbCT9hpjhidybBPcXvtsrurwe28qJzuFcuipfs96DyrJrKhxW7EzATHps6gw4ojtkeWtuyk39EStdBKtTYsjWPUZGpcNCA8Ys2vsvT6jGhY5dh9oox5hBoGfFgtJphnNeE3LgVMFL8EbUxLqAR3zLcbYYhvZS3MdvbCAdqa2cDcwh8shv5vyRNz3ZnyN9JNBzAiQ73wQZa4LJVPy8v8Svx89f9vJRb3FuszyxbWimWKCt7gKpAu76xKd1yZTzNx57HpM7ydvUdb4x68TU41b8AWFxd2ebPvAAqfKNvDFcCoqXKbRk2J6gi5g15QcLuaRL3YnKTTavdPsQKmf7A6ov7NtFsoxnvBVbfsoi44iCq6fAyNqUyvb5nJsv49
   pool_nft_index: 17
   oracle_token_id_index: 3
   min_data_points_index: 13
