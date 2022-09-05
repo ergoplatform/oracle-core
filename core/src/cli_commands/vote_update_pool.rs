@@ -298,9 +298,11 @@ mod tests {
             .unwrap();
 
         let token_ids = generate_token_ids();
-        let ballot_contract_parameters = BallotContractParameters::default()
-            .with_update_token_id(token_ids.update_nft_token_id.clone())
-            .unwrap();
+        let ballot_contract_inputs = BallotContractInputs::create(
+            BallotContractParameters::default(),
+            token_ids.update_nft_token_id.clone(),
+        )
+        .unwrap();
 
         let ballot_token = Token {
             token_id: token_ids.ballot_token_id.clone(),
@@ -325,7 +327,7 @@ mod tests {
             AddressEncoder::new(network_prefix)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap(),
-            &ballot_contract_parameters,
+            ballot_contract_inputs.contract_parameters(),
             &token_ids,
             height,
             change_address,

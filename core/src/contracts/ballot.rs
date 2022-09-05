@@ -195,21 +195,6 @@ pub struct BallotContractParameters {
     pub update_nft_index: usize,
 }
 
-impl BallotContractParameters {
-    pub fn with_update_token_id(
-        &self,
-        update_nft_token_id: TokenId,
-    ) -> Result<BallotContractParameters, BallotContractError> {
-        let network_prefix = self.p2s.network();
-        let ballot_contract = BallotContract::create(&BallotContractInputs {
-            contract_parameters: self.clone(),
-            update_nft_token_id: update_nft_token_id.clone(),
-        })?;
-        let new_parameters = ballot_contract.parameters(network_prefix);
-        Ok(new_parameters)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use sigma_test_util::force_any_val;

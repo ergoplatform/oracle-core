@@ -524,18 +524,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         ballot_token_id: ballot_token.token_id,
     };
 
-    // update contract parameters
-    let new_config = BootstrapConfig {
-        // oracle_contract_parameters: todo!(),
-        refresh_contract_parameters: refresh_contract
-            .parameters(config.refresh_contract_parameters.p2s.network()),
-        // update_contract_parameters: todo!(),
-        ballot_contract_parameters: config
-            .ballot_contract_parameters
-            .with_update_token_id(token_ids.update_nft_token_id.clone())?,
-        ..config.clone()
-    };
-    Ok(OracleConfig::create(new_config, token_ids)?)
+    Ok(OracleConfig::create(config, token_ids)?)
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
