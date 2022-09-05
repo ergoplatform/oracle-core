@@ -1,11 +1,14 @@
 use std::convert::TryFrom;
 
 use crate::{
-    box_kind::{OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs},
+    box_kind::{
+        OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs,
+        UpdateBoxWrapperInputs,
+    },
     cli_commands::bootstrap::BootstrapConfig,
     contracts::{
         ballot::BallotContractParameters, oracle::OracleContractError, pool::PoolContractError,
-        refresh::RefreshContractError, update::UpdateContractParameters,
+        refresh::RefreshContractError, update::UpdateContractError,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
@@ -41,7 +44,7 @@ pub struct OracleConfig {
     pub oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
     pub pool_box_wrapper_inputs: PoolBoxWrapperInputs,
     pub refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
-    pub update_contract_parameters: UpdateContractParameters,
+    pub update_box_wrapper_inputs: UpdateBoxWrapperInputs,
     pub ballot_contract_parameters: BallotContractParameters,
     pub token_ids: TokenIds,
 }
@@ -113,6 +116,12 @@ impl OracleConfig {
             token_ids.pool_nft_token_id.clone(),
             token_ids.reward_token_id.clone(),
         )?;
+        let update_box_wrapper_inputs = UpdateBoxWrapperInputs::create(
+            bootstrap.update_contract_parameters.clone(),
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.ballot_token_id.clone(),
+            token_ids.update_nft_token_id.clone(),
+        )?;
         Ok(OracleConfig {
             node_ip: bootstrap.node_ip,
             node_port: bootstrap.node_port,
@@ -127,7 +136,7 @@ impl OracleConfig {
             pool_box_wrapper_inputs,
             refresh_box_wrapper_inputs,
             ballot_contract_parameters: bootstrap.ballot_contract_parameters,
-            update_contract_parameters: bootstrap.update_contract_parameters,
+            update_box_wrapper_inputs,
             token_ids,
         })
     }
@@ -166,7 +175,9 @@ pub enum OracleConfigError {
     #[error("Refresh contract error: {0}")]
     RefreshContractError(RefreshContractError),
     #[error("Pool contract error: {0}")]
-    PoolContractErro(PoolContractError),
+    PoolContractError(PoolContractError),
+    #[error("Update contract error: {0}")]
+    UpdateContractErro(UpdateContractError),
 }
 
 lazy_static! {

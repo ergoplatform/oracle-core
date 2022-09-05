@@ -12,7 +12,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs},
+    box_kind::{
+        OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs,
+        UpdateBoxWrapperInputs,
+    },
     cli_commands::{
         bootstrap::{BootstrapConfig, TokensToMint},
         prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
@@ -78,8 +81,12 @@ impl From<OracleConfig> for OracleConfigSerde {
         );
         let ballot_contract_parameters =
             BallotContractParametersSerde::from(c.ballot_contract_parameters);
-        let update_contract_parameters =
-            UpdateContractParametersSerde::from(c.update_contract_parameters);
+        let update_contract_parameters = UpdateContractParametersSerde::from(
+            c.update_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
+        );
 
         OracleConfigSerde {
             node_ip: c.node_ip,
@@ -152,6 +159,14 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
+        let update_box_wrapper_inputs = UpdateBoxWrapperInputs::load(
+            update_contract_parameters.clone(),
+            c.token_ids.pool_nft_token_id.clone(),
+            c.token_ids.ballot_token_id.clone(),
+            c.token_ids.update_nft_token_id.clone(),
+        )
+        .map_err(OracleConfigError::from)?;
+
         if ballot_contract_prefix == network_prefix
             && update_contract_prefix == network_prefix
             && refresh_contract_prefix == network_prefix
@@ -171,7 +186,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 oracle_box_wrapper_inputs,
                 pool_box_wrapper_inputs,
                 refresh_box_wrapper_inputs,
-                update_contract_parameters,
+                update_box_wrapper_inputs,
                 ballot_contract_parameters,
                 token_ids: c.token_ids,
             })

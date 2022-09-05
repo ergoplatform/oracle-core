@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::contracts::update::UpdateContract;
 use crate::contracts::update::UpdateContractError;
+use crate::contracts::update::UpdateContractInputs;
 use crate::contracts::update::UpdateContractParameters;
 
 #[derive(Debug, Error)]
@@ -22,7 +23,7 @@ pub enum UpdateBoxError {
 pub struct UpdateBoxWrapper(ErgoBox, UpdateContract);
 
 impl UpdateBoxWrapper {
-    pub fn new(b: ErgoBox, inputs: UpdateBoxWrapperInputs) -> Result<Self, UpdateBoxError> {
+    pub fn new(b: ErgoBox, inputs: &UpdateBoxWrapperInputs) -> Result<Self, UpdateBoxError> {
         let update_token_id = b
             .tokens
             .as_ref()
@@ -31,10 +32,11 @@ impl UpdateBoxWrapper {
             .ok_or(UpdateBoxError::NoTokens)?
             .token_id
             .clone();
-        if update_token_id != *inputs.update_nft_token_id {
+        if update_token_id != inputs.update_nft_token_id {
             return Err(UpdateBoxError::IncorrectUpdateTokenId(update_token_id));
         }
-        let contract = UpdateContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
+        let contract =
+            UpdateContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
         Ok(Self(b, contract))
     }
@@ -55,12 +57,46 @@ impl UpdateBoxWrapper {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct UpdateBoxWrapperInputs<'a> {
-    pub contract_parameters: &'a UpdateContractParameters,
-    pub update_nft_token_id: &'a TokenId,
-    pub ballot_token_id: &'a TokenId,
-    pub pool_nft_token_id: &'a TokenId,
+#[derive(Debug, Clone)]
+pub struct UpdateBoxWrapperInputs {
+    pub contract_inputs: UpdateContractInputs,
+    pub update_nft_token_id: TokenId,
+}
+
+impl UpdateBoxWrapperInputs {
+    pub fn create(
+        update_contract_parameters: UpdateContractParameters,
+        pool_nft_token_id: TokenId,
+        ballot_token_id: TokenId,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, UpdateContractError> {
+        let contract_inputs = UpdateContractInputs::create(
+            update_contract_parameters,
+            pool_nft_token_id,
+            ballot_token_id,
+        )?;
+        Ok(UpdateBoxWrapperInputs {
+            contract_inputs,
+            update_nft_token_id,
+        })
+    }
+
+    pub fn load(
+        update_contract_parameters: UpdateContractParameters,
+        pool_nft_token_id: TokenId,
+        ballot_token_id: TokenId,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, UpdateContractError> {
+        let contract_inputs = UpdateContractInputs::load(
+            update_contract_parameters,
+            pool_nft_token_id,
+            ballot_token_id,
+        )?;
+        Ok(UpdateBoxWrapperInputs {
+            contract_inputs,
+            update_nft_token_id,
+        })
+    }
 }
 
 impl From<UpdateBoxWrapper> for ErgoBox {

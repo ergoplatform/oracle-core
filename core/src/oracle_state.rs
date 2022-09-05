@@ -158,7 +158,8 @@ pub struct BallotBoxesScan<'a> {
 #[derive(Debug)]
 pub struct UpdateBoxScan<'a> {
     scan: Scan,
-    update_box_wrapper_inputs: UpdateBoxWrapperInputs<'a>,
+    // TODO: switch inputs to reference in other scans
+    update_box_wrapper_inputs: &'a UpdateBoxWrapperInputs,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -230,12 +231,6 @@ impl<'a> OraclePool<'a> {
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
             contract_inputs: refresh_contract_inputs,
             refresh_nft_token_id: config.token_ids.refresh_nft_token_id.clone(),
-        };
-        let update_box_wrapper_inputs = UpdateBoxWrapperInputs {
-            contract_parameters: &config.update_contract_parameters,
-            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
-            update_nft_token_id: &config.token_ids.update_nft_token_id,
-            ballot_token_id: &config.token_ids.ballot_token_id,
         };
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
@@ -351,7 +346,7 @@ impl<'a> OraclePool<'a> {
 
         let update_box_scan = UpdateBoxScan {
             scan: Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string()),
-            update_box_wrapper_inputs,
+            update_box_wrapper_inputs: &config.update_box_wrapper_inputs,
         };
 
         // Create `OraclePool` struct

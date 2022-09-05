@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs},
+    box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
     contracts::{
         pool::{PoolContractError, PoolContractParameters},
         refresh::{
@@ -307,12 +307,12 @@ pub(crate) fn perform_update_chained_transaction(
     }
     if let Some(ref contract_parameters) = config.update_contract_parameters {
         info!("Creating new update NFT");
-        let update_contract_inputs = UpdateContractInputs {
-            contract_parameters,
-            ballot_token_id: &new_oracle_config.token_ids.ballot_token_id,
-            pool_nft_token_id: &new_oracle_config.token_ids.pool_nft_token_id,
-        };
-        let update_contract = UpdateContract::new(update_contract_inputs)?;
+        let update_contract_inputs = UpdateContractInputs::create(
+            contract_parameters.clone(),
+            new_oracle_config.token_ids.pool_nft_token_id.clone(),
+            new_oracle_config.token_ids.ballot_token_id.clone(),
+        )?;
+        let update_contract = UpdateContract::load(&update_contract_inputs)?;
         let update_nft_details = config
             .tokens_to_mint
             .update_nft
@@ -325,8 +325,11 @@ pub(crate) fn perform_update_chained_transaction(
             1.try_into().unwrap(),
             Some(update_contract.ergo_tree()),
         )?;
-        new_oracle_config.token_ids.update_nft_token_id = token.token_id;
-        new_oracle_config.update_contract_parameters = contract_parameters.clone();
+        new_oracle_config.token_ids.update_nft_token_id = token.token_id.clone();
+        new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
+            contract_inputs: update_contract_inputs,
+            update_nft_token_id: token.token_id,
+        };
         info!("Update contract tx id: {:?}", tx.id());
         transactions.push(tx);
     }
@@ -448,7 +451,7 @@ pool_contract_parameters:
   refresh_nft_index: 2
   update_nft_index: 3
 update_contract_parameters:
-  p2s: 3c2tfyDoE3VryrPkj4f6Drw4QCf4Cx2rHRwbMy3rp9JZwArEB7L18ePfXVpwxgPJ21E4vu5SnKzumuCSwgjUMxL6LTYncGWozPf71Xz1Bx8X2aUuNnkTxrJK9NJwuEyBdbnCiYv18a6Cbib5T9wovLuhDdcrdTsXbyyWy9iojqgvrApU4Ge31Xgxmir4sgVFX8pR6po1VCpSwbtvbP9pJyApVmkYGuWT7vMpoapPcsD4qRdn9cetGZL2Nz8dNvJyE4LRaE97VokTYFCpvM2NbAa8GkwXhBc4SsnFQKchR7PUch1CjZi4sVfBZL4Zma94UrpgP5oMNujzJx865mQsBm1h2dL87Dgfba81npafZxzDT9EU82UgWwhTYcnPiqZft5T9sQTsWiNtvMwTvXFVXAvfcPBr5meEkut2fx1p8ZmPLYoRGvDi9eLucRhpuhpAsLdBSS3iuHVn7bU4MAUYaquHD97CDFoTL2FZkfnELJHfqZMt3rtrjcC1VpMq2TgXPK5PsbsD9nEQYJTSex
+  p2s: 3c2tfyDoE3VryrPkj4f6CtpRGnsetx8XqbdZRVxGSTWhNBuYg3tJnFS83JJrNh2fj7ctdPUGvdy6ig4nXrgHHK1yqnQGsiYwE2Z2dmM5jg4gU4HBp4WrW89RUKEUNbu8n27EQG1LbyAnPpQE5dVWm7W3Cn4B5PMpnibePB7s1fACyx5JyjLATRNGBC1XYhXxeJChvGdzt8M9GYgRYcRtCeYsGirMmpQjVmcPH4bvjww1anFFEpGbNKehLj9dSNPnVcBV4Zh8ZedtXsyDcQAKwHJCi2fSK6SKZkD2kg6jn22iFZKUdS1z8x4TmYZFgjRHepKPyWfv1GUbK17Tz9eBrFTKSrg2J8kuQZ5EW3W42WbfX68uPSJRpe3UFCDYXSJshWpbwH8VBjcDFq5LuPLR4wSBegoNJq6orRq7nvwWGMUGMG2h71jXQoeLwsGbJDcq5DuPhojHjx4i7nktmyMHxsVYea5k5qZC9WUJTAc12NnWPTG1wvbxyeayAgyq7HtUegZeh6BEk6LrbbJv4T
   pool_nft_index: 5
   ballot_token_index: 9
   min_votes_index: 13

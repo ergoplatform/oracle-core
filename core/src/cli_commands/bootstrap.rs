@@ -295,12 +295,11 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Mint update NFT token -----------------------------------------------------------------------
 
-    let inputs = UpdateContractInputs {
-        pool_nft_token_id: &pool_nft_token.token_id,
-        ballot_token_id: &ballot_token.token_id,
-        contract_parameters: &config.update_contract_parameters,
-    };
-    let update_contract = UpdateContract::new(inputs)?;
+    let update_contract = UpdateContract::load(&UpdateContractInputs::create(
+        config.update_contract_parameters.clone(),
+        pool_nft_token.token_id.clone(),
+        ballot_token.token_id.clone(),
+    )?)?;
 
     info!("Minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
@@ -368,11 +367,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         ballot_token_id: ballot_token.token_id.clone(),
     };
 
-    let pool_contract_parameters = PoolContractParameters {
-        p2s: config.pool_contract_parameters.p2s.clone(),
-        refresh_nft_index: config.pool_contract_parameters.refresh_nft_index,
-        update_nft_index: config.pool_contract_parameters.update_nft_index,
-    };
     let pool_contract = PoolContract::create(&PoolContractInputs::create(
         config.pool_contract_parameters.clone(),
         refresh_nft_token.token_id.clone(),
@@ -535,7 +529,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         // oracle_contract_parameters: todo!(),
         refresh_contract_parameters: refresh_contract
             .parameters(config.refresh_contract_parameters.p2s.network()),
-        pool_contract_parameters,
         // update_contract_parameters: todo!(),
         ballot_contract_parameters: config
             .ballot_contract_parameters
@@ -782,16 +775,15 @@ pub(crate) mod tests {
             .unwrap();
         // Check that Update NFT is guarded by UpdateContract, and parameters are correct
 
-        let parameters = UpdateContractParameters::default();
-
-        let update_contract_inputs = UpdateContractInputs {
-            contract_parameters: &parameters,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
-            ballot_token_id: &token_ids.ballot_token_id,
-        };
+        let update_contract_inputs = UpdateContractInputs::create(
+            UpdateContractParameters::default(),
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.ballot_token_id.clone(),
+        )
+        .unwrap();
         let update_contract = crate::contracts::update::UpdateContract::from_ergo_tree(
             update_nft_box.ergo_tree.clone(),
-            update_contract_inputs,
+            &update_contract_inputs,
         )
         .unwrap();
         assert!(
@@ -831,6 +823,24 @@ pub(crate) mod tests {
                 .contract_parameters()
                 .p2s,
             bootstrap_config.oracle_contract_parameters.p2s
+        );
+        // Check that pool contract is updated
+        assert_ne!(
+            oracle_config
+                .pool_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .p2s,
+            bootstrap_config.pool_contract_parameters.p2s
+        );
+        // Check that update contract is updated
+        assert_ne!(
+            oracle_config
+                .update_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .p2s,
+            bootstrap_config.update_contract_parameters.p2s
         );
     }
 }

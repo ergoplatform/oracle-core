@@ -1,5 +1,7 @@
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -7,9 +9,8 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::{Literal, TryExtractInto};
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
-
-use crate::box_kind::UpdateBoxWrapperInputs;
 
 #[derive(Clone)]
 pub struct UpdateContract {
@@ -41,26 +42,58 @@ pub enum UpdateContractError {
     ErgoTreeConstant(ErgoTreeConstantError),
     #[error("update contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
+    #[error("contract error: {1:?}, expected P2S: {0}")]
+    WrappedWithExpectedP2SAddress(String, Box<Self>),
 }
 
-pub struct UpdateContractInputs<'a> {
-    pub contract_parameters: &'a UpdateContractParameters,
-    pub pool_nft_token_id: &'a TokenId,
-    pub ballot_token_id: &'a TokenId,
+#[derive(Debug, Clone)]
+pub struct UpdateContractInputs {
+    contract_parameters: UpdateContractParameters,
+    pub pool_nft_token_id: TokenId,
+    pub ballot_token_id: TokenId,
 }
 
-impl<'a> From<UpdateBoxWrapperInputs<'a>> for UpdateContractInputs<'a> {
-    fn from(wrapper_inputs: UpdateBoxWrapperInputs) -> UpdateContractInputs {
-        UpdateContractInputs {
-            contract_parameters: wrapper_inputs.contract_parameters,
-            pool_nft_token_id: wrapper_inputs.pool_nft_token_id,
-            ballot_token_id: wrapper_inputs.ballot_token_id,
-        }
+impl UpdateContractInputs {
+    pub fn create(
+        contract_parameters: UpdateContractParameters,
+        pool_nft_token_id: TokenId,
+        ballot_token_id: TokenId,
+    ) -> Result<Self, UpdateContractError> {
+        let network_prefix = contract_parameters.p2s.network();
+        let inputs_to_create_contract = Self {
+            contract_parameters,
+            pool_nft_token_id,
+            ballot_token_id,
+        };
+        let refresh_contract = UpdateContract::create(&inputs_to_create_contract)?;
+        let new_parameters = refresh_contract.parameters(network_prefix);
+        Ok(Self {
+            contract_parameters: new_parameters,
+            ..inputs_to_create_contract
+        })
+    }
+
+    pub fn load(
+        contract_parameters: UpdateContractParameters,
+        pool_nft_token_id: TokenId,
+        ballot_token_id: TokenId,
+    ) -> Result<Self, UpdateContractError> {
+        let contract_inputs = Self {
+            contract_parameters,
+            pool_nft_token_id,
+            ballot_token_id,
+        };
+        let _refresh_contract = UpdateContract::load(&contract_inputs)?;
+        Ok(contract_inputs)
+    }
+
+    pub fn contract_parameters(&self) -> &UpdateContractParameters {
+        &self.contract_parameters
     }
 }
 
 impl UpdateContract {
-    pub fn new(inputs: UpdateContractInputs) -> Result<Self, UpdateContractError> {
+    fn create(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
@@ -82,9 +115,27 @@ impl UpdateContract {
         Ok(contract)
     }
 
+    pub fn load(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
+        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+            let expected_p2s = NetworkAddress::new(
+                inputs.contract_parameters().p2s.network(),
+                &Address::P2S(
+                    Self::create(inputs)
+                        .unwrap()
+                        .ergo_tree
+                        .sigma_serialize_bytes()
+                        .unwrap(),
+                ),
+            )
+            .to_base58();
+            UpdateContractError::WrappedWithExpectedP2SAddress(expected_p2s, e.into())
+        })?;
+        Ok(contract)
+    }
     pub fn from_ergo_tree(
         ergo_tree: ErgoTree,
-        inputs: UpdateContractInputs,
+        inputs: &UpdateContractInputs,
     ) -> Result<Self, UpdateContractError> {
         dbg!(ergo_tree.get_constants().unwrap());
         let pool_nft_token_id = ergo_tree
@@ -92,7 +143,7 @@ impl UpdateContract {
             .map_err(|_| UpdateContractError::NoPoolNftId)?
             .ok_or(UpdateContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != *inputs.pool_nft_token_id {
+        if pool_nft_token_id != inputs.pool_nft_token_id {
             return Err(UpdateContractError::UnknownPoolNftId);
         };
 
@@ -101,7 +152,7 @@ impl UpdateContract {
             .map_err(|_| UpdateContractError::NoBallotTokenId)?
             .ok_or(UpdateContractError::NoBallotTokenId)?
             .try_extract_into::<TokenId>()?;
-        if ballot_token_id != *inputs.ballot_token_id {
+        if ballot_token_id != inputs.ballot_token_id {
             return Err(UpdateContractError::UnknownBallotTokenId);
         };
 
@@ -161,6 +212,19 @@ impl UpdateContract {
             .try_extract_into::<TokenId>()
             .unwrap()
     }
+
+    pub fn parameters(&self, network_prefix: NetworkPrefix) -> UpdateContractParameters {
+        UpdateContractParameters {
+            p2s: NetworkAddress::new(
+                network_prefix,
+                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
+            ),
+            pool_nft_index: self.pool_nft_index,
+            ballot_token_index: self.ballot_token_index,
+            min_votes_index: self.min_votes_index,
+            min_votes: self.min_votes(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -185,11 +249,11 @@ mod tests {
         let parameters = UpdateContractParameters::default();
         let token_ids = generate_token_ids();
         let inputs = UpdateContractInputs {
-            contract_parameters: &parameters,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
-            ballot_token_id: &token_ids.ballot_token_id,
+            contract_parameters: parameters.clone(),
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+            ballot_token_id: token_ids.ballot_token_id.clone(),
         };
-        let c = UpdateContract::new(inputs).unwrap();
+        let c = UpdateContract::create(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
         assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
         assert_eq!(c.min_votes(), parameters.min_votes);

@@ -405,12 +405,13 @@ mod tests {
             min_votes: 6,
             ..Default::default()
         };
-        let update_contract_inputs = UpdateContractInputs {
-            contract_parameters: &update_contract_parameters,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
-            ballot_token_id: &token_ids.ballot_token_id,
-        };
-        let update_contract = UpdateContract::new(update_contract_inputs).unwrap();
+        let update_contract_inputs = UpdateContractInputs::create(
+            update_contract_parameters,
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.ballot_token_id.clone(),
+        )
+        .unwrap();
+        let update_contract = UpdateContract::load(&update_contract_inputs).unwrap();
         let mut update_box_candidate =
             ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height);
         update_box_candidate.add_token(Token {
@@ -516,11 +517,9 @@ mod tests {
         let update_mock = UpdateBoxMock {
             update_box: UpdateBoxWrapper::new(
                 update_box,
-                UpdateBoxWrapperInputs {
-                    contract_parameters: &update_contract_parameters,
-                    update_nft_token_id: &token_ids.update_nft_token_id,
-                    ballot_token_id: &token_ids.ballot_token_id,
-                    pool_nft_token_id: &token_ids.pool_nft_token_id,
+                &UpdateBoxWrapperInputs {
+                    contract_inputs: update_contract_inputs.clone(),
+                    update_nft_token_id: token_ids.update_nft_token_id,
                 },
             )
             .unwrap(),
