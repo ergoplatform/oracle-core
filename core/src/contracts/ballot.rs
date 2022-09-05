@@ -36,6 +36,8 @@ pub enum BallotContractError {
     ErgoTreeConstant(ErgoTreeConstantError),
     #[error("ballot contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
+    #[error("contract error: {1:?}, expected P2S: {0}")]
+    WrappedWithExpectedP2SAddress(String, Box<Self>),
 }
 
 #[derive(Clone, Debug)]
@@ -45,7 +47,7 @@ pub struct BallotContractInputs {
 }
 
 impl BallotContractInputs {
-    pub fn new(
+    pub fn create(
         contract_parameters: BallotContractParameters,
         update_nft_token_id: TokenId,
     ) -> Result<Self, BallotContractError> {
@@ -61,7 +63,19 @@ impl BallotContractInputs {
         })
     }
 
-    pub fn parameters(&self) -> &BallotContractParameters {
+    pub fn load(
+        contract_parameters: BallotContractParameters,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, BallotContractError> {
+        let contract_inputs = Self {
+            contract_parameters,
+            update_nft_token_id,
+        };
+        let _refresh_contract = BallotContract::load(&contract_inputs)?;
+        Ok(contract_inputs)
+    }
+
+    pub fn contract_parameters(&self) -> &BallotContractParameters {
         &self.contract_parameters
     }
 }
@@ -69,7 +83,20 @@ impl BallotContractInputs {
 impl BallotContract {
     pub fn load(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
-        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+            let expected_p2s = NetworkAddress::new(
+                inputs.contract_parameters().p2s.network(),
+                &Address::P2S(
+                    Self::create(inputs)
+                        .unwrap()
+                        .ergo_tree
+                        .sigma_serialize_bytes()
+                        .unwrap(),
+                ),
+            )
+            .to_base58();
+            BallotContractError::WrappedWithExpectedP2SAddress(expected_p2s, e.into())
+        })?;
         Ok(contract)
     }
 

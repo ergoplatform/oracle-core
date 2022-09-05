@@ -462,7 +462,7 @@ mod tests {
         let pool_box_hash = blake2b256_hash(&pool_box_bytes);
 
         let ballot_contract_parameters = BallotContractParameters::default();
-        let ballot_contract_inputs = BallotContractInputs::new(
+        let ballot_contract_inputs = BallotContractInputs::create(
             ballot_contract_parameters.clone(),
             token_ids.update_nft_token_id.clone(),
         )
@@ -493,8 +493,8 @@ mod tests {
             ballot_boxes.push(
                 VoteBallotBoxWrapper::new(
                     ballot_box,
-                    crate::box_kind::BallotBoxWrapperInputs {
-                        ballot_token_id: &token_ids.ballot_token_id,
+                    &crate::box_kind::BallotBoxWrapperInputs {
+                        ballot_token_id: token_ids.ballot_token_id.clone(),
                         contract_inputs: ballot_contract_inputs.clone(),
                     },
                 )

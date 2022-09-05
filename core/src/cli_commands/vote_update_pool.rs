@@ -99,7 +99,10 @@ pub fn vote_update_pool(
             reward_token_amount,
             update_box_creation_height,
             ORACLE_CONFIG.oracle_address.address(),
-            &ORACLE_CONFIG.ballot_contract_parameters,
+            ORACLE_CONFIG
+                .ballot_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters(),
             &ORACLE_CONFIG.token_ids,
             height,
             change_network_address.address(),
@@ -203,7 +206,7 @@ fn build_tx_for_first_ballot_box(
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
     };
-    let inputs = BallotContractInputs::new(
+    let inputs = BallotContractInputs::create(
         ballot_contract_parameters.clone(),
         token_ids.update_nft_token_id.clone(),
     )?;
@@ -359,8 +362,8 @@ mod tests {
             amount: 1.try_into().unwrap(),
         };
         let inputs = BallotBoxWrapperInputs {
-            ballot_token_id: &token_ids.ballot_token_id,
-            contract_inputs: BallotContractInputs::new(
+            ballot_token_id: token_ids.ballot_token_id.clone(),
+            contract_inputs: BallotContractInputs::create(
                 ballot_contract_parameters.clone(),
                 token_ids.update_nft_token_id.clone(),
             )
@@ -388,7 +391,7 @@ mod tests {
         let ballot_box_mock = BallotBoxMock {
             ballot_box: BallotBoxWrapper::new(
                 in_ballot_box.clone(),
-                inputs,
+                &inputs,
                 &Address::P2Pk(secret.public_image()),
             )
             .unwrap(),

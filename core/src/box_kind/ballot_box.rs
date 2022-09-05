@@ -1,5 +1,7 @@
 use crate::{
-    contracts::ballot::{BallotContract, BallotContractError, BallotContractInputs},
+    contracts::ballot::{
+        BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
+    },
     oracle_config::CastBallotBoxVoteParameters,
 };
 use ergo_lib::{
@@ -63,7 +65,7 @@ pub struct BallotBoxWrapper {
 impl BallotBoxWrapper {
     pub fn new(
         ergo_box: ErgoBox,
-        inputs: BallotBoxWrapperInputs,
+        inputs: &BallotBoxWrapperInputs,
         ballot_token_owner_address: &Address,
     ) -> Result<Self, BallotBoxError> {
         let ballot_token_id = &ergo_box
@@ -73,7 +75,7 @@ impl BallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != *inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -92,10 +94,38 @@ impl BallotBoxWrapper {
 }
 
 #[derive(Clone, Debug)]
-pub struct BallotBoxWrapperInputs<'a> {
+pub struct BallotBoxWrapperInputs {
     pub contract_inputs: BallotContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the ballot box.
-    pub ballot_token_id: &'a TokenId,
+    pub ballot_token_id: TokenId,
+}
+
+impl BallotBoxWrapperInputs {
+    pub fn create(
+        ballot_contract_parameters: BallotContractParameters,
+        ballot_token_id: TokenId,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, BallotContractError> {
+        let contract_inputs =
+            BallotContractInputs::create(ballot_contract_parameters, update_nft_token_id)?;
+        Ok(BallotBoxWrapperInputs {
+            contract_inputs,
+            ballot_token_id,
+        })
+    }
+
+    pub fn load(
+        ballot_contract_parameters: BallotContractParameters,
+        ballot_token_id: TokenId,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, BallotContractError> {
+        let contract_inputs =
+            BallotContractInputs::load(ballot_contract_parameters, update_nft_token_id)?;
+        Ok(BallotBoxWrapperInputs {
+            contract_inputs,
+            ballot_token_id,
+        })
+    }
 }
 
 /// A Ballot Box with vote parameters guaranteed to be set
@@ -107,7 +137,7 @@ pub struct VoteBallotBoxWrapper {
 }
 
 impl VoteBallotBoxWrapper {
-    pub fn new(ergo_box: ErgoBox, inputs: BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
+    pub fn new(ergo_box: ErgoBox, inputs: &BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
         let ballot_token_id = &ergo_box
             .tokens
             .as_ref()
@@ -115,7 +145,7 @@ impl VoteBallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != *inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 

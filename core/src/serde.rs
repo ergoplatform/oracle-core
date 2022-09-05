@@ -13,8 +13,8 @@ use thiserror::Error;
 
 use crate::{
     box_kind::{
-        OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs,
-        UpdateBoxWrapperInputs,
+        BallotBoxWrapperInputs, OracleBoxWrapperInputs, PoolBoxWrapperInputs,
+        RefreshBoxWrapperInputs, UpdateBoxWrapperInputs,
     },
     cli_commands::{
         bootstrap::{BootstrapConfig, TokensToMint},
@@ -79,8 +79,12 @@ impl From<OracleConfig> for OracleConfigSerde {
                 .contract_parameters()
                 .clone(),
         );
-        let ballot_contract_parameters =
-            BallotContractParametersSerde::from(c.ballot_contract_parameters);
+        let ballot_contract_parameters = BallotContractParametersSerde::from(
+            c.ballot_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
+        );
         let update_contract_parameters = UpdateContractParametersSerde::from(
             c.update_box_wrapper_inputs
                 .contract_inputs
@@ -167,6 +171,13 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
+        let ballot_box_wrapper_inputs = BallotBoxWrapperInputs::load(
+            ballot_contract_parameters.clone(),
+            c.token_ids.ballot_token_id.clone(),
+            c.token_ids.update_nft_token_id.clone(),
+        )
+        .map_err(OracleConfigError::from)?;
+
         if ballot_contract_prefix == network_prefix
             && update_contract_prefix == network_prefix
             && refresh_contract_prefix == network_prefix
@@ -187,7 +198,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 pool_box_wrapper_inputs,
                 refresh_box_wrapper_inputs,
                 update_box_wrapper_inputs,
-                ballot_contract_parameters,
+                ballot_box_wrapper_inputs,
                 token_ids: c.token_ids,
             })
         } else {
