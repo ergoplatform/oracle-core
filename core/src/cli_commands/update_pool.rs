@@ -26,7 +26,6 @@ use crate::{
     box_kind::{make_pool_box_candidate, BallotBox, PoolBox, PoolBoxWrapper, VoteBallotBoxWrapper},
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
-    contracts::pool::PoolContractInputs,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{CastBallotBoxVoteParameters, OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
@@ -85,12 +84,8 @@ pub fn update_pool(
         (a.address(), a.network())
     };
 
-    let pool_contract_inputs = PoolContractInputs::from((
-        &new_oracle_config.pool_contract_parameters,
-        &new_oracle_config.token_ids,
-    ));
-
-    let new_pool_contract = PoolContract::new(pool_contract_inputs)?;
+    let new_pool_contract =
+        PoolContract::load(&new_oracle_config.pool_box_wrapper_inputs.contract_inputs)?;
     let new_pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -139,11 +134,8 @@ fn display_update_diff(
     new_reward_tokens: Option<Token>,
 ) {
     let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
-    let new_pool_contract = PoolContract::new(PoolContractInputs::from((
-        &new_oracle_config.pool_contract_parameters,
-        &new_oracle_config.token_ids,
-    )))
-    .unwrap();
+    let new_pool_contract =
+        PoolContract::load(&new_oracle_config.pool_box_wrapper_inputs.contract_inputs).unwrap();
     println!("Pool Parameters: ");
     let pool_box_hash = blake2b256_hash(
         &new_pool_contract
@@ -433,10 +425,14 @@ mod tests {
         .unwrap();
 
         let pool_contract_parameters = Default::default();
-        let pool_contract_inputs =
-            PoolContractInputs::from((&pool_contract_parameters, &token_ids));
+        let pool_contract_inputs = PoolContractInputs::create(
+            pool_contract_parameters,
+            token_ids.refresh_nft_token_id,
+            token_ids.update_nft_token_id.clone(),
+        )
+        .unwrap();
 
-        let pool_contract = PoolContract::new(pool_contract_inputs).unwrap();
+        let pool_contract = PoolContract::create(&pool_contract_inputs).unwrap();
         let pool_box_candidate = make_pool_box_candidate(
             &pool_contract,
             0,
@@ -454,9 +450,9 @@ mod tests {
             ErgoBox::from_box_candidate(&pool_box_candidate, force_any_val::<TxId>(), 0).unwrap();
 
         let new_refresh_token_id = force_any_tokenid();
-        let mut new_pool_contract_inputs = pool_contract_inputs;
-        new_pool_contract_inputs.refresh_nft_token_id = &new_refresh_token_id;
-        let new_pool_contract = PoolContract::new(new_pool_contract_inputs).unwrap();
+        let mut new_pool_contract_inputs = pool_contract_inputs.clone();
+        new_pool_contract_inputs.refresh_nft_token_id = new_refresh_token_id;
+        let new_pool_contract = PoolContract::create(&new_pool_contract_inputs).unwrap();
 
         let pool_box_bytes = new_pool_contract
             .ergo_tree()
@@ -532,12 +528,10 @@ mod tests {
         let pool_mock = PoolBoxMock {
             pool_box: PoolBoxWrapper::new(
                 pool_box,
-                PoolBoxWrapperInputs {
-                    contract_parameters: &pool_contract_parameters,
-                    pool_nft_token_id: &token_ids.pool_nft_token_id,
-                    reward_token_id: &token_ids.reward_token_id,
-                    refresh_nft_token_id: &token_ids.refresh_nft_token_id,
-                    update_nft_token_id: &token_ids.update_nft_token_id,
+                &PoolBoxWrapperInputs {
+                    contract_inputs: pool_contract_inputs,
+                    pool_nft_token_id: token_ids.pool_nft_token_id,
+                    reward_token_id: token_ids.reward_token_id,
                 },
             )
             .unwrap(),

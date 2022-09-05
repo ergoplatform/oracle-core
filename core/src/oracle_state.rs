@@ -113,7 +113,7 @@ pub struct OraclePool<'a> {
     pub datapoint_stage: DatapointStage,
     local_oracle_datapoint_scan: Option<LocalOracleDatapointScan>,
     local_ballot_box_scan: Option<LocalBallotBoxScan<'a>>,
-    pool_box_scan: PoolBoxScan<'a>,
+    pool_box_scan: PoolBoxScan,
     refresh_box_scan: RefreshBoxScan,
     ballot_boxes_scan: BallotBoxesScan<'a>,
     update_box_scan: UpdateBoxScan<'a>,
@@ -139,9 +139,9 @@ pub struct LocalBallotBoxScan<'a> {
 }
 
 #[derive(Debug)]
-pub struct PoolBoxScan<'a> {
+pub struct PoolBoxScan {
     scan: Scan,
-    pool_box_wrapper_inputs: PoolBoxWrapperInputs<'a>,
+    pool_box_wrapper_inputs: PoolBoxWrapperInputs,
 }
 
 #[derive(Debug)]
@@ -218,13 +218,6 @@ impl<'a> OraclePool<'a> {
             ballot_token_id: &config.token_ids.ballot_token_id,
             contract_inputs: ballot_contract_inputs,
         };
-        let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
-            contract_parameters: &config.pool_contract_parameters,
-            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
-            reward_token_id: &config.token_ids.reward_token_id,
-            refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
-            update_nft_token_id: &config.token_ids.update_nft_token_id,
-        };
         let refresh_contract_inputs = RefreshContractInputs::load(
             config
                 .refresh_box_wrapper_inputs
@@ -254,7 +247,7 @@ impl<'a> OraclePool<'a> {
                 )
                 .unwrap(),
                 register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
-                register_pool_box_scan(pool_box_wrapper_inputs).unwrap(),
+                register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
                 register_refresh_box_scan(
                     refresh_box_scan_name,
                     refresh_box_wrapper_inputs.clone(),
@@ -345,7 +338,7 @@ impl<'a> OraclePool<'a> {
 
         let pool_box_scan = PoolBoxScan {
             scan: Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
-            pool_box_wrapper_inputs,
+            pool_box_wrapper_inputs: config.pool_box_wrapper_inputs.clone(),
         };
 
         let refresh_box_scan = RefreshBoxScan {
@@ -512,9 +505,9 @@ impl<'a> OraclePool<'a> {
     }
 }
 
-impl<'a> PoolBoxSource for PoolBoxScan<'a> {
+impl PoolBoxSource for PoolBoxScan {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
-        let box_wrapper = PoolBoxWrapper::new(self.scan.get_box()?, self.pool_box_wrapper_inputs)?;
+        let box_wrapper = PoolBoxWrapper::new(self.scan.get_box()?, &self.pool_box_wrapper_inputs)?;
         Ok(box_wrapper)
     }
 }

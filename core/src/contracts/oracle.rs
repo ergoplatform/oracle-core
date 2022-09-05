@@ -59,14 +59,12 @@ impl OracleContractInputs {
         contract_parameters: OracleContractParameters,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, OracleContractError> {
-        let _ = OracleContract::load(&OracleContractInputs {
+        let contract_inputs = OracleContractInputs {
             contract_parameters: contract_parameters.clone(),
             pool_nft_token_id: pool_nft_token_id.clone(),
-        })?;
-        Ok(Self {
-            contract_parameters,
-            pool_nft_token_id,
-        })
+        };
+        let _ = OracleContract::load(&contract_inputs)?;
+        Ok(contract_inputs)
     }
 
     pub fn contract_parameters(&self) -> &OracleContractParameters {

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{OracleBoxWrapperInputs, RefreshBoxWrapperInputs},
+    box_kind::{OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs},
     cli_commands::{
         bootstrap::{BootstrapConfig, TokensToMint},
         prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
@@ -64,8 +64,12 @@ impl From<OracleConfig> for OracleConfigSerde {
                 .contract_parameters()
                 .clone(),
         );
-        let pool_contract_parameters =
-            PoolContractParametersSerde::from(c.pool_contract_parameters);
+        let pool_contract_parameters = PoolContractParametersSerde::from(
+            c.pool_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
+        );
         let refresh_contract_parameters = RefreshContractParametersSerde::from(
             c.refresh_box_wrapper_inputs
                 .contract_inputs
@@ -139,6 +143,15 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
+        let pool_box_wrapper_inputs = PoolBoxWrapperInputs::load(
+            pool_contract_parameters.clone(),
+            c.token_ids.refresh_nft_token_id.clone(),
+            c.token_ids.update_nft_token_id.clone(),
+            c.token_ids.pool_nft_token_id.clone(),
+            c.token_ids.reward_token_id.clone(),
+        )
+        .map_err(OracleConfigError::from)?;
+
         if ballot_contract_prefix == network_prefix
             && update_contract_prefix == network_prefix
             && refresh_contract_prefix == network_prefix
@@ -156,7 +169,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
                 data_point_source: c.data_point_source,
                 data_point_source_custom_script: c.data_point_source_custom_script,
                 oracle_box_wrapper_inputs,
-                pool_contract_parameters,
+                pool_box_wrapper_inputs,
                 refresh_box_wrapper_inputs,
                 update_contract_parameters,
                 ballot_contract_parameters,

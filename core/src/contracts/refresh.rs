@@ -337,16 +337,13 @@ impl RefreshContractInputs {
         oracle_token_id: TokenId,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, RefreshContractError> {
-        let _refresh_contract = RefreshContract::load(&RefreshContractInputs {
-            contract_parameters: contract_parameters.clone(),
-            oracle_token_id: oracle_token_id.clone(),
-            pool_nft_token_id: pool_nft_token_id.clone(),
-        })?;
-        Ok(Self {
+        let contract_inputs = RefreshContractInputs {
             contract_parameters,
             oracle_token_id,
             pool_nft_token_id,
-        })
+        };
+        let _refresh_contract = RefreshContract::load(&contract_inputs)?;
+        Ok(contract_inputs)
     }
 
     pub fn contract_parameters(&self) -> &RefreshContractParameters {

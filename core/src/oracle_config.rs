@@ -1,12 +1,11 @@
 use std::convert::TryFrom;
 
 use crate::{
-    box_kind::{OracleBoxWrapperInputs, RefreshBoxWrapperInputs},
+    box_kind::{OracleBoxWrapperInputs, PoolBoxWrapperInputs, RefreshBoxWrapperInputs},
     cli_commands::bootstrap::BootstrapConfig,
     contracts::{
-        ballot::BallotContractParameters, oracle::OracleContractError,
-        pool::PoolContractParameters, refresh::RefreshContractError,
-        update::UpdateContractParameters,
+        ballot::BallotContractParameters, oracle::OracleContractError, pool::PoolContractError,
+        refresh::RefreshContractError, update::UpdateContractParameters,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
 };
@@ -40,7 +39,7 @@ pub struct OracleConfig {
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
     pub oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
-    pub pool_contract_parameters: PoolContractParameters,
+    pub pool_box_wrapper_inputs: PoolBoxWrapperInputs,
     pub refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
     pub update_contract_parameters: UpdateContractParameters,
     pub ballot_contract_parameters: BallotContractParameters,
@@ -107,6 +106,13 @@ impl OracleConfig {
             token_ids.oracle_token_id.clone(),
             token_ids.reward_token_id.clone(),
         )?;
+        let pool_box_wrapper_inputs = PoolBoxWrapperInputs::create(
+            bootstrap.pool_contract_parameters.clone(),
+            token_ids.refresh_nft_token_id.clone(),
+            token_ids.update_nft_token_id.clone(),
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.reward_token_id.clone(),
+        )?;
         Ok(OracleConfig {
             node_ip: bootstrap.node_ip,
             node_port: bootstrap.node_port,
@@ -118,7 +124,7 @@ impl OracleConfig {
             data_point_source: bootstrap.data_point_source,
             data_point_source_custom_script: bootstrap.data_point_source_custom_script,
             oracle_box_wrapper_inputs,
-            pool_contract_parameters: bootstrap.pool_contract_parameters,
+            pool_box_wrapper_inputs,
             refresh_box_wrapper_inputs,
             ballot_contract_parameters: bootstrap.ballot_contract_parameters,
             update_contract_parameters: bootstrap.update_contract_parameters,
@@ -156,9 +162,11 @@ impl OracleConfig {
 #[derive(Debug, From, Error)]
 pub enum OracleConfigError {
     #[error("Oracle contract error: {0}")]
-    OracleConfigError(OracleContractError),
+    OracleContractError(OracleContractError),
     #[error("Refresh contract error: {0}")]
-    RefreshConfigError(RefreshContractError),
+    RefreshContractError(RefreshContractError),
+    #[error("Pool contract error: {0}")]
+    PoolContractErro(PoolContractError),
 }
 
 lazy_static! {

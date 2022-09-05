@@ -117,12 +117,16 @@ pub(crate) fn make_pool_box(
     pool_contract_parameters: &PoolContractParameters,
     token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
+    let pool_contract_inputs = PoolContractInputs::create(
+        pool_contract_parameters.clone(),
+        token_ids.refresh_nft_token_id.clone(),
+        token_ids.update_nft_token_id.clone(),
+    )
+    .unwrap();
     let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
-        contract_parameters: pool_contract_parameters,
-        pool_nft_token_id: &token_ids.pool_nft_token_id,
-        reward_token_id: &token_ids.reward_token_id,
-        refresh_nft_token_id: &token_ids.refresh_nft_token_id,
-        update_nft_token_id: &token_ids.update_nft_token_id,
+        contract_inputs: pool_contract_inputs.clone(),
+        pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+        reward_token_id: token_ids.reward_token_id.clone(),
     };
     let tokens = vec![
         Token::from((
@@ -139,12 +143,9 @@ pub(crate) fn make_pool_box(
     PoolBoxWrapper::new(
         ErgoBox::new(
             value,
-            PoolContract::new(PoolContractInputs::from((
-                pool_contract_parameters,
-                token_ids,
-            )))
-            .unwrap()
-            .ergo_tree(),
+            PoolContract::create(&pool_contract_inputs)
+                .unwrap()
+                .ergo_tree(),
             Some(tokens),
             NonMandatoryRegisters::new(
                 vec![
@@ -160,7 +161,7 @@ pub(crate) fn make_pool_box(
             0,
         )
         .unwrap(),
-        pool_box_wrapper_inputs,
+        &pool_box_wrapper_inputs,
     )
     .unwrap()
 }

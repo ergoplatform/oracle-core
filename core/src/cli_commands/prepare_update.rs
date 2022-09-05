@@ -32,9 +32,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::RefreshBoxWrapperInputs,
+    box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs},
     contracts::{
-        pool::PoolContractParameters,
+        pool::{PoolContractError, PoolContractParameters},
         refresh::{
             RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
         },
@@ -332,7 +332,14 @@ pub(crate) fn perform_update_chained_transaction(
     }
 
     if let Some(new_pool_contract_parameters) = config.pool_contract_parameters {
-        new_oracle_config.pool_contract_parameters = new_pool_contract_parameters;
+        let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::create(
+            new_pool_contract_parameters,
+            new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+            new_oracle_config.token_ids.update_nft_token_id.clone(),
+            new_oracle_config.token_ids.pool_nft_token_id.clone(),
+            new_oracle_config.token_ids.reward_token_id.clone(),
+        )?;
+        new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
     }
 
     for tx in transactions {
@@ -370,6 +377,8 @@ pub enum PrepareUpdateError {
     RefreshContract(RefreshContractError),
     #[error("Update contract error: {0}")]
     UpdateContract(UpdateContractError),
+    #[error("Pool contract failed: {0}")]
+    PoolContract(PoolContractError),
     #[error("Bootstrap config file already exists")]
     ConfigFilenameAlreadyExists,
     #[error("No parameters were added for update")]
@@ -435,7 +444,7 @@ refresh_contract_parameters:
   epoch_length_index: 0
   epoch_length: 30
 pool_contract_parameters:
-  p2s: 3R221rmtBS5mwaKUTfwXpmGoUk4PjKLXuD6aRd1xyuCaRLNtzinwTGsZnhs4Fen3Rz46GYcgLezUe3Aunm7gZYWgYyEWCGfPYsmTptYtd8U2o2pp8NvNL7yQ79vJUamqqEtVt1i7eVHKAZarHP51n
+  p2s: 3R221rmtBS5mv9FuWgjb1xyG477Xey6XRs4hhej7Lo2etbUk1nopfd1TdgCrLxUZqfPsP5rb6DnqYMsLxR9jWRAK5jtBLCwCv3tBCL9RDW4LenyXVfFoaMM1R2CoZgfJvZBceawghMZj4sDL2GScw
   refresh_nft_index: 2
   update_nft_index: 3
 update_contract_parameters:

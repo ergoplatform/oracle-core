@@ -34,7 +34,7 @@ use crate::{
     contracts::{
         ballot::{BallotContractError, BallotContractParameters},
         oracle::OracleContractParameters,
-        pool::{PoolContract, PoolContractInputs, PoolContractParameters},
+        pool::{PoolContract, PoolContractError, PoolContractInputs, PoolContractParameters},
         refresh::{
             RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
         },
@@ -373,10 +373,11 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         refresh_nft_index: config.pool_contract_parameters.refresh_nft_index,
         update_nft_index: config.pool_contract_parameters.update_nft_index,
     };
-    let pool_contract = PoolContract::new(PoolContractInputs::from((
-        &pool_contract_parameters,
-        &token_ids,
-    )))
+    let pool_contract = PoolContract::create(&PoolContractInputs::create(
+        config.pool_contract_parameters.clone(),
+        refresh_nft_token.token_id.clone(),
+        update_nft_token.token_id.clone(),
+    )?)
     .unwrap();
 
     let reward_tokens_for_pool_box = Token {
@@ -674,6 +675,8 @@ pub enum BootstrapError {
     BallotContractError(BallotContractError),
     #[error("Oracle config error: {0}")]
     OracleConfigError(OracleConfigError),
+    #[error("Pool contract error: {0}")]
+    PoolContractError(PoolContractError),
 }
 
 #[cfg(test)]
