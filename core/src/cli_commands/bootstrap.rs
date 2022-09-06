@@ -789,7 +789,6 @@ pub(crate) mod tests {
         let ballot_id = TokenId::from_base64(&encoded).unwrap();
         assert_eq!(token_ids.ballot_token_id, ballot_id);
 
-        // TODO: check that it's updated with expected parameters (min_votes, etc.)
         // Check that refresh contract is updated
         assert_ne!(
             oracle_config

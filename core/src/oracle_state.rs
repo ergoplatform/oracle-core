@@ -7,7 +7,6 @@ use crate::box_kind::{
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
-use crate::contracts::refresh::RefreshContractInputs;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
@@ -110,25 +109,25 @@ pub struct Stage {
 pub struct OraclePool<'a> {
     pub data_point_source: Box<dyn DataPointSource + Sync + Send>,
     /// Stages
-    pub datapoint_stage: DatapointStage,
-    local_oracle_datapoint_scan: Option<LocalOracleDatapointScan>,
+    pub datapoint_stage: DatapointStage<'a>,
+    local_oracle_datapoint_scan: Option<LocalOracleDatapointScan<'a>>,
     local_ballot_box_scan: Option<LocalBallotBoxScan<'a>>,
-    pool_box_scan: PoolBoxScan,
-    refresh_box_scan: RefreshBoxScan,
+    pool_box_scan: PoolBoxScan<'a>,
+    refresh_box_scan: RefreshBoxScan<'a>,
     ballot_boxes_scan: BallotBoxesScan<'a>,
     update_box_scan: UpdateBoxScan<'a>,
 }
 
 #[derive(Debug)]
-pub struct DatapointStage {
+pub struct DatapointStage<'a> {
     pub stage: Stage,
-    oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
+    oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct LocalOracleDatapointScan {
+pub struct LocalOracleDatapointScan<'a> {
     scan: Scan,
-    oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
+    oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
@@ -139,15 +138,15 @@ pub struct LocalBallotBoxScan<'a> {
 }
 
 #[derive(Debug)]
-pub struct PoolBoxScan {
+pub struct PoolBoxScan<'a> {
     scan: Scan,
-    pool_box_wrapper_inputs: PoolBoxWrapperInputs,
+    pool_box_wrapper_inputs: &'a PoolBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct RefreshBoxScan {
+pub struct RefreshBoxScan<'a> {
     scan: Scan,
-    refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
+    refresh_box_wrapper_inputs: &'a RefreshBoxWrapperInputs,
 }
 
 #[derive(Debug)]
@@ -158,7 +157,6 @@ pub struct BallotBoxesScan<'a> {
 #[derive(Debug)]
 pub struct UpdateBoxScan<'a> {
     scan: Scan,
-    // TODO: switch inputs to reference in other scans
     update_box_wrapper_inputs: &'a UpdateBoxWrapperInputs,
 }
 
@@ -210,20 +208,6 @@ impl<'a> OraclePool<'a> {
         let datapoint_contract_address =
             OracleContract::load(&config.oracle_box_wrapper_inputs.contract_inputs)?.ergo_tree();
 
-        let refresh_contract_inputs = RefreshContractInputs::load(
-            config
-                .refresh_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .clone(),
-            config.token_ids.oracle_token_id.clone(),
-            config.token_ids.pool_nft_token_id.clone(),
-        )?;
-        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
-            contract_inputs: refresh_contract_inputs,
-            refresh_nft_token_id: config.token_ids.refresh_nft_token_id.clone(),
-        };
-
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
             let mut scans = vec![
@@ -236,7 +220,7 @@ impl<'a> OraclePool<'a> {
                 register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
                 register_refresh_box_scan(
                     refresh_box_scan_name,
-                    refresh_box_wrapper_inputs.clone(),
+                    config.refresh_box_wrapper_inputs.clone(),
                 )
                 .unwrap(),
             ];
@@ -304,7 +288,7 @@ impl<'a> OraclePool<'a> {
                     "Local Oracle Datapoint Scan",
                     &scan_json[local_scan_str].to_string(),
                 ),
-                oracle_box_wrapper_inputs: config.oracle_box_wrapper_inputs.clone(),
+                oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
             });
         };
 
@@ -325,7 +309,7 @@ impl<'a> OraclePool<'a> {
 
         let pool_box_scan = PoolBoxScan {
             scan: Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
-            pool_box_wrapper_inputs: config.pool_box_wrapper_inputs.clone(),
+            pool_box_wrapper_inputs: &config.pool_box_wrapper_inputs,
         };
 
         let refresh_box_scan = RefreshBoxScan {
@@ -333,7 +317,7 @@ impl<'a> OraclePool<'a> {
                 refresh_box_scan_name,
                 &scan_json[refresh_box_scan_name].to_string(),
             ),
-            refresh_box_wrapper_inputs,
+            refresh_box_wrapper_inputs: &config.refresh_box_wrapper_inputs,
         };
 
         let update_box_scan = UpdateBoxScan {
@@ -349,7 +333,7 @@ impl<'a> OraclePool<'a> {
                     contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
                     scan: datapoint_scan,
                 },
-                oracle_box_wrapper_inputs: config.oracle_box_wrapper_inputs.clone(),
+                oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
             },
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
@@ -492,9 +476,9 @@ impl<'a> OraclePool<'a> {
     }
 }
 
-impl PoolBoxSource for PoolBoxScan {
+impl<'a> PoolBoxSource for PoolBoxScan<'a> {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
-        let box_wrapper = PoolBoxWrapper::new(self.scan.get_box()?, &self.pool_box_wrapper_inputs)?;
+        let box_wrapper = PoolBoxWrapper::new(self.scan.get_box()?, self.pool_box_wrapper_inputs)?;
         Ok(box_wrapper)
     }
 }
@@ -510,7 +494,7 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
     }
 }
 
-impl RefreshBoxSource for RefreshBoxScan {
+impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
         let box_wrapper = RefreshBoxWrapper::new(
             self.scan.get_box()?,
@@ -520,10 +504,10 @@ impl RefreshBoxSource for RefreshBoxScan {
     }
 }
 
-impl LocalDatapointBoxSource for LocalOracleDatapointScan {
+impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
     fn get_local_oracle_datapoint_box(&self) -> Result<OracleBoxWrapper> {
         let box_wrapper =
-            OracleBoxWrapper::new(self.scan.get_box()?, &self.oracle_box_wrapper_inputs)?;
+            OracleBoxWrapper::new(self.scan.get_box()?, self.oracle_box_wrapper_inputs)?;
         Ok(box_wrapper)
     }
 }
@@ -582,13 +566,13 @@ impl StageDataSource for Stage {
     }
 }
 
-impl DatapointBoxesSource for DatapointStage {
+impl<'a> DatapointBoxesSource for DatapointStage<'a> {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>> {
         let res = self
             .stage
             .get_boxes()?
             .into_iter()
-            .map(|b| OracleBoxWrapper::new(b, &self.oracle_box_wrapper_inputs).unwrap())
+            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs).unwrap())
             .collect();
         Ok(res)
     }
