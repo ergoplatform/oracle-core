@@ -524,7 +524,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         ballot_token_id: ballot_token.token_id,
     };
 
-    Ok(OracleConfig::create(config, token_ids)?)
+    Ok(OracleConfig::create(config, token_ids, height)?)
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.

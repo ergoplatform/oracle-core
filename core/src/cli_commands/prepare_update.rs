@@ -427,7 +427,7 @@ node_api_key: hello
 base_fee: 10000
 core_api_port: 9053
 oracle_address: 3WzD3VNSK4RtDCZe8njzLzRnWbxcfpCneUcQncAVV9JBDE37nLxR
-on_mainnet: false
+rescan_height: 0
 
 data_point_source: NanoErgUsd
 addresses:
