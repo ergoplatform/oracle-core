@@ -71,7 +71,7 @@ impl BallotContractInputs {
             contract_parameters,
             update_nft_token_id,
         };
-        let _refresh_contract = BallotContract::load(&contract_inputs)?;
+        let _ = BallotContract::load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
