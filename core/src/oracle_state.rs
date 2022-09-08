@@ -8,7 +8,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::oracle_config::{BallotBoxWrapperParameters, ORACLE_CONFIG};
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
     register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
@@ -19,10 +19,9 @@ use crate::{BlockHeight, EpochID, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 
-use ergo_lib::ergotree_ir::chain::address::{Address, NetworkAddress};
-use ergo_lib::ergotree_ir::chain::ergo_box::{ErgoBox, NonMandatoryRegisterId};
-use ergo_lib::ergotree_ir::mir::constant::{TryExtractFromError, TryExtractInto};
-use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
+use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
 use thiserror::Error;
@@ -122,42 +121,43 @@ pub struct OraclePool<'a> {
 #[derive(Debug)]
 pub struct DatapointStage<'a> {
     pub stage: Stage,
-    oracle_box_wrapper_inputs: OracleBoxWrapperInputs<'a>,
+    oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
 pub struct LocalOracleDatapointScan<'a> {
     scan: Scan,
-    oracle_box_wrapper_inputs: OracleBoxWrapperInputs<'a>,
+    oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
 pub struct LocalBallotBoxScan<'a> {
     scan: Scan,
-    ballot_box_wrapper_inputs: BallotBoxWrapperInputs<'a>,
+    ballot_box_wrapper_inputs: &'a BallotBoxWrapperInputs,
+    ballot_token_owner_address: Address,
 }
 
 #[derive(Debug)]
 pub struct PoolBoxScan<'a> {
     scan: Scan,
-    pool_box_wrapper_inputs: PoolBoxWrapperInputs<'a>,
+    pool_box_wrapper_inputs: &'a PoolBoxWrapperInputs,
 }
 
 #[derive(Debug)]
 pub struct RefreshBoxScan<'a> {
     scan: Scan,
-    refresh_box_wrapper_inputs: RefreshBoxWrapperInputs<'a>,
+    refresh_box_wrapper_inputs: &'a RefreshBoxWrapperInputs,
 }
 
 #[derive(Debug)]
 pub struct BallotBoxesScan<'a> {
     scan: Scan,
-    ballot_box_wrapper_inputs: BallotBoxWrapperInputs<'a>,
+    ballot_box_wrapper_inputs: &'a BallotBoxWrapperInputs,
 }
 #[derive(Debug)]
 pub struct UpdateBoxScan<'a> {
     scan: Scan,
-    update_box_wrapper_inputs: UpdateBoxWrapperInputs<'a>,
+    update_box_wrapper_inputs: &'a UpdateBoxWrapperInputs,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -205,35 +205,9 @@ impl<'a> OraclePool<'a> {
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
-        let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((&config.oracle_contract_parameters, &config.token_ids));
         let datapoint_contract_address =
-            OracleContract::new(oracle_box_wrapper_inputs.into())?.ergo_tree();
-
-        let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
-            parameters: &config.ballot_parameters,
-            ballot_token_id: &config.token_ids.ballot_token_id,
-            update_nft_token_id: &config.token_ids.update_nft_token_id,
-        };
-        let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
-            contract_parameters: &config.pool_contract_parameters,
-            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
-            reward_token_id: &config.token_ids.reward_token_id,
-            refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
-            update_nft_token_id: &config.token_ids.update_nft_token_id,
-        };
-        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
-            contract_parameters: &config.refresh_contract_parameters,
-            refresh_nft_token_id: &config.token_ids.refresh_nft_token_id,
-            oracle_token_id: &config.token_ids.oracle_token_id,
-            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
-        };
-        let update_box_wrapper_inputs = UpdateBoxWrapperInputs {
-            contract_parameters: &config.update_contract_parameters,
-            pool_nft_token_id: &config.token_ids.pool_nft_token_id,
-            update_nft_token_id: &config.token_ids.update_nft_token_id,
-            ballot_token_id: &config.token_ids.ballot_token_id,
-        };
+            OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
+                .ergo_tree();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
@@ -244,9 +218,12 @@ impl<'a> OraclePool<'a> {
                 )
                 .unwrap(),
                 register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
-                register_pool_box_scan(pool_box_wrapper_inputs).unwrap(),
-                register_refresh_box_scan(refresh_box_scan_name, refresh_box_wrapper_inputs)
-                    .unwrap(),
+                register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
+                register_refresh_box_scan(
+                    refresh_box_scan_name,
+                    config.refresh_box_wrapper_inputs.clone(),
+                )
+                .unwrap(),
             ];
 
             // Local datapoint box may not exist yet.
@@ -258,17 +235,14 @@ impl<'a> OraclePool<'a> {
                 scans.push(local_scan);
             }
 
-            let ballot_token_owner_address_str = config
-                .ballot_parameters
-                .ballot_token_owner_address
-                .to_base58();
             let ballot_contract_address =
-                BallotContract::new(ballot_box_wrapper_inputs.into())?.ergo_tree();
+                BallotContract::checked_load(&config.ballot_box_wrapper_inputs.contract_inputs)?
+                    .ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(
                 &ballot_contract_address,
                 &config.token_ids.ballot_token_id,
-                &ballot_token_owner_address_str,
+                &config.oracle_address,
             ) {
                 scans.push(local_scan);
             }
@@ -315,7 +289,7 @@ impl<'a> OraclePool<'a> {
                     "Local Oracle Datapoint Scan",
                     &scan_json[local_scan_str].to_string(),
                 ),
-                oracle_box_wrapper_inputs,
+                oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
             });
         };
 
@@ -324,18 +298,19 @@ impl<'a> OraclePool<'a> {
         if scan_json.has_key(local_scan_str) {
             local_ballot_box_scan = Some(LocalBallotBoxScan {
                 scan: Scan::new(local_scan_str, &scan_json[local_scan_str].to_string()),
-                ballot_box_wrapper_inputs,
+                ballot_box_wrapper_inputs: &config.ballot_box_wrapper_inputs,
+                ballot_token_owner_address: config.oracle_address.address(),
             });
         }
 
         let ballot_boxes_scan = BallotBoxesScan {
             scan: Scan::new("Ballot Box Scan", &scan_json["Ballot Box Scan"].to_string()),
-            ballot_box_wrapper_inputs,
+            ballot_box_wrapper_inputs: &config.ballot_box_wrapper_inputs,
         };
 
         let pool_box_scan = PoolBoxScan {
             scan: Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
-            pool_box_wrapper_inputs,
+            pool_box_wrapper_inputs: &config.pool_box_wrapper_inputs,
         };
 
         let refresh_box_scan = RefreshBoxScan {
@@ -343,12 +318,12 @@ impl<'a> OraclePool<'a> {
                 refresh_box_scan_name,
                 &scan_json[refresh_box_scan_name].to_string(),
             ),
-            refresh_box_wrapper_inputs,
+            refresh_box_wrapper_inputs: &config.refresh_box_wrapper_inputs,
         };
 
         let update_box_scan = UpdateBoxScan {
             scan: Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string()),
-            update_box_wrapper_inputs,
+            update_box_wrapper_inputs: &config.update_box_wrapper_inputs,
         };
 
         // Create `OraclePool` struct
@@ -359,7 +334,7 @@ impl<'a> OraclePool<'a> {
                     contract_address: datapoint_contract_address.to_base16_bytes().unwrap(),
                     scan: datapoint_scan,
                 },
-                oracle_box_wrapper_inputs,
+                oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
             },
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
@@ -395,7 +370,11 @@ impl<'a> OraclePool<'a> {
 
         // Block height epochs ends is held in R5 of the epoch box
         let epoch_ends = pool_box.get_box().creation_height
-            + ORACLE_CONFIG.refresh_contract_parameters.epoch_length as u32;
+            + ORACLE_CONFIG
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .epoch_length as u32;
 
         let epoch_state = LiveEpochState {
             epoch_id,
@@ -507,16 +486,21 @@ impl<'a> PoolBoxSource for PoolBoxScan<'a> {
 
 impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
     fn get_ballot_box(&self) -> Result<BallotBoxWrapper> {
-        let box_wrapper =
-            BallotBoxWrapper::new(self.scan.get_box()?, self.ballot_box_wrapper_inputs)?;
+        let box_wrapper = BallotBoxWrapper::new(
+            self.scan.get_box()?,
+            self.ballot_box_wrapper_inputs,
+            &self.ballot_token_owner_address,
+        )?;
         Ok(box_wrapper)
     }
 }
 
 impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
-        let box_wrapper =
-            RefreshBoxWrapper::new(self.scan.get_box()?, self.refresh_box_wrapper_inputs)?;
+        let box_wrapper = RefreshBoxWrapper::new(
+            self.scan.get_box()?,
+            self.refresh_box_wrapper_inputs.clone(),
+        )?;
         Ok(box_wrapper)
     }
 }
@@ -536,33 +520,9 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
             .get_boxes()?
             .into_iter()
             .map(|ballot_box| {
-                // Build Parameters for each Ballot Box
-                let ec = ballot_box
-                    .get_register(NonMandatoryRegisterId::R4.into())
-                    .ok_or(BallotBoxError::NoGroupElementInR4)?
-                    .try_extract_into::<ergo_lib::ergo_chain_types::EcPoint>()?;
-
-                let ballot_token_owner_address = NetworkAddress::new(
-                    self.ballot_box_wrapper_inputs
-                        .parameters
-                        .ballot_token_owner_address
-                        .network(),
-                    &Address::P2Pk(ProveDlog::from(ec)),
-                );
-
-                let ballot_box_wrapper_parameters = BallotBoxWrapperParameters {
-                    vote_parameters: None,
-                    ballot_token_owner_address,
-                    ..self.ballot_box_wrapper_inputs.parameters.clone()
-                };
-
-                let ballot_box_wrapper_inputs = BallotBoxWrapperInputs {
-                    parameters: &ballot_box_wrapper_parameters,
-                    ..self.ballot_box_wrapper_inputs
-                };
                 Ok(VoteBallotBoxWrapper::new(
                     ballot_box,
-                    ballot_box_wrapper_inputs,
+                    self.ballot_box_wrapper_inputs,
                 )?)
             })
             .filter_map(Result::ok) // Filter out boxes that are not participating in voting

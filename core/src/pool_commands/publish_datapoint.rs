@@ -172,7 +172,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new(inputs.into())?,
+        &OracleContract::checked_load(&inputs.contract_inputs)?,
         public_key,
         new_datapoint,
         1,
@@ -237,6 +237,7 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
+    use crate::box_kind::OracleBoxWrapper;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::pool_commands::test_utils::{
@@ -291,8 +292,8 @@ mod tests {
         };
 
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
-        let oracle_box = (
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
+        let oracle_box = OracleBoxWrapper::new(
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
@@ -301,10 +302,9 @@ mod tests {
                 BASE_FEE.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
-            oracle_box_wrapper_inputs,
+            &oracle_box_wrapper_inputs,
         )
-            .try_into()
-            .unwrap();
+        .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
         let change_address =
@@ -407,7 +407,7 @@ mod tests {
 
         let oracle_contract_parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

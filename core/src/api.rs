@@ -19,7 +19,7 @@ async fn root() -> &'static str {
 /// Basic oracle information
 async fn oracle_info() -> impl IntoResponse {
     Json(json! ( {
-            "oracle_address": &ORACLE_CONFIG.oracle_address,
+            "oracle_address": &ORACLE_CONFIG.oracle_address.to_base58(),
         } ))
 }
 
@@ -66,9 +66,9 @@ async fn pool_info() -> impl IntoResponse {
     Json(json!({
         "number_of_oracles": num_of_oracles,
         "datapoint_address": datapoint_stage.stage.contract_address,
-        "live_epoch_length": parameters.refresh_contract_parameters.epoch_length,
-        "deviation_range": parameters.refresh_contract_parameters.max_deviation_percent,
-        "consensus_num": parameters.refresh_contract_parameters.min_data_points,
+        "live_epoch_length": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().epoch_length,
+        "deviation_range": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().max_deviation_percent,
+        "consensus_num": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().min_data_points,
         "oracle_pool_nft_id": parameters.token_ids.pool_nft_token_id,
         "oracle_pool_participant_token_id": parameters.token_ids.oracle_token_id,
 
