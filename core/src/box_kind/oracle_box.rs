@@ -164,14 +164,14 @@ pub struct OracleBoxWrapperInputs {
 }
 
 impl OracleBoxWrapperInputs {
-    pub fn load(
+    pub fn checked_load(
         oracle_contract_parameters: OracleContractParameters,
         pool_token_id: TokenId,
         oracle_token_id: TokenId,
         reward_token_id: TokenId,
     ) -> Result<Self, OracleContractError> {
         let contract_inputs =
-            OracleContractInputs::load(oracle_contract_parameters, pool_token_id)?;
+            OracleContractInputs::checked_load(oracle_contract_parameters, pool_token_id)?;
         Ok(Self {
             contract_inputs,
             oracle_token_id,
@@ -179,14 +179,14 @@ impl OracleBoxWrapperInputs {
         })
     }
 
-    pub fn create(
+    pub fn build_with(
         oracle_contract_parameters: OracleContractParameters,
         pool_token_id: TokenId,
         oracle_token_id: TokenId,
         reward_token_id: TokenId,
     ) -> Result<Self, OracleContractError> {
         let contract_inputs =
-            OracleContractInputs::create(oracle_contract_parameters, pool_token_id)?;
+            OracleContractInputs::build_with(oracle_contract_parameters, pool_token_id)?;
         Ok(Self {
             contract_inputs,
             oracle_token_id,

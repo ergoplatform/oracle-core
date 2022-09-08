@@ -339,7 +339,7 @@ mod tests {
         RefreshBoxWrapper::new(
             ErgoBox::new(
                 value,
-                RefreshContract::load(&inputs.contract_inputs)
+                RefreshContract::checked_load(&inputs.contract_inputs)
                     .unwrap()
                     .ergo_tree(),
                 Some(tokens),
@@ -398,7 +398,7 @@ mod tests {
         let refresh_contract_parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
 
-        let refresh_contract_inputs = RefreshContractInputs::create(
+        let refresh_contract_inputs = RefreshContractInputs::build_with(
             refresh_contract_parameters,
             token_ids.oracle_token_id.clone(),
             token_ids.pool_nft_token_id.clone(),

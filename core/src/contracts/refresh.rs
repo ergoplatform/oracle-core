@@ -71,13 +71,13 @@ pub enum RefreshContractError {
 }
 
 impl RefreshContract {
-    pub fn load(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
+    pub fn checked_load(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
             let expected_p2s = NetworkAddress::new(
                 inputs.contract_parameters().p2s.network(),
                 &Address::P2S(
-                    Self::create(inputs)
+                    Self::build_with(inputs)
                         .unwrap()
                         .ergo_tree
                         .sigma_serialize_bytes()
@@ -180,7 +180,7 @@ impl RefreshContract {
         })
     }
 
-    fn create(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
+    fn build_with(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
@@ -313,13 +313,13 @@ pub struct RefreshContractInputs {
 }
 
 impl RefreshContractInputs {
-    pub fn create(
+    pub fn build_with(
         contract_parameters: RefreshContractParameters,
         oracle_token_id: TokenId,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, RefreshContractError> {
         let network_prefix = contract_parameters.p2s.network();
-        let refresh_contract = RefreshContract::create(&RefreshContractInputs {
+        let refresh_contract = RefreshContract::build_with(&RefreshContractInputs {
             contract_parameters,
             oracle_token_id: oracle_token_id.clone(),
             pool_nft_token_id: pool_nft_token_id.clone(),
@@ -332,7 +332,7 @@ impl RefreshContractInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         contract_parameters: RefreshContractParameters,
         oracle_token_id: TokenId,
         pool_nft_token_id: TokenId,
@@ -342,7 +342,7 @@ impl RefreshContractInputs {
             oracle_token_id,
             pool_nft_token_id,
         };
-        let _refresh_contract = RefreshContract::load(&contract_inputs)?;
+        let _refresh_contract = RefreshContract::checked_load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
@@ -383,7 +383,7 @@ mod tests {
             oracle_token_id: token_ids.oracle_token_id.clone(),
             pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
         };
-        let c = RefreshContract::create(&inputs).unwrap();
+        let c = RefreshContract::build_with(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
         assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id,);
         assert_eq!(c.min_data_points(), parameters.min_data_points);

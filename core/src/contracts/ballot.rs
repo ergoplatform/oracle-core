@@ -47,12 +47,12 @@ pub struct BallotContractInputs {
 }
 
 impl BallotContractInputs {
-    pub fn create(
+    pub fn build_with(
         contract_parameters: BallotContractParameters,
         update_nft_token_id: TokenId,
     ) -> Result<Self, BallotContractError> {
         let network_prefix = contract_parameters.p2s.network();
-        let ballot_contract = BallotContract::create(&BallotContractInputs {
+        let ballot_contract = BallotContract::build_with(&BallotContractInputs {
             contract_parameters,
             update_nft_token_id: update_nft_token_id.clone(),
         })?;
@@ -63,7 +63,7 @@ impl BallotContractInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         contract_parameters: BallotContractParameters,
         update_nft_token_id: TokenId,
     ) -> Result<Self, BallotContractError> {
@@ -71,7 +71,7 @@ impl BallotContractInputs {
             contract_parameters,
             update_nft_token_id,
         };
-        let _ = BallotContract::load(&contract_inputs)?;
+        let _ = BallotContract::checked_load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
@@ -81,13 +81,13 @@ impl BallotContractInputs {
 }
 
 impl BallotContract {
-    pub fn load(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
+    pub fn checked_load(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
             let expected_p2s = NetworkAddress::new(
                 inputs.contract_parameters().p2s.network(),
                 &Address::P2S(
-                    Self::create(inputs)
+                    Self::build_with(inputs)
                         .unwrap()
                         .ergo_tree
                         .sigma_serialize_bytes()
@@ -100,7 +100,7 @@ impl BallotContract {
         Ok(contract)
     }
 
-    fn create(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
+    fn build_with(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let parameters = inputs.contract_parameters.clone();
         let ergo_tree = parameters
             .p2s
@@ -209,7 +209,7 @@ mod tests {
             contract_parameters,
             update_nft_token_id: update_nft_token_id.clone(),
         };
-        let c = BallotContract::create(&inputs).unwrap();
+        let c = BallotContract::build_with(&inputs).unwrap();
         assert_eq!(c.update_nft_token_id(), update_nft_token_id);
     }
 }

@@ -47,7 +47,7 @@ pub struct PoolContractInputs {
 }
 
 impl PoolContractInputs {
-    pub fn create(
+    pub fn build_with(
         contract_parameters: PoolContractParameters,
         refresh_nft_token_id: TokenId,
         update_nft_token_id: TokenId,
@@ -58,7 +58,7 @@ impl PoolContractInputs {
             refresh_nft_token_id,
             update_nft_token_id,
         };
-        let pool_contract = PoolContract::create(&contract_inputs)?;
+        let pool_contract = PoolContract::build_with(&contract_inputs)?;
         let new_parameters = pool_contract.parameters(network_prefix);
         Ok(Self {
             contract_parameters: new_parameters,
@@ -66,7 +66,7 @@ impl PoolContractInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         contract_parameters: PoolContractParameters,
         refresh_nft_token_id: TokenId,
         update_nft_token_id: TokenId,
@@ -76,7 +76,7 @@ impl PoolContractInputs {
             refresh_nft_token_id,
             update_nft_token_id,
         };
-        let _ = PoolContract::load(&contract_inputs)?;
+        let _ = PoolContract::checked_load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
@@ -86,13 +86,13 @@ impl PoolContractInputs {
 }
 
 impl PoolContract {
-    pub fn load(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
+    pub fn checked_load(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
             let expected_p2s = NetworkAddress::new(
                 inputs.contract_parameters().p2s.network(),
                 &Address::P2S(
-                    Self::create(inputs)
+                    Self::build_with(inputs)
                         .unwrap()
                         .ergo_tree
                         .sigma_serialize_bytes()
@@ -105,7 +105,7 @@ impl PoolContract {
         Ok(contract)
     }
 
-    pub fn create(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
+    pub fn build_with(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
@@ -209,7 +209,7 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             update_nft_token_id: token_ids.update_nft_token_id.clone(),
         };
-        let c = PoolContract::create(&inputs).unwrap();
+        let c = PoolContract::build_with(&inputs).unwrap();
         assert_eq!(c.refresh_nft_token_id(), token_ids.refresh_nft_token_id,);
         assert_eq!(c.update_nft_token_id(), token_ids.update_nft_token_id,);
     }

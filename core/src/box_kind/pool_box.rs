@@ -129,14 +129,14 @@ pub struct PoolBoxWrapperInputs {
 }
 
 impl PoolBoxWrapperInputs {
-    pub fn create(
+    pub fn build_with(
         contract_parameters: PoolContractParameters,
         refresh_nft_token_id: TokenId,
         update_nft_token_id: TokenId,
         pool_nft_token_id: TokenId,
         reward_token_id: TokenId,
     ) -> Result<Self, PoolContractError> {
-        let contract_inputs = PoolContractInputs::create(
+        let contract_inputs = PoolContractInputs::build_with(
             contract_parameters,
             refresh_nft_token_id,
             update_nft_token_id,
@@ -148,14 +148,14 @@ impl PoolBoxWrapperInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         contract_parameters: PoolContractParameters,
         refresh_nft_token_id: TokenId,
         update_nft_token_id: TokenId,
         pool_nft_token_id: TokenId,
         reward_token_id: TokenId,
     ) -> Result<Self, PoolContractError> {
-        let contract_inputs = PoolContractInputs::load(
+        let contract_inputs = PoolContractInputs::checked_load(
             contract_parameters,
             refresh_nft_token_id,
             update_nft_token_id,

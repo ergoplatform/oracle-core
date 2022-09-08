@@ -101,26 +101,26 @@ pub struct BallotBoxWrapperInputs {
 }
 
 impl BallotBoxWrapperInputs {
-    pub fn create(
+    pub fn build_with(
         ballot_contract_parameters: BallotContractParameters,
         ballot_token_id: TokenId,
         update_nft_token_id: TokenId,
     ) -> Result<Self, BallotContractError> {
         let contract_inputs =
-            BallotContractInputs::create(ballot_contract_parameters, update_nft_token_id)?;
+            BallotContractInputs::build_with(ballot_contract_parameters, update_nft_token_id)?;
         Ok(BallotBoxWrapperInputs {
             contract_inputs,
             ballot_token_id,
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         ballot_contract_parameters: BallotContractParameters,
         ballot_token_id: TokenId,
         update_nft_token_id: TokenId,
     ) -> Result<Self, BallotContractError> {
         let contract_inputs =
-            BallotContractInputs::load(ballot_contract_parameters, update_nft_token_id)?;
+            BallotContractInputs::checked_load(ballot_contract_parameters, update_nft_token_id)?;
         Ok(BallotBoxWrapperInputs {
             contract_inputs,
             ballot_token_id,

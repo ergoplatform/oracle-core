@@ -295,7 +295,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // Mint update NFT token -----------------------------------------------------------------------
 
-    let update_contract = UpdateContract::load(&UpdateContractInputs::create(
+    let update_contract = UpdateContract::checked_load(&UpdateContractInputs::build_with(
         config.update_contract_parameters.clone(),
         pool_nft_token.token_id.clone(),
         ballot_token.token_id.clone(),
@@ -367,7 +367,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         ballot_token_id: ballot_token.token_id.clone(),
     };
 
-    let pool_contract = PoolContract::create(&PoolContractInputs::create(
+    let pool_contract = PoolContract::build_with(&PoolContractInputs::build_with(
         config.pool_contract_parameters.clone(),
         refresh_nft_token.token_id.clone(),
         update_nft_token.token_id.clone(),
@@ -444,12 +444,12 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // Create refresh box --------------------------------------------------------------------------
     info!("Create refresh box tx");
 
-    let refresh_contract_inputs = RefreshContractInputs::create(
+    let refresh_contract_inputs = RefreshContractInputs::build_with(
         config.refresh_contract_parameters.clone(),
         token_ids.oracle_token_id,
         token_ids.pool_nft_token_id,
     )?;
-    let refresh_contract = RefreshContract::load(&refresh_contract_inputs)?;
+    let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,
@@ -764,7 +764,7 @@ pub(crate) mod tests {
             .unwrap();
         // Check that Update NFT is guarded by UpdateContract, and parameters are correct
 
-        let update_contract_inputs = UpdateContractInputs::create(
+        let update_contract_inputs = UpdateContractInputs::build_with(
             UpdateContractParameters::default(),
             token_ids.pool_nft_token_id.clone(),
             token_ids.ballot_token_id.clone(),

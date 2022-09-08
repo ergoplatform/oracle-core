@@ -122,7 +122,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
 /// This function registers scanning for the pool box
 pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let pool_box_tree_bytes = PoolContract::load(&inputs.contract_inputs)?
+    let pool_box_tree_bytes = PoolContract::checked_load(&inputs.contract_inputs)?
         .ergo_tree()
         .to_scan_bytes();
 
@@ -150,7 +150,7 @@ pub fn register_refresh_box_scan(
     inputs: RefreshBoxWrapperInputs,
 ) -> Result<Scan> {
     // ErgoTree bytes of the P2S address/script
-    let tree_bytes = RefreshContract::load(&inputs.contract_inputs)?
+    let tree_bytes = RefreshContract::checked_load(&inputs.contract_inputs)?
         .ergo_tree()
         .to_scan_bytes();
 

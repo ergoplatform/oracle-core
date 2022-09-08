@@ -172,7 +172,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::load(&inputs.contract_inputs)?,
+        &OracleContract::checked_load(&inputs.contract_inputs)?,
         public_key,
         new_datapoint,
         1,

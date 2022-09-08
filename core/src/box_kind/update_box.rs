@@ -64,13 +64,13 @@ pub struct UpdateBoxWrapperInputs {
 }
 
 impl UpdateBoxWrapperInputs {
-    pub fn create(
+    pub fn build_with(
         update_contract_parameters: UpdateContractParameters,
         pool_nft_token_id: TokenId,
         ballot_token_id: TokenId,
         update_nft_token_id: TokenId,
     ) -> Result<Self, UpdateContractError> {
-        let contract_inputs = UpdateContractInputs::create(
+        let contract_inputs = UpdateContractInputs::build_with(
             update_contract_parameters,
             pool_nft_token_id,
             ballot_token_id,
@@ -81,13 +81,13 @@ impl UpdateBoxWrapperInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         update_contract_parameters: UpdateContractParameters,
         pool_nft_token_id: TokenId,
         ballot_token_id: TokenId,
         update_nft_token_id: TokenId,
     ) -> Result<Self, UpdateContractError> {
-        let contract_inputs = UpdateContractInputs::load(
+        let contract_inputs = UpdateContractInputs::checked_load(
             update_contract_parameters,
             pool_nft_token_id,
             ballot_token_id,

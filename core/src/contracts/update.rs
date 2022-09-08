@@ -54,7 +54,7 @@ pub struct UpdateContractInputs {
 }
 
 impl UpdateContractInputs {
-    pub fn create(
+    pub fn build_with(
         contract_parameters: UpdateContractParameters,
         pool_nft_token_id: TokenId,
         ballot_token_id: TokenId,
@@ -65,7 +65,7 @@ impl UpdateContractInputs {
             pool_nft_token_id,
             ballot_token_id,
         };
-        let update_contract = UpdateContract::create(&inputs_to_create_contract)?;
+        let update_contract = UpdateContract::build_with(&inputs_to_create_contract)?;
         let new_parameters = update_contract.parameters(network_prefix);
         Ok(Self {
             contract_parameters: new_parameters,
@@ -73,7 +73,7 @@ impl UpdateContractInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         contract_parameters: UpdateContractParameters,
         pool_nft_token_id: TokenId,
         ballot_token_id: TokenId,
@@ -83,7 +83,7 @@ impl UpdateContractInputs {
             pool_nft_token_id,
             ballot_token_id,
         };
-        let _ = UpdateContract::load(&contract_inputs)?;
+        let _ = UpdateContract::checked_load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
@@ -93,7 +93,7 @@ impl UpdateContractInputs {
 }
 
 impl UpdateContract {
-    fn create(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
+    fn build_with(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
@@ -115,13 +115,13 @@ impl UpdateContract {
         Ok(contract)
     }
 
-    pub fn load(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
+    pub fn checked_load(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
             let expected_p2s = NetworkAddress::new(
                 inputs.contract_parameters().p2s.network(),
                 &Address::P2S(
-                    Self::create(inputs)
+                    Self::build_with(inputs)
                         .unwrap()
                         .ergo_tree
                         .sigma_serialize_bytes()
@@ -253,7 +253,7 @@ mod tests {
             pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
             ballot_token_id: token_ids.ballot_token_id.clone(),
         };
-        let c = UpdateContract::create(&inputs).unwrap();
+        let c = UpdateContract::build_with(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
         assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
         assert_eq!(c.min_votes(), parameters.min_votes);

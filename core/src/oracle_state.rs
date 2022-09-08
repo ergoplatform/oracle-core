@@ -206,7 +206,8 @@ impl<'a> OraclePool<'a> {
         let refresh_box_scan_name = "Refresh Box Scan";
 
         let datapoint_contract_address =
-            OracleContract::load(&config.oracle_box_wrapper_inputs.contract_inputs)?.ergo_tree();
+            OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
+                .ergo_tree();
 
         // If scanIDs.json exists, skip registering scans & saving generated ids
         if !Path::new("scanIDs.json").exists() {
@@ -235,7 +236,7 @@ impl<'a> OraclePool<'a> {
             }
 
             let ballot_contract_address =
-                BallotContract::load(&config.ballot_box_wrapper_inputs.contract_inputs)?
+                BallotContract::checked_load(&config.ballot_box_wrapper_inputs.contract_inputs)?
                     .ergo_tree();
             // Local ballot box may not exist yet.
             if let Ok(local_scan) = register_local_ballot_box_scan(

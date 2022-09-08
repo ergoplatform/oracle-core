@@ -99,32 +99,32 @@ impl OracleConfig {
         token_ids: TokenIds,
         rescan_height: u32,
     ) -> Result<Self, OracleConfigError> {
-        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::create(
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::build_with(
             bootstrap.oracle_contract_parameters.clone(),
             token_ids.pool_nft_token_id.clone(),
             token_ids.oracle_token_id.clone(),
             token_ids.reward_token_id.clone(),
         )?;
-        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::create(
+        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::build_with(
             bootstrap.refresh_contract_parameters.clone(),
             token_ids.refresh_nft_token_id.clone(),
             token_ids.oracle_token_id.clone(),
             token_ids.reward_token_id.clone(),
         )?;
-        let pool_box_wrapper_inputs = PoolBoxWrapperInputs::create(
+        let pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
             bootstrap.pool_contract_parameters.clone(),
             token_ids.refresh_nft_token_id.clone(),
             token_ids.update_nft_token_id.clone(),
             token_ids.pool_nft_token_id.clone(),
             token_ids.reward_token_id.clone(),
         )?;
-        let update_box_wrapper_inputs = UpdateBoxWrapperInputs::create(
+        let update_box_wrapper_inputs = UpdateBoxWrapperInputs::build_with(
             bootstrap.update_contract_parameters.clone(),
             token_ids.pool_nft_token_id.clone(),
             token_ids.ballot_token_id.clone(),
             token_ids.update_nft_token_id.clone(),
         )?;
-        let ballot_box_wrapper_inputs = BallotBoxWrapperInputs::create(
+        let ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
             bootstrap.ballot_contract_parameters.clone(),
             token_ids.ballot_token_id.clone(),
             token_ids.update_nft_token_id.clone(),

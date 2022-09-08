@@ -43,13 +43,13 @@ pub struct RefreshBoxWrapperInputs {
 }
 
 impl RefreshBoxWrapperInputs {
-    pub fn create(
+    pub fn build_with(
         refresh_contract_parameters: RefreshContractParameters,
         oracle_token_id: TokenId,
         pool_token_id: TokenId,
         refresh_nft_token_id: TokenId,
     ) -> Result<Self, RefreshContractError> {
-        let contract_inputs = RefreshContractInputs::create(
+        let contract_inputs = RefreshContractInputs::build_with(
             refresh_contract_parameters,
             oracle_token_id,
             pool_token_id,
@@ -60,13 +60,13 @@ impl RefreshBoxWrapperInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         refresh_contract_parameters: RefreshContractParameters,
         oracle_token_id: TokenId,
         pool_token_id: TokenId,
         refresh_nft_token_id: TokenId,
     ) -> Result<Self, RefreshContractError> {
-        let contract_inputs = RefreshContractInputs::load(
+        let contract_inputs = RefreshContractInputs::checked_load(
             refresh_contract_parameters,
             oracle_token_id,
             pool_token_id,

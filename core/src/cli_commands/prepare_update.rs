@@ -278,12 +278,12 @@ pub(crate) fn perform_update_chained_transaction(
     }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
         info!("Creating new refresh NFT");
-        let refresh_contract_inputs = RefreshContractInputs::create(
+        let refresh_contract_inputs = RefreshContractInputs::build_with(
             contract_parameters.clone(),
             new_oracle_config.token_ids.oracle_token_id.clone(),
             old_config.token_ids.pool_nft_token_id,
         )?;
-        let refresh_contract = RefreshContract::load(&refresh_contract_inputs)?;
+        let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
         let refresh_nft_details = config
             .tokens_to_mint
             .refresh_nft
@@ -307,12 +307,12 @@ pub(crate) fn perform_update_chained_transaction(
     }
     if let Some(ref contract_parameters) = config.update_contract_parameters {
         info!("Creating new update NFT");
-        let update_contract_inputs = UpdateContractInputs::create(
+        let update_contract_inputs = UpdateContractInputs::build_with(
             contract_parameters.clone(),
             new_oracle_config.token_ids.pool_nft_token_id.clone(),
             new_oracle_config.token_ids.ballot_token_id.clone(),
         )?;
-        let update_contract = UpdateContract::load(&update_contract_inputs)?;
+        let update_contract = UpdateContract::checked_load(&update_contract_inputs)?;
         let update_nft_details = config
             .tokens_to_mint
             .update_nft
@@ -335,7 +335,7 @@ pub(crate) fn perform_update_chained_transaction(
     }
 
     if let Some(new_pool_contract_parameters) = config.pool_contract_parameters {
-        let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::create(
+        let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
             new_pool_contract_parameters,
             new_oracle_config.token_ids.refresh_nft_token_id.clone(),
             new_oracle_config.token_ids.update_nft_token_id.clone(),

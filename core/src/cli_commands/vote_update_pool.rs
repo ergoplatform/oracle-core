@@ -206,11 +206,11 @@ fn build_tx_for_first_ballot_box(
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
     };
-    let inputs = BallotContractInputs::create(
+    let inputs = BallotContractInputs::build_with(
         ballot_contract_parameters.clone(),
         token_ids.update_nft_token_id.clone(),
     )?;
-    let contract = BallotContract::load(&inputs)?;
+    let contract = BallotContract::checked_load(&inputs)?;
     let ballot_token = Token {
         token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
@@ -298,7 +298,7 @@ mod tests {
             .unwrap();
 
         let token_ids = generate_token_ids();
-        let ballot_contract_inputs = BallotContractInputs::create(
+        let ballot_contract_inputs = BallotContractInputs::build_with(
             BallotContractParameters::default(),
             token_ids.update_nft_token_id.clone(),
         )
@@ -365,7 +365,7 @@ mod tests {
         };
         let inputs = BallotBoxWrapperInputs {
             ballot_token_id: token_ids.ballot_token_id.clone(),
-            contract_inputs: BallotContractInputs::create(
+            contract_inputs: BallotContractInputs::build_with(
                 ballot_contract_parameters.clone(),
                 token_ids.update_nft_token_id.clone(),
             )
@@ -373,7 +373,7 @@ mod tests {
         };
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::load(&inputs.contract_inputs).unwrap(),
+                &BallotContract::checked_load(&inputs.contract_inputs).unwrap(),
                 secret.public_image(),
                 height - 2,
                 ballot_token,

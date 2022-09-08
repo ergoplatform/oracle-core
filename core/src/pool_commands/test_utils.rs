@@ -117,7 +117,7 @@ pub(crate) fn make_pool_box(
     pool_contract_parameters: &PoolContractParameters,
     token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
-    let pool_contract_inputs = PoolContractInputs::create(
+    let pool_contract_inputs = PoolContractInputs::build_with(
         pool_contract_parameters.clone(),
         token_ids.refresh_nft_token_id.clone(),
         token_ids.update_nft_token_id.clone(),
@@ -143,7 +143,7 @@ pub(crate) fn make_pool_box(
     PoolBoxWrapper::new(
         ErgoBox::new(
             value,
-            PoolContract::create(&pool_contract_inputs)
+            PoolContract::build_with(&pool_contract_inputs)
                 .unwrap()
                 .ergo_tree(),
             Some(tokens),
@@ -186,10 +186,10 @@ pub(crate) fn make_datapoint_box(
     .unwrap();
     let parameters = OracleContractParameters::default();
     let oracle_contract_inputs =
-        OracleContractInputs::create(parameters, token_ids.pool_nft_token_id.clone()).unwrap();
+        OracleContractInputs::build_with(parameters, token_ids.pool_nft_token_id.clone()).unwrap();
     ErgoBox::new(
         value,
-        OracleContract::load(&oracle_contract_inputs)
+        OracleContract::checked_load(&oracle_contract_inputs)
             .unwrap()
             .ergo_tree(),
         Some(tokens),
@@ -295,8 +295,10 @@ impl TryFrom<(OracleContractParameters, &TokenIds)> for OracleBoxWrapperInputs {
     fn try_from(
         (contract_parameters, token_ids): (OracleContractParameters, &TokenIds),
     ) -> Result<Self, Self::Error> {
-        let contract_inputs =
-            OracleContractInputs::create(contract_parameters, token_ids.pool_nft_token_id.clone())?;
+        let contract_inputs = OracleContractInputs::build_with(
+            contract_parameters,
+            token_ids.pool_nft_token_id.clone(),
+        )?;
         Ok(Self {
             contract_inputs,
             oracle_token_id: token_ids.oracle_token_id.clone(),

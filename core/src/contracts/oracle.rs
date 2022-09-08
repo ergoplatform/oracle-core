@@ -39,12 +39,12 @@ pub struct OracleContractInputs {
 }
 
 impl OracleContractInputs {
-    pub fn create(
+    pub fn build_with(
         contract_parameters: OracleContractParameters,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, OracleContractError> {
         let network_prefix = contract_parameters.p2s.network();
-        let oracle_contract = OracleContract::create(&OracleContractInputs {
+        let oracle_contract = OracleContract::build_with(&OracleContractInputs {
             contract_parameters,
             pool_nft_token_id: pool_nft_token_id.clone(),
         })?;
@@ -55,7 +55,7 @@ impl OracleContractInputs {
         })
     }
 
-    pub fn load(
+    pub fn checked_load(
         contract_parameters: OracleContractParameters,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, OracleContractError> {
@@ -63,7 +63,7 @@ impl OracleContractInputs {
             contract_parameters: contract_parameters.clone(),
             pool_nft_token_id: pool_nft_token_id.clone(),
         };
-        let _ = OracleContract::load(&contract_inputs)?;
+        let _ = OracleContract::checked_load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
@@ -73,13 +73,13 @@ impl OracleContractInputs {
 }
 
 impl OracleContract {
-    pub fn load(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
+    pub fn checked_load(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
         let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
             let expected_p2s = NetworkAddress::new(
                 inputs.contract_parameters().p2s.network(),
                 &Address::P2S(
-                    Self::create(inputs)
+                    Self::build_with(inputs)
                         .unwrap()
                         .ergo_tree
                         .sigma_serialize_bytes()
@@ -92,7 +92,7 @@ impl OracleContract {
         Ok(contract)
     }
 
-    fn create(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
+    fn build_with(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
         let ergo_tree = inputs
             .contract_parameters
             .p2s
@@ -177,7 +177,7 @@ mod tests {
             contract_parameters,
             pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
         };
-        let c = OracleContract::create(&inputs).unwrap();
+        let c = OracleContract::build_with(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
     }
 }

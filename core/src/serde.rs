@@ -119,7 +119,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
     fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
         let oracle_contract_parameters =
             OracleContractParameters::try_from(c.oracle_contract_parameters)?;
-        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::load(
+        let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::checked_load(
             oracle_contract_parameters.clone(),
             c.token_ids.pool_nft_token_id.clone(),
             c.token_ids.oracle_token_id.clone(),
@@ -148,7 +148,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
         let network_prefix = oracle_address.network();
 
-        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::load(
+        let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::checked_load(
             refresh_contract_parameters.clone(),
             c.token_ids.refresh_nft_token_id.clone(),
             c.token_ids.oracle_token_id.clone(),
@@ -156,7 +156,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
-        let pool_box_wrapper_inputs = PoolBoxWrapperInputs::load(
+        let pool_box_wrapper_inputs = PoolBoxWrapperInputs::checked_load(
             pool_contract_parameters.clone(),
             c.token_ids.refresh_nft_token_id.clone(),
             c.token_ids.update_nft_token_id.clone(),
@@ -165,7 +165,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
-        let update_box_wrapper_inputs = UpdateBoxWrapperInputs::load(
+        let update_box_wrapper_inputs = UpdateBoxWrapperInputs::checked_load(
             update_contract_parameters.clone(),
             c.token_ids.pool_nft_token_id.clone(),
             c.token_ids.ballot_token_id.clone(),
@@ -173,7 +173,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
-        let ballot_box_wrapper_inputs = BallotBoxWrapperInputs::load(
+        let ballot_box_wrapper_inputs = BallotBoxWrapperInputs::checked_load(
             ballot_contract_parameters.clone(),
             c.token_ids.ballot_token_id.clone(),
             c.token_ids.update_nft_token_id.clone(),
