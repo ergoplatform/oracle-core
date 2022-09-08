@@ -83,7 +83,7 @@ impl UpdateContractInputs {
             pool_nft_token_id,
             ballot_token_id,
         };
-        let _refresh_contract = UpdateContract::load(&contract_inputs)?;
+        let _ = UpdateContract::load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
