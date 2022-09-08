@@ -76,7 +76,7 @@ impl PoolContractInputs {
             refresh_nft_token_id,
             update_nft_token_id,
         };
-        let _refresh_contract = PoolContract::load(&contract_inputs)?;
+        let _ = PoolContract::load(&contract_inputs)?;
         Ok(contract_inputs)
     }
 
