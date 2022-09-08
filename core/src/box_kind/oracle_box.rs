@@ -167,9 +167,9 @@ pub struct OracleBoxWrapperInputs<'a> {
 }
 
 impl<'a> From<(&'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapperInputs<'a> {
-    fn from(t: (&'a OracleContractParameters, &'a TokenIds)) -> Self {
-        let contract_parameters = t.0;
-        let token_ids = t.1;
+    fn from(
+        (contract_parameters, token_ids): (&'a OracleContractParameters, &'a TokenIds),
+    ) -> Self {
         OracleBoxWrapperInputs {
             contract_parameters,
             oracle_token_id: &token_ids.oracle_token_id,
@@ -182,8 +182,8 @@ impl<'a> From<(&'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapper
 impl<'a> TryFrom<(ErgoBox, OracleBoxWrapperInputs<'a>)> for OracleBoxWrapper {
     type Error = OracleBoxError;
 
-    fn try_from(value: (ErgoBox, OracleBoxWrapperInputs)) -> Result<Self, Self::Error> {
-        OracleBoxWrapper::new(value.0, value.1)
+    fn try_from((b, inputs): (ErgoBox, OracleBoxWrapperInputs)) -> Result<Self, Self::Error> {
+        OracleBoxWrapper::new(b, inputs)
     }
 }
 

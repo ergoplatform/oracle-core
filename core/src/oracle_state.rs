@@ -108,7 +108,7 @@ pub struct Stage {
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug)]
 pub struct OraclePool<'a> {
-    pub data_point_source: Box<dyn DataPointSource>,
+    pub data_point_source: Box<dyn DataPointSource + Sync + Send>,
     /// Stages
     pub datapoint_stage: DatapointStage<'a>,
     local_oracle_datapoint_scan: Option<LocalOracleDatapointScan<'a>>,
@@ -196,7 +196,7 @@ pub struct PoolDepositsState {
 
 impl<'a> OraclePool<'a> {
     /// Create a new `OraclePool` struct
-    pub fn new() -> std::result::Result<OraclePool<'a>, Error> {
+    pub fn new() -> std::result::Result<OraclePool<'static>, Error> {
         let config = &ORACLE_CONFIG;
         let local_oracle_address = config.oracle_address.clone();
 

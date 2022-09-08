@@ -18,10 +18,6 @@ jobs:
           - target: x86_64-apple-darwin
             os: macos-latest
             build_tool: cargo
-          # Failing to build openssl-sys crate 
-          # - target: x86_64-pc-windows-msvc
-          #   os: windows-latest
-          #   build_tool: cargo
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -30,6 +26,26 @@ jobs:
         with:
           bin: oracle-core
           archive: $bin-$tag-$target
+          target: ${{ matrix.target }}
+          build_tool: ${{ matrix.build_tool }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  upload-asset-windows:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            build_tool: cargo
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - run: vcpkg install openssl:x64-windows-static-md
+      - run: echo "OPENSSL_NO_VENDOR=1" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: oracle-core
           target: ${{ matrix.target }}
           build_tool: ${{ matrix.build_tool }}
         env:

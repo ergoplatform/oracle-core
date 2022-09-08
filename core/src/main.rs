@@ -61,6 +61,9 @@ use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
 
+use crate::api::start_rest_server;
+use crate::default_parameters::print_contract_hashes;
+
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
 /// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
@@ -108,18 +111,28 @@ enum Command {
 
     /// Run the oracle-pool
     Run {
+        /// Run in read-only mode
         #[clap(long)]
         read_only: bool,
+        #[clap(long)]
+        /// Set this flag to enable the REST API. NOTE: SSL is not used!
+        enable_rest_api: bool,
     },
 
     /// Extract reward tokens to a chosen address
-    ExtractRewardTokens { rewards_address: String },
+    ExtractRewardTokens {
+        /// Base58 encoded address to send reward tokens to
+        rewards_address: String,
+    },
 
     /// Print the number of reward tokens earned by the oracle.
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
-    TransferOracleToken { oracle_token_address: String },
+    TransferOracleToken {
+        /// Base58 encoded address to send oracle token to
+        oracle_token_address: String,
+    },
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
@@ -148,6 +161,9 @@ enum Command {
         /// Name of update parameters file (.yaml)
         update_file: String,
     },
+
+    /// Print base 64 encodings of the blake2b hash of ergo-tree bytes of each contract
+    PrintContractHashes,
 }
 
 fn main() {
@@ -163,6 +179,7 @@ fn main() {
 
     debug!("Args: {:?}", args);
 
+    #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::Bootstrap {
             yaml_config_name,
@@ -182,19 +199,31 @@ fn main() {
                 }
             };
         }
+        Command::PrintContractHashes => {
+            print_contract_hashes();
+        }
+        oracle_command => handle_oracle_command(oracle_command),
+    }
+}
 
-        Command::Run { read_only } => {
+/// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
+fn handle_oracle_command(command: Command) {
+    assert_wallet_unlocked(&new_node_interface());
+    let op = OraclePool::new().unwrap();
+    match command {
+        Command::Run {
+            read_only,
+            enable_rest_api,
+        } => {
             assert_wallet_unlocked(&new_node_interface());
-            let (_, repost_receiver) = bounded(1);
+            let (_, repost_receiver) = bounded::<bool>(1);
             let op = OraclePool::new().unwrap();
 
             // Start Oracle Core GET API Server
-            thread::Builder::new()
-                .name("Oracle Core GET API Thread".to_string())
-                .spawn(|| {
-                    api::start_get_api(repost_receiver);
-                })
-                .ok();
+            if enable_rest_api {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(start_rest_server(repost_receiver));
+            }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
                     error!("Fatal error: {:?}", e);
@@ -206,19 +235,18 @@ fn main() {
         }
 
         Command::ExtractRewardTokens { rewards_address } => {
-            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
-            if let Err(e) =
-                cli_commands::extract_reward_tokens::extract_reward_tokens(&wallet, rewards_address)
-            {
+            if let Err(e) = cli_commands::extract_reward_tokens::extract_reward_tokens(
+                &wallet,
+                op.get_local_datapoint_box_source(),
+                rewards_address,
+            ) {
                 error!("Fatal extract-rewards-token error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
 
         Command::PrintRewardTokens => {
-            assert_wallet_unlocked(&new_node_interface());
-            let op = OraclePool::new().unwrap();
             if let Err(e) = cli_commands::print_reward_tokens::print_reward_tokens(
                 op.get_local_datapoint_box_source(),
             ) {
@@ -230,10 +258,10 @@ fn main() {
         Command::TransferOracleToken {
             oracle_token_address,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
                 &wallet,
+                op.get_local_datapoint_box_source(),
                 oracle_token_address,
             ) {
                 error!("Fatal transfer-oracle-token error: {:?}", e);
@@ -247,10 +275,10 @@ fn main() {
             reward_token_amount,
             update_box_creation_height,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
             let wallet = WalletData {};
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 &wallet,
+                op.get_local_ballot_box_source(),
                 new_pool_box_address_hash_str,
                 reward_token_id_str,
                 reward_token_amount,
@@ -265,7 +293,6 @@ fn main() {
             reward_token_id,
             reward_token_amount,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
             let new_reward_tokens =
                 reward_token_id
                     .zip(reward_token_amount)
@@ -274,19 +301,19 @@ fn main() {
                         amount: amount.try_into().unwrap(),
                     });
             if let Err(e) =
-                cli_commands::update_pool::update_pool(new_pool_box_hash, new_reward_tokens)
+                cli_commands::update_pool::update_pool(&op, new_pool_box_hash, new_reward_tokens)
             {
                 error!("Fatal update-pool error: {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
         Command::PrepareUpdate { update_file } => {
-            assert_wallet_unlocked(&new_node_interface());
             if let Err(e) = cli_commands::prepare_update::prepare_update(update_file) {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
+        Command::Bootstrap { .. } | Command::PrintContractHashes => unreachable!(),
     }
 }
 
