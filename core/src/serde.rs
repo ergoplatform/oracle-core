@@ -2,6 +2,7 @@
 
 use std::convert::{TryFrom, TryInto};
 
+use base16::DecodeError;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::{
     address::{AddressEncoder, AddressEncoderError, NetworkPrefix},
@@ -58,6 +59,8 @@ pub enum SerdeConversionError {
     NetworkPrefixesDiffer,
     #[error("Oracle config error: {0}")]
     OracleConfigError(OracleConfigError),
+    #[error("Base16 decode error: {0}")]
+    DecodeError(base16::DecodeError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
@@ -134,7 +137,6 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 
         let refresh_contract_parameters =
             RefreshContractParameters::try_from(c.refresh_contract_parameters)?;
-        let refresh_contract_prefix = refresh_contract_parameters.p2s.network();
 
         let update_contract_parameters =
             UpdateContractParameters::try_from(c.update_contract_parameters)?;
@@ -182,7 +184,6 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 
         if ballot_contract_prefix == network_prefix
             && update_contract_prefix == network_prefix
-            && refresh_contract_prefix == network_prefix
             && oracle_contract_prefix == network_prefix
             && pool_contract_prefix == network_prefix
         {
@@ -265,7 +266,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
         let pool_contract_prefix = pool_contract_parameters.p2s.network();
         let refresh_contract_parameters =
             RefreshContractParameters::try_from(c.refresh_contract_parameters)?;
-        let refresh_contract_prefix = refresh_contract_parameters.p2s.network();
         let update_contract_parameters =
             UpdateContractParameters::try_from(c.update_contract_parameters)?;
         let update_contract_prefix = update_contract_parameters.p2s.network();
@@ -279,7 +279,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
         let address_prefix = oracle_address.network();
 
         if pool_contract_prefix == address_prefix
-            && refresh_contract_prefix == address_prefix
             && update_contract_prefix == address_prefix
             && ballot_contract_prefix == address_prefix
         {
@@ -379,7 +378,7 @@ struct RefreshContractParametersSerde {
 impl From<RefreshContractParameters> for RefreshContractParametersSerde {
     fn from(p: RefreshContractParameters) -> Self {
         RefreshContractParametersSerde {
-            p2s: p.p2s.to_base58(),
+            p2s: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
             pool_nft_index: p.pool_nft_index,
             oracle_token_id_index: p.oracle_token_id_index,
             min_data_points_index: p.min_data_points_index,
@@ -395,11 +394,10 @@ impl From<RefreshContractParameters> for RefreshContractParametersSerde {
 }
 
 impl TryFrom<RefreshContractParametersSerde> for RefreshContractParameters {
-    type Error = AddressEncoderError;
+    type Error = DecodeError;
     fn try_from(contract: RefreshContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
         Ok(RefreshContractParameters {
-            p2s,
+            ergo_tree_bytes: base16::decode(contract.p2s.as_str())?,
             pool_nft_index: contract.pool_nft_index,
             oracle_token_id_index: contract.oracle_token_id_index,
             min_data_points_index: contract.min_data_points_index,
@@ -513,10 +511,6 @@ impl TryFrom<(UpdateBootstrapConfigSerde, NetworkPrefix)> for UpdateBootstrapCon
             .refresh_contract_parameters
             .map(|r| r.try_into())
             .transpose()?;
-        if let Some(p) = &refresh_contract_parameters {
-            prefixes.push(p.p2s.network());
-        }
-
         let update_contract_parameters: Option<UpdateContractParameters> = config_serde
             .update_contract_parameters
             .map(|r| r.try_into())

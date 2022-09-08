@@ -1,6 +1,3 @@
-use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -72,20 +69,15 @@ pub enum RefreshContractError {
 
 impl RefreshContract {
     pub fn checked_load(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
-        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_p2s = NetworkAddress::new(
-                inputs.contract_parameters().p2s.network(),
-                &Address::P2S(
-                    Self::build_with(inputs)
-                        .unwrap()
-                        .ergo_tree
-                        .sigma_serialize_bytes()
-                        .unwrap(),
-                ),
-            )
-            .to_base58();
-            RefreshContractError::WrappedWithExpectedP2SAddress(expected_p2s, e.into())
+            let expected_base16 = Self::build_with(inputs)
+                .unwrap()
+                .ergo_tree
+                .to_base16_bytes()
+                .unwrap();
+            RefreshContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
         })?;
         Ok(contract)
     }
@@ -181,41 +173,38 @@ impl RefreshContract {
     }
 
     fn build_with(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
-        let ergo_tree = inputs
-            .contract_parameters
-            .p2s
-            .address()
-            .script()?
-            .with_constant(
-                inputs.contract_parameters.pool_nft_index,
-                inputs.pool_nft_token_id.clone().into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?
-            .with_constant(
-                inputs.contract_parameters.oracle_token_id_index,
-                inputs.oracle_token_id.clone().into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?
-            .with_constant(
-                inputs.contract_parameters.min_data_points_index,
-                (inputs.contract_parameters.min_data_points).into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?
-            .with_constant(
-                inputs.contract_parameters.buffer_index,
-                (inputs.contract_parameters.buffer_length).into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?
-            .with_constant(
-                inputs.contract_parameters.max_deviation_percent_index,
-                (inputs.contract_parameters.max_deviation_percent).into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?
-            .with_constant(
-                inputs.contract_parameters.epoch_length_index,
-                (inputs.contract_parameters.epoch_length).into(),
-            )
-            .map_err(RefreshContractError::ErgoTreeConstant)?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
+                .with_constant(
+                    inputs.contract_parameters.pool_nft_index,
+                    inputs.pool_nft_token_id.clone().into(),
+                )
+                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .with_constant(
+                    inputs.contract_parameters.oracle_token_id_index,
+                    inputs.oracle_token_id.clone().into(),
+                )
+                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .with_constant(
+                    inputs.contract_parameters.min_data_points_index,
+                    (inputs.contract_parameters.min_data_points).into(),
+                )
+                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .with_constant(
+                    inputs.contract_parameters.buffer_index,
+                    (inputs.contract_parameters.buffer_length).into(),
+                )
+                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .with_constant(
+                    inputs.contract_parameters.max_deviation_percent_index,
+                    (inputs.contract_parameters.max_deviation_percent).into(),
+                )
+                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .with_constant(
+                    inputs.contract_parameters.epoch_length_index,
+                    (inputs.contract_parameters.epoch_length).into(),
+                )
+                .map_err(RefreshContractError::ErgoTreeConstant)?;
         Ok(Self {
             ergo_tree,
             pool_nft_index: inputs.contract_parameters.pool_nft_index,
@@ -285,12 +274,9 @@ impl RefreshContract {
             .unwrap()
     }
 
-    pub fn parameters(&self, network_prefix: NetworkPrefix) -> RefreshContractParameters {
+    pub fn parameters(&self) -> RefreshContractParameters {
         RefreshContractParameters {
-            p2s: NetworkAddress::new(
-                network_prefix,
-                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
-            ),
+            ergo_tree_bytes: self.ergo_tree.sigma_serialize_bytes().unwrap(),
             pool_nft_index: self.pool_nft_index,
             oracle_token_id_index: self.oracle_token_id_index,
             min_data_points_index: self.min_data_points_index,
@@ -318,13 +304,12 @@ impl RefreshContractInputs {
         oracle_token_id: TokenId,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, RefreshContractError> {
-        let network_prefix = contract_parameters.p2s.network();
         let refresh_contract = RefreshContract::build_with(&RefreshContractInputs {
             contract_parameters,
             oracle_token_id: oracle_token_id.clone(),
             pool_nft_token_id: pool_nft_token_id.clone(),
         })?;
-        let new_parameters = refresh_contract.parameters(network_prefix);
+        let new_parameters = refresh_contract.parameters();
         Ok(Self {
             contract_parameters: new_parameters,
             oracle_token_id,
@@ -354,7 +339,7 @@ impl RefreshContractInputs {
 #[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct RefreshContractParameters {
-    pub p2s: NetworkAddress,
+    pub ergo_tree_bytes: Vec<u8>,
     pub pool_nft_index: usize,
     pub oracle_token_id_index: usize,
     pub min_data_points_index: usize,
