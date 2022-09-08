@@ -65,8 +65,8 @@ impl UpdateContractInputs {
             pool_nft_token_id,
             ballot_token_id,
         };
-        let refresh_contract = UpdateContract::create(&inputs_to_create_contract)?;
-        let new_parameters = refresh_contract.parameters(network_prefix);
+        let update_contract = UpdateContract::create(&inputs_to_create_contract)?;
+        let new_parameters = update_contract.parameters(network_prefix);
         Ok(Self {
             contract_parameters: new_parameters,
             ..inputs_to_create_contract
