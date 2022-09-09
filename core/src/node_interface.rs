@@ -103,6 +103,11 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
     new_node_interface().scan_boxes(scan_id)
 }
 
+pub fn rescan_from_height(height: u32) -> Result<()> {
+    new_node_interface().send_post_req("/wallet/rescan", format!("{{ \"fromHeight\": {} }} ", height))?;
+    Ok(())
+}
+
 /// Generates (and sends) a tx using the node endpoints.
 /// Input must be a json formatted request with rawInputs (and rawDataInputs)
 /// manually selected or will be automatically selected by wallet.

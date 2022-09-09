@@ -8,6 +8,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
+use crate::node_interface::rescan_from_height;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
@@ -255,6 +256,7 @@ impl<'a> OraclePool<'a> {
             );
 
             let res = save_scan_ids_locally(scans);
+            rescan_from_height(ORACLE_CONFIG.rescan_height)?;
             if res.is_ok() {
                 // Congrats scans registered screen here
                 print!("\x1B[2J\x1B[1;1H");
