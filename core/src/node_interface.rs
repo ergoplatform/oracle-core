@@ -104,7 +104,10 @@ pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
 }
 
 pub fn rescan_from_height(height: u32) -> Result<()> {
-    new_node_interface().send_post_req("/wallet/rescan", format!("{{ \"fromHeight\": {} }} ", height))?;
+    new_node_interface().send_post_req(
+        "/wallet/rescan",
+        format!("{{ \"fromHeight\": {} }} ", height),
+    )?;
     Ok(())
 }
 

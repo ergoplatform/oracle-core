@@ -8,7 +8,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::node_interface::rescan_from_height;
+use crate::node_interface::{current_block_height, get_wallet_status, rescan_from_height};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
@@ -24,6 +24,7 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_node_interface::node_interface::NodeError;
+use log::warn;
 use std::path::Path;
 use thiserror::Error;
 
@@ -277,6 +278,12 @@ impl<'a> OraclePool<'a> {
             &std::fs::read_to_string("scanIDs.json").expect("Unable to read scanIDs.json"),
         )
         .expect("Failed to parse scanIDs.json");
+
+        let wallet_height = get_wallet_status()?.height;
+        let block_height = current_block_height()?;
+        if wallet_height != block_height {
+            warn!("Set-scans may not have completed yet, scan height: {}, current blockchain height: {}", wallet_height, block_height);
+        }
 
         // Create all `Scan` structs for protocol
         let datapoint_scan = Scan::new(
