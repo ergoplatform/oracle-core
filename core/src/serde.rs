@@ -362,7 +362,7 @@ impl TryFrom<PoolContractParametersSerde> for PoolContractParameters {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RefreshContractParametersSerde {
-    p2s: String,
+    ergo_tree_bytes: String,
     pool_nft_index: usize,
     oracle_token_id_index: usize,
     min_data_points_index: usize,
@@ -378,7 +378,7 @@ struct RefreshContractParametersSerde {
 impl From<RefreshContractParameters> for RefreshContractParametersSerde {
     fn from(p: RefreshContractParameters) -> Self {
         RefreshContractParametersSerde {
-            p2s: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
+            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
             pool_nft_index: p.pool_nft_index,
             oracle_token_id_index: p.oracle_token_id_index,
             min_data_points_index: p.min_data_points_index,
@@ -397,7 +397,7 @@ impl TryFrom<RefreshContractParametersSerde> for RefreshContractParameters {
     type Error = DecodeError;
     fn try_from(contract: RefreshContractParametersSerde) -> Result<Self, Self::Error> {
         Ok(RefreshContractParameters {
-            ergo_tree_bytes: base16::decode(contract.p2s.as_str())?,
+            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
             pool_nft_index: contract.pool_nft_index,
             oracle_token_id_index: contract.oracle_token_id_index,
             min_data_points_index: contract.min_data_points_index,
