@@ -98,11 +98,11 @@ pub fn vote_update_pool(
             reward_token_id.clone(),
             reward_token_amount,
             update_box_creation_height,
+            ORACLE_CONFIG.oracle_address.address(),
             ORACLE_CONFIG
-                .ballot_parameters
-                .ballot_token_owner_address
-                .address(),
-            &ORACLE_CONFIG.ballot_parameters.contract_parameters,
+                .ballot_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters(),
             &ORACLE_CONFIG.token_ids,
             height,
             change_network_address.address(),
@@ -206,11 +206,11 @@ fn build_tx_for_first_ballot_box(
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
     };
-    let inputs = BallotContractInputs {
-        contract_parameters: ballot_contract_parameters,
-        update_nft_token_id: &token_ids.update_nft_token_id,
-    };
-    let contract = BallotContract::new(inputs)?;
+    let inputs = BallotContractInputs::build_with(
+        ballot_contract_parameters.clone(),
+        token_ids.update_nft_token_id.clone(),
+    )?;
+    let contract = BallotContract::checked_load(&inputs)?;
     let ballot_token = Token {
         token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
@@ -263,7 +263,7 @@ mod tests {
         ergo_chain_types::Digest32,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::{Address, AddressEncoder, NetworkAddress},
+            address::{Address, AddressEncoder},
             ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
             token::{Token, TokenId},
         },
@@ -273,8 +273,8 @@ mod tests {
 
     use crate::{
         box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper, BallotBoxWrapperInputs},
-        contracts::ballot::{BallotContract, BallotContractParameters},
-        oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters, BASE_FEE},
+        contracts::ballot::{BallotContract, BallotContractInputs, BallotContractParameters},
+        oracle_config::BASE_FEE,
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, BallotBoxMock,
             WalletDataMock,
@@ -298,7 +298,12 @@ mod tests {
             .unwrap();
 
         let token_ids = generate_token_ids();
-        let ballot_contract_parameters = BallotContractParameters::default();
+        let ballot_contract_inputs = BallotContractInputs::build_with(
+            BallotContractParameters::default(),
+            token_ids.update_nft_token_id.clone(),
+        )
+        .unwrap();
+
         let ballot_token = Token {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
@@ -322,7 +327,7 @@ mod tests {
             AddressEncoder::new(network_prefix)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap(),
-            &ballot_contract_parameters,
+            ballot_contract_inputs.contract_parameters(),
             &token_ids,
             height,
             change_address,
@@ -358,26 +363,17 @@ mod tests {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
-        let ballot_token_owner_address =
-            NetworkAddress::new(network_prefix, &Address::P2Pk(secret.public_image()));
-        let wrapper_parameters = BallotBoxWrapperParameters {
-            contract_parameters: ballot_contract_parameters.clone(),
-            ballot_token_owner_address,
-            vote_parameters: Some(CastBallotBoxVoteParameters {
-                reward_token_id: force_any_val::<TokenId>(),
-                reward_token_quantity: 100000,
-                pool_box_address_hash: force_any_val::<Digest32>(),
-                update_box_creation_height: force_any_val::<i32>().abs(),
-            }),
-        };
         let inputs = BallotBoxWrapperInputs {
-            parameters: &wrapper_parameters,
-            ballot_token_id: &token_ids.ballot_token_id,
-            update_nft_token_id: &token_ids.update_nft_token_id,
+            ballot_token_id: token_ids.ballot_token_id.clone(),
+            contract_inputs: BallotContractInputs::build_with(
+                ballot_contract_parameters.clone(),
+                token_ids.update_nft_token_id.clone(),
+            )
+            .unwrap(),
         };
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::new(inputs.into()).unwrap(),
+                &BallotContract::checked_load(&inputs.contract_inputs).unwrap(),
                 secret.public_image(),
                 height - 2,
                 ballot_token,
@@ -395,7 +391,12 @@ mod tests {
         )
         .unwrap();
         let ballot_box_mock = BallotBoxMock {
-            ballot_box: BallotBoxWrapper::new(in_ballot_box.clone(), inputs).unwrap(),
+            ballot_box: BallotBoxWrapper::new(
+                in_ballot_box.clone(),
+                &inputs,
+                &Address::P2Pk(secret.public_image()),
+            )
+            .unwrap(),
         };
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),

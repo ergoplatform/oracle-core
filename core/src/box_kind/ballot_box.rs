@@ -1,6 +1,8 @@
 use crate::{
-    contracts::ballot::{BallotContract, BallotContractError},
-    oracle_config::{BallotBoxWrapperParameters, CastBallotBoxVoteParameters},
+    contracts::ballot::{
+        BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
+    },
+    oracle_config::CastBallotBoxVoteParameters,
 };
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -16,7 +18,6 @@ use ergo_lib::{
         sigma_protocol::sigma_boolean::ProveDlog,
     },
 };
-use log::warn;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -45,8 +46,6 @@ pub enum BallotBoxError {
     TryExtractFrom(#[from] TryExtractFromError),
     #[error("ballot box: SigmaSerializationError {0:?}")]
     SigmaSerialization(#[from] SigmaSerializationError),
-    #[error("ballot box: vote expected to be already cast, but hasn't")]
-    ExpectedVoteCast,
 }
 
 pub trait BallotBox {
@@ -64,7 +63,11 @@ pub struct BallotBoxWrapper {
 }
 
 impl BallotBoxWrapper {
-    pub fn new(ergo_box: ErgoBox, inputs: BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
+    pub fn new(
+        ergo_box: ErgoBox,
+        inputs: &BallotBoxWrapperInputs,
+        ballot_token_owner_address: &Address,
+    ) -> Result<Self, BallotBoxError> {
         let ballot_token_id = &ergo_box
             .tokens
             .as_ref()
@@ -72,7 +75,7 @@ impl BallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != *inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -80,74 +83,49 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        if inputs.parameters.ballot_token_owner_address.address()
-            != Address::P2Pk(ProveDlog::from(ec))
-        {
+        if ballot_token_owner_address != &Address::P2Pk(ProveDlog::from(ec)) {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
 
-        if let Some(CastBallotBoxVoteParameters {
-            reward_token_id,
-            reward_token_quantity,
-            pool_box_address_hash,
-            update_box_creation_height,
-        }) = inputs.parameters.vote_parameters.as_ref()
-        {
-            let register_update_box_creation_height = ergo_box
-                .get_register(NonMandatoryRegisterId::R5.into())
-                .ok_or(BallotBoxError::NoUpdateBoxCreationHeightInR5)?
-                .try_extract_into::<i32>()?;
-
-            if register_update_box_creation_height != *update_box_creation_height {
-                warn!("Update box creation height in R5 register differs to config. Could be due to vote.");
-            }
-
-            let register_pool_box_address_hash = ergo_box
-                .get_register(NonMandatoryRegisterId::R6.into())
-                .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
-                .try_extract_into::<Digest32>()?;
-
-            if *pool_box_address_hash != register_pool_box_address_hash {
-                warn!("Pool box address in R6 register differs to config. Could be due to vote.");
-            }
-
-            let register_reward_token_id = ergo_box
-                .get_register(NonMandatoryRegisterId::R7.into())
-                .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
-                .try_extract_into::<TokenId>()?;
-
-            if register_reward_token_id != *reward_token_id {
-                warn!("Reward token id in R7 register differs to config. Could be due to vote.");
-            }
-
-            let register_reward_token_quantity: u64 = ergo_box
-                .get_register(NonMandatoryRegisterId::R8.into())
-                .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-                .try_extract_into::<i64>()?
-                as u64;
-
-            if register_reward_token_quantity != *reward_token_quantity {
-                warn!(
-                    "Reward token quantity in R8 register differs to config. Could be due to vote."
-                );
-            }
-        } else if ergo_box.additional_registers.len() > 1 {
-            // If no vote parameter is provided, then the box must only have R4 (owner public key) defined
-            return Err(BallotBoxError::ExpectedVoteCast);
-        }
-
-        let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), inputs.into())?;
+        let contract =
+            BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), &inputs.contract_inputs)?;
         Ok(Self { ergo_box, contract })
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct BallotBoxWrapperInputs<'a> {
-    pub parameters: &'a BallotBoxWrapperParameters,
+#[derive(Clone, Debug)]
+pub struct BallotBoxWrapperInputs {
+    pub contract_inputs: BallotContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the ballot box.
-    pub ballot_token_id: &'a TokenId,
-    /// This token id appears as a constant in the ballot contract.
-    pub update_nft_token_id: &'a TokenId,
+    pub ballot_token_id: TokenId,
+}
+
+impl BallotBoxWrapperInputs {
+    pub fn build_with(
+        ballot_contract_parameters: BallotContractParameters,
+        ballot_token_id: TokenId,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, BallotContractError> {
+        let contract_inputs =
+            BallotContractInputs::build_with(ballot_contract_parameters, update_nft_token_id)?;
+        Ok(BallotBoxWrapperInputs {
+            contract_inputs,
+            ballot_token_id,
+        })
+    }
+
+    pub fn checked_load(
+        ballot_contract_parameters: BallotContractParameters,
+        ballot_token_id: TokenId,
+        update_nft_token_id: TokenId,
+    ) -> Result<Self, BallotContractError> {
+        let contract_inputs =
+            BallotContractInputs::checked_load(ballot_contract_parameters, update_nft_token_id)?;
+        Ok(BallotBoxWrapperInputs {
+            contract_inputs,
+            ballot_token_id,
+        })
+    }
 }
 
 /// A Ballot Box with vote parameters guaranteed to be set
@@ -159,7 +137,7 @@ pub struct VoteBallotBoxWrapper {
 }
 
 impl VoteBallotBoxWrapper {
-    pub fn new(ergo_box: ErgoBox, inputs: BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
+    pub fn new(ergo_box: ErgoBox, inputs: &BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
         let ballot_token_id = &ergo_box
             .tokens
             .as_ref()
@@ -167,7 +145,7 @@ impl VoteBallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != *inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -198,7 +176,8 @@ impl VoteBallotBoxWrapper {
             .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
             .try_extract_into::<i64>()? as u64;
 
-        let contract = BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), inputs.into())?;
+        let contract =
+            BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), &inputs.contract_inputs)?;
         let vote_parameters = CastBallotBoxVoteParameters {
             pool_box_address_hash,
             reward_token_id,

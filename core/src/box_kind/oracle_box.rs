@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
@@ -16,8 +14,8 @@ use thiserror::Error;
 
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
+use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
-use crate::oracle_config::TokenIds;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
@@ -60,7 +58,7 @@ pub enum OracleBoxError {
 pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
 impl OracleBoxWrapper {
-    pub fn new(b: ErgoBox, inputs: OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
+    pub fn new(b: ErgoBox, inputs: &OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
         let oracle_token_id = b
             .tokens
             .as_ref()
@@ -69,7 +67,7 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if oracle_token_id != *inputs.oracle_token_id {
+        if oracle_token_id != inputs.oracle_token_id {
             return Err(OracleBoxError::UnknownOracleTokenId);
         }
 
@@ -82,7 +80,7 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if reward_token_id != *inputs.reward_token_id {
+        if reward_token_id != inputs.reward_token_id {
             return Err(OracleBoxError::UnknownRewardTokenId);
         }
 
@@ -106,7 +104,8 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoEpochCounter)?
             .try_extract_into::<i32>()?;
 
-        let contract = OracleContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
+        let contract =
+            OracleContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
         Ok(Self(b, contract))
     }
@@ -155,35 +154,44 @@ impl OracleBox for OracleBoxWrapper {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct OracleBoxWrapperInputs<'a> {
-    pub contract_parameters: &'a OracleContractParameters,
+#[derive(Clone, Debug)]
+pub struct OracleBoxWrapperInputs {
+    pub contract_inputs: OracleContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the oracle box.
-    pub oracle_token_id: &'a TokenId,
+    pub oracle_token_id: TokenId,
     /// Reward token is expected to reside in `tokens(1)` of the oracle box.
-    pub reward_token_id: &'a TokenId,
-    /// This token id appears as a constant in the oracle contract.
-    pub pool_nft_token_id: &'a TokenId,
+    pub reward_token_id: TokenId,
 }
 
-impl<'a> From<(&'a OracleContractParameters, &'a TokenIds)> for OracleBoxWrapperInputs<'a> {
-    fn from(
-        (contract_parameters, token_ids): (&'a OracleContractParameters, &'a TokenIds),
-    ) -> Self {
-        OracleBoxWrapperInputs {
-            contract_parameters,
-            oracle_token_id: &token_ids.oracle_token_id,
-            reward_token_id: &token_ids.reward_token_id,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
-        }
+impl OracleBoxWrapperInputs {
+    pub fn checked_load(
+        oracle_contract_parameters: OracleContractParameters,
+        pool_token_id: TokenId,
+        oracle_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let contract_inputs =
+            OracleContractInputs::checked_load(oracle_contract_parameters, pool_token_id)?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id,
+            reward_token_id,
+        })
     }
-}
 
-impl<'a> TryFrom<(ErgoBox, OracleBoxWrapperInputs<'a>)> for OracleBoxWrapper {
-    type Error = OracleBoxError;
-
-    fn try_from((b, inputs): (ErgoBox, OracleBoxWrapperInputs)) -> Result<Self, Self::Error> {
-        OracleBoxWrapper::new(b, inputs)
+    pub fn build_with(
+        oracle_contract_parameters: OracleContractParameters,
+        pool_token_id: TokenId,
+        oracle_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let contract_inputs =
+            OracleContractInputs::build_with(oracle_contract_parameters, pool_token_id)?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id,
+            reward_token_id,
+        })
     }
 }
 

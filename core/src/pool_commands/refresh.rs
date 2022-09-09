@@ -264,6 +264,7 @@ fn build_out_oracle_boxes(
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::convert::TryInto;
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
@@ -287,6 +288,7 @@ mod tests {
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
+    use crate::contracts::refresh::RefreshContractInputs;
     use crate::contracts::refresh::RefreshContractParameters;
     use crate::oracle_config::TokenIds;
     use crate::oracle_config::BASE_FEE;
@@ -337,7 +339,9 @@ mod tests {
         RefreshBoxWrapper::new(
             ErgoBox::new(
                 value,
-                RefreshContract::new(inputs.into()).unwrap().ergo_tree(),
+                RefreshContract::checked_load(&inputs.contract_inputs)
+                    .unwrap()
+                    .ergo_tree(),
                 Some(tokens),
                 NonMandatoryRegisters::empty(),
                 creation_height,
@@ -361,12 +365,13 @@ mod tests {
         token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((oracle_contract_parameters, token_ids));
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), token_ids))
+                .unwrap();
         datapoints
             .into_iter()
             .zip(pub_keys)
             .map(|(datapoint, pub_key)| {
-                (
+                OracleBoxWrapper::new(
                     make_datapoint_box(
                         pub_key.clone(),
                         datapoint,
@@ -375,10 +380,9 @@ mod tests {
                         value,
                         creation_height,
                     ),
-                    oracle_box_wrapper_inputs,
+                    &oracle_box_wrapper_inputs,
                 )
-                    .try_into()
-                    .unwrap()
+                .unwrap()
             })
             .collect()
     }
@@ -394,11 +398,16 @@ mod tests {
         let refresh_contract_parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
 
+        let refresh_contract_inputs = RefreshContractInputs::build_with(
+            refresh_contract_parameters,
+            token_ids.oracle_token_id.clone(),
+            token_ids.pool_nft_token_id.clone(),
+        )
+        .unwrap();
+
         let inputs = RefreshBoxWrapperInputs {
-            contract_parameters: &refresh_contract_parameters,
-            refresh_nft_token_id: &token_ids.refresh_nft_token_id,
-            oracle_token_id: &token_ids.oracle_token_id,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
+            refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
+            contract_inputs: refresh_contract_inputs,
         };
         let in_refresh_box = make_refresh_box(*BASE_FEE, inputs, height - 32);
         let in_pool_box = make_pool_box(
