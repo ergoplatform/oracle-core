@@ -52,6 +52,7 @@ use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use node_interface::new_node_interface;
+use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
 use state::process;
@@ -209,6 +210,7 @@ fn main() {
 /// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
 fn handle_oracle_command(command: Command) {
     assert_wallet_unlocked(&new_node_interface());
+    register_and_save_scans().unwrap();
     let op = OraclePool::new().unwrap();
     match command {
         Command::Run {
