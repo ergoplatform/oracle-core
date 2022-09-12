@@ -804,8 +804,8 @@ pub(crate) mod tests {
                 .ballot_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .p2s,
-            bootstrap_config.ballot_contract_parameters.p2s
+                .ergo_tree_bytes,
+            bootstrap_config.ballot_contract_parameters.ergo_tree_bytes
         );
         // Check that oracle contract is updated
         assert_ne!(

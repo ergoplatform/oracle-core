@@ -1,7 +1,4 @@
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -51,12 +48,11 @@ impl BallotContractInputs {
         contract_parameters: BallotContractParameters,
         update_nft_token_id: TokenId,
     ) -> Result<Self, BallotContractError> {
-        let network_prefix = contract_parameters.p2s.network();
         let ballot_contract = BallotContract::build_with(&BallotContractInputs {
             contract_parameters,
             update_nft_token_id: update_nft_token_id.clone(),
         })?;
-        let new_parameters = ballot_contract.parameters(network_prefix);
+        let new_parameters = ballot_contract.parameters();
         Ok(Self {
             contract_parameters: new_parameters,
             update_nft_token_id,
@@ -82,38 +78,31 @@ impl BallotContractInputs {
 
 impl BallotContract {
     pub fn checked_load(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
-        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_p2s = NetworkAddress::new(
-                inputs.contract_parameters().p2s.network(),
-                &Address::P2S(
-                    Self::build_with(inputs)
-                        .unwrap()
-                        .ergo_tree
-                        .sigma_serialize_bytes()
-                        .unwrap(),
-                ),
-            )
-            .to_base58();
-            BallotContractError::WrappedWithExpectedP2SAddress(expected_p2s, e.into())
+            let expected_base16 = Self::build_with(inputs)
+                .unwrap()
+                .ergo_tree
+                .to_base16_bytes()
+                .unwrap();
+            BallotContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
         })?;
         Ok(contract)
     }
 
     fn build_with(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let parameters = inputs.contract_parameters.clone();
-        let ergo_tree = parameters
-            .p2s
-            .address()
-            .script()?
-            .with_constant(
-                parameters.min_storage_rent_index,
-                (parameters.min_storage_rent as i64).into(),
-            )?
-            .with_constant(
-                parameters.update_nft_index,
-                inputs.update_nft_token_id.clone().into(),
-            )?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
+                .with_constant(
+                    parameters.min_storage_rent_index,
+                    (parameters.min_storage_rent as i64).into(),
+                )?
+                .with_constant(
+                    parameters.update_nft_index,
+                    inputs.update_nft_token_id.clone().into(),
+                )?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
@@ -173,12 +162,9 @@ impl BallotContract {
         self.ergo_tree.clone()
     }
 
-    pub fn parameters(&self, network_prefix: NetworkPrefix) -> BallotContractParameters {
+    pub fn parameters(&self) -> BallotContractParameters {
         BallotContractParameters {
-            p2s: NetworkAddress::new(
-                network_prefix,
-                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
-            ),
+            ergo_tree_bytes: self.ergo_tree.sigma_serialize_bytes().unwrap(),
             min_storage_rent_index: self.min_storage_rent_index,
             min_storage_rent: self.min_storage_rent(),
             update_nft_index: self.update_nft_index,
@@ -189,7 +175,7 @@ impl BallotContract {
 #[derive(Debug, Clone)]
 /// Parameters for the ballot contract
 pub struct BallotContractParameters {
-    pub p2s: NetworkAddress,
+    pub ergo_tree_bytes: Vec<u8>,
     pub min_storage_rent_index: usize,
     pub min_storage_rent: u64,
     pub update_nft_index: usize,

@@ -72,16 +72,13 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
     let node_interface = new_node_interface();
-    let (change_address, network_prefix) = {
-        let a = AddressEncoder::unchecked_parse_network_address_from_str(
-            &node_interface
-                .wallet_status()?
-                .change_address
-                .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
-        )?;
-        (a.address(), a.network())
-    };
-    let config = UpdateBootstrapConfig::try_from((config_serde, network_prefix))?;
+    let change_address = AddressEncoder::unchecked_parse_address_from_str(
+        &node_interface
+            .wallet_status()?
+            .change_address
+            .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
+    )?;
+    let config = UpdateBootstrapConfig::try_from(config_serde)?;
     let update_bootstrap_input = PrepareUpdateInput {
         config: config.clone(),
         wallet: &node_interface,
@@ -457,7 +454,7 @@ update_contract_parameters:
   min_votes_index: 13
   min_votes: 6
 ballot_contract_parameters:
-  p2s: KKTr5Kf9nPN9o2FAhMHorL6oucAsjKkG4bV81JSP5Ly75dsY2qJGswkKxTuHky4wgUaWc9o28gkAC4KAjvQdcje8VGTozYrBPHEBExjitTzFydzk2XvARJ5KgGzeLXqai7autvyAY3j26x9B5TYrRmcKzXEW4LdoQr9xcbyFRCTjCQ6hCvfk6Bfux6Xrd5L3KjcUDcBj5bRkczgJKaySkBL7EZ1t2a6YDF2jir8nQuGawRFp
+  ergo_tree_bytes: 10070580dac409040204020400040204000e2048e025a1e3e789adceddc5d212590b0f1f62113c4882795712d542a866d117e8d803d601b2a5e4e3000400d602c672010407d603e4c6a70407ea02d1ededede6720293c27201c2a793db63087201db6308a792c172017300eb02cd7203d1ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47202720392c17201c1a7efe6c672010561
   min_storage_rent_index: 0
   min_storage_rent: 10000000
   update_nft_index: 6
