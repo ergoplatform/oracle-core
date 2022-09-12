@@ -417,7 +417,7 @@ impl TryFrom<BallotContractParametersSerde> for BallotContractParameters {
 /// Used to (de)serialize `OracleContractParameters` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct UpdateContractParametersSerde {
-    p2s: String,
+    ergo_tree_bytes: String,
     pool_nft_index: usize,
     ballot_token_index: usize,
     min_votes_index: usize,
@@ -425,12 +425,11 @@ struct UpdateContractParametersSerde {
 }
 
 impl TryFrom<UpdateContractParametersSerde> for UpdateContractParameters {
-    type Error = AddressEncoderError;
+    type Error = DecodeError;
 
     fn try_from(contract: UpdateContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
         Ok(UpdateContractParameters {
-            p2s,
+            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
             pool_nft_index: contract.pool_nft_index,
             ballot_token_index: contract.ballot_token_index,
             min_votes_index: contract.min_votes_index,
@@ -442,7 +441,7 @@ impl TryFrom<UpdateContractParametersSerde> for UpdateContractParameters {
 impl From<UpdateContractParameters> for UpdateContractParametersSerde {
     fn from(p: UpdateContractParameters) -> Self {
         UpdateContractParametersSerde {
-            p2s: p.p2s.to_base58(),
+            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
             pool_nft_index: p.pool_nft_index,
             ballot_token_index: p.ballot_token_index,
             min_votes_index: p.min_votes_index,

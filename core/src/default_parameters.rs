@@ -1,9 +1,6 @@
 //! Default parameter values for all Oracle-pool contracts. Tracks values described in EIP-0023.
 
-use ergo_lib::{
-    ergo_chain_types::blake2b256_hash,
-    ergotree_ir::{chain::address::AddressEncoder, serialization::SigmaSerializable},
-};
+use ergo_lib::ergo_chain_types::blake2b256_hash;
 
 use crate::contracts::{
     ballot::BallotContractParameters, oracle::OracleContractParameters,
@@ -73,10 +70,11 @@ impl Default for RefreshContractParameters {
 
 impl Default for UpdateContractParameters {
     fn default() -> Self {
-        // from https://wallet.plutomonkey.com/p2s/?source=eyAvLyBUaGlzIGJveCAodXBkYXRlIGJveCk6CiAgLy8gUmVnaXN0ZXJzIGVtcHR5IAogIC8vIAogIC8vIGJhbGxvdCBib3hlcyAoSW5wdXRzKQogIC8vIFI0IHRoZSBwdWIga2V5IG9mIHZvdGVyIFtHcm91cEVsZW1lbnRdIChub3QgdXNlZCBoZXJlKQogIC8vIFI1IHRoZSBjcmVhdGlvbiBoZWlnaHQgb2YgdGhpcyBib3ggW0ludF0KICAvLyBSNiB0aGUgdmFsdWUgdm90ZWQgZm9yIFtDb2xsW0J5dGVdXSAoaGFzaCBvZiB0aGUgbmV3IHBvb2wgYm94IHNjcmlwdCkKICAvLyBSNyB0aGUgcmV3YXJkIHRva2VuIGlkIGluIG5ldyBib3ggCiAgLy8gUjggdGhlIG51bWJlciBvZiByZXdhcmQgdG9rZW5zIGluIG5ldyBib3ggCgogIHZhbCBwb29sTkZUID0gZnJvbUJhc2U2NCgiUnl0TFlsQmxVMmhXYlZseE0zUTJkemw2SkVNbVJpbEtRRTFqVVdaVWFsYz0iKSAvLyBUT0RPIHJlcGxhY2Ugd2l0aCBhY3R1YWwgCgogIHZhbCBiYWxsb3RUb2tlbklkID0gZnJvbUJhc2U2NCgiUDBRb1J5MUxZVkJrVTJkV2ExbHdNM00yZGpsNUpFSW1SU2xJUUUxaVVXVT0iKSAvLyBUT0RPIHJlcGxhY2Ugd2l0aCBhY3R1YWwgCgogIHZhbCBtaW5Wb3RlcyA9IDYgLy8gVE9ETyByZXBsYWNlIHdpdGggYWN0dWFsCiAgCiAgdmFsIHBvb2xJbiA9IElOUFVUUygwKSAvLyBwb29sIGJveCBpcyAxc3QgaW5wdXQKICB2YWwgcG9vbE91dCA9IE9VVFBVVFMoMCkgLy8gY29weSBvZiBwb29sIGJveCBpcyB0aGUgMXN0IG91dHB1dAoKICB2YWwgdXBkYXRlQm94T3V0ID0gT1VUUFVUUygxKSAvLyBjb3B5IG9mIHRoaXMgYm94IGlzIHRoZSAybmQgb3V0cHV0CgogIC8vIGNvbXB1dGUgdGhlIGhhc2ggb2YgdGhlIHBvb2wgb3V0cHV0IGJveC4gVGhpcyBzaG91bGQgYmUgdGhlIHZhbHVlIHZvdGVkIGZvcgogIHZhbCBwb29sT3V0SGFzaCA9IGJsYWtlMmIyNTYocG9vbE91dC5wcm9wb3NpdGlvbkJ5dGVzKQogIHZhbCByZXdhcmRUb2tlbklkID0gcG9vbE91dC50b2tlbnMoMSkuXzEKICB2YWwgcmV3YXJkQW10ID0gcG9vbE91dC50b2tlbnMoMSkuXzIKICAKICB2YWwgdmFsaWRQb29sSW4gPSBwb29sSW4udG9rZW5zKDApLl8xID09IHBvb2xORlQKICAKICB2YWwgdmFsaWRQb29sT3V0ID0gcG9vbEluLnRva2VucygwKSA9PSBwb29sT3V0LnRva2VucygwKSAgICAgICAgICAgICAgICAmJiAvLyBORlQgcHJlc2VydmVkCiAgICAgICAgICAgICAgICAgICAgIHBvb2xJbi5jcmVhdGlvbkluZm8uXzEgPT0gcG9vbE91dC5jcmVhdGlvbkluZm8uXzEgICAgJiYgLy8gY3JlYXRpb24gaGVpZ2h0IHByZXNlcnZlZAogICAgICAgICAgICAgICAgICAgICBwb29sSW4udmFsdWUgPT0gcG9vbE91dC52YWx1ZSAgICAgICAgICAgICAgICAgICAgICAgICYmIC8vIHZhbHVlIHByZXNlcnZlZCAKICAgICAgICAgICAgICAgICAgICAgcG9vbEluLlI0W0xvbmddID09IHBvb2xPdXQuUjRbTG9uZ10gICAgICAgICAgICAgICAgICAmJiAvLyByYXRlIHByZXNlcnZlZCAgCiAgICAgICAgICAgICAgICAgICAgIHBvb2xJbi5SNVtJbnRdID09IHBvb2xPdXQuUjVbSW50XSAgICAgICAgICAgICAgICAgICAgJiYgLy8gY291bnRlciBwcmVzZXJ2ZWQKICAgICAgICAgICAgICAgICAgICAgISAocG9vbE91dC5SNltBbnldLmlzRGVmaW5lZCkKCiAgCiAgdmFsIHZhbGlkVXBkYXRlT3V0ID0gdXBkYXRlQm94T3V0LnRva2VucyA9PSBTRUxGLnRva2VucyAgICAgICAgICAgICAgICAgICAgICYmCiAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlQm94T3V0LnByb3Bvc2l0aW9uQnl0ZXMgPT0gU0VMRi5wcm9wb3NpdGlvbkJ5dGVzICYmCiAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlQm94T3V0LnZhbHVlID49IFNFTEYudmFsdWUgICAgICAgICAgICAgICAgICAgICAgICYmCiAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlQm94T3V0LmNyZWF0aW9uSW5mby5fMSA+IFNFTEYuY3JlYXRpb25JbmZvLl8xICAgICYmCiAgICAgICAgICAgICAgICAgICAgICAgISAodXBkYXRlQm94T3V0LlI0W0FueV0uaXNEZWZpbmVkKSAKCiAgZGVmIGlzVmFsaWRCYWxsb3QoYjpCb3gpID0gaWYgKGIudG9rZW5zLnNpemUgPiAwKSB7CiAgICBiLnRva2VucygwKS5fMSA9PSBiYWxsb3RUb2tlbklkICAgICAgICYmCiAgICBiLlI1W0ludF0uZ2V0ID09IFNFTEYuY3JlYXRpb25JbmZvLl8xICYmIC8vIGVuc3VyZSB2b3RlIGNvcnJlc3BvbmRzIHRvIHRoaXMgYm94IGJ5IGNoZWNraW5nIGNyZWF0aW9uIGhlaWdodAogICAgYi5SNltDb2xsW0J5dGVdXS5nZXQgPT0gcG9vbE91dEhhc2ggICAmJiAvLyBjaGVjayBwcm9wb3NpdGlvbiB2b3RlZCBmb3IKICAgIGIuUjdbQ29sbFtCeXRlXV0uZ2V0ID09IHJld2FyZFRva2VuSWQgJiYgLy8gY2hlY2sgcmV3YXJkVG9rZW5JZCB2b3RlZCBmb3IKICAgIGIuUjhbTG9uZ10uZ2V0ID09IHJld2FyZEFtdCAgICAgICAgICAgICAgLy8gY2hlY2sgcmV3YXJkVG9rZW5BbXQgdm90ZWQgZm9yCiAgfSBlbHNlIGZhbHNlCiAgCiAgdmFsIGJhbGxvdEJveGVzID0gSU5QVVRTLmZpbHRlcihpc1ZhbGlkQmFsbG90KQogIAogIHZhbCB2b3Rlc0NvdW50ID0gYmFsbG90Qm94ZXMuZm9sZCgwTCwgeyhhY2N1bTogTG9uZywgYjogQm94KSA9PiBhY2N1bSArIGIudG9rZW5zKDApLl8yfSkKICAKICBzaWdtYVByb3AodmFsaWRQb29sSW4gJiYgdmFsaWRQb29sT3V0ICYmIHZhbGlkVXBkYXRlT3V0ICYmIHZvdGVzQ291bnQgPj0gbWluVm90ZXMpICAKfQ==
-        let p2s = AddressEncoder::unchecked_parse_network_address_from_str("PAt5ff3qB8f3aFze1UP7EJPCbqqREvYkP6sbm4nRrsaSUVh6GLSyxm98sSRh6nMvSyp8i5Pt4ZipCLfLwh25uayaymmmXkEyAYV41TJkh9wqg9mdaKa4zCwiB7js1DXZ347jMJWfXS8s2eW4JP1gz2fCi4vw8AdiHvaitaZtr668SA5j5p2XkfegvTNHJV3b7Guiyr49sBkorxaxUfLQWk9KCXLvSE5p4UCtufkiV6B8SuP9NjeCevUcaZac19cBDBDQ4FxtN42pnBKdDBnEfFGB53NsBPY1cjbU9x9JKJPkFs4k8zYG1EAS4SD7cnn3isUQFnfvVdMe4dbb4hhjHPYDZWjS99qyg9tfjbGmGLExovdU2ZkZxiQ3LzrSwVPbdfCZzUhnTpLKEyGtDMEumXHMaoqLaUGYVoTbu64YNNyPCex6H3QRt2RFQxoRuRuEjawZzFVV9cQBesuYzpLsXKWTMxeVVVy2ffv8Ei4BzPTsDNgxvhFTddJMXSBtfv99yZ").unwrap();
+        // compiled via
+        // https://scastie.scala-lang.org/epRkAqc1Tl6oDut01uSsgg
+        let ergo_tree_bytes = base16::decode("100e040004000400040204020e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570400040004000e203f4428472d4b6150645367566b5970337336763979244226452948404d625165010005000400040cd806d601b2a4730000d602b2db63087201730100d603b2a5730200d604db63087203d605b2a5730300d606b27204730400d1ededed938c7202017305ededededed937202b27204730600938cc77201018cc772030193c17201c1720393c672010405c67203040593c672010504c672030504efe6c672030661edededed93db63087205db6308a793c27205c2a792c17205c1a7918cc77205018cc7a701efe6c67205046192b0b5a4d9010763d801d609db630872079591b172097307edededed938cb2720973080001730993e4c6720705048cc7a70193e4c67207060ecbc2720393e4c67207070e8c72060193e4c6720708058c720602730a730bd9010741639a8c7207018cb2db63088c720702730c00027e730d05").unwrap();
         UpdateContractParameters {
-            p2s,
+            ergo_tree_bytes,
             pool_nft_index: 5,
             ballot_token_index: 9,
             min_votes_index: 13,
@@ -118,13 +116,7 @@ pub fn print_contract_hashes() {
         encoded_hash(ballot_ergo_tree_bytes)
     );
 
-    let update_ergo_tree_bytes = &UpdateContractParameters::default()
-        .p2s
-        .address()
-        .script()
-        .unwrap()
-        .sigma_serialize_bytes()
-        .unwrap();
+    let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes;
 
     println!(
         "Update contract encoded hash: {}\n",
@@ -190,13 +182,7 @@ mod tests {
             encoded, expected_ballot_encoding,
         );
 
-        let update_ergo_tree_bytes = &UpdateContractParameters::default()
-            .p2s
-            .address()
-            .script()
-            .unwrap()
-            .sigma_serialize_bytes()
-            .unwrap();
+        let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes;
 
         let encoded = encoded_hash(update_ergo_tree_bytes);
         println!("Update contract encoded hash: {}\n", encoded);
