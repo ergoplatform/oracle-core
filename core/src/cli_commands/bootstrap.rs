@@ -822,8 +822,8 @@ pub(crate) mod tests {
                 .pool_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .p2s,
-            bootstrap_config.pool_contract_parameters.p2s
+                .ergo_tree_bytes,
+            bootstrap_config.pool_contract_parameters.ergo_tree_bytes
         );
         // Check that update contract is updated
         assert_ne!(

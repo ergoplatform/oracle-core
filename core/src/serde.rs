@@ -305,7 +305,7 @@ impl TryFrom<OracleContractParametersSerde> for OracleContractParameters {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PoolContractParametersSerde {
-    p2s: String,
+    ergo_tree_bytes: String,
     refresh_nft_index: usize,
     update_nft_index: usize,
 }
@@ -313,7 +313,7 @@ struct PoolContractParametersSerde {
 impl From<PoolContractParameters> for PoolContractParametersSerde {
     fn from(p: PoolContractParameters) -> Self {
         PoolContractParametersSerde {
-            p2s: p.p2s.to_base58(),
+            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
             refresh_nft_index: p.refresh_nft_index,
             update_nft_index: p.update_nft_index,
         }
@@ -321,11 +321,10 @@ impl From<PoolContractParameters> for PoolContractParametersSerde {
 }
 
 impl TryFrom<PoolContractParametersSerde> for PoolContractParameters {
-    type Error = AddressEncoderError;
+    type Error = DecodeError;
     fn try_from(contract: PoolContractParametersSerde) -> Result<Self, Self::Error> {
-        let p2s = AddressEncoder::unchecked_parse_network_address_from_str(&contract.p2s)?;
         Ok(PoolContractParameters {
-            p2s,
+            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
             refresh_nft_index: contract.refresh_nft_index,
             update_nft_index: contract.update_nft_index,
         })
