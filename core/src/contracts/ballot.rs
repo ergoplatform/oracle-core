@@ -107,7 +107,7 @@ impl BallotContract {
         ergo_tree: ErgoTree,
         inputs: &BallotContractInputs,
     ) -> Result<Self, BallotContractError> {
-        dbg!(ergo_tree.get_constants().unwrap());
+        // dbg!(ergo_tree.get_constants().unwrap());
         let parameters = inputs.contract_parameters.clone();
         let min_storage_rent = ergo_tree
             .get_constant(parameters.min_storage_rent_index)

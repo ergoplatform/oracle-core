@@ -101,7 +101,7 @@ impl OracleContract {
         ergo_tree: ErgoTree,
         inputs: &OracleContractInputs,
     ) -> Result<Self, OracleContractError> {
-        dbg!(ergo_tree.get_constants().unwrap());
+        // dbg!(ergo_tree.get_constants().unwrap());
 
         let pool_nft_token_id = ergo_tree
             .get_constant(inputs.contract_parameters.pool_nft_index)

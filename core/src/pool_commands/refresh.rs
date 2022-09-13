@@ -148,7 +148,7 @@ fn filtered_oracle_boxes(
         // Removing largest deviation outlier
         successful_boxes = remove_largest_local_deviation_datapoint(successful_boxes)?;
     }
-    dbg!(&successful_boxes);
+    // dbg!(&successful_boxes);
     Ok(successful_boxes)
 }
 

@@ -9,7 +9,7 @@ use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PoolContract {
     ergo_tree: ErgoTree,
     refresh_nft_index: usize,
@@ -113,7 +113,7 @@ impl PoolContract {
         ergo_tree: ErgoTree,
         inputs: &PoolContractInputs,
     ) -> Result<Self, PoolContractError> {
-        dbg!(ergo_tree.get_constants().unwrap());
+        // dbg!(ergo_tree.get_constants().unwrap());
         let refresh_nft_token_id = ergo_tree
             .get_constant(inputs.contract_parameters.refresh_nft_index)
             .map_err(|_| {

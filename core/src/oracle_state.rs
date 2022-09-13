@@ -266,6 +266,8 @@ impl<'a> OraclePool<'a> {
             update_box_wrapper_inputs: &config.update_box_wrapper_inputs,
         };
 
+        log::debug!("Scans loaded");
+
         // Create `OraclePool` struct
         Ok(OraclePool {
             data_point_source,
@@ -296,6 +298,7 @@ impl<'a> OraclePool<'a> {
     /// Get the state of the current oracle pool epoch
     pub fn get_live_epoch_state(&self) -> Result<LiveEpochState> {
         let pool_box = self.get_pool_box_source().get_pool_box()?;
+        dbg!(&pool_box);
         let epoch_id: u32 = pool_box.epoch_counter();
         // let epoch_box_id: String = epoch_box.box_id().into();
 

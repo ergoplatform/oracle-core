@@ -160,7 +160,11 @@ pub fn submit_transaction(signed_tx: &Transaction) -> Result<TxId> {
 
 /// Sign an `UnsignedTransaction` and then submit it to the mempool.
 pub fn sign_and_submit_transaction(unsigned_tx: &UnsignedTransaction) -> Result<TxId> {
-    new_node_interface().sign_and_submit_transaction(unsigned_tx)
+    let node = new_node_interface();
+    log::debug!("Signing transaction: {:?}", unsigned_tx);
+    let signed_tx = node.sign_transaction(unsigned_tx, None, None)?;
+    log::debug!("Submitting signed transaction: {:?}", signed_tx);
+    node.submit_transaction(&signed_tx)
 }
 
 pub fn assert_wallet_unlocked(node: &NodeInterface) {
