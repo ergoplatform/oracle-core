@@ -1,7 +1,4 @@
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -52,14 +49,13 @@ impl PoolContractInputs {
         refresh_nft_token_id: TokenId,
         update_nft_token_id: TokenId,
     ) -> Result<Self, PoolContractError> {
-        let network_prefix = contract_parameters.p2s.network();
         let contract_inputs = PoolContractInputs {
             contract_parameters,
             refresh_nft_token_id,
             update_nft_token_id,
         };
         let pool_contract = PoolContract::build_with(&contract_inputs)?;
-        let new_parameters = pool_contract.parameters(network_prefix);
+        let new_parameters = pool_contract.parameters();
         Ok(Self {
             contract_parameters: new_parameters,
             ..contract_inputs
@@ -87,38 +83,30 @@ impl PoolContractInputs {
 
 impl PoolContract {
     pub fn checked_load(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
-        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_p2s = NetworkAddress::new(
-                inputs.contract_parameters().p2s.network(),
-                &Address::P2S(
-                    Self::build_with(inputs)
-                        .unwrap()
-                        .ergo_tree
-                        .sigma_serialize_bytes()
-                        .unwrap(),
-                ),
-            )
-            .to_base58();
-            PoolContractError::WrappedWithExpectedP2SAddress(expected_p2s, e.into())
+            let expected_base16 = Self::build_with(inputs)
+                .unwrap()
+                .ergo_tree
+                .to_base16_bytes()
+                .unwrap();
+            PoolContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
         })?;
         Ok(contract)
     }
 
     pub fn build_with(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
-        let ergo_tree = inputs
-            .contract_parameters
-            .p2s
-            .address()
-            .script()?
-            .with_constant(
-                inputs.contract_parameters.refresh_nft_index,
-                inputs.refresh_nft_token_id.clone().into(),
-            )?
-            .with_constant(
-                inputs.contract_parameters.update_nft_index,
-                inputs.update_nft_token_id.clone().into(),
-            )?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
+                .with_constant(
+                    inputs.contract_parameters.refresh_nft_index,
+                    inputs.refresh_nft_token_id.clone().into(),
+                )?
+                .with_constant(
+                    inputs.contract_parameters.update_nft_index,
+                    inputs.update_nft_token_id.clone().into(),
+                )?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
@@ -174,12 +162,9 @@ impl PoolContract {
             .unwrap()
     }
 
-    pub fn parameters(&self, network_prefix: NetworkPrefix) -> PoolContractParameters {
+    pub fn parameters(&self) -> PoolContractParameters {
         PoolContractParameters {
-            p2s: NetworkAddress::new(
-                network_prefix,
-                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
-            ),
+            ergo_tree_bytes: self.ergo_tree.sigma_serialize_bytes().unwrap(),
             refresh_nft_index: self.refresh_nft_index,
             update_nft_index: self.update_nft_index,
         }
@@ -189,7 +174,7 @@ impl PoolContract {
 #[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct PoolContractParameters {
-    pub p2s: NetworkAddress,
+    pub ergo_tree_bytes: Vec<u8>,
     pub refresh_nft_index: usize,
     pub update_nft_index: usize,
 }

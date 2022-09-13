@@ -1,6 +1,3 @@
-use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -43,12 +40,11 @@ impl OracleContractInputs {
         contract_parameters: OracleContractParameters,
         pool_nft_token_id: TokenId,
     ) -> Result<Self, OracleContractError> {
-        let network_prefix = contract_parameters.p2s.network();
         let oracle_contract = OracleContract::build_with(&OracleContractInputs {
             contract_parameters,
             pool_nft_token_id: pool_nft_token_id.clone(),
         })?;
-        let new_parameters = oracle_contract.parameters(network_prefix);
+        let new_parameters = oracle_contract.parameters();
         Ok(Self {
             contract_parameters: new_parameters,
             pool_nft_token_id,
@@ -74,35 +70,27 @@ impl OracleContractInputs {
 
 impl OracleContract {
     pub fn checked_load(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
-        let ergo_tree = inputs.contract_parameters.p2s.address().script()?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_p2s = NetworkAddress::new(
-                inputs.contract_parameters().p2s.network(),
-                &Address::P2S(
-                    Self::build_with(inputs)
-                        .unwrap()
-                        .ergo_tree
-                        .sigma_serialize_bytes()
-                        .unwrap(),
-                ),
-            )
-            .to_base58();
-            OracleContractError::WrappedWithExpectedP2SAddress(expected_p2s, e.into())
+            let expected_base16 = Self::build_with(inputs)
+                .unwrap()
+                .ergo_tree
+                .to_base16_bytes()
+                .unwrap();
+            OracleContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
         })?;
         Ok(contract)
     }
 
     fn build_with(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
-        let ergo_tree = inputs
-            .contract_parameters
-            .p2s
-            .address()
-            .script()?
-            .with_constant(
-                inputs.contract_parameters.pool_nft_index,
-                inputs.pool_nft_token_id.clone().into(),
-            )
-            .map_err(OracleContractError::ErgoTreeConstant)?;
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
+                .with_constant(
+                    inputs.contract_parameters.pool_nft_index,
+                    inputs.pool_nft_token_id.clone().into(),
+                )
+                .map_err(OracleContractError::ErgoTreeConstant)?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }
@@ -145,12 +133,9 @@ impl OracleContract {
             .unwrap()
     }
 
-    pub fn parameters(&self, network_prefix: NetworkPrefix) -> OracleContractParameters {
+    pub fn parameters(&self) -> OracleContractParameters {
         OracleContractParameters {
-            p2s: NetworkAddress::new(
-                network_prefix,
-                &Address::P2S(self.ergo_tree.sigma_serialize_bytes().unwrap()),
-            ),
+            ergo_tree_bytes: self.ergo_tree.sigma_serialize_bytes().unwrap(),
             pool_nft_index: self.pool_nft_index,
         }
     }
@@ -159,7 +144,7 @@ impl OracleContract {
 #[derive(Debug, Clone)]
 /// Parameters for the oracle contract
 pub struct OracleContractParameters {
-    pub p2s: NetworkAddress,
+    pub ergo_tree_bytes: Vec<u8>,
     pub pool_nft_index: usize,
 }
 
