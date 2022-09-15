@@ -216,6 +216,12 @@ impl BallotContractParameters {
             .ok_or(BallotContractParametersError::NoMinStorageRent)?
             .try_extract_into::<i64>()? as u64;
 
+        let _update_nft = ergo_tree
+            .get_constant(update_nft_index)
+            .map_err(|_| BallotContractParametersError::NoUpdateNftId)?
+            .ok_or(BallotContractParametersError::NoUpdateNftId)?
+            .try_extract_into::<TokenId>()?;
+
         Ok(Self {
             ergo_tree_bytes,
             min_storage_rent_index,
@@ -236,6 +242,11 @@ impl BallotContractParameters {
             .map_err(|_| BallotContractParametersError::NoMinStorageRent)?
             .ok_or(BallotContractParametersError::NoMinStorageRent)?
             .try_extract_into::<i64>()? as u64;
+        let _update_nft = ergo_tree
+            .get_constant(update_nft_index)
+            .map_err(|_| BallotContractParametersError::NoUpdateNftId)?
+            .ok_or(BallotContractParametersError::NoUpdateNftId)?
+            .try_extract_into::<TokenId>()?;
         if actual_min_storage_rent != min_storage_rent {
             return Err(BallotContractParametersError::MinStorageRentDiffers {
                 expected: min_storage_rent,
