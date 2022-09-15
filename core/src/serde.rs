@@ -23,7 +23,7 @@ use crate::{
     },
     contracts::{
         ballot::{BallotContractParameters, BallotContractParametersError},
-        oracle::OracleContractParameters,
+        oracle::{OracleContractParameters, OracleContractParametersError},
         pool::PoolContractParameters,
         refresh::RefreshContractParameters,
         update::UpdateContractParameters,
@@ -63,6 +63,8 @@ pub enum SerdeConversionError {
     DecodeError(base16::DecodeError),
     #[error("Ballot contract parameter error: {0}")]
     BallotContractParameters(BallotContractParametersError),
+    #[error("Oracle contract parameter error: {0}")]
+    OracleContractParameters(OracleContractParametersError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
@@ -291,19 +293,19 @@ pub struct OracleContractParametersSerde {
 impl From<OracleContractParameters> for OracleContractParametersSerde {
     fn from(p: OracleContractParameters) -> Self {
         OracleContractParametersSerde {
-            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
-            pool_nft_index: p.pool_nft_index,
+            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes().as_slice()),
+            pool_nft_index: p.pool_nft_index(),
         }
     }
 }
 
 impl TryFrom<OracleContractParametersSerde> for OracleContractParameters {
-    type Error = DecodeError;
+    type Error = SerdeConversionError;
     fn try_from(contract: OracleContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(OracleContractParameters {
-            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
-            pool_nft_index: contract.pool_nft_index,
-        })
+        Ok(OracleContractParameters::build_with(
+            base16::decode(contract.ergo_tree_bytes.as_str())?,
+            contract.pool_nft_index,
+        )?)
     }
 }
 

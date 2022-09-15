@@ -815,8 +815,10 @@ pub(crate) mod tests {
                 .oracle_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.oracle_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .oracle_contract_parameters
+                .ergo_tree_bytes()
         );
         // Check that pool contract is updated
         assert_ne!(
