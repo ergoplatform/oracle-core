@@ -24,7 +24,7 @@ use crate::{
     contracts::{
         ballot::{BallotContractParameters, BallotContractParametersError},
         oracle::{OracleContractParameters, OracleContractParametersError},
-        pool::PoolContractParameters,
+        pool::{PoolContractParameters, PoolContractParametersError},
         refresh::RefreshContractParameters,
         update::UpdateContractParameters,
     },
@@ -65,6 +65,8 @@ pub enum SerdeConversionError {
     BallotContractParameters(BallotContractParametersError),
     #[error("Oracle contract parameter error: {0}")]
     OracleContractParameters(OracleContractParametersError),
+    #[error("Pool contract parameter error: {0}")]
+    PoolContractParameters(PoolContractParametersError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
@@ -319,21 +321,21 @@ struct PoolContractParametersSerde {
 impl From<PoolContractParameters> for PoolContractParametersSerde {
     fn from(p: PoolContractParameters) -> Self {
         PoolContractParametersSerde {
-            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
-            refresh_nft_index: p.refresh_nft_index,
-            update_nft_index: p.update_nft_index,
+            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes().as_slice()),
+            refresh_nft_index: p.refresh_nft_index(),
+            update_nft_index: p.update_nft_index(),
         }
     }
 }
 
 impl TryFrom<PoolContractParametersSerde> for PoolContractParameters {
-    type Error = DecodeError;
+    type Error = SerdeConversionError;
     fn try_from(contract: PoolContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(PoolContractParameters {
-            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
-            refresh_nft_index: contract.refresh_nft_index,
-            update_nft_index: contract.update_nft_index,
-        })
+        Ok(PoolContractParameters::build_with(
+            base16::decode(contract.ergo_tree_bytes.as_str())?,
+            contract.refresh_nft_index,
+            contract.update_nft_index,
+        )?)
     }
 }
 

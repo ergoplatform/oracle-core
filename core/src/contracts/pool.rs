@@ -18,10 +18,8 @@ pub struct PoolContract {
 
 #[derive(Debug, From, Error)]
 pub enum PoolContractError {
-    #[error("pool contract: failed to get update NFT from constants")]
-    NoUpdateNftId,
-    #[error("pool contract: failed to get refresh NFT from constants")]
-    NoRefreshNftId,
+    #[error("pool contract: parameter error: {0}")]
+    ParametersError(PoolContractParametersError),
     #[error("pool contract: unknown refresh NFT in box")]
     UnknownRefreshNftId,
     #[error("pool contract: unknown update NFT in box")]
@@ -118,8 +116,12 @@ impl PoolContract {
         dbg!(ergo_tree.get_constants().unwrap());
         let refresh_nft_token_id = ergo_tree
             .get_constant(inputs.contract_parameters.refresh_nft_index)
-            .map_err(|_| PoolContractError::NoRefreshNftId)?
-            .ok_or(PoolContractError::NoRefreshNftId)?
+            .map_err(|_| {
+                PoolContractError::ParametersError(PoolContractParametersError::NoRefreshNftId)
+            })?
+            .ok_or(PoolContractError::ParametersError(
+                PoolContractParametersError::NoRefreshNftId,
+            ))?
             .try_extract_into::<TokenId>()?;
         if refresh_nft_token_id != inputs.refresh_nft_token_id {
             return Err(PoolContractError::UnknownRefreshNftId);
@@ -127,8 +129,12 @@ impl PoolContract {
 
         let update_nft_token_id = ergo_tree
             .get_constant(inputs.contract_parameters.update_nft_index)
-            .map_err(|_| PoolContractError::NoUpdateNftId)?
-            .ok_or(PoolContractError::NoUpdateNftId)?
+            .map_err(|_| {
+                PoolContractError::ParametersError(PoolContractParametersError::NoUpdateNftId)
+            })?
+            .ok_or(PoolContractError::ParametersError(
+                PoolContractParametersError::NoUpdateNftId,
+            ))?
             .try_extract_into::<TokenId>()?;
         if update_nft_token_id != inputs.update_nft_token_id {
             return Err(PoolContractError::UnknownUpdateNftId);
@@ -171,12 +177,63 @@ impl PoolContract {
     }
 }
 
+#[derive(Debug, Error, From)]
+pub enum PoolContractParametersError {
+    #[error("pool contract parameters: failed to get update NFT from constants")]
+    NoUpdateNftId,
+    #[error("pool contract parameters: failed to get refresh NFT from constants")]
+    NoRefreshNftId,
+    #[error("pool contract parameters: sigma parsing error {0}")]
+    SigmaParsing(SigmaParsingError),
+    #[error("pool contract parameters: TryExtractFrom error {0:?}")]
+    TryExtractFrom(TryExtractFromError),
+}
+
 #[derive(Debug, Clone)]
 /// Parameters for the pool contract
 pub struct PoolContractParameters {
-    pub ergo_tree_bytes: Vec<u8>,
-    pub refresh_nft_index: usize,
-    pub update_nft_index: usize,
+    ergo_tree_bytes: Vec<u8>,
+    refresh_nft_index: usize,
+    update_nft_index: usize,
+}
+
+impl PoolContractParameters {
+    pub fn build_with(
+        ergo_tree_bytes: Vec<u8>,
+        refresh_nft_index: usize,
+        update_nft_index: usize,
+    ) -> Result<Self, PoolContractParametersError> {
+        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
+
+        let _refresh_nft = ergo_tree
+            .get_constant(refresh_nft_index)
+            .map_err(|_| PoolContractParametersError::NoRefreshNftId)?
+            .ok_or(PoolContractParametersError::NoRefreshNftId)?
+            .try_extract_into::<TokenId>()?;
+
+        let _update_nft = ergo_tree
+            .get_constant(refresh_nft_index)
+            .map_err(|_| PoolContractParametersError::NoUpdateNftId)?
+            .ok_or(PoolContractParametersError::NoUpdateNftId)?
+            .try_extract_into::<TokenId>()?;
+        Ok(Self {
+            ergo_tree_bytes,
+            refresh_nft_index,
+            update_nft_index,
+        })
+    }
+
+    pub fn ergo_tree_bytes(&self) -> Vec<u8> {
+        self.ergo_tree_bytes.clone()
+    }
+
+    pub fn refresh_nft_index(&self) -> usize {
+        self.refresh_nft_index
+    }
+
+    pub fn update_nft_index(&self) -> usize {
+        self.update_nft_index
+    }
 }
 
 #[cfg(test)]

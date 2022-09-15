@@ -39,11 +39,11 @@ impl Default for PoolContractParameters {
         // compiled via
         // https://scastie.scala-lang.org/D7lDlGpjRNK5XL9eXKWMKQ
         let ergo_tree_bytes = base16::decode("1004040204000e20546a576e5a7234753778214125442a472d4b614e645267556b587032733576380e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d801d6018cb2db6308b2a473000073010001d1ec93720173029372017303").unwrap();
-        PoolContractParameters {
-            ergo_tree_bytes,
-            refresh_nft_index: 2,
-            update_nft_index: 3,
-        }
+
+        let refresh_nft_index = 2;
+        let update_nft_index = 3;
+        PoolContractParameters::build_with(ergo_tree_bytes, refresh_nft_index, update_nft_index)
+            .unwrap()
     }
 }
 
@@ -89,7 +89,7 @@ pub fn print_contract_hashes() {
     println!("BASE 64 ENCODING OF BLAKE2B HASH OF CONTRACT ERGO-TREE BYTES");
     println!("------------------------------------------------------------\n");
 
-    let pool_ergo_tree_bytes = &PoolContractParameters::default().ergo_tree_bytes;
+    let pool_ergo_tree_bytes = &PoolContractParameters::default().ergo_tree_bytes();
 
     println!(
         "Pool contract encoded hash: {}",
@@ -141,7 +141,7 @@ mod tests {
         println!("BASE 64 ENCODING OF BLAKE2B HASH OF CONTRACT ERGO-TREE BYTES");
         println!("------------------------------------------------------------\n");
 
-        let pool_ergo_tree_bytes = &PoolContractParameters::default().ergo_tree_bytes;
+        let pool_ergo_tree_bytes = &PoolContractParameters::default().ergo_tree_bytes();
 
         let encoded = encoded_hash(pool_ergo_tree_bytes);
         println!("Pool contract encoded hash: {}", encoded,);
