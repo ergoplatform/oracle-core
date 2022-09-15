@@ -62,8 +62,10 @@ pub(crate) struct OracleBoxMock {
 }
 
 impl LocalDatapointBoxSource for OracleBoxMock {
-    fn get_local_oracle_datapoint_box(&self) -> std::result::Result<OracleBoxWrapper, StageError> {
-        Ok(self.oracle_box.clone())
+    fn get_local_oracle_datapoint_box(
+        &self,
+    ) -> std::result::Result<Option<OracleBoxWrapper>, StageError> {
+        Ok(Some(self.oracle_box.clone()))
     }
 }
 
@@ -73,8 +75,8 @@ pub(crate) struct BallotBoxMock {
 }
 
 impl LocalBallotBoxSource for BallotBoxMock {
-    fn get_ballot_box(&self) -> std::result::Result<BallotBoxWrapper, StageError> {
-        Ok(self.ballot_box.clone())
+    fn get_ballot_box(&self) -> std::result::Result<Option<BallotBoxWrapper>, StageError> {
+        Ok(Some(self.ballot_box.clone()))
     }
 }
 

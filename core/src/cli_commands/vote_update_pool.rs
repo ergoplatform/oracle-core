@@ -61,7 +61,7 @@ pub enum VoteUpdatePoolError {
 
 pub fn vote_update_pool(
     wallet: &dyn WalletDataSource,
-    local_ballot_box_source: Option<&dyn LocalBallotBoxSource>,
+    local_ballot_box_source: &dyn LocalBallotBoxSource,
     new_pool_box_address_hash_str: String,
     reward_token_id_str: String,
     reward_token_amount: u32,

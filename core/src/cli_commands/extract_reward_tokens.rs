@@ -62,7 +62,7 @@ pub enum ExtractRewardTokensActionError {
 
 pub fn extract_reward_tokens(
     wallet: &dyn WalletDataSource,
-    local_datapoint_box_source: Option<&dyn LocalDatapointBoxSource>,
+    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
 ) -> Result<(), ExtractRewardTokensActionError> {
     if let Some(local_datapoint_box_source) = local_datapoint_box_source {

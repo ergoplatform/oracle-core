@@ -88,10 +88,6 @@ pub fn unspent_boxes_with_min_total(total: u64) -> Result<Vec<ErgoBox>> {
     new_node_interface().unspent_boxes_with_min_total(total)
 }
 
-pub fn serialized_unspent_boxes_with_min_total(total: u64) -> Result<Vec<String>> {
-    new_node_interface().serialized_unspent_boxes_with_min_total(total)
-}
-
 /// Acquires the unspent box with the highest value of Ergs inside
 /// from the wallet and serializes it
 pub fn get_serialized_highest_value_unspent_box() -> Result<String> {
@@ -100,7 +96,9 @@ pub fn get_serialized_highest_value_unspent_box() -> Result<String> {
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
 pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
-    new_node_interface().scan_boxes(scan_id)
+    let res = new_node_interface().scan_boxes(scan_id);
+    debug!("Scan boxes: {:?}", res);
+    res
 }
 
 pub fn rescan_from_height(height: u32) -> Result<()> {
@@ -109,34 +107,6 @@ pub fn rescan_from_height(height: u32) -> Result<()> {
         format!("{{ \"fromHeight\": {} }} ", height),
     )?;
     Ok(())
-}
-
-/// Generates (and sends) a tx using the node endpoints.
-/// Input must be a json formatted request with rawInputs (and rawDataInputs)
-/// manually selected or will be automatically selected by wallet.
-/// Returns the resulting `TxId`.
-// pub fn send_transaction(tx_request_json: &JsonValue) -> Result<TxId> {
-//     new_node_interface().generate_and_submit_transaction(&tx_request_json.dump())
-// }
-
-/// Given a `Vec<ErgoBox>` return the given boxes (which must be part of the UTXO-set) as
-/// a vec of serialized strings in Base16 encoding
-pub fn serialize_boxes(b: &Vec<ErgoBox>) -> Result<Vec<String>> {
-    Ok(b.iter()
-        .map(|b| serialized_box_from_id(&b.box_id().into()).unwrap_or_else(|_| "".to_string()))
-        .collect())
-}
-
-/// Given an `ErgoBox` return the given box (which must be part of the UTXO-set) as
-/// a serialized string in Base16 encoding
-pub fn serialize_box(b: &ErgoBox) -> Result<String> {
-    serialized_box_from_id(&b.box_id().into())
-}
-
-/// Given a box id return the given box (which must be part of the UTXO-set) as
-/// a serialized string in Base16 encoding
-pub fn serialized_box_from_id(box_id: &String) -> Result<String> {
-    new_node_interface().serialized_box_from_id(box_id)
 }
 
 /// Get the current block height of the chain

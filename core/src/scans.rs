@@ -3,7 +3,7 @@ use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::{PoolContract, PoolContractError};
 use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 /// This file holds logic related to UTXO-set scans
-use crate::node_interface::{get_scan_boxes, register_scan, serialize_box, serialize_boxes};
+use crate::node_interface::{get_scan_boxes, register_scan};
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -81,25 +81,8 @@ impl Scan {
     }
 
     /// Returns the first box found by the scan
-    pub fn get_box(&self) -> Result<ErgoBox> {
-        self.get_boxes()?
-            .into_iter()
-            .next()
-            .ok_or(ScanError::NoBoxesFound)
-    }
-
-    /// Returns all boxes found by the scan
-    /// serialized and ready to be used as rawInputs
-    pub fn get_serialized_boxes(&self) -> Result<Vec<String>> {
-        let boxes = serialize_boxes(&self.get_boxes()?)?;
-        Ok(boxes)
-    }
-
-    /// Returns the first box found by the registered scan
-    /// serialized and ready to be used as a rawInput
-    pub fn get_serialized_box(&self) -> Result<String> {
-        let ser_box = serialize_box(&self.get_box()?)?;
-        Ok(ser_box)
+    pub fn get_box(&self) -> Result<Option<ErgoBox>> {
+        Ok(self.get_boxes()?.first().cloned())
     }
 }
 

@@ -61,7 +61,7 @@ pub enum TransferOracleTokenActionError {
 
 pub fn transfer_oracle_token(
     wallet: &dyn WalletDataSource,
-    local_datapoint_box_source: Option<&dyn LocalDatapointBoxSource>,
+    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
 ) -> Result<(), TransferOracleTokenActionError> {
     if let Some(local_datapoint_box_source) = local_datapoint_box_source {

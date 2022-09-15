@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub fn print_reward_tokens(
-    local_datapoint_box_source: Option<&dyn LocalDatapointBoxSource>,
+    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
 ) -> Result<(), StageError> {
     if let Some(loc) = local_datapoint_box_source {
         let oracle_box = loc.get_local_oracle_datapoint_box()?;
