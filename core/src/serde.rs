@@ -22,8 +22,10 @@ use crate::{
         prepare_update::{UpdateBootstrapConfig, UpdateTokensToMint},
     },
     contracts::{
-        ballot::BallotContractParameters, oracle::OracleContractParameters,
-        pool::PoolContractParameters, refresh::RefreshContractParameters,
+        ballot::{BallotContractParameters, BallotContractParametersError},
+        oracle::OracleContractParameters,
+        pool::PoolContractParameters,
+        refresh::RefreshContractParameters,
         update::UpdateContractParameters,
     },
     datapoint_source::PredefinedDataPointSource,
@@ -59,6 +61,8 @@ pub enum SerdeConversionError {
     OracleConfigError(OracleConfigError),
     #[error("Base16 decode error: {0}")]
     DecodeError(base16::DecodeError),
+    #[error("Ballot contract parameter error: {0}")]
+    BallotContractParameters(BallotContractParametersError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
@@ -394,23 +398,23 @@ struct BallotContractParametersSerde {
 impl From<BallotContractParameters> for BallotContractParametersSerde {
     fn from(c: BallotContractParameters) -> Self {
         BallotContractParametersSerde {
-            ergo_tree_bytes: base16::encode_lower(c.ergo_tree_bytes.as_slice()),
-            min_storage_rent_index: c.min_storage_rent_index,
-            min_storage_rent: c.min_storage_rent,
-            update_nft_index: c.update_nft_index,
+            ergo_tree_bytes: base16::encode_lower(c.ergo_tree_bytes().as_slice()),
+            min_storage_rent_index: c.min_storage_rent_index(),
+            min_storage_rent: c.min_storage_rent(),
+            update_nft_index: c.update_nft_index(),
         }
     }
 }
 
 impl TryFrom<BallotContractParametersSerde> for BallotContractParameters {
-    type Error = DecodeError;
+    type Error = SerdeConversionError;
     fn try_from(contract: BallotContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(BallotContractParameters {
-            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
-            min_storage_rent_index: contract.min_storage_rent_index,
-            min_storage_rent: contract.min_storage_rent,
-            update_nft_index: contract.update_nft_index,
-        })
+        Ok(BallotContractParameters::checked_load(
+            base16::decode(contract.ergo_tree_bytes.as_str())?,
+            contract.min_storage_rent,
+            contract.min_storage_rent_index,
+            contract.update_nft_index,
+        )?)
     }
 }
 

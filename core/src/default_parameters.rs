@@ -13,12 +13,14 @@ impl Default for BallotContractParameters {
         // compiled via
         // https://scastie.scala-lang.org/P977Sr4qTKylV427dIP75Q
         let ergo_tree_bytes = base16::decode("10070580dac409040204020400040204000e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d803d601b2a5e4e3000400d602c672010407d603e4c6a70407ea02d1ededede6720293c27201c2a793db63087201db6308a792c172017300eb02cd7203d1ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47202720392c17201c1a7efe6c672010561").unwrap();
-        BallotContractParameters {
+        let min_storage_rent_index = 0;
+        let update_nft_index = 6;
+        BallotContractParameters::build_with(
             ergo_tree_bytes,
-            min_storage_rent_index: 0,
-            min_storage_rent: 10000000,
-            update_nft_index: 6,
-        }
+            min_storage_rent_index,
+            update_nft_index,
+        )
+        .unwrap()
     }
 }
 
@@ -109,7 +111,7 @@ pub fn print_contract_hashes() {
         encoded_hash(oracle_ergo_tree_bytes)
     );
 
-    let ballot_ergo_tree_bytes = &BallotContractParameters::default().ergo_tree_bytes;
+    let ballot_ergo_tree_bytes = &BallotContractParameters::default().ergo_tree_bytes();
 
     println!(
         "Ballot contract encoded hash: {}",
@@ -172,7 +174,7 @@ mod tests {
             encoded, expected_oracle_encoding,
         );
 
-        let ballot_ergo_tree_bytes = &BallotContractParameters::default().ergo_tree_bytes;
+        let ballot_ergo_tree_bytes = &BallotContractParameters::default().ergo_tree_bytes();
 
         let encoded = encoded_hash(ballot_ergo_tree_bytes);
         println!("Ballot contract encoded hash: {}", encoded);
