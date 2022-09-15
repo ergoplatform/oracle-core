@@ -5,9 +5,9 @@ use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::actions::PoolAction;
-use crate::box_kind::OracleBoxWrapperInputs;
+use crate::box_kind::{OracleBoxWrapper, OracleBoxWrapperInputs};
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
+use crate::oracle_state::{OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
 use self::publish_datapoint::build_publish_datapoint_action;
@@ -75,10 +75,11 @@ pub fn build_action(
         .map_err(Into::into)
         .map(Into::into),
         PoolCommand::PublishDataPoint => {
-            let inputs = if let Some(local_datapoint_box_source) =
-                op.get_local_datapoint_box_source()
+            let inputs = if let Some(local_datapoint_box) = op
+                .get_local_datapoint_box_source()
+                .get_local_oracle_datapoint_box()?
             {
-                PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source)
+                PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box)
             } else if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
                 PublishDataPointCommandInputs::FirstDataPoint {
                     public_key,
@@ -101,10 +102,9 @@ pub fn build_action(
     }
 }
 
-pub enum PublishDataPointCommandInputs<'a> {
-    /// Local datapoint box already exists so pass in the associated `LocalDatapoinBoxSource`
-    /// instance
-    LocalDataPointBoxExists(&'a dyn LocalDatapointBoxSource),
+pub enum PublishDataPointCommandInputs {
+    /// Local datapoint box already exists
+    LocalDataPointBoxExists(OracleBoxWrapper),
     /// The first datapoint will be submitted, so there doesn't exist a local datapoint box now.
     FirstDataPoint {
         oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
