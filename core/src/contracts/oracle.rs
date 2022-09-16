@@ -150,7 +150,7 @@ impl OracleContract {
 pub enum OracleContractParametersError {
     #[error("oracle contract parameters: failed to get pool NFT from constants")]
     NoPoolNftId,
-    #[error("oracle contract: sigma parsing error {0}")]
+    #[error("oracle contract parameters: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),
     #[error("oracle contract parameters: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),

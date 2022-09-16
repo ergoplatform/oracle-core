@@ -242,9 +242,9 @@ pub enum UpdateContractParametersError {
     TryExtractFrom(TryExtractFromError),
     #[error("update contract parameters: ergo tree constant error {0:?}")]
     ErgoTreeConstant(ErgoTreeConstantError),
-    #[error("refresh contract parameters: sigma serialization error {0}")]
+    #[error("update contract parameters: sigma serialization error {0}")]
     SigmaSerialization(SigmaSerializationError),
-    #[error("refresh contract parameters: base16 decoding error {0}")]
+    #[error("update contract parameters: base16 decoding error {0}")]
     Decode(DecodeError),
 }
 
@@ -291,22 +291,26 @@ impl UpdateContractParameters {
             .map_err(|_| UpdateContractParametersError::NoMinVotes)?
             .ok_or(UpdateContractParametersError::NoMinVotes)?
             .try_extract_into::<i32>()? as u64;
-        let _pool_nft = ergo_tree
-            .get_constant(pool_nft_index)
-            .map_err(|_| UpdateContractParametersError::NoPoolNftId)?
-            .ok_or(UpdateContractParametersError::NoPoolNftId)?
-            .try_extract_into::<TokenId>()?;
-        let _ballot_token = ergo_tree
-            .get_constant(ballot_token_index)
-            .map_err(|_| UpdateContractParametersError::NoBallotTokenId)?
-            .ok_or(UpdateContractParametersError::NoBallotTokenId)?
-            .try_extract_into::<TokenId>()?;
+
         if min_votes != min_votes_ergo_tree {
             return Err(UpdateContractParametersError::MinVotesDiffers {
                 expected: min_votes,
                 actual: min_votes_ergo_tree,
             });
         }
+
+        let _pool_nft = ergo_tree
+            .get_constant(pool_nft_index)
+            .map_err(|_| UpdateContractParametersError::NoPoolNftId)?
+            .ok_or(UpdateContractParametersError::NoPoolNftId)?
+            .try_extract_into::<TokenId>()?;
+
+        let _ballot_token = ergo_tree
+            .get_constant(ballot_token_index)
+            .map_err(|_| UpdateContractParametersError::NoBallotTokenId)?
+            .ok_or(UpdateContractParametersError::NoBallotTokenId)?
+            .try_extract_into::<TokenId>()?;
+
         Ok(Self {
             ergo_tree_bytes,
             pool_nft_index,

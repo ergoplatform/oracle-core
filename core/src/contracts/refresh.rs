@@ -116,12 +116,12 @@ impl RefreshContract {
         }
 
         let buffer_length = ergo_tree
-            .get_constant(parameters.buffer_index)
+            .get_constant(parameters.buffer_length_index)
             .map_err(|_| {
-                RefreshContractError::Parameters(RefreshContractParametersError::NoBuffer)
+                RefreshContractError::Parameters(RefreshContractParametersError::NoBufferLength)
             })?
             .ok_or(RefreshContractError::Parameters(
-                RefreshContractParametersError::NoBuffer,
+                RefreshContractParametersError::NoBufferLength,
             ))?
             .try_extract_into::<i32>()?;
         if buffer_length != parameters.buffer_length {
@@ -176,7 +176,7 @@ impl RefreshContract {
             pool_nft_index: parameters.pool_nft_index,
             oracle_token_id_index: parameters.oracle_token_id_index,
             min_data_points_index: parameters.min_data_points_index,
-            buffer_index: parameters.buffer_index,
+            buffer_index: parameters.buffer_length_index,
             max_deviation_percent_index: parameters.max_deviation_percent_index,
             epoch_length_index: parameters.epoch_length_index,
         })
@@ -201,7 +201,7 @@ impl RefreshContract {
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
-                    inputs.contract_parameters.buffer_index,
+                    inputs.contract_parameters.buffer_length_index,
                     (inputs.contract_parameters.buffer_length).into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
@@ -220,7 +220,7 @@ impl RefreshContract {
             pool_nft_index: inputs.contract_parameters.pool_nft_index,
             oracle_token_id_index: inputs.contract_parameters.oracle_token_id_index,
             min_data_points_index: inputs.contract_parameters.min_data_points_index,
-            buffer_index: inputs.contract_parameters.buffer_index,
+            buffer_index: inputs.contract_parameters.buffer_length_index,
             max_deviation_percent_index: inputs.contract_parameters.max_deviation_percent_index,
             epoch_length_index: inputs.contract_parameters.epoch_length_index,
         })
@@ -291,7 +291,7 @@ impl RefreshContract {
             oracle_token_id_index: self.oracle_token_id_index,
             min_data_points_index: self.min_data_points_index,
             min_data_points: self.min_data_points(),
-            buffer_index: self.buffer_index,
+            buffer_length_index: self.buffer_index,
             buffer_length: self.buffer(),
             max_deviation_percent_index: self.max_deviation_percent_index,
             max_deviation_percent: self.max_deviation_percent(),
@@ -354,7 +354,7 @@ pub struct RefreshContractParameters {
     oracle_token_id_index: usize,
     min_data_points_index: usize,
     min_data_points: i32,
-    buffer_index: usize,
+    buffer_length_index: usize,
     buffer_length: i32,
     max_deviation_percent_index: usize,
     max_deviation_percent: i32,
@@ -368,7 +368,7 @@ pub struct RefreshContractParametersInputs {
     pub oracle_token_id_index: usize,
     pub min_data_points_index: usize,
     pub min_data_points: i32,
-    pub buffer_index: usize,
+    pub buffer_length_index: usize,
     pub buffer_length: i32,
     pub max_deviation_percent_index: usize,
     pub max_deviation_percent: i32,
@@ -388,8 +388,8 @@ pub enum RefreshContractParametersError {
         "refresh contract parameters: unexpected `min data points` value from constants. Expected {expected}, got {actual}"
     )]
     MinDataPointsDiffers { expected: i32, actual: i32 },
-    #[error("refresh contract parameters: failed to get buffer from constants")]
-    NoBuffer,
+    #[error("refresh contract parameters: failed to get buffer length from constants")]
+    NoBufferLength,
     #[error(
         "refresh contract parameters: unexpected `buffer length` value from constants. Expected {expected}, got {actual}"
     )]
@@ -425,7 +425,7 @@ impl RefreshContractParameters {
         let ergo_tree = ErgoTree::sigma_parse_bytes(inputs.ergo_tree_bytes.as_slice())?
             .with_constant(inputs.min_data_points_index, inputs.min_data_points.into())
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
-            .with_constant(inputs.buffer_index, inputs.buffer_length.into())
+            .with_constant(inputs.buffer_length_index, inputs.buffer_length.into())
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
             .with_constant(
                 inputs.max_deviation_percent_index,
@@ -450,7 +450,7 @@ impl RefreshContractParameters {
             oracle_token_id_index: inputs.oracle_token_id_index,
             min_data_points_index: inputs.min_data_points_index,
             min_data_points: inputs.min_data_points,
-            buffer_index: inputs.buffer_index,
+            buffer_length_index: inputs.buffer_length_index,
             buffer_length: inputs.buffer_length,
             max_deviation_percent_index: inputs.max_deviation_percent_index,
             max_deviation_percent: inputs.max_deviation_percent,
@@ -476,9 +476,9 @@ impl RefreshContractParameters {
         }
 
         let buffer_length = ergo_tree
-            .get_constant(inputs.buffer_index)
-            .map_err(|_| RefreshContractParametersError::NoBuffer)?
-            .ok_or(RefreshContractParametersError::NoBuffer)?
+            .get_constant(inputs.buffer_length_index)
+            .map_err(|_| RefreshContractParametersError::NoBufferLength)?
+            .ok_or(RefreshContractParametersError::NoBufferLength)?
             .try_extract_into::<i32>()?;
 
         if buffer_length != inputs.buffer_length {
@@ -530,7 +530,7 @@ impl RefreshContractParameters {
             oracle_token_id_index: inputs.oracle_token_id_index,
             min_data_points_index: inputs.min_data_points_index,
             min_data_points: inputs.min_data_points,
-            buffer_index: inputs.buffer_index,
+            buffer_length_index: inputs.buffer_length_index,
             buffer_length: inputs.buffer_length,
             max_deviation_percent_index: inputs.max_deviation_percent_index,
             max_deviation_percent: inputs.max_deviation_percent,
@@ -560,7 +560,7 @@ impl RefreshContractParameters {
     }
 
     pub fn buffer_length_index(&self) -> usize {
-        self.buffer_index
+        self.buffer_length_index
     }
 
     pub fn buffer_length(&self) -> i32 {
