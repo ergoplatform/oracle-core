@@ -78,13 +78,18 @@ impl Default for UpdateContractParameters {
         // compiled via
         // https://scastie.scala-lang.org/epRkAqc1Tl6oDut01uSsgg
         let ergo_tree_bytes = base16::decode("100e040004000400040204020e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570400040004000e203f4428472d4b6150645367566b5970337336763979244226452948404d625165010005000400040cd806d601b2a4730000d602b2db63087201730100d603b2a5730200d604db63087203d605b2a5730300d606b27204730400d1ededed938c7202017305ededededed937202b27204730600938cc77201018cc772030193c17201c1720393c672010405c67203040593c672010504c672030504efe6c672030661edededed93db63087205db6308a793c27205c2a792c17205c1a7918cc77205018cc7a701efe6c67205046192b0b5a4d9010763d801d609db630872079591b172097307edededed938cb2720973080001730993e4c6720705048cc7a70193e4c67207060ecbc2720393e4c67207070e8c72060193e4c6720708058c720602730a730bd9010741639a8c7207018cb2db63088c720702730c00027e730d05").unwrap();
-        UpdateContractParameters {
+        let pool_nft_index = 5;
+        let ballot_token_index = 9;
+        let min_votes_index = 13;
+        let min_votes = 6;
+        UpdateContractParameters::checked_load(
             ergo_tree_bytes,
-            pool_nft_index: 5,
-            ballot_token_index: 9,
-            min_votes_index: 13,
-            min_votes: 6,
-        }
+            pool_nft_index,
+            ballot_token_index,
+            min_votes_index,
+            min_votes,
+        )
+        .unwrap()
     }
 }
 
@@ -121,7 +126,7 @@ pub fn print_contract_hashes() {
         encoded_hash(ballot_ergo_tree_bytes)
     );
 
-    let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes;
+    let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes();
 
     println!(
         "Update contract encoded hash: {}\n",
@@ -187,7 +192,7 @@ mod tests {
             encoded, expected_ballot_encoding,
         );
 
-        let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes;
+        let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes();
 
         let encoded = encoded_hash(update_ergo_tree_bytes);
         println!("Update contract encoded hash: {}\n", encoded);

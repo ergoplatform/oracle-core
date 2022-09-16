@@ -776,7 +776,7 @@ pub(crate) mod tests {
         )
         .unwrap();
         assert!(
-            update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes
+            update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes()
         );
         assert!(update_contract.pool_nft_token_id() == token_ids.pool_nft_token_id);
         assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id);
@@ -837,8 +837,10 @@ pub(crate) mod tests {
                 .update_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.update_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .update_contract_parameters
+                .ergo_tree_bytes()
         );
     }
 }
