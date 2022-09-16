@@ -1,3 +1,4 @@
+use base16::DecodeError;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
@@ -6,6 +7,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -199,22 +201,25 @@ pub enum BallotContractParametersError {
     MinStorageRentDiffers { expected: u64, actual: u64 },
     #[error("ballot contract parameters: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),
+    #[error("ballot contract parameters: sigma serialization error {0}")]
+    SigmaSerialization(SigmaSerializationError),
     #[error("ballot contract parameters: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
+    #[error("ballot contract parameters: ergo tree constant error {0:?}")]
+    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("ballot contract parameters: base16 decoding error {0}")]
+    Decode(DecodeError),
 }
 
 impl BallotContractParameters {
     pub fn build_with(
         ergo_tree_bytes: Vec<u8>,
         min_storage_rent_index: usize,
+        min_storage_rent: u64,
         update_nft_index: usize,
     ) -> Result<Self, BallotContractParametersError> {
-        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
-        let min_storage_rent = ergo_tree
-            .get_constant(min_storage_rent_index)
-            .map_err(|_| BallotContractParametersError::NoMinStorageRent)?
-            .ok_or(BallotContractParametersError::NoMinStorageRent)?
-            .try_extract_into::<i64>()? as u64;
+        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?
+            .with_constant(min_storage_rent_index, (min_storage_rent as i64).into())?;
 
         let _update_nft = ergo_tree
             .get_constant(update_nft_index)
@@ -223,7 +228,7 @@ impl BallotContractParameters {
             .try_extract_into::<TokenId>()?;
 
         Ok(Self {
-            ergo_tree_bytes,
+            ergo_tree_bytes: base16::decode(&ergo_tree.to_base16_bytes()?)?,
             min_storage_rent_index,
             min_storage_rent,
             update_nft_index,
