@@ -25,7 +25,10 @@ use crate::{
         ballot::{BallotContractParameters, BallotContractParametersError},
         oracle::{OracleContractParameters, OracleContractParametersError},
         pool::{PoolContractParameters, PoolContractParametersError},
-        refresh::RefreshContractParameters,
+        refresh::{
+            RefreshContractParameters, RefreshContractParametersError,
+            RefreshContractParametersInputs,
+        },
         update::UpdateContractParameters,
     },
     datapoint_source::PredefinedDataPointSource,
@@ -67,6 +70,8 @@ pub enum SerdeConversionError {
     OracleContractParameters(OracleContractParametersError),
     #[error("Pool contract parameter error: {0}")]
     PoolContractParameters(PoolContractParametersError),
+    #[error("Refresh contract parameter error: {0}")]
+    RefreshContractParameters(RefreshContractParametersError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
@@ -357,37 +362,39 @@ struct RefreshContractParametersSerde {
 impl From<RefreshContractParameters> for RefreshContractParametersSerde {
     fn from(p: RefreshContractParameters) -> Self {
         RefreshContractParametersSerde {
-            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes.as_slice()),
-            pool_nft_index: p.pool_nft_index,
-            oracle_token_id_index: p.oracle_token_id_index,
-            min_data_points_index: p.min_data_points_index,
-            min_data_points: p.min_data_points,
-            buffer_index: p.buffer_index,
-            buffer_length: p.buffer_length,
-            max_deviation_percent_index: p.max_deviation_percent_index,
-            max_deviation_percent: p.max_deviation_percent,
-            epoch_length_index: p.epoch_length_index,
-            epoch_length: p.epoch_length,
+            ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes().as_slice()),
+            pool_nft_index: p.pool_nft_index(),
+            oracle_token_id_index: p.oracle_token_id_index(),
+            min_data_points_index: p.min_data_points_index(),
+            min_data_points: p.min_data_points(),
+            buffer_index: p.buffer_length_index(),
+            buffer_length: p.buffer_length(),
+            max_deviation_percent_index: p.max_deviation_percent_index(),
+            max_deviation_percent: p.max_deviation_percent(),
+            epoch_length_index: p.epoch_length_index(),
+            epoch_length: p.epoch_length(),
         }
     }
 }
 
 impl TryFrom<RefreshContractParametersSerde> for RefreshContractParameters {
-    type Error = DecodeError;
+    type Error = SerdeConversionError;
     fn try_from(contract: RefreshContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(RefreshContractParameters {
-            ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
-            pool_nft_index: contract.pool_nft_index,
-            oracle_token_id_index: contract.oracle_token_id_index,
-            min_data_points_index: contract.min_data_points_index,
-            min_data_points: contract.min_data_points,
-            buffer_index: contract.buffer_index,
-            buffer_length: contract.buffer_length,
-            max_deviation_percent_index: contract.max_deviation_percent_index,
-            max_deviation_percent: contract.max_deviation_percent,
-            epoch_length_index: contract.epoch_length_index,
-            epoch_length: contract.epoch_length,
-        })
+        Ok(RefreshContractParameters::build_with(
+            RefreshContractParametersInputs {
+                ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
+                pool_nft_index: contract.pool_nft_index,
+                oracle_token_id_index: contract.oracle_token_id_index,
+                min_data_points_index: contract.min_data_points_index,
+                min_data_points: contract.min_data_points,
+                buffer_index: contract.buffer_index,
+                buffer_length: contract.buffer_length,
+                max_deviation_percent_index: contract.max_deviation_percent_index,
+                max_deviation_percent: contract.max_deviation_percent,
+                epoch_length_index: contract.epoch_length_index,
+                epoch_length: contract.epoch_length,
+            },
+        )?)
     }
 }
 
