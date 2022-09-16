@@ -23,42 +23,16 @@ pub struct RefreshContract {
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Error)]
 pub enum RefreshContractError {
-    #[error("refresh contract: failed to get pool NFT from constants")]
-    NoPoolNftId,
+    #[error("refresh contract: parameter error: {0}")]
+    Parameters(RefreshContractParametersError),
     #[error(
         "refresh contract: unexpected `pool NFT` token id. Expected {expected:?}, got {actual:?}"
     )]
     PoolNftTokenIdDiffers { expected: TokenId, actual: TokenId },
-    #[error("refresh contract: failed to get oracle token id from constants")]
-    NoOracleTokenId,
     #[error(
         "refresh contract: unexpected `oracle` token id. Expected {expected:?}, got {actual:?}"
     )]
     OracleTokenIdDiffers { expected: TokenId, actual: TokenId },
-    #[error("refresh contract: failed to get min data points from constants")]
-    NoMinDataPoints,
-    #[error(
-        "refresh contract: unexpected `min data points` value from constants. Expected {expected}, got {actual}"
-    )]
-    MinDataPointsDiffers { expected: i32, actual: i32 },
-    #[error(
-        "refresh contract: unexpected `buffer length` value from constants. Expected {expected}, got {actual}"
-    )]
-    BufferLengthDiffers { expected: i32, actual: i32 },
-    #[error(
-        "refresh contract: unexpected `max deviation percentage` value from constants. Expected {expected}, got {actual}"
-    )]
-    MaxDeviationPercentDiffers { expected: i32, actual: i32 },
-    #[error(
-        "refresh contract: unexpected `epoch length` value from constants. Expected {expected}, got {actual}"
-    )]
-    EpochLengthDiffers { expected: i32, actual: i32 },
-    #[error("refresh contract: failed to get buffer from constants")]
-    NoBuffer,
-    #[error("refresh contract: failed to get max deviation percent from constants")]
-    NoMaxDeviationPercent,
-    #[error("refresh contract: failed to get epoch length from constants")]
-    NoEpochLength,
     #[error("refresh contract: sigma parsing error {0}")]
     SigmaParsing(#[from] SigmaParsingError),
     #[error("refresh contract: ergo tree constant error {0:?}")]
@@ -93,8 +67,12 @@ impl RefreshContract {
         let parameters = inputs.contract_parameters.clone();
         let pool_nft_token_id = ergo_tree
             .get_constant(parameters.pool_nft_index)
-            .map_err(|_| RefreshContractError::NoPoolNftId)?
-            .ok_or(RefreshContractError::NoPoolNftId)?
+            .map_err(|_| {
+                RefreshContractError::Parameters(RefreshContractParametersError::NoPoolNftId)
+            })?
+            .ok_or(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoPoolNftId,
+            ))?
             .try_extract_into::<TokenId>()?;
         if pool_nft_token_id != inputs.pool_nft_token_id {
             return Err(RefreshContractError::PoolNftTokenIdDiffers {
@@ -105,8 +83,12 @@ impl RefreshContract {
 
         let oracle_token_id = ergo_tree
             .get_constant(parameters.oracle_token_id_index)
-            .map_err(|_| RefreshContractError::NoOracleTokenId)?
-            .ok_or(RefreshContractError::NoOracleTokenId)?
+            .map_err(|_| {
+                RefreshContractError::Parameters(RefreshContractParametersError::NoOracleTokenId)
+            })?
+            .ok_or(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoOracleTokenId,
+            ))?
             .try_extract_into::<TokenId>()?;
         if oracle_token_id != inputs.oracle_token_id {
             return Err(RefreshContractError::OracleTokenIdDiffers {
@@ -117,50 +99,76 @@ impl RefreshContract {
 
         let min_data_points = ergo_tree
             .get_constant(parameters.min_data_points_index)
-            .map_err(|_| RefreshContractError::NoMinDataPoints)?
-            .ok_or(RefreshContractError::NoMinDataPoints)?
+            .map_err(|_| {
+                RefreshContractError::Parameters(RefreshContractParametersError::NoMinDataPoints)
+            })?
+            .ok_or(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoMinDataPoints,
+            ))?
             .try_extract_into::<i32>()?;
         if min_data_points != parameters.min_data_points {
-            return Err(RefreshContractError::MinDataPointsDiffers {
-                expected: parameters.min_data_points,
-                actual: min_data_points,
-            });
+            return Err(RefreshContractError::Parameters(
+                RefreshContractParametersError::MinDataPointsDiffers {
+                    expected: parameters.min_data_points,
+                    actual: min_data_points,
+                },
+            ));
         }
 
         let buffer_length = ergo_tree
             .get_constant(parameters.buffer_index)
-            .map_err(|_| RefreshContractError::NoBuffer)?
-            .ok_or(RefreshContractError::NoBuffer)?
+            .map_err(|_| {
+                RefreshContractError::Parameters(RefreshContractParametersError::NoBuffer)
+            })?
+            .ok_or(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoBuffer,
+            ))?
             .try_extract_into::<i32>()?;
         if buffer_length != parameters.buffer_length {
-            return Err(RefreshContractError::BufferLengthDiffers {
-                expected: parameters.buffer_length,
-                actual: buffer_length,
-            });
+            return Err(RefreshContractError::Parameters(
+                RefreshContractParametersError::BufferLengthDiffers {
+                    expected: parameters.buffer_length,
+                    actual: buffer_length,
+                },
+            ));
         }
 
         let max_deviation_percent = ergo_tree
             .get_constant(parameters.max_deviation_percent_index)
-            .map_err(|_| RefreshContractError::NoMaxDeviationPercent)?
-            .ok_or(RefreshContractError::NoMaxDeviationPercent)?
+            .map_err(|_| {
+                RefreshContractError::Parameters(
+                    RefreshContractParametersError::NoMaxDeviationPercent,
+                )
+            })?
+            .ok_or(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoMaxDeviationPercent,
+            ))?
             .try_extract_into::<i32>()?;
         if max_deviation_percent != parameters.max_deviation_percent {
-            return Err(RefreshContractError::MaxDeviationPercentDiffers {
-                expected: parameters.max_deviation_percent,
-                actual: max_deviation_percent,
-            });
+            return Err(RefreshContractError::Parameters(
+                RefreshContractParametersError::MaxDeviationPercentDiffers {
+                    expected: parameters.max_deviation_percent,
+                    actual: max_deviation_percent,
+                },
+            ));
         }
 
         let epoch_length = ergo_tree
             .get_constant(parameters.epoch_length_index)
-            .map_err(|_| RefreshContractError::NoEpochLength)?
-            .ok_or(RefreshContractError::NoEpochLength)?
+            .map_err(|_| {
+                RefreshContractError::Parameters(RefreshContractParametersError::NoEpochLength)
+            })?
+            .ok_or(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoEpochLength,
+            ))?
             .try_extract_into::<i32>()?;
         if epoch_length != parameters.epoch_length {
-            return Err(RefreshContractError::EpochLengthDiffers {
-                expected: parameters.epoch_length,
-                actual: epoch_length,
-            });
+            return Err(RefreshContractError::Parameters(
+                RefreshContractParametersError::EpochLengthDiffers {
+                    expected: parameters.epoch_length,
+                    actual: epoch_length,
+                },
+            ));
         }
 
         Ok(Self {
