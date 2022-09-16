@@ -55,6 +55,8 @@ pub enum StageError {
     DataPointSource(DataPointSourceError),
     #[error("update box error: {0}")]
     UpdateBoxError(UpdateBoxError),
+    #[error("update box not found")]
+    UpdateBoxNotFoundError,
 }
 
 pub trait StageDataSource {
@@ -93,7 +95,7 @@ pub trait VoteBallotBoxesSource {
 }
 
 pub trait UpdateBoxSource {
-    fn get_update_box(&self) -> Result<Option<UpdateBoxWrapper>>;
+    fn get_update_box(&self) -> Result<UpdateBoxWrapper>;
 }
 
 /// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
@@ -373,7 +375,7 @@ impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
             self.scan
                 .get_box()?
                 .ok_or(StageError::RefreshBoxNotFoundError)?,
-            self.refresh_box_wrapper_inputs.clone(),
+            &self.refresh_box_wrapper_inputs,
         )?;
         Ok(box_wrapper)
     }
@@ -406,11 +408,14 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
 }
 
 impl<'a> UpdateBoxSource for UpdateBoxScan<'a> {
-    fn get_update_box(&self) -> Result<Option<UpdateBoxWrapper>> {
-        self.scan
-            .get_box()?
-            .map(|b| UpdateBoxWrapper::new(b, self.update_box_wrapper_inputs).map_err(Into::into))
-            .transpose()
+    fn get_update_box(&self) -> Result<UpdateBoxWrapper> {
+        let box_wrapper = UpdateBoxWrapper::new(
+            self.scan
+                .get_box()?
+                .ok_or(StageError::UpdateBoxNotFoundError)?,
+            &self.update_box_wrapper_inputs,
+        )?;
+        Ok(box_wrapper)
     }
 }
 

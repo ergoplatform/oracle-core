@@ -20,7 +20,7 @@ use ergo_lib::{
 use ergo_node_interface::node_interface::NodeError;
 
 use crate::{
-    box_kind::{make_local_ballot_box_candidate, BallotBox},
+    box_kind::{make_local_ballot_box_candidate, BallotBox, BallotBoxWrapper},
     cli_commands::ergo_explorer_transaction_link,
     contracts::ballot::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
@@ -77,11 +77,11 @@ pub fn vote_update_pool(
     let height = current_block_height()? as u32;
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let reward_token_id = TokenId::from_base64(&reward_token_id_str)?;
-    let unsigned_tx = if let Some(local_ballot_box_source) = local_ballot_box_source {
+    let unsigned_tx = if let Some(local_ballot_box) = local_ballot_box_source.get_ballot_box()? {
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // which stipulates that the address in R4 is the 'owner' of the token
         build_tx_with_existing_ballot_box(
-            local_ballot_box_source,
+            local_ballot_box,
             wallet,
             new_pool_box_address_hash.clone(),
             reward_token_id.clone(),
@@ -135,7 +135,7 @@ pub fn vote_update_pool(
 
 #[allow(clippy::too_many_arguments)]
 fn build_tx_with_existing_ballot_box(
-    local_ballot_box_source: &dyn LocalBallotBoxSource,
+    in_ballot_box: BallotBoxWrapper,
     wallet: &dyn WalletDataSource,
     new_pool_box_address_hash: Digest32,
     reward_token_id: TokenId,
@@ -144,8 +144,6 @@ fn build_tx_with_existing_ballot_box(
     height: u32,
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
-    let in_ballot_box = local_ballot_box_source.get_ballot_box()?;
-
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let target_balance = BoxValue::try_from(in_ballot_box.min_storage_rent()).unwrap();
     let reward_token = Token {
@@ -276,8 +274,7 @@ mod tests {
         contracts::ballot::{BallotContract, BallotContractInputs, BallotContractParameters},
         oracle_config::BASE_FEE,
         pool_commands::test_utils::{
-            find_input_boxes, generate_token_ids, make_wallet_unspent_box, BallotBoxMock,
-            WalletDataMock,
+            find_input_boxes, generate_token_ids, make_wallet_unspent_box, WalletDataMock,
         },
         wallet::WalletDataSource,
     };
@@ -390,14 +387,12 @@ mod tests {
             0,
         )
         .unwrap();
-        let ballot_box_mock = BallotBoxMock {
-            ballot_box: BallotBoxWrapper::new(
-                in_ballot_box.clone(),
-                &inputs,
-                &Address::P2Pk(secret.public_image()),
-            )
-            .unwrap(),
-        };
+        let ballot_box = BallotBoxWrapper::new(
+            in_ballot_box.clone(),
+            &inputs,
+            &Address::P2Pk(secret.public_image()),
+        )
+        .unwrap();
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
             BASE_FEE.checked_mul_u32(100_000_000).unwrap(),
@@ -407,7 +402,7 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
         };
         let unsigned_tx = build_tx_with_existing_ballot_box(
-            &ballot_box_mock,
+            ballot_box,
             &wallet_mock,
             new_pool_box_address_hash,
             token_ids.reward_token_id,
