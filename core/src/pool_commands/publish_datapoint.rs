@@ -7,7 +7,6 @@ use ergo_lib::{
     ergotree_ir::{
         chain::{
             address::Address,
-            ergo_box::box_value::BoxValue,
             token::{Token, TokenAmount},
         },
         sigma_protocol::sigma_boolean::ProveDlog,
@@ -130,7 +129,6 @@ pub fn build_subsequent_publish_datapoint_action(
         height,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
 
     // The following context value ensures that `outIndex` in the oracle contract is properly set.
@@ -191,7 +189,6 @@ pub fn build_publish_first_datapoint_action(
         height,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
 
     // The following context value ensures that `outIndex` in the oracle contract is properly set.

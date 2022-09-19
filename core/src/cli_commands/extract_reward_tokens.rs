@@ -10,7 +10,6 @@ use ergo_lib::{
     ergotree_ir::{
         chain::{
             address::{Address, AddressEncoder, AddressEncoderError},
-            ergo_box::box_value::BoxValue,
             token::Token,
         },
         serialization::SigmaParsingError,
@@ -166,7 +165,6 @@ fn build_extract_reward_tokens_tx(
             height,
             *BASE_FEE,
             change_address,
-            BoxValue::MIN,
         );
         // The following context value ensures that `outIndex` in the oracle contract is properly set.
         let ctx_ext = ContextExtension {

@@ -225,7 +225,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
             height,
             tx_fee,
             change_address.clone(),
-            BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
@@ -433,7 +432,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         height,
         tx_fee,
         change_address.clone(),
-        BoxValue::MIN,
     );
     let pool_box_tx = tx_builder.build()?;
     debug!("unsigned pool_box_tx: {:?}", pool_box_tx);
@@ -490,7 +488,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         height,
         tx_fee,
         change_address.clone(),
-        BoxValue::MIN,
     );
     let refresh_box_tx = tx_builder.build()?;
     debug!("unsigned refresh_box_tx: {:?}", refresh_box_tx);

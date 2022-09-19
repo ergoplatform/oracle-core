@@ -8,7 +8,7 @@ use ergo_lib::{
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
         address::{Address, AddressEncoder, AddressEncoderError},
-        ergo_box::{box_value::BoxValue, ErgoBox, NonMandatoryRegisterId},
+        ergo_box::{ErgoBox, NonMandatoryRegisterId},
         token::Token,
     },
     ergotree_ir::serialization::SigmaSerializable,
@@ -312,7 +312,6 @@ fn build_update_pool_box_tx(
         height,
         *BASE_FEE,
         change_address,
-        BoxValue::MIN,
     );
 
     for (i, input_ballot) in vote_ballot_boxes.iter().enumerate() {

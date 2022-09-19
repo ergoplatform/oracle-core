@@ -174,7 +174,6 @@ fn build_tx_with_existing_ballot_box(
         height,
         *BASE_FEE,
         change_address,
-        BoxValue::MIN,
     );
     // The following context value ensures that `outIndex` in the ballot contract is properly set.
     let ctx_ext = ContextExtension {
@@ -238,7 +237,6 @@ fn build_tx_for_first_ballot_box(
             height,
             *BASE_FEE,
             change_address,
-            BoxValue::MIN,
         );
         // The following context value ensures that `outIndex` in the ballot contract is properly set.
         let ctx_ext = ContextExtension {

@@ -8,10 +8,7 @@ use ergo_lib::{
     },
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
-        chain::{
-            address::{Address, AddressEncoder, AddressEncoderError},
-            ergo_box::box_value::BoxValue,
-        },
+        chain::address::{Address, AddressEncoder, AddressEncoderError},
         serialization::SigmaParsingError,
     },
     wallet::{
@@ -148,7 +145,6 @@ fn build_transfer_oracle_token_tx(
             height,
             target_balance,
             change_address,
-            BoxValue::MIN,
         );
         // The following context value ensures that `outIndex` in the oracle contract is properly set.
         let ctx_ext = ContextExtension {

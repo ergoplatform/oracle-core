@@ -19,7 +19,6 @@ use derive_more::From;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::wallet::box_selector::BoxSelection;
@@ -118,7 +117,6 @@ pub fn build_refresh_action(
         height as u32,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
     let in_refresh_box_ctx_ext = ContextExtension {
         values: vec![(0, 0i32.into())].into_iter().collect(),
