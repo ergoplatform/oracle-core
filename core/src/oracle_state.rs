@@ -375,7 +375,7 @@ impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
             self.scan
                 .get_box()?
                 .ok_or(StageError::RefreshBoxNotFoundError)?,
-            &self.refresh_box_wrapper_inputs,
+            self.refresh_box_wrapper_inputs,
         )?;
         Ok(box_wrapper)
     }
@@ -413,7 +413,7 @@ impl<'a> UpdateBoxSource for UpdateBoxScan<'a> {
             self.scan
                 .get_box()?
                 .ok_or(StageError::UpdateBoxNotFoundError)?,
-            &self.update_box_wrapper_inputs,
+            self.update_box_wrapper_inputs,
         )?;
         Ok(box_wrapper)
     }

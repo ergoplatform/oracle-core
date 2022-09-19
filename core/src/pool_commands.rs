@@ -79,7 +79,7 @@ pub fn build_action(
                 .get_local_datapoint_box_source()
                 .get_local_oracle_datapoint_box()?
             {
-                PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box)
+                PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box.into())
             } else if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
                 PublishDataPointCommandInputs::FirstDataPoint {
                     public_key,
@@ -104,7 +104,7 @@ pub fn build_action(
 
 pub enum PublishDataPointCommandInputs {
     /// Local datapoint box already exists
-    LocalDataPointBoxExists(OracleBoxWrapper),
+    LocalDataPointBoxExists(Box<OracleBoxWrapper>),
     /// The first datapoint will be submitted, so there doesn't exist a local datapoint box now.
     FirstDataPoint {
         oracle_box_wrapper_inputs: OracleBoxWrapperInputs,

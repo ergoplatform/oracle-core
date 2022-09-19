@@ -67,7 +67,7 @@ pub fn build_publish_datapoint_action(
     match inputs {
         PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box) => {
             build_subsequent_publish_datapoint_action(
-                local_datapoint_box,
+                *local_datapoint_box,
                 wallet,
                 epoch_counter,
                 height,
@@ -325,7 +325,7 @@ mod tests {
         let datapoint_source = MockDatapointSource {};
         let action = build_publish_datapoint_action(
             &pool_box_mock,
-            PublishDataPointCommandInputs::LocalDataPointBoxExists(oracle_box),
+            PublishDataPointCommandInputs::LocalDataPointBoxExists(oracle_box.clone().into()),
             &wallet_mock,
             &datapoint_source,
             height,

@@ -24,7 +24,7 @@ use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
-    box_kind::make_oracle_box_candidate,
+    box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
@@ -65,44 +65,40 @@ pub fn extract_reward_tokens(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
 ) -> Result<(), ExtractRewardTokensActionError> {
-    if let Some(local_datapoint_box_source) = local_datapoint_box_source {
-        let rewards_destination =
-            AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
-        let network_prefix = rewards_destination.network();
+    let rewards_destination =
+        AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
+    let network_prefix = rewards_destination.network();
 
-        let change_address_str = get_wallet_status()?
-            .change_address
-            .ok_or(ExtractRewardTokensActionError::NoChangeAddressSetInNode)?;
+    let change_address_str = get_wallet_status()?
+        .change_address
+        .ok_or(ExtractRewardTokensActionError::NoChangeAddressSetInNode)?;
 
-        let change_address =
-            AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
-        let (unsigned_tx, num_reward_tokens) = build_extract_reward_tokens_tx(
-            local_datapoint_box_source,
-            wallet,
-            rewards_destination.address(),
-            current_block_height()? as u32,
-            change_address,
-        )?;
+    let change_address =
+        AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
+    let (unsigned_tx, num_reward_tokens) = build_extract_reward_tokens_tx(
+        local_datapoint_box_source,
+        wallet,
+        rewards_destination.address(),
+        current_block_height()? as u32,
+        change_address,
+    )?;
 
+    println!(
+        "YOU WILL BE TRANSFERRING {} REWARD TOKENS TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
+        num_reward_tokens, rewards_destination_str
+    );
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    if input == "YES" {
+        let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
         println!(
-            "YOU WILL BE TRANSFERRING {} REWARD TOKENS TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
-            num_reward_tokens, rewards_destination_str
+            "Transaction made. Check status here: {}",
+            ergo_explorer_transaction_link(tx_id_str, network_prefix)
         );
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        if input == "YES" {
-            let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
-            println!(
-                "Transaction made. Check status here: {}",
-                ergo_explorer_transaction_link(tx_id_str, network_prefix)
-            );
-        } else {
-            println!("Aborting the transaction.")
-        }
-        Ok(())
     } else {
-        Err(ExtractRewardTokensActionError::NoLocalDatapointBox)
+        println!("Aborting the transaction.")
     }
+    Ok(())
 }
 
 fn build_extract_reward_tokens_tx(
@@ -112,7 +108,9 @@ fn build_extract_reward_tokens_tx(
     height: u32,
     change_address: Address,
 ) -> Result<(UnsignedTransaction, u64), ExtractRewardTokensActionError> {
-    let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
+    let in_oracle_box = local_datapoint_box_source
+        .get_local_oracle_datapoint_box()?
+        .ok_or(ExtractRewardTokensActionError::NoLocalDatapointBox)?;
     let num_reward_tokens = *in_oracle_box.reward_token().amount.as_u64();
     if num_reward_tokens <= 1 {
         return Err(
@@ -254,6 +252,7 @@ mod tests {
         assert_eq!(num_reward_tokens, num_reward_tokens_in_box - 1);
         let mut possible_input_boxes = vec![local_datapoint_box_source
             .get_local_oracle_datapoint_box()
+            .unwrap()
             .unwrap()
             .get_box()
             .clone()];

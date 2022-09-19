@@ -327,7 +327,7 @@ mod tests {
 
     fn make_refresh_box(
         value: BoxValue,
-        inputs: RefreshBoxWrapperInputs,
+        inputs: &RefreshBoxWrapperInputs,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
@@ -409,7 +409,7 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
-        let in_refresh_box = make_refresh_box(*BASE_FEE, inputs, height - 32);
+        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,
