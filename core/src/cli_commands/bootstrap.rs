@@ -388,7 +388,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         0,
         1,
         pool_nft_token.clone(),
-        reward_tokens_for_pool_box,
+        reward_tokens_for_pool_box.clone(),
         erg_value_per_box,
         height,
     )?;
@@ -424,7 +424,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let box_selection = box_selector.select(
         inputs,
         target_balance,
-        &[pool_nft_token.clone(), reward_token.clone()],
+        &[pool_nft_token.clone(), reward_tokens_for_pool_box.clone()],
     )?;
     let inputs = box_selection.boxes.clone();
     let tx_builder = TxBuilder::new(
