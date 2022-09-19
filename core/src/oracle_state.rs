@@ -594,7 +594,7 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
     if !Path::new("scanIDs.json").exists() {
         register_scans()?;
     } else {
-        // If the update-pool command was issued the pool box values in `scanIDs.json` will be out
+        // If the UpdatePool command was issued values relating to the pool box in `scanIDs.json` will be out
         // of date. So we regenerate `scanIDs.json` and initiate a wallet rescan.
 
         // Note that the following variable was created from the existing `scanIDs.json`.
@@ -617,6 +617,8 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         let reward_tokens_changed = scan_pool_box_wrapper.reward_token().token_id
             != config.pool_box_wrapper_inputs.reward_token_id;
 
+        // The UpdatePool command will lead to either a change in the pool box script and/or a
+        // change in the reward tokens.
         if pool_hash_changed || reward_tokens_changed {
             register_scans()?;
         }
