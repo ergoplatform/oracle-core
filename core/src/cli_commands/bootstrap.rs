@@ -776,7 +776,7 @@ pub(crate) mod tests {
         )
         .unwrap();
         assert!(
-            update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes
+            update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes()
         );
         assert!(update_contract.pool_nft_token_id() == token_ids.pool_nft_token_id);
         assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id);
@@ -795,8 +795,10 @@ pub(crate) mod tests {
                 .refresh_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.refresh_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .refresh_contract_parameters
+                .ergo_tree_bytes()
         );
         // Check that ballot contract is updated
         assert_ne!(
@@ -804,8 +806,10 @@ pub(crate) mod tests {
                 .ballot_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.ballot_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .ballot_contract_parameters
+                .ergo_tree_bytes()
         );
         // Check that oracle contract is updated
         assert_ne!(
@@ -813,8 +817,10 @@ pub(crate) mod tests {
                 .oracle_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.oracle_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .oracle_contract_parameters
+                .ergo_tree_bytes()
         );
         // Check that pool contract is updated
         assert_ne!(
@@ -822,8 +828,8 @@ pub(crate) mod tests {
                 .pool_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.pool_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config.pool_contract_parameters.ergo_tree_bytes()
         );
         // Check that update contract is updated
         assert_ne!(
@@ -831,8 +837,10 @@ pub(crate) mod tests {
                 .update_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .ergo_tree_bytes,
-            bootstrap_config.update_contract_parameters.ergo_tree_bytes
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .update_contract_parameters
+                .ergo_tree_bytes()
         );
     }
 }

@@ -402,10 +402,15 @@ mod tests {
             amount: force_any_val(),
         };
 
-        let update_contract_parameters = UpdateContractParameters {
-            min_votes: 6,
-            ..Default::default()
-        };
+        let default_update_contract_parameters = UpdateContractParameters::default();
+        let update_contract_parameters = UpdateContractParameters::build_with(
+            default_update_contract_parameters.ergo_tree_bytes(),
+            default_update_contract_parameters.pool_nft_index(),
+            default_update_contract_parameters.ballot_token_index(),
+            default_update_contract_parameters.min_votes_index(),
+            6,
+        )
+        .unwrap();
         let update_contract_inputs = UpdateContractInputs::build_with(
             update_contract_parameters,
             token_ids.pool_nft_token_id.clone(),

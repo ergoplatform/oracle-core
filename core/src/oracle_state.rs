@@ -312,7 +312,7 @@ impl<'a> OraclePool<'a> {
                 .refresh_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .epoch_length as u32;
+                .epoch_length() as u32;
 
         let epoch_state = LiveEpochState {
             epoch_id,

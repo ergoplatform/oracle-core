@@ -201,7 +201,7 @@ fn build_tx_for_first_ballot_box(
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let target_balance = BoxValue::try_from(ballot_contract_parameters.min_storage_rent).unwrap();
+    let target_balance = BoxValue::try_from(ballot_contract_parameters.min_storage_rent()).unwrap();
     let reward_token = Token {
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),

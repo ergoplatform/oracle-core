@@ -437,7 +437,7 @@ refresh_contract_parameters:
   oracle_token_id_index: 3
   min_data_points_index: 13
   min_data_points: 4
-  buffer_index: 21
+  buffer_length_index: 21
   buffer_length: 4
   max_deviation_percent_index: 15
   max_deviation_percent: 5
