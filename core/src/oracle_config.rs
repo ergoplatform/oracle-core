@@ -220,21 +220,14 @@ pub fn get_node_api_key() -> String {
 
 #[cfg(test)]
 mod tests {
-    use sigma_test_util::force_any_val;
+
+    use crate::pool_commands::test_utils::generate_token_ids;
 
     use super::*;
 
     #[test]
     fn token_ids_roundtrip() {
-        let token_ids = TokenIds {
-            pool_nft_token_id: force_any_val::<TokenId>(),
-            refresh_nft_token_id: force_any_val::<TokenId>(),
-            update_nft_token_id: force_any_val::<TokenId>(),
-            oracle_token_id: force_any_val::<TokenId>(),
-            reward_token_id: force_any_val::<TokenId>(),
-            ballot_token_id: force_any_val::<TokenId>(),
-        };
-
+        let token_ids = generate_token_ids();
         let s = serde_yaml::to_string(&token_ids).unwrap();
         assert_eq!(token_ids, serde_yaml::from_str::<TokenIds>(&s).unwrap());
     }

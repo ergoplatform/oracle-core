@@ -6,6 +6,7 @@ use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
 use ergo_lib::chain::transaction::TxIoVec;
+use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
@@ -13,7 +14,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
 use ergo_lib::ergotree_ir::chain::token::Token;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::mir::expr::Expr;
@@ -283,12 +283,12 @@ pub fn init_log_tests() {
 
 pub fn generate_token_ids() -> TokenIds {
     TokenIds {
-        pool_nft_token_id: force_any_val::<TokenId>(),
-        refresh_nft_token_id: force_any_val::<TokenId>(),
-        update_nft_token_id: force_any_val::<TokenId>(),
-        oracle_token_id: force_any_val::<TokenId>(),
-        reward_token_id: force_any_val::<TokenId>(),
-        ballot_token_id: force_any_val::<TokenId>(),
+        pool_nft_token_id: force_any_val::<Digest32>().into(),
+        refresh_nft_token_id: force_any_val::<Digest32>().into(),
+        update_nft_token_id: force_any_val::<Digest32>().into(),
+        oracle_token_id: force_any_val::<Digest32>().into(),
+        reward_token_id: force_any_val::<Digest32>().into(),
+        ballot_token_id: force_any_val::<Digest32>().into(),
     }
 }
 

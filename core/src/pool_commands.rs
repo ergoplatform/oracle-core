@@ -53,6 +53,13 @@ pub fn build_action(
     let pool_box_source = op.get_pool_box_source();
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
+    let oracle_public_key =
+        if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
+            public_key
+        } else {
+            return Err(PoolCommandError::WrongOracleAddressType);
+        };
+
     match cmd {
         PoolCommand::Refresh => build_refresh_action(
             pool_box_source,
@@ -71,6 +78,7 @@ pub fn build_action(
             wallet,
             height,
             change_address,
+            oracle_public_key.h.as_ref(),
         )
         .map_err(Into::into)
         .map(Into::into),
@@ -80,13 +88,11 @@ pub fn build_action(
                 .get_local_oracle_datapoint_box()?
             {
                 PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box.into())
-            } else if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
+            } else {
                 PublishDataPointCommandInputs::FirstDataPoint {
-                    public_key,
+                    public_key: oracle_public_key.clone(),
                     oracle_box_wrapper_inputs: ORACLE_CONFIG.oracle_box_wrapper_inputs.clone(),
                 }
-            } else {
-                return Err(PoolCommandError::WrongOracleAddressType);
             };
             build_publish_datapoint_action(
                 pool_box_source,
