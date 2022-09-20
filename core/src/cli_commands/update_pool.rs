@@ -314,6 +314,10 @@ fn build_update_pool_box_tx(
         change_address,
     );
 
+    if reward_tokens.token_id != old_pool_box.reward_token().token_id {
+        tx_builder.set_token_burn_permit(vec![old_pool_box.reward_token().clone()]);
+    }
+
     for (i, input_ballot) in vote_ballot_boxes.iter().enumerate() {
         tx_builder.set_context_extension(
             input_ballot.get_box().box_id(),
@@ -362,9 +366,10 @@ mod tests {
             pool::{PoolContract, PoolContractInputs},
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
-        oracle_config::{TokenIds, BASE_FEE},
+        oracle_config::BASE_FEE,
         pool_commands::test_utils::{
-            make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock, UpdateBoxMock, WalletDataMock,
+            generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
+            UpdateBoxMock, WalletDataMock,
         },
     };
 
@@ -379,19 +384,14 @@ mod tests {
         .unwrap()
         .current()
     }
+
     #[test]
     fn test_update_pool_box() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
 
-        let token_ids = TokenIds {
-            pool_nft_token_id: force_any_tokenid(),
-            update_nft_token_id: force_any_tokenid(),
-            refresh_nft_token_id: force_any_tokenid(),
-            reward_token_id: force_any_tokenid(),
-            oracle_token_id: force_any_tokenid(),
-            ballot_token_id: force_any_tokenid(),
-        };
+        let token_ids = generate_token_ids();
+        dbg!(&token_ids);
         let reward_tokens = Token {
             token_id: token_ids.reward_token_id.clone(),
             amount: 1500.try_into().unwrap(),
@@ -400,6 +400,7 @@ mod tests {
             token_id: force_any_tokenid(),
             amount: force_any_val(),
         };
+        dbg!(&new_reward_tokens);
 
         let default_update_contract_parameters = UpdateContractParameters::default();
         let update_contract_parameters = UpdateContractParameters::build_with(
