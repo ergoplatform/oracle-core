@@ -21,10 +21,8 @@ use anyhow::Error;
 use derive_more::From;
 
 use ergo_lib::ergo_chain_types::blake2b256_hash;
-use ergo_lib::ergotree_ir::chain::address::{Address, NetworkAddress};
+use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_node_interface::node_interface::NodeError;
@@ -524,23 +522,8 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
 /// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
 pub fn register_and_save_scans() -> std::result::Result<(), Error> {
     let config = &ORACLE_CONFIG;
-    let local_oracle_address = config.oracle_address.clone();
-
-    let oracle_pool_participant_token_id = config.token_ids.oracle_token_id.clone();
-
-    let refresh_box_scan_name = "Refresh Box Scan";
-
-    let datapoint_contract_address =
-        OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
-            .ergo_tree();
-
     if !Path::new("scanIDs.json").exists() {
-        register_and_save_scans_inner(
-            &oracle_pool_participant_token_id,
-            &datapoint_contract_address,
-            refresh_box_scan_name,
-            &local_oracle_address,
-        )?;
+        register_and_save_scans_inner()?;
     } else {
         // If the UpdatePool command was issued values relating to the pool box in `scanIDs.json` will be out
         // of date. So we regenerate `scanIDs.json` and initiate a wallet rescan.
@@ -568,12 +551,7 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         // The UpdatePool command will lead to either a change in the pool box script and/or a
         // change in the reward tokens.
         if pool_hash_changed || reward_tokens_changed {
-            register_and_save_scans_inner(
-                &oracle_pool_participant_token_id,
-                &datapoint_contract_address,
-                refresh_box_scan_name,
-                &local_oracle_address,
-            )?;
+            register_and_save_scans_inner()?;
         }
     }
 
@@ -592,16 +570,24 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
 /// Registers and saves scans to `scanIDs.json` as well as performing wallet rescanning.
 ///
 /// WARNING: will overwrite existing `scanIDs.json`!
-fn register_and_save_scans_inner(
-    oracle_pool_participant_token_id: &TokenId,
-    datapoint_contract_address: &ErgoTree,
-    refresh_box_scan_name: &'static str,
-    local_oracle_address: &NetworkAddress,
-) -> std::result::Result<(), Error> {
+fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
     let config = &ORACLE_CONFIG;
+    let local_oracle_address = config.oracle_address.clone();
+
+    let oracle_pool_participant_token_id = config.token_ids.oracle_token_id.clone();
+
+    let refresh_box_scan_name = "Refresh Box Scan";
+
+    let datapoint_contract_address =
+        OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
+            .ergo_tree();
+
     let mut scans = vec![
-        register_datapoint_scan(oracle_pool_participant_token_id, datapoint_contract_address)
-            .unwrap(),
+        register_datapoint_scan(
+            &oracle_pool_participant_token_id,
+            &datapoint_contract_address,
+        )
+        .unwrap(),
         register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
         register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
         register_refresh_box_scan(
@@ -613,9 +599,9 @@ fn register_and_save_scans_inner(
 
     // Local datapoint box may not exist yet.
     if let Ok(local_scan) = register_local_oracle_datapoint_scan(
-        oracle_pool_participant_token_id,
-        datapoint_contract_address,
-        local_oracle_address,
+        &oracle_pool_participant_token_id,
+        &datapoint_contract_address,
+        &local_oracle_address,
     ) {
         scans.push(local_scan);
     }
