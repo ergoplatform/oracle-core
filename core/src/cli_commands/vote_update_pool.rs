@@ -145,7 +145,6 @@ fn build_tx_with_existing_ballot_box(
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let target_balance = BoxValue::try_from(in_ballot_box.min_storage_rent()).unwrap();
     let reward_token = Token {
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
@@ -157,11 +156,11 @@ fn build_tx_with_existing_ballot_box(
         in_ballot_box.ballot_token(),
         new_pool_box_address_hash,
         reward_token,
-        target_balance,
+        in_ballot_box.get_box().value,
         update_box_creation_height,
     )?;
     let box_selector = SimpleBoxSelector::new();
-    let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
+    let selection = box_selector.select(unspent_boxes, *BASE_FEE, &[])?;
     let mut input_boxes = vec![in_ballot_box.get_box().clone()];
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
@@ -198,7 +197,8 @@ fn build_tx_for_first_ballot_box(
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let target_balance = BoxValue::try_from(ballot_contract_parameters.min_storage_rent()).unwrap();
+    let out_ballot_box_value =
+        BoxValue::try_from(ballot_contract_parameters.min_storage_rent()).unwrap();
     let reward_token = Token {
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
@@ -220,11 +220,11 @@ fn build_tx_for_first_ballot_box(
             ballot_token.clone(),
             new_pool_box_address_hash,
             reward_token,
-            target_balance,
+            out_ballot_box_value,
             height,
         )?;
         let box_selector = SimpleBoxSelector::new();
-        let selection_target_balance = target_balance.checked_add(&*BASE_FEE).unwrap();
+        let selection_target_balance = out_ballot_box_value.checked_add(&*BASE_FEE).unwrap();
         let selection =
             box_selector.select(unspent_boxes, selection_target_balance, &[ballot_token])?;
         let box_selection = BoxSelection {
