@@ -536,7 +536,7 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
             .pool_box_wrapper_inputs
             .contract_inputs
             .contract_parameters()
-            .ergo_tree_bytes;
+            .ergo_tree_bytes();
 
         let pool_hash_changed = blake2b256_hash(
             &scan_pool_box_wrapper
