@@ -21,8 +21,10 @@ use anyhow::Error;
 use derive_more::From;
 
 use ergo_lib::ergo_chain_types::blake2b256_hash;
-use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::address::{Address, NetworkAddress};
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_node_interface::node_interface::NodeError;
@@ -532,67 +534,13 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
             .ergo_tree();
 
-    let register_scans = || -> std::result::Result<(), Error> {
-        let mut scans = vec![
-            register_datapoint_scan(
-                &oracle_pool_participant_token_id,
-                &datapoint_contract_address,
-            )
-            .unwrap(),
-            register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
-            register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
-            register_refresh_box_scan(
-                refresh_box_scan_name,
-                config.refresh_box_wrapper_inputs.clone(),
-            )
-            .unwrap(),
-        ];
-
-        // Local datapoint box may not exist yet.
-        if let Ok(local_scan) = register_local_oracle_datapoint_scan(
+    if !Path::new("scanIDs.json").exists() {
+        register_and_save_scans_inner(
             &oracle_pool_participant_token_id,
             &datapoint_contract_address,
+            refresh_box_scan_name,
             &local_oracle_address,
-        ) {
-            scans.push(local_scan);
-        }
-
-        let ballot_contract_address =
-            BallotContract::checked_load(&config.ballot_box_wrapper_inputs.contract_inputs)?
-                .ergo_tree();
-        // Local ballot box may not exist yet.
-        if let Ok(local_scan) = register_local_ballot_box_scan(
-            &ballot_contract_address,
-            &config.token_ids.ballot_token_id,
-            &config.oracle_address,
-        ) {
-            scans.push(local_scan);
-        }
-        scans.push(
-            register_ballot_box_scan(&ballot_contract_address, &config.token_ids.ballot_token_id)
-                .unwrap(),
-        );
-
-        let res = save_scan_ids_locally(scans);
-        rescan_from_height(ORACLE_CONFIG.rescan_height)?;
-        if res.is_ok() {
-            // Congrats scans registered screen here
-            print!("\x1B[2J\x1B[1;1H");
-            println!("====================================================================");
-            println!("UTXO-Set Scans Have Been Successfully Registered With The Ergo Node");
-            println!("====================================================================");
-            println!("Press Enter To Continue...");
-            let mut line = String::new();
-            std::io::stdin().read_line(&mut line).ok();
-        } else if let Err(e) = res {
-            // Failed, post error
-            panic!("{:?}", e);
-        }
-        Ok(())
-    };
-
-    if !Path::new("scanIDs.json").exists() {
-        register_scans()?;
+        )?;
     } else {
         // If the UpdatePool command was issued values relating to the pool box in `scanIDs.json` will be out
         // of date. So we regenerate `scanIDs.json` and initiate a wallet rescan.
@@ -620,7 +568,12 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         // The UpdatePool command will lead to either a change in the pool box script and/or a
         // change in the reward tokens.
         if pool_hash_changed || reward_tokens_changed {
-            register_scans()?;
+            register_and_save_scans_inner(
+                &oracle_pool_participant_token_id,
+                &datapoint_contract_address,
+                refresh_box_scan_name,
+                &local_oracle_address,
+            )?;
         }
     }
 
@@ -632,6 +585,71 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
         println!("Scanned {}/{} blocks", wallet_height, block_height);
+    }
+    Ok(())
+}
+
+/// Registers and saves scans to `scanIDs.json` as well as performing wallet rescanning.
+///
+/// WARNING: will overwrite existing `scanIDs.json`!
+fn register_and_save_scans_inner(
+    oracle_pool_participant_token_id: &TokenId,
+    datapoint_contract_address: &ErgoTree,
+    refresh_box_scan_name: &'static str,
+    local_oracle_address: &NetworkAddress,
+) -> std::result::Result<(), Error> {
+    let config = &ORACLE_CONFIG;
+    let mut scans = vec![
+        register_datapoint_scan(oracle_pool_participant_token_id, datapoint_contract_address)
+            .unwrap(),
+        register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
+        register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
+        register_refresh_box_scan(
+            refresh_box_scan_name,
+            config.refresh_box_wrapper_inputs.clone(),
+        )
+        .unwrap(),
+    ];
+
+    // Local datapoint box may not exist yet.
+    if let Ok(local_scan) = register_local_oracle_datapoint_scan(
+        oracle_pool_participant_token_id,
+        datapoint_contract_address,
+        local_oracle_address,
+    ) {
+        scans.push(local_scan);
+    }
+
+    let ballot_contract_address =
+        BallotContract::checked_load(&config.ballot_box_wrapper_inputs.contract_inputs)?
+            .ergo_tree();
+    // Local ballot box may not exist yet.
+    if let Ok(local_scan) = register_local_ballot_box_scan(
+        &ballot_contract_address,
+        &config.token_ids.ballot_token_id,
+        &config.oracle_address,
+    ) {
+        scans.push(local_scan);
+    }
+    scans.push(
+        register_ballot_box_scan(&ballot_contract_address, &config.token_ids.ballot_token_id)
+            .unwrap(),
+    );
+
+    let res = save_scan_ids_locally(scans);
+    rescan_from_height(ORACLE_CONFIG.rescan_height)?;
+    if res.is_ok() {
+        // Congrats scans registered screen here
+        print!("\x1B[2J\x1B[1;1H");
+        println!("====================================================================");
+        println!("UTXO-Set Scans Have Been Successfully Registered With The Ergo Node");
+        println!("====================================================================");
+        println!("Press Enter To Continue...");
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line).ok();
+    } else if let Err(e) = res {
+        // Failed, post error
+        panic!("{:?}", e);
     }
     Ok(())
 }
