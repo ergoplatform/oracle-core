@@ -87,7 +87,7 @@ impl Scan {
 }
 
 /// Saves UTXO-set scans (specifically id) to scanIDs.json
-pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
+pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<()> {
     let mut id_json = json!({});
     for scan in scans {
         if &scan.id == "null" {
@@ -99,7 +99,7 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<bool> {
         "scanIDs.json",
         serde_json::to_string_pretty(&id_json).unwrap(),
     )?;
-    Ok(true)
+    Ok(())
 }
 
 /// This function registers scanning for the pool box

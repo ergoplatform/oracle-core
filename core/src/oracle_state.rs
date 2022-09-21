@@ -551,20 +551,9 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
             .unwrap(),
     );
 
-    let res = save_scan_ids_locally(scans);
+    log::info!("Registering UTXO-Set Scans");
+    save_scan_ids_locally(scans)?;
+    log::info!("Triggering wallet rescan");
     rescan_from_height(ORACLE_CONFIG.rescan_height)?;
-    if res.is_ok() {
-        // Congrats scans registered screen here
-        print!("\x1B[2J\x1B[1;1H");
-        println!("====================================================================");
-        println!("UTXO-Set Scans Have Been Successfully Registered With The Ergo Node");
-        println!("====================================================================");
-        println!("Press Enter To Continue...");
-        let mut line = String::new();
-        std::io::stdin().read_line(&mut line).ok();
-    } else if let Err(e) = res {
-        // Failed, post error
-        panic!("{:?}", e);
-    }
     Ok(())
 }
