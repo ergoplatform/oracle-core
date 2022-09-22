@@ -169,7 +169,6 @@ enum Command {
 
 fn main() {
     let args = Args::parse();
-    log::info!("{}", APP_VERSION);
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Trace)
@@ -177,6 +176,7 @@ fn main() {
         None
     };
     logging::setup_log(cmdline_log_level);
+    log::info!("{}", APP_VERSION);
 
     debug!("Args: {:?}", args);
 
@@ -324,7 +324,10 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     let wallet = WalletData::new();
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
-        Err(_) => PoolState::NeedsBootstrap,
+        Err(error) => {
+            log::debug!("error getting live epoch state: {}", error);
+            PoolState::NeedsBootstrap
+        }
     };
     if let Some(cmd) = process(pool_state, height)? {
         let action = build_action(

@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use crate::box_kind::OracleBox;
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_ip, get_node_port, ORACLE_CONFIG};
 use crate::oracle_state::{OraclePool, StageDataSource};
@@ -33,18 +34,21 @@ async fn oracle_status() -> impl IntoResponse {
         Err(_) => false,
     };
     // Get latest datapoint the local oracle produced/submit
-    let self_datapoint = match op.get_datapoint_state() {
-        Ok(Some(d)) => d.datapoint,
+    let latest_oracle_box = op
+        .get_local_datapoint_box_source()
+        .get_local_oracle_datapoint_box();
+    let self_datapoint = match latest_oracle_box {
+        Ok(Some(ref d)) => d.rate(),
         Ok(None) | Err(_) => 0,
     };
     // Get latest datapoint submit epoch
-    let datapoint_epoch = match op.get_datapoint_state() {
-        Ok(Some(d)) => d.origin_epoch_id,
+    let datapoint_epoch = match latest_oracle_box {
+        Ok(Some(ref d)) => d.epoch_counter(),
         Ok(None) | Err(_) => 0,
     };
     // Get latest datapoint submit epoch
-    let datapoint_creation = match op.get_datapoint_state() {
-        Ok(Some(d)) => d.creation_height,
+    let datapoint_creation = match latest_oracle_box {
+        Ok(Some(ref d)) => d.get_box().creation_height,
         Ok(None) | Err(_) => 0,
     };
 

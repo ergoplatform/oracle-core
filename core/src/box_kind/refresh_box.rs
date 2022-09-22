@@ -79,7 +79,7 @@ impl RefreshBoxWrapperInputs {
 }
 
 impl RefreshBoxWrapper {
-    pub fn new(b: ErgoBox, inputs: RefreshBoxWrapperInputs) -> Result<Self, RefreshBoxError> {
+    pub fn new(b: ErgoBox, inputs: &RefreshBoxWrapperInputs) -> Result<Self, RefreshBoxError> {
         let refresh_token_id = b
             .tokens
             .as_ref()

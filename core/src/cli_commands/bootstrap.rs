@@ -225,7 +225,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
             height,
             tx_fee,
             change_address.clone(),
-            BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
@@ -388,7 +387,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         0,
         1,
         pool_nft_token.clone(),
-        reward_tokens_for_pool_box,
+        reward_tokens_for_pool_box.clone(),
         erg_value_per_box,
         height,
     )?;
@@ -424,7 +423,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let box_selection = box_selector.select(
         inputs,
         target_balance,
-        &[pool_nft_token.clone(), reward_token.clone()],
+        &[pool_nft_token.clone(), reward_tokens_for_pool_box.clone()],
     )?;
     let inputs = box_selection.boxes.clone();
     let tx_builder = TxBuilder::new(
@@ -433,7 +432,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         height,
         tx_fee,
         change_address.clone(),
-        BoxValue::MIN,
     );
     let pool_box_tx = tx_builder.build()?;
     debug!("unsigned pool_box_tx: {:?}", pool_box_tx);
@@ -490,7 +488,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         height,
         tx_fee,
         change_address.clone(),
-        BoxValue::MIN,
     );
     let refresh_box_tx = tx_builder.build()?;
     debug!("unsigned refresh_box_tx: {:?}", refresh_box_tx);

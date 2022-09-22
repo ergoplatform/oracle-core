@@ -17,11 +17,12 @@ use crate::wallet::WalletDataSource;
 
 use derive_more::From;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
+use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -61,6 +62,7 @@ pub fn build_refresh_action(
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
+    my_oracle_pk: &EcPoint,
 ) -> Result<RefreshAction, RefrechActionError> {
     let tx_fee = *BASE_FEE;
 
@@ -87,7 +89,8 @@ pub fn build_refresh_action(
     let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
     let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement)?;
     let out_refresh_box = build_out_refresh_box(&in_refresh_box, height)?;
-    let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
+    let mut out_oracle_boxes =
+        build_out_oracle_boxes(&valid_in_oracle_boxes, height, my_oracle_pk)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
@@ -118,7 +121,6 @@ pub fn build_refresh_action(
         height as u32,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
     let in_refresh_box_ctx_ext = ContextExtension {
         values: vec![(0, 0i32.into())].into_iter().collect(),
@@ -148,7 +150,7 @@ fn filtered_oracle_boxes(
         // Removing largest deviation outlier
         successful_boxes = remove_largest_local_deviation_datapoint(successful_boxes)?;
     }
-    dbg!(&successful_boxes);
+    // dbg!(&successful_boxes);
     Ok(successful_boxes)
 }
 
@@ -240,15 +242,23 @@ fn build_out_refresh_box(
 fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<OracleBoxWrapper>,
     creation_height: u32,
+    my_public_key: &EcPoint,
 ) -> Result<Vec<ErgoBoxCandidate>, RefrechActionError> {
     valid_oracle_boxes
         .iter()
         .map(|in_ob| {
             let mut reward_token_new = in_ob.reward_token();
-            reward_token_new.amount = reward_token_new
-                .amount
-                .checked_add(&1u64.try_into().unwrap())
-                .unwrap();
+            reward_token_new.amount = if in_ob.public_key().h.as_ref() == my_public_key {
+                let increment: TokenAmount =
+                // additional 1 reward token per collected oracle box goes to the collector
+                    (1 + valid_oracle_boxes.len() as u64).try_into().unwrap();
+                reward_token_new.amount.checked_add(&increment).unwrap()
+            } else {
+                reward_token_new
+                    .amount
+                    .checked_add(&1u64.try_into().unwrap())
+                    .unwrap()
+            };
             make_collected_oracle_box_candidate(
                 in_ob.contract(),
                 in_ob.public_key(),
@@ -276,7 +286,6 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
-    use ergo_lib::ergotree_ir::chain::token::TokenId;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
@@ -327,7 +336,7 @@ mod tests {
 
     fn make_refresh_box(
         value: BoxValue,
-        inputs: RefreshBoxWrapperInputs,
+        inputs: &RefreshBoxWrapperInputs,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
@@ -391,12 +400,11 @@ mod tests {
     fn test_refresh_pool() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let reward_token_id = force_any_val::<TokenId>();
-        dbg!(&reward_token_id);
         let pool_contract_parameters = PoolContractParameters::default();
         let oracle_contract_parameters = OracleContractParameters::default();
         let refresh_contract_parameters = RefreshContractParameters::default();
         let token_ids = generate_token_ids();
+        dbg!(&token_ids);
 
         let refresh_contract_inputs = RefreshContractInputs::build_with(
             refresh_contract_parameters,
@@ -409,7 +417,7 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
-        let in_refresh_box = make_refresh_box(*BASE_FEE, inputs, height - 32);
+        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,
@@ -423,7 +431,7 @@ mod tests {
         let oracle_pub_key = secret.public_image().h;
 
         let oracle_pub_keys = vec![
-            *oracle_pub_key,
+            *oracle_pub_key.clone(),
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
@@ -473,6 +481,7 @@ mod tests {
             &wallet_mock,
             height,
             change_address,
+            &oracle_pub_key,
         )
         .unwrap();
 

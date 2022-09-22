@@ -211,7 +211,6 @@ pub(crate) fn perform_update_chained_transaction(
             height,
             tx_fee,
             change_address.clone(),
-            BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);

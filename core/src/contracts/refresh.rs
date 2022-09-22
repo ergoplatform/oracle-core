@@ -62,7 +62,7 @@ impl RefreshContract {
         ergo_tree: ErgoTree,
         inputs: &RefreshContractInputs,
     ) -> Result<Self, RefreshContractError> {
-        dbg!(ergo_tree.get_constants().unwrap());
+        // dbg!(ergo_tree.get_constants().unwrap());
 
         let parameters = inputs.contract_parameters.clone();
         let pool_nft_token_id = ergo_tree

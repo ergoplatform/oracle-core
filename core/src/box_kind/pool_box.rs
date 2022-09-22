@@ -41,7 +41,7 @@ pub enum PoolBoxError {
     UnknownRewardTokenId,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PoolBoxWrapper(ErgoBox, PoolContract);
 
 impl PoolBoxWrapper {
