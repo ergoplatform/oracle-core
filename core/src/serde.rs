@@ -260,16 +260,46 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
     type Error = SerdeConversionError;
 
     fn try_from(c: BootstrapConfigSerde) -> Result<Self, Self::Error> {
-        let pool_contract_parameters =
-            PoolContractParameters::try_from(c.pool_contract_parameters)?;
+        let pool_contract_parameters = PoolContractParameters::build_with(
+            base16::decode(c.pool_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.pool_contract_parameters.refresh_nft_index,
+            c.pool_contract_parameters.update_nft_index,
+        )?;
         let refresh_contract_parameters =
-            RefreshContractParameters::try_from(c.refresh_contract_parameters)?;
-        let update_contract_parameters =
-            UpdateContractParameters::try_from(c.update_contract_parameters)?;
-        let ballot_contract_parameters =
-            BallotContractParameters::try_from(c.ballot_contract_parameters)?;
-        let oracle_contract_parameters =
-            OracleContractParameters::try_from(c.oracle_contract_parameters)?;
+            RefreshContractParameters::build_with(RefreshContractParametersInputs {
+                ergo_tree_bytes: base16::decode(
+                    c.refresh_contract_parameters.ergo_tree_bytes.as_str(),
+                )?,
+                pool_nft_index: c.refresh_contract_parameters.pool_nft_index,
+                oracle_token_id_index: c.refresh_contract_parameters.oracle_token_id_index,
+                min_data_points_index: c.refresh_contract_parameters.min_data_points_index,
+                min_data_points: c.refresh_contract_parameters.min_data_points,
+                buffer_length_index: c.refresh_contract_parameters.buffer_length_index,
+                buffer_length: c.refresh_contract_parameters.buffer_length,
+                max_deviation_percent_index: c
+                    .refresh_contract_parameters
+                    .max_deviation_percent_index,
+                max_deviation_percent: c.refresh_contract_parameters.max_deviation_percent,
+                epoch_length_index: c.refresh_contract_parameters.epoch_length_index,
+                epoch_length: c.refresh_contract_parameters.epoch_length,
+            })?;
+        let update_contract_parameters = UpdateContractParameters::build_with(
+            base16::decode(c.update_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.update_contract_parameters.pool_nft_index,
+            c.update_contract_parameters.ballot_token_index,
+            c.update_contract_parameters.min_votes_index,
+            c.update_contract_parameters.min_votes,
+        )?;
+        let ballot_contract_parameters = BallotContractParameters::build_with(
+            base16::decode(c.ballot_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.ballot_contract_parameters.min_storage_rent_index,
+            c.ballot_contract_parameters.min_storage_rent,
+            c.ballot_contract_parameters.update_nft_index,
+        )?;
+        let oracle_contract_parameters = OracleContractParameters::build_with(
+            base16::decode(c.oracle_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.oracle_contract_parameters.pool_nft_index,
+        )?;
         let oracle_address =
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
 
