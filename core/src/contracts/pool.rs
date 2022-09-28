@@ -198,7 +198,7 @@ pub struct PoolContractParameters {
 }
 
 impl PoolContractParameters {
-    pub fn build_with(
+    pub fn checked_load(
         ergo_tree_bytes: Vec<u8>,
         refresh_nft_index: usize,
         update_nft_index: usize,
