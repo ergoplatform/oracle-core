@@ -50,11 +50,11 @@ pub enum ActionExecError {
 pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     match action {
         PoolAction::Refresh(action) => {
-            log::info!("Executing refresh action: {:?}", action);
+            log::debug!("Executing refresh action: {:?}", action);
             execute_refresh_action(action)
         }
         PoolAction::PublishDatapoint(action) => {
-            log::info!("Executing publish datapoint action: {:?}", action);
+            log::debug!("Executing publish datapoint action: {:?}", action);
             execute_publish_datapoint_action(action)
         }
     }
@@ -62,11 +62,22 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
 
 fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
     let _tx_id = sign_and_submit_transaction(&action.tx)?;
+    log::info!("Refresh action executed successfully");
     Ok(())
 }
 
 fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<(), ActionExecError> {
-    let _tx_id = sign_and_submit_transaction(&action.tx)?;
+    match sign_and_submit_transaction(&action.tx) {
+        Ok(tx_id) => {
+            log::info!("Datapoint published successfully, tx id = {}", tx_id);
+        }
+        Err(NodeError::BadRequest(msg)) if msg.as_str() == "Double spending attempt" => {
+            log::debug!("Ignoring node returned double spending attempt error (probably due to our previous data point tx is still in the mempool)");
+        }
+        Err(e) => {
+            return Err(ActionExecError::NodeError(e));
+        }
+    };
     Ok(())
 }
 
