@@ -64,6 +64,7 @@ use wallet::WalletData;
 
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
+use crate::oracle_config::MAYBE_ORACLE_CONFIG;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
@@ -176,7 +177,8 @@ fn main() {
         None
     };
     logging::setup_log(cmdline_log_level);
-    log::info!("{}", APP_VERSION);
+
+    log_on_launch();
 
     debug!("Args: {:?}", args);
 
@@ -350,4 +352,11 @@ fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
         .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
     let addr = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     Ok(addr)
+}
+
+fn log_on_launch() {
+    log::info!("{}", APP_VERSION);
+    if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
+        log::info!("Token ids: {:?}", config.token_ids);
+    }
 }

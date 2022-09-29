@@ -234,7 +234,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     };
 
     // Mint pool NFT token --------------------------------------------------------------------------
-    info!("Minting pool NFT tx");
+    info!("Creating and signing minting pool NFT tx");
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     debug!("unspent boxes: {:?}", unspent_boxes);
     let target_balance = calc_target_balance(num_transactions_left)?;
@@ -254,7 +254,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     debug!("signed_mint_pool_nft_tx: {:?}", signed_mint_pool_nft_tx);
 
     // Mint refresh NFT token ----------------------------------------------------------------------
-    info!("Minting refresh NFT tx");
+    info!("Creating and signing minting refresh NFT tx");
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
     debug!("inputs for refresh NFT mint: {:?}", inputs);
     let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_token(
@@ -271,7 +271,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     );
 
     // Mint ballot tokens --------------------------------------------------------------------------
-    info!("Minting ballot tokens tx");
+    info!("Creating and signing minting ballot tokens tx");
     let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
     debug!("inputs for ballot tokens mint: {:?}", inputs);
     let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
@@ -300,7 +300,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         ballot_token.token_id.clone(),
     )?)?;
 
-    info!("Minting update NFT tx");
+    info!("Creating and signing minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
     debug!("inputs for update NFT mint: {:?}", inputs);
     let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
@@ -314,7 +314,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     debug!("signed_mint_update_nft_tx: {:?}", signed_mint_update_nft_tx);
 
     // Mint oracle tokens --------------------------------------------------------------------------
-    info!("Minting oracle tokens tx");
+    info!("Creating and signing minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     debug!("inputs for oracle tokens mint: {:?}", inputs);
     let oracle_tokens_pk_ergo_tree = config.oracle_address.address().script()?;
@@ -337,7 +337,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     );
 
     // Mint reward tokens --------------------------------------------------------------------------
-    info!("Minting reward tokens tx");
+    info!("Creating and signing minting reward tokens tx");
     let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
     debug!("inputs for reward tokens mint: {:?}", inputs);
     let (reward_token, signed_mint_reward_tokens_tx) = mint_token(
@@ -355,7 +355,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     )?;
 
     // Create pool box -----------------------------------------------------------------------------
-    info!("Create pool box tx");
+    info!("Create and sign pool box tx");
 
     let token_ids = TokenIds {
         pool_nft_token_id: pool_nft_token.token_id.clone(),
@@ -440,7 +440,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     num_transactions_left -= 1;
 
     // Create refresh box --------------------------------------------------------------------------
-    info!("Create refresh box tx");
+    info!("Create and sign refresh box tx");
 
     let refresh_contract_inputs = RefreshContractInputs::build_with(
         config.refresh_contract_parameters.clone(),
@@ -496,21 +496,21 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // ---------------------------------------------------------------------------------------------
     let tx_id = submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
-    info!("Minting pool NFT TxId: {}", tx_id);
+    info!("Minted pool NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
-    info!("Minting refresh NFT TxId: {}", tx_id);
+    info!("Minted refresh NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
-    info!("Minting ballot tokens TxId: {}", tx_id);
+    info!("Minted ballot tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
-    info!("Minting update NFT TxId: {}", tx_id);
+    info!("Minted update NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
-    info!("Minting oracle tokens TxId: {}", tx_id);
+    info!("Minted oracle tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
-    info!("Minting reward tokens TxId: {}", tx_id);
+    info!("Minted reward tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_pool_box_tx)?;
-    info!("Creating initial pool box TxId: {}", tx_id);
+    info!("Created initial pool box TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
-    info!("Creating initial refresh box TxId: {}", tx_id);
+    info!("Created initial refresh box TxId: {}", tx_id);
 
     let token_ids = TokenIds {
         pool_nft_token_id: pool_nft_token.token_id,
@@ -520,6 +520,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         reward_token_id: reward_token.token_id,
         ballot_token_id: ballot_token.token_id,
     };
+    info!("Minted tokens: {:?}", token_ids);
 
     Ok(OracleConfig::create(config, token_ids, height)?)
 }

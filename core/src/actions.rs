@@ -3,7 +3,6 @@
 /// are implemented on the `OraclePool` struct.
 use crate::node_interface::sign_and_submit_transaction;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
-use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 
 use derive_more::From;
 use ergo_node_interface::node_interface::NodeError;
@@ -72,23 +71,11 @@ fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<()
             log::info!("Datapoint published successfully, tx id = {}", tx_id);
         }
         Err(NodeError::BadRequest(msg)) if msg.as_str() == "Double spending attempt" => {
-            log::debug!("Ignoring node returned double spending attempt error (probably due to our previous data point tx is still in the mempool)");
+            log::info!("Failed commiting datapoint (double spending attempt error, probably due to our previous data point tx is still in the mempool)");
         }
         Err(e) => {
             return Err(ActionExecError::NodeError(e));
         }
     };
     Ok(())
-}
-
-/// Given an `ErgoBox`, find its index in the input `Vec<ErgoBox>`
-/// If index cannot be found, then local oracle has not submit their
-/// own datapoint, and thus the function returns `None`
-fn find_box_index_in_list(
-    search_box: ErgoBox,
-    sorted_datapoint_boxes: &Vec<ErgoBox>,
-) -> Option<usize> {
-    sorted_datapoint_boxes
-        .iter()
-        .position(|b| b.clone() == search_box)
 }
