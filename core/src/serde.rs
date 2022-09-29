@@ -1,6 +1,6 @@
 //! Types to allow oracle configuration to convert to and from Serde.
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::{
@@ -132,8 +132,11 @@ impl From<OracleConfig> for OracleConfigSerde {
 impl TryFrom<OracleConfigSerde> for OracleConfig {
     type Error = SerdeConversionError;
     fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
-        let oracle_contract_parameters =
-            OracleContractParameters::try_from(c.oracle_contract_parameters)?;
+        let oracle_contract_parameters = OracleContractParameters::checked_load(
+            base16::decode(c.oracle_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.oracle_contract_parameters.pool_nft_index,
+        )?;
+
         let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::checked_load(
             oracle_contract_parameters.clone(),
             c.token_ids.pool_nft_token_id.clone(),
@@ -142,17 +145,45 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         )
         .map_err(OracleConfigError::from)?;
 
-        let pool_contract_parameters =
-            PoolContractParameters::try_from(c.pool_contract_parameters)?;
+        let pool_contract_parameters = PoolContractParameters::checked_load(
+            base16::decode(c.pool_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.pool_contract_parameters.refresh_nft_index,
+            c.pool_contract_parameters.update_nft_index,
+        )?;
 
         let refresh_contract_parameters =
-            RefreshContractParameters::try_from(c.refresh_contract_parameters)?;
+            RefreshContractParameters::checked_load(RefreshContractParametersInputs {
+                ergo_tree_bytes: base16::decode(
+                    c.refresh_contract_parameters.ergo_tree_bytes.as_str(),
+                )?,
+                pool_nft_index: c.refresh_contract_parameters.pool_nft_index,
+                oracle_token_id_index: c.refresh_contract_parameters.oracle_token_id_index,
+                min_data_points_index: c.refresh_contract_parameters.min_data_points_index,
+                min_data_points: c.refresh_contract_parameters.min_data_points,
+                buffer_length_index: c.refresh_contract_parameters.buffer_length_index,
+                buffer_length: c.refresh_contract_parameters.buffer_length,
+                max_deviation_percent_index: c
+                    .refresh_contract_parameters
+                    .max_deviation_percent_index,
+                max_deviation_percent: c.refresh_contract_parameters.max_deviation_percent,
+                epoch_length_index: c.refresh_contract_parameters.epoch_length_index,
+                epoch_length: c.refresh_contract_parameters.epoch_length,
+            })?;
 
-        let update_contract_parameters =
-            UpdateContractParameters::try_from(c.update_contract_parameters)?;
+        let update_contract_parameters = UpdateContractParameters::checked_load(
+            base16::decode(c.update_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.update_contract_parameters.pool_nft_index,
+            c.update_contract_parameters.ballot_token_index,
+            c.update_contract_parameters.min_votes_index,
+            c.update_contract_parameters.min_votes,
+        )?;
 
-        let ballot_contract_parameters =
-            BallotContractParameters::try_from(c.ballot_contract_parameters)?;
+        let ballot_contract_parameters = BallotContractParameters::checked_load(
+            base16::decode(c.ballot_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.ballot_contract_parameters.min_storage_rent,
+            c.ballot_contract_parameters.min_storage_rent_index,
+            c.ballot_contract_parameters.update_nft_index,
+        )?;
 
         let oracle_address =
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
@@ -260,16 +291,46 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
     type Error = SerdeConversionError;
 
     fn try_from(c: BootstrapConfigSerde) -> Result<Self, Self::Error> {
-        let pool_contract_parameters =
-            PoolContractParameters::try_from(c.pool_contract_parameters)?;
+        let pool_contract_parameters = PoolContractParameters::checked_load(
+            base16::decode(c.pool_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.pool_contract_parameters.refresh_nft_index,
+            c.pool_contract_parameters.update_nft_index,
+        )?;
         let refresh_contract_parameters =
-            RefreshContractParameters::try_from(c.refresh_contract_parameters)?;
-        let update_contract_parameters =
-            UpdateContractParameters::try_from(c.update_contract_parameters)?;
-        let ballot_contract_parameters =
-            BallotContractParameters::try_from(c.ballot_contract_parameters)?;
-        let oracle_contract_parameters =
-            OracleContractParameters::try_from(c.oracle_contract_parameters)?;
+            RefreshContractParameters::build_with(RefreshContractParametersInputs {
+                ergo_tree_bytes: base16::decode(
+                    c.refresh_contract_parameters.ergo_tree_bytes.as_str(),
+                )?,
+                pool_nft_index: c.refresh_contract_parameters.pool_nft_index,
+                oracle_token_id_index: c.refresh_contract_parameters.oracle_token_id_index,
+                min_data_points_index: c.refresh_contract_parameters.min_data_points_index,
+                min_data_points: c.refresh_contract_parameters.min_data_points,
+                buffer_length_index: c.refresh_contract_parameters.buffer_length_index,
+                buffer_length: c.refresh_contract_parameters.buffer_length,
+                max_deviation_percent_index: c
+                    .refresh_contract_parameters
+                    .max_deviation_percent_index,
+                max_deviation_percent: c.refresh_contract_parameters.max_deviation_percent,
+                epoch_length_index: c.refresh_contract_parameters.epoch_length_index,
+                epoch_length: c.refresh_contract_parameters.epoch_length,
+            })?;
+        let update_contract_parameters = UpdateContractParameters::build_with(
+            base16::decode(c.update_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.update_contract_parameters.pool_nft_index,
+            c.update_contract_parameters.ballot_token_index,
+            c.update_contract_parameters.min_votes_index,
+            c.update_contract_parameters.min_votes,
+        )?;
+        let ballot_contract_parameters = BallotContractParameters::build_with(
+            base16::decode(c.ballot_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.ballot_contract_parameters.min_storage_rent_index,
+            c.ballot_contract_parameters.min_storage_rent,
+            c.ballot_contract_parameters.update_nft_index,
+        )?;
+        let oracle_contract_parameters = OracleContractParameters::checked_load(
+            base16::decode(c.oracle_contract_parameters.ergo_tree_bytes.as_str())?,
+            c.oracle_contract_parameters.pool_nft_index,
+        )?;
         let oracle_address =
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
 
@@ -307,16 +368,6 @@ impl From<OracleContractParameters> for OracleContractParametersSerde {
     }
 }
 
-impl TryFrom<OracleContractParametersSerde> for OracleContractParameters {
-    type Error = SerdeConversionError;
-    fn try_from(contract: OracleContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(OracleContractParameters::build_with(
-            base16::decode(contract.ergo_tree_bytes.as_str())?,
-            contract.pool_nft_index,
-        )?)
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PoolContractParametersSerde {
     ergo_tree_bytes: String,
@@ -331,17 +382,6 @@ impl From<PoolContractParameters> for PoolContractParametersSerde {
             refresh_nft_index: p.refresh_nft_index(),
             update_nft_index: p.update_nft_index(),
         }
-    }
-}
-
-impl TryFrom<PoolContractParametersSerde> for PoolContractParameters {
-    type Error = SerdeConversionError;
-    fn try_from(contract: PoolContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(PoolContractParameters::build_with(
-            base16::decode(contract.ergo_tree_bytes.as_str())?,
-            contract.refresh_nft_index,
-            contract.update_nft_index,
-        )?)
     }
 }
 
@@ -378,27 +418,6 @@ impl From<RefreshContractParameters> for RefreshContractParametersSerde {
     }
 }
 
-impl TryFrom<RefreshContractParametersSerde> for RefreshContractParameters {
-    type Error = SerdeConversionError;
-    fn try_from(contract: RefreshContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(RefreshContractParameters::checked_load(
-            RefreshContractParametersInputs {
-                ergo_tree_bytes: base16::decode(contract.ergo_tree_bytes.as_str())?,
-                pool_nft_index: contract.pool_nft_index,
-                oracle_token_id_index: contract.oracle_token_id_index,
-                min_data_points_index: contract.min_data_points_index,
-                min_data_points: contract.min_data_points,
-                buffer_length_index: contract.buffer_length_index,
-                buffer_length: contract.buffer_length,
-                max_deviation_percent_index: contract.max_deviation_percent_index,
-                max_deviation_percent: contract.max_deviation_percent,
-                epoch_length_index: contract.epoch_length_index,
-                epoch_length: contract.epoch_length,
-            },
-        )?)
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BallotContractParametersSerde {
     ergo_tree_bytes: String,
@@ -418,18 +437,6 @@ impl From<BallotContractParameters> for BallotContractParametersSerde {
     }
 }
 
-impl TryFrom<BallotContractParametersSerde> for BallotContractParameters {
-    type Error = SerdeConversionError;
-    fn try_from(contract: BallotContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(BallotContractParameters::checked_load(
-            base16::decode(contract.ergo_tree_bytes.as_str())?,
-            contract.min_storage_rent,
-            contract.min_storage_rent_index,
-            contract.update_nft_index,
-        )?)
-    }
-}
-
 /// Used to (de)serialize `OracleContractParameters` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct UpdateContractParametersSerde {
@@ -438,20 +445,6 @@ struct UpdateContractParametersSerde {
     ballot_token_index: usize,
     min_votes_index: usize,
     min_votes: u64,
-}
-
-impl TryFrom<UpdateContractParametersSerde> for UpdateContractParameters {
-    type Error = SerdeConversionError;
-
-    fn try_from(contract: UpdateContractParametersSerde) -> Result<Self, Self::Error> {
-        Ok(UpdateContractParameters::checked_load(
-            base16::decode(contract.ergo_tree_bytes.as_str())?,
-            contract.pool_nft_index,
-            contract.ballot_token_index,
-            contract.min_votes_index,
-            contract.min_votes,
-        )?)
-    }
 }
 
 impl From<UpdateContractParameters> for UpdateContractParametersSerde {
@@ -474,24 +467,53 @@ pub struct UpdateBootstrapConfigSerde {
     tokens_to_mint: UpdateTokensToMint,
 }
 
-/// The network prefix of the 2nd element is the one in use by the existing oracle pool.
 impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
     type Error = SerdeConversionError;
     fn try_from(
         config_serde: UpdateBootstrapConfigSerde,
     ) -> Result<UpdateBootstrapConfig, Self::Error> {
-        let pool_contract_parameters: Option<PoolContractParameters> = config_serde
-            .pool_contract_parameters
-            .map(|r| r.try_into())
-            .transpose()?;
-        let refresh_contract_parameters: Option<RefreshContractParameters> = config_serde
-            .refresh_contract_parameters
-            .map(|r| r.try_into())
-            .transpose()?;
-        let update_contract_parameters: Option<UpdateContractParameters> = config_serde
-            .update_contract_parameters
-            .map(|r| r.try_into())
-            .transpose()?;
+        let pool_contract_parameters = if let Some(c) = config_serde.pool_contract_parameters {
+            Some(PoolContractParameters::checked_load(
+                base16::decode(c.ergo_tree_bytes.as_str())?,
+                c.refresh_nft_index,
+                c.update_nft_index,
+            )?)
+        } else {
+            None
+        };
+
+        let refresh_contract_parameters = if let Some(c) = config_serde.refresh_contract_parameters
+        {
+            Some(RefreshContractParameters::checked_load(
+                RefreshContractParametersInputs {
+                    ergo_tree_bytes: base16::decode(c.ergo_tree_bytes.as_str())?,
+                    pool_nft_index: c.pool_nft_index,
+                    oracle_token_id_index: c.oracle_token_id_index,
+                    min_data_points_index: c.min_data_points_index,
+                    min_data_points: c.min_data_points,
+                    buffer_length_index: c.buffer_length_index,
+                    buffer_length: c.buffer_length,
+                    max_deviation_percent_index: c.max_deviation_percent_index,
+                    max_deviation_percent: c.max_deviation_percent,
+                    epoch_length_index: c.epoch_length_index,
+                    epoch_length: c.epoch_length,
+                },
+            )?)
+        } else {
+            None
+        };
+
+        let update_contract_parameters = if let Some(c) = config_serde.update_contract_parameters {
+            Some(UpdateContractParameters::checked_load(
+                base16::decode(c.ergo_tree_bytes.as_str())?,
+                c.pool_nft_index,
+                c.ballot_token_index,
+                c.min_votes_index,
+                c.min_votes,
+            )?)
+        } else {
+            None
+        };
 
         Ok(UpdateBootstrapConfig {
             pool_contract_parameters,

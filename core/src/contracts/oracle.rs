@@ -164,7 +164,7 @@ pub struct OracleContractParameters {
 }
 
 impl OracleContractParameters {
-    pub fn build_with(
+    pub fn checked_load(
         ergo_tree_bytes: Vec<u8>,
         pool_nft_index: usize,
     ) -> Result<Self, OracleContractParametersError> {

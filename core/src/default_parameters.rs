@@ -34,7 +34,7 @@ impl Default for OracleContractParameters {
         // https://scastie.scala-lang.org/Ub0eB9H7TOuPgq6sAf4cMQ
         let ergo_tree_bytes = base16::decode("100a040004000580dac409040004000e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570402040204020402d804d601b2a5e4e3000400d602db63087201d603db6308a7d604e4c6a70407ea02d1ededed93b27202730000b2720373010093c27201c2a7e6c67201040792c172017302eb02cd7204d1ededededed938cb2db6308b2a4730300730400017305938cb27202730600018cb2720373070001918cb27202730800028cb272037309000293e4c672010407720492c17201c1a7efe6c672010561").unwrap();
         let pool_nft_index = 5;
-        OracleContractParameters::build_with(ergo_tree_bytes, pool_nft_index).unwrap()
+        OracleContractParameters::checked_load(ergo_tree_bytes, pool_nft_index).unwrap()
     }
 }
 
@@ -46,7 +46,7 @@ impl Default for PoolContractParameters {
 
         let refresh_nft_index = 2;
         let update_nft_index = 3;
-        PoolContractParameters::build_with(ergo_tree_bytes, refresh_nft_index, update_nft_index)
+        PoolContractParameters::checked_load(ergo_tree_bytes, refresh_nft_index, update_nft_index)
             .unwrap()
     }
 }
