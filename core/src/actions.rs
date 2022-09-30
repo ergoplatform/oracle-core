@@ -60,15 +60,15 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
 }
 
 fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
-    let _tx_id = sign_and_submit_transaction(&action.tx)?;
-    log::info!("Refresh action executed successfully");
+    let tx_id = sign_and_submit_transaction(&action.tx)?;
+    log::info!("Refresh action executed successfully, tx id: {}", tx_id);
     Ok(())
 }
 
 fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<(), ActionExecError> {
     match sign_and_submit_transaction(&action.tx) {
         Ok(tx_id) => {
-            log::info!("Datapoint published successfully, tx id = {}", tx_id);
+            log::info!("Datapoint published successfully, tx id: {}", tx_id);
         }
         Err(NodeError::BadRequest(msg)) if msg.as_str() == "Double spending attempt" => {
             log::info!("Failed commiting datapoint (double spending attempt error, probably due to our previous data point tx is still in the mempool)");

@@ -55,6 +55,8 @@ use node_interface::new_node_interface;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
+use pool_commands::refresh::RefreshActionError;
+use pool_commands::PoolCommandError;
 use state::process;
 use state::PoolState;
 use std::convert::TryInto;
@@ -322,7 +324,7 @@ fn handle_oracle_command(command: Command) {
 }
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
-    let height = current_block_height()?;
+    let height = current_block_height()? as u32;
     let wallet = WalletData::new();
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
@@ -332,13 +334,28 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         }
     };
     if let Some(cmd) = process(pool_state, height)? {
-        let action = build_action(
+        let action = match build_action(
             cmd,
             op,
             &wallet,
             height as u32,
             get_change_address_from_node()?,
-        )?;
+        ) {
+            Ok(action) => action,
+            Err(PoolCommandError::RefreshActionError(
+                e @ RefreshActionError::FailedToReachConsensus {
+                    expected: _,
+                    found_public_keys: _,
+                    found_num: _,
+                },
+            )) => {
+                log::error!("{e}");
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(anyhow!(e));
+            }
+        };
         if !read_only {
             execute_action(action)?;
         }

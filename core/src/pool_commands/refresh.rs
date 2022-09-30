@@ -35,9 +35,13 @@ use thiserror::Error;
 use std::convert::TryInto;
 
 #[derive(Debug, From, Error)]
-pub enum RefrechActionError {
-    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted datapoints within the deviation range: found {found}, expected {expected}")]
-    FailedToReachConsensus { found: u32, expected: u32 },
+pub enum RefreshActionError {
+    #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys},")]
+    FailedToReachConsensus {
+        found_public_keys: String,
+        found_num: u32,
+        expected: u32,
+    },
     #[error("Not enough datapoints left during the removal of the outliers")]
     NotEnoughDatapoints,
     #[error("stage error: {0}")]
@@ -63,7 +67,7 @@ pub fn build_refresh_action(
     height: u32,
     change_address: Address,
     my_oracle_pk: &EcPoint,
-) -> Result<RefreshAction, RefrechActionError> {
+) -> Result<RefreshAction, RefreshActionError> {
     let tx_fee = *BASE_FEE;
 
     let in_pool_box = pool_box_source.get_pool_box()?;
@@ -80,9 +84,14 @@ pub fn build_refresh_action(
         .filter(|b| valid_in_oracle_boxes_datapoints.contains(&b.rate()))
         .collect::<Vec<_>>();
     if (valid_in_oracle_boxes.len() as u32) < min_data_points {
-        return Err(RefrechActionError::FailedToReachConsensus {
-            found: valid_in_oracle_boxes.len() as u32,
+        return Err(RefreshActionError::FailedToReachConsensus {
+            found_num: valid_in_oracle_boxes.len() as u32,
             expected: min_data_points,
+            found_public_keys: valid_in_oracle_boxes
+                .iter()
+                .map(|b| format!("{:?}", b.public_key()))
+                .collect::<Vec<_>>()
+                .join(","),
         });
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
@@ -143,7 +152,7 @@ pub fn build_refresh_action(
 fn filtered_oracle_boxes(
     oracle_boxes: Vec<u64>,
     deviation_range: u32,
-) -> Result<Vec<u64>, RefrechActionError> {
+) -> Result<Vec<u64>, RefreshActionError> {
     let mut successful_boxes = oracle_boxes.clone();
     // The min oracle box's rate must be within deviation_range(5%) of that of the max
     while !deviation_check(deviation_range, &successful_boxes) {
@@ -166,10 +175,10 @@ fn deviation_check(max_deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool
 /// said datapoint which deviates further.
 fn remove_largest_local_deviation_datapoint(
     datapoint_boxes: Vec<u64>,
-) -> Result<Vec<u64>, RefrechActionError> {
+) -> Result<Vec<u64>, RefreshActionError> {
     // Check if sufficient number of datapoint boxes to start removing
     if datapoint_boxes.len() <= 2 {
-        Err(RefrechActionError::NotEnoughDatapoints)
+        Err(RefreshActionError::NotEnoughDatapoints)
     } else {
         let mean = (datapoint_boxes.iter().sum::<u64>() as f32) / datapoint_boxes.len() as f32;
         let min_datapoint = *datapoint_boxes.iter().min().unwrap();
@@ -202,7 +211,7 @@ fn build_out_pool_box(
     creation_height: u32,
     rate: u64,
     reward_decrement: u64,
-) -> Result<ErgoBoxCandidate, RefrechActionError> {
+) -> Result<ErgoBoxCandidate, RefreshActionError> {
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
     let reward_token = in_pool_box.reward_token();
     let new_reward_token: Token = (
@@ -229,7 +238,7 @@ fn build_out_pool_box(
 fn build_out_refresh_box(
     in_refresh_box: &RefreshBoxWrapper,
     creation_height: u32,
-) -> Result<ErgoBoxCandidate, RefrechActionError> {
+) -> Result<ErgoBoxCandidate, RefreshActionError> {
     make_refresh_box_candidate(
         in_refresh_box.contract(),
         in_refresh_box.refresh_nft_token(),
@@ -243,7 +252,7 @@ fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<OracleBoxWrapper>,
     creation_height: u32,
     my_public_key: &EcPoint,
-) -> Result<Vec<ErgoBoxCandidate>, RefrechActionError> {
+) -> Result<Vec<ErgoBoxCandidate>, RefreshActionError> {
     valid_oracle_boxes
         .iter()
         .map(|in_ob| {
@@ -269,7 +278,7 @@ fn build_out_oracle_boxes(
             )
             .map_err(Into::into)
         })
-        .collect::<Result<Vec<ErgoBoxCandidate>, RefrechActionError>>()
+        .collect::<Result<Vec<ErgoBoxCandidate>, RefreshActionError>>()
 }
 
 #[cfg(test)]

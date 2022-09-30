@@ -13,10 +13,10 @@ use crate::wallet::WalletDataSource;
 use self::publish_datapoint::build_publish_datapoint_action;
 use self::publish_datapoint::PublishDatapointActionError;
 use self::refresh::build_refresh_action;
-use self::refresh::RefrechActionError;
+use self::refresh::RefreshActionError;
 
-mod publish_datapoint;
-mod refresh;
+pub mod publish_datapoint;
+pub mod refresh;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
@@ -32,7 +32,7 @@ pub enum PoolCommandError {
     #[error("box builder error: {0}")]
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
-    RefrechActionError(RefrechActionError),
+    RefreshActionError(RefreshActionError),
     #[error("error on building PublishDatapointAction: {0}")]
     PublishDatapointActionError(PublishDatapointActionError),
     #[error("Digest error: {0}")]

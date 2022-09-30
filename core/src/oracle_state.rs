@@ -16,7 +16,6 @@ use crate::scans::{
     register_update_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
-use crate::{BlockHeight, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 
@@ -166,23 +165,8 @@ pub struct UpdateBoxScan<'a> {
 pub struct LiveEpochState {
     pub epoch_id: u32,
     pub commit_datapoint_in_epoch: bool,
-    pub epoch_ends: BlockHeight,
     pub latest_pool_datapoint: u64,
-}
-
-/// The state of the oracle pool when it is in the Epoch Preparation stage
-#[derive(Debug, Clone)]
-pub struct PreparationState {
-    pub funds: NanoErg,
-    pub next_epoch_ends: BlockHeight,
-    pub latest_pool_datapoint: u64,
-}
-
-/// The current UTXO-set state of all of the Pool Deposit boxes
-#[derive(Debug, Clone)]
-pub struct PoolDepositsState {
-    pub number_of_boxes: u64,
-    pub total_nanoergs: NanoErg,
+    pub latest_pool_box_height: u32,
 }
 
 impl<'a> OraclePool<'a> {
@@ -292,21 +276,13 @@ impl<'a> OraclePool<'a> {
             false
         };
 
-        let latest_pool_datapoint = pool_box.rate();
-
-        // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = pool_box.get_box().creation_height
-            + ORACLE_CONFIG
-                .refresh_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .epoch_length() as u32;
+        let latest_pool_datapoint = pool_box.rate() as u64;
 
         let epoch_state = LiveEpochState {
             epoch_id,
             commit_datapoint_in_epoch,
-            epoch_ends: epoch_ends as u64,
-            latest_pool_datapoint: latest_pool_datapoint as u64,
+            latest_pool_datapoint,
+            latest_pool_box_height: pool_box.get_box().creation_height,
         };
 
         Ok(epoch_state)
