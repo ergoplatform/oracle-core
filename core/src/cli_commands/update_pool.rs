@@ -8,7 +8,7 @@ use ergo_lib::{
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
         address::{Address, AddressEncoder, AddressEncoderError},
-        ergo_box::{box_value::BoxValue, ErgoBox, NonMandatoryRegisterId},
+        ergo_box::{ErgoBox, NonMandatoryRegisterId},
         token::Token,
     },
     ergotree_ir::serialization::SigmaSerializable,
@@ -26,7 +26,6 @@ use crate::{
     box_kind::{make_pool_box_candidate, BallotBox, PoolBox, PoolBoxWrapper, VoteBallotBoxWrapper},
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
-    contracts::pool::PoolContractInputs,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{CastBallotBoxVoteParameters, OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
@@ -85,12 +84,8 @@ pub fn update_pool(
         (a.address(), a.network())
     };
 
-    let pool_contract_inputs = PoolContractInputs::from((
-        &new_oracle_config.pool_contract_parameters,
-        &new_oracle_config.token_ids,
-    ));
-
-    let new_pool_contract = PoolContract::new(pool_contract_inputs)?;
+    let new_pool_contract =
+        PoolContract::checked_load(&new_oracle_config.pool_box_wrapper_inputs.contract_inputs)?;
     let new_pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -139,11 +134,9 @@ fn display_update_diff(
     new_reward_tokens: Option<Token>,
 ) {
     let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
-    let new_pool_contract = PoolContract::new(PoolContractInputs::from((
-        &new_oracle_config.pool_contract_parameters,
-        &new_oracle_config.token_ids,
-    )))
-    .unwrap();
+    let new_pool_contract =
+        PoolContract::checked_load(&new_oracle_config.pool_box_wrapper_inputs.contract_inputs)
+            .unwrap();
     println!("Pool Parameters: ");
     let pool_box_hash = blake2b256_hash(
         &new_pool_contract
@@ -319,8 +312,11 @@ fn build_update_pool_box_tx(
         height,
         *BASE_FEE,
         change_address,
-        BoxValue::MIN,
     );
+
+    if reward_tokens.token_id != old_pool_box.reward_token().token_id {
+        tx_builder.set_token_burn_permit(vec![old_pool_box.reward_token().clone()]);
+    }
 
     for (i, input_ballot) in vote_ballot_boxes.iter().enumerate() {
         tx_builder.set_context_extension(
@@ -349,7 +345,7 @@ mod tests {
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::{
             chain::{
-                address::{AddressEncoder, NetworkAddress},
+                address::AddressEncoder,
                 ergo_box::ErgoBox,
                 token::{Token, TokenId},
             },
@@ -366,13 +362,14 @@ mod tests {
             PoolBoxWrapperInputs, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
         },
         contracts::{
-            ballot::{BallotContract, BallotContractInputs},
+            ballot::{BallotContract, BallotContractInputs, BallotContractParameters},
             pool::{PoolContract, PoolContractInputs},
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
-        oracle_config::{BallotBoxWrapperParameters, TokenIds, BASE_FEE},
+        oracle_config::BASE_FEE,
         pool_commands::test_utils::{
-            make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock, UpdateBoxMock, WalletDataMock,
+            generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
+            UpdateBoxMock, WalletDataMock,
         },
     };
 
@@ -387,19 +384,14 @@ mod tests {
         .unwrap()
         .current()
     }
+
     #[test]
     fn test_update_pool_box() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
 
-        let token_ids = TokenIds {
-            pool_nft_token_id: force_any_tokenid(),
-            update_nft_token_id: force_any_tokenid(),
-            refresh_nft_token_id: force_any_tokenid(),
-            reward_token_id: force_any_tokenid(),
-            oracle_token_id: force_any_tokenid(),
-            ballot_token_id: force_any_tokenid(),
-        };
+        let token_ids = generate_token_ids();
+        dbg!(&token_ids);
         let reward_tokens = Token {
             token_id: token_ids.reward_token_id.clone(),
             amount: 1500.try_into().unwrap(),
@@ -408,17 +400,24 @@ mod tests {
             token_id: force_any_tokenid(),
             amount: force_any_val(),
         };
+        dbg!(&new_reward_tokens);
 
-        let update_contract_parameters = UpdateContractParameters {
-            min_votes: 6,
-            ..Default::default()
-        };
-        let update_contract_inputs = UpdateContractInputs {
-            contract_parameters: &update_contract_parameters,
-            pool_nft_token_id: &token_ids.pool_nft_token_id,
-            ballot_token_id: &token_ids.ballot_token_id,
-        };
-        let update_contract = UpdateContract::new(update_contract_inputs).unwrap();
+        let default_update_contract_parameters = UpdateContractParameters::default();
+        let update_contract_parameters = UpdateContractParameters::build_with(
+            default_update_contract_parameters.ergo_tree_bytes(),
+            default_update_contract_parameters.pool_nft_index(),
+            default_update_contract_parameters.ballot_token_index(),
+            default_update_contract_parameters.min_votes_index(),
+            6,
+        )
+        .unwrap();
+        let update_contract_inputs = UpdateContractInputs::build_with(
+            update_contract_parameters,
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.ballot_token_id.clone(),
+        )
+        .unwrap();
+        let update_contract = UpdateContract::checked_load(&update_contract_inputs).unwrap();
         let mut update_box_candidate =
             ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height);
         update_box_candidate.add_token(Token {
@@ -433,10 +432,14 @@ mod tests {
         .unwrap();
 
         let pool_contract_parameters = Default::default();
-        let pool_contract_inputs =
-            PoolContractInputs::from((&pool_contract_parameters, &token_ids));
+        let pool_contract_inputs = PoolContractInputs::build_with(
+            pool_contract_parameters,
+            token_ids.refresh_nft_token_id,
+            token_ids.update_nft_token_id.clone(),
+        )
+        .unwrap();
 
-        let pool_contract = PoolContract::new(pool_contract_inputs).unwrap();
+        let pool_contract = PoolContract::build_with(&pool_contract_inputs).unwrap();
         let pool_box_candidate = make_pool_box_candidate(
             &pool_contract,
             0,
@@ -454,9 +457,9 @@ mod tests {
             ErgoBox::from_box_candidate(&pool_box_candidate, force_any_val::<TxId>(), 0).unwrap();
 
         let new_refresh_token_id = force_any_tokenid();
-        let mut new_pool_contract_inputs = pool_contract_inputs;
-        new_pool_contract_inputs.refresh_nft_token_id = &new_refresh_token_id;
-        let new_pool_contract = PoolContract::new(new_pool_contract_inputs).unwrap();
+        let mut new_pool_contract_inputs = pool_contract_inputs.clone();
+        new_pool_contract_inputs.refresh_nft_token_id = new_refresh_token_id;
+        let new_pool_contract = PoolContract::build_with(&new_pool_contract_inputs).unwrap();
 
         let pool_box_bytes = new_pool_contract
             .ergo_tree()
@@ -464,25 +467,18 @@ mod tests {
             .unwrap();
         let pool_box_hash = blake2b256_hash(&pool_box_bytes);
 
-        let ballot_contract_parameters = Default::default();
-        let ballot_contract_inputs = BallotContractInputs {
-            contract_parameters: &ballot_contract_parameters,
-            update_nft_token_id: &token_ids.update_nft_token_id,
-        };
-        let ballot_contract = BallotContract::new(ballot_contract_inputs).unwrap();
+        let ballot_contract_parameters = BallotContractParameters::default();
+        let ballot_contract_inputs = BallotContractInputs::build_with(
+            ballot_contract_parameters.clone(),
+            token_ids.update_nft_token_id.clone(),
+        )
+        .unwrap();
+        let ballot_contract = BallotContract::checked_load(&ballot_contract_inputs).unwrap();
 
         let mut ballot_boxes = vec![];
 
         for _ in 0..6 {
             let secret = DlogProverInput::random();
-            let ballot_box_parameters = BallotBoxWrapperParameters {
-                contract_parameters: ballot_contract_parameters.clone(),
-                vote_parameters: None,
-                ballot_token_owner_address: NetworkAddress::new(
-                    new_pool_contract_inputs.contract_parameters.p2s.network(),
-                    &ergo_lib::ergotree_ir::chain::address::Address::P2Pk(secret.public_image()),
-                ),
-            };
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,
                 secret.public_image(),
@@ -503,10 +499,9 @@ mod tests {
             ballot_boxes.push(
                 VoteBallotBoxWrapper::new(
                     ballot_box,
-                    crate::box_kind::BallotBoxWrapperInputs {
-                        parameters: &ballot_box_parameters,
-                        ballot_token_id: &token_ids.ballot_token_id,
-                        update_nft_token_id: &token_ids.update_nft_token_id,
+                    &crate::box_kind::BallotBoxWrapperInputs {
+                        ballot_token_id: token_ids.ballot_token_id.clone(),
+                        contract_inputs: ballot_contract_inputs.clone(),
                     },
                 )
                 .unwrap(),
@@ -528,11 +523,9 @@ mod tests {
         let update_mock = UpdateBoxMock {
             update_box: UpdateBoxWrapper::new(
                 update_box,
-                UpdateBoxWrapperInputs {
-                    contract_parameters: &update_contract_parameters,
-                    update_nft_token_id: &token_ids.update_nft_token_id,
-                    ballot_token_id: &token_ids.ballot_token_id,
-                    pool_nft_token_id: &token_ids.pool_nft_token_id,
+                &UpdateBoxWrapperInputs {
+                    contract_inputs: update_contract_inputs.clone(),
+                    update_nft_token_id: token_ids.update_nft_token_id,
                 },
             )
             .unwrap(),
@@ -540,12 +533,10 @@ mod tests {
         let pool_mock = PoolBoxMock {
             pool_box: PoolBoxWrapper::new(
                 pool_box,
-                PoolBoxWrapperInputs {
-                    contract_parameters: &pool_contract_parameters,
-                    pool_nft_token_id: &token_ids.pool_nft_token_id,
-                    reward_token_id: &token_ids.reward_token_id,
-                    refresh_nft_token_id: &token_ids.refresh_nft_token_id,
-                    update_nft_token_id: &token_ids.update_nft_token_id,
+                &PoolBoxWrapperInputs {
+                    contract_inputs: pool_contract_inputs,
+                    pool_nft_token_id: token_ids.pool_nft_token_id,
+                    reward_token_id: token_ids.reward_token_id,
                 },
             )
             .unwrap(),

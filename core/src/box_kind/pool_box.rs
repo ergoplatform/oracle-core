@@ -11,6 +11,7 @@ use thiserror::Error;
 
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
+use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
 
 pub trait PoolBox {
@@ -40,13 +41,13 @@ pub enum PoolBoxError {
     UnknownRewardTokenId,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PoolBoxWrapper(ErgoBox, PoolContract);
 
 impl PoolBoxWrapper {
-    pub fn new(b: ErgoBox, inputs: PoolBoxWrapperInputs) -> Result<Self, PoolBoxError> {
+    pub fn new(b: ErgoBox, inputs: &PoolBoxWrapperInputs) -> Result<Self, PoolBoxError> {
         if let Some(token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(0) {
-            if token.token_id != *inputs.pool_nft_token_id {
+            if token.token_id != inputs.pool_nft_token_id {
                 return Err(PoolBoxError::UnknownPoolNftId);
             }
         } else {
@@ -73,13 +74,13 @@ impl PoolBoxWrapper {
         }
 
         if let Some(reward_token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(1) {
-            if reward_token.token_id != *inputs.reward_token_id {
+            if reward_token.token_id != inputs.reward_token_id {
                 return Err(PoolBoxError::UnknownRewardTokenId);
             }
         } else {
             return Err(PoolBoxError::NoRewardToken);
         }
-        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone(), inputs.into())?;
+        let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
         Ok(Self(b, contract))
     }
 }
@@ -118,17 +119,53 @@ impl PoolBox for PoolBoxWrapper {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct PoolBoxWrapperInputs<'a> {
-    pub contract_parameters: &'a PoolContractParameters,
+#[derive(Clone, Debug)]
+pub struct PoolBoxWrapperInputs {
+    pub contract_inputs: PoolContractInputs,
     /// Pool NFT token is expected to reside in `tokens(0)` of the pool box.
-    pub pool_nft_token_id: &'a TokenId,
+    pub pool_nft_token_id: TokenId,
     /// Reward token is expected to reside in `tokens(1)` of the pool box.
-    pub reward_token_id: &'a TokenId,
-    /// This token id appears as a constant in the pool contract.
-    pub refresh_nft_token_id: &'a TokenId,
-    /// This token id also appears as a constant in the pool contract.
-    pub update_nft_token_id: &'a TokenId,
+    pub reward_token_id: TokenId,
+}
+
+impl PoolBoxWrapperInputs {
+    pub fn build_with(
+        contract_parameters: PoolContractParameters,
+        refresh_nft_token_id: TokenId,
+        update_nft_token_id: TokenId,
+        pool_nft_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, PoolContractError> {
+        let contract_inputs = PoolContractInputs::build_with(
+            contract_parameters,
+            refresh_nft_token_id,
+            update_nft_token_id,
+        )?;
+        Ok(Self {
+            contract_inputs,
+            pool_nft_token_id,
+            reward_token_id,
+        })
+    }
+
+    pub fn checked_load(
+        contract_parameters: PoolContractParameters,
+        refresh_nft_token_id: TokenId,
+        update_nft_token_id: TokenId,
+        pool_nft_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, PoolContractError> {
+        let contract_inputs = PoolContractInputs::checked_load(
+            contract_parameters,
+            refresh_nft_token_id,
+            update_nft_token_id,
+        )?;
+        Ok(Self {
+            contract_inputs,
+            pool_nft_token_id,
+            reward_token_id,
+        })
+    }
 }
 
 pub fn make_pool_box_candidate(

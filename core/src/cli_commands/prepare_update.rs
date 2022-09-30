@@ -32,8 +32,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
     contracts::{
-        pool::PoolContractParameters,
+        pool::{PoolContractError, PoolContractParameters},
         refresh::{
             RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
         },
@@ -47,7 +48,7 @@ use crate::{
     wallet::WalletDataSource,
 };
 
-use super::bootstrap::{Addresses, NftMintDetails, TokenMintDetails};
+use super::bootstrap::{NftMintDetails, TokenMintDetails};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UpdateTokensToMint {
@@ -64,7 +65,6 @@ pub struct UpdateBootstrapConfig {
     pub refresh_contract_parameters: Option<RefreshContractParameters>,
     pub update_contract_parameters: Option<UpdateContractParameters>,
     pub tokens_to_mint: UpdateTokensToMint,
-    pub addresses: Addresses,
 }
 
 pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError> {
@@ -72,16 +72,13 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
     let node_interface = new_node_interface();
-    let (change_address, network_prefix) = {
-        let a = AddressEncoder::unchecked_parse_network_address_from_str(
-            &node_interface
-                .wallet_status()?
-                .change_address
-                .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
-        )?;
-        (a.address(), a.network())
-    };
-    let config = UpdateBootstrapConfig::try_from((config_serde, network_prefix))?;
+    let change_address = AddressEncoder::unchecked_parse_address_from_str(
+        &node_interface
+            .wallet_status()?
+            .change_address
+            .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
+    )?;
+    let config = UpdateBootstrapConfig::try_from(config_serde)?;
     let update_bootstrap_input = PrepareUpdateInput {
         config: config.clone(),
         wallet: &node_interface,
@@ -156,11 +153,7 @@ pub(crate) fn perform_update_chained_transaction(
         num_transactions_left += 1;
     }
 
-    let wallet_pk_ergo_tree = config
-        .addresses
-        .wallet_address_for_chain_transaction
-        .address()
-        .script()?;
+    let wallet_pk_ergo_tree = old_config.oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -218,7 +211,6 @@ pub(crate) fn perform_update_chained_transaction(
             height,
             tx_fee,
             change_address.clone(),
-            BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
@@ -282,12 +274,12 @@ pub(crate) fn perform_update_chained_transaction(
     }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
         info!("Creating new refresh NFT");
-        let refresh_contract_inputs = RefreshContractInputs {
-            contract_parameters,
-            oracle_token_id: &new_oracle_config.token_ids.oracle_token_id,
-            pool_nft_token_id: &old_config.token_ids.pool_nft_token_id,
-        };
-        let refresh_contract = RefreshContract::new(refresh_contract_inputs)?;
+        let refresh_contract_inputs = RefreshContractInputs::build_with(
+            contract_parameters.clone(),
+            new_oracle_config.token_ids.oracle_token_id.clone(),
+            old_config.token_ids.pool_nft_token_id,
+        )?;
+        let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
         let refresh_nft_details = config
             .tokens_to_mint
             .refresh_nft
@@ -300,20 +292,23 @@ pub(crate) fn perform_update_chained_transaction(
             1.try_into().unwrap(),
             Some(refresh_contract.ergo_tree()),
         )?;
-        new_oracle_config.token_ids.refresh_nft_token_id = token.token_id;
-        new_oracle_config.refresh_contract_parameters = contract_parameters.clone();
+        new_oracle_config.token_ids.refresh_nft_token_id = token.token_id.clone();
+        new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
+            contract_inputs: refresh_contract_inputs,
+            refresh_nft_token_id: token.token_id,
+        };
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
         info!("Refresh contract tx id: {:?}", tx.id());
         transactions.push(tx);
     }
     if let Some(ref contract_parameters) = config.update_contract_parameters {
         info!("Creating new update NFT");
-        let update_contract_inputs = UpdateContractInputs {
-            contract_parameters,
-            ballot_token_id: &new_oracle_config.token_ids.ballot_token_id,
-            pool_nft_token_id: &new_oracle_config.token_ids.pool_nft_token_id,
-        };
-        let update_contract = UpdateContract::new(update_contract_inputs)?;
+        let update_contract_inputs = UpdateContractInputs::build_with(
+            contract_parameters.clone(),
+            new_oracle_config.token_ids.pool_nft_token_id.clone(),
+            new_oracle_config.token_ids.ballot_token_id.clone(),
+        )?;
+        let update_contract = UpdateContract::checked_load(&update_contract_inputs)?;
         let update_nft_details = config
             .tokens_to_mint
             .update_nft
@@ -326,14 +321,24 @@ pub(crate) fn perform_update_chained_transaction(
             1.try_into().unwrap(),
             Some(update_contract.ergo_tree()),
         )?;
-        new_oracle_config.token_ids.update_nft_token_id = token.token_id;
-        new_oracle_config.update_contract_parameters = contract_parameters.clone();
+        new_oracle_config.token_ids.update_nft_token_id = token.token_id.clone();
+        new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
+            contract_inputs: update_contract_inputs,
+            update_nft_token_id: token.token_id,
+        };
         info!("Update contract tx id: {:?}", tx.id());
         transactions.push(tx);
     }
 
     if let Some(new_pool_contract_parameters) = config.pool_contract_parameters {
-        new_oracle_config.pool_contract_parameters = new_pool_contract_parameters;
+        let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
+            new_pool_contract_parameters,
+            new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+            new_oracle_config.token_ids.update_nft_token_id.clone(),
+            new_oracle_config.token_ids.pool_nft_token_id.clone(),
+            new_oracle_config.token_ids.reward_token_id.clone(),
+        )?;
+        new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
     }
 
     for tx in transactions {
@@ -371,6 +376,8 @@ pub enum PrepareUpdateError {
     RefreshContract(RefreshContractError),
     #[error("Update contract error: {0}")]
     UpdateContract(UpdateContractError),
+    #[error("Pool contract failed: {0}")]
+    PoolContract(PoolContractError),
     #[error("Bootstrap config file already exists")]
     ConfigFilenameAlreadyExists,
     #[error("No parameters were added for update")]
@@ -416,42 +423,42 @@ node_api_key: hello
 base_fee: 10000
 core_api_port: 9053
 oracle_address: 3WzD3VNSK4RtDCZe8njzLzRnWbxcfpCneUcQncAVV9JBDE37nLxR
-on_mainnet: false
+rescan_height: 0
 
 data_point_source: NanoErgUsd
 addresses:
-  address_for_oracle_tokens: 3WzD3VNSK4RtDCZe8njzLzRnWbxcfpCneUcQncAVV9JBDE37nLxR
   wallet_address_for_chain_transaction: 3WzD3VNSK4RtDCZe8njzLzRnWbxcfpCneUcQncAVV9JBDE37nLxR
+  ballot_token_owner_address: 3WzD3VNSK4RtDCZe8njzLzRnWbxcfpCneUcQncAVV9JBDE37nLxR
 
 refresh_contract_parameters:
-  p2s: 62TTAg5ZqAM7HwjB169cSSn844L2ZmMq4xjen6QcGt9Bb6ssYBgg3SNHuRiDqJmHYXbdgU179G5WiYPMq5VgUHDPbjJ814wuUgCARX1TiSavG2ycFFbJzqdfj7cmZHhNziVg5f7YsU365P49oCpVxmQoeVUnomDzKMrsn2M1VeAGrrnBdTBcjuSm6M1NURRNmfir3TsazHZbyPPrr6BajikkwxLQ9GiSWnY841qU8ZRHvhqVqiVZa13NiXqfTa36LBGQmsyYQuY4ThdgLkfgsNH24snGcx2UUyYsRSQfK8SWtVjbsjwRF4fDdST4St4ermWXP8JfPmXLFeg3m5NHEyd6W3WrCR2i14tenGKqU6aHzJ3ZCZCfKinaUFqr81NQ4kmH9kzpzs5KfXhyTKRd43jRuU2gP2hDLZ2N4isS1EYCsySp86yrM1VAP91f3sF9MHjUXXAXZHp4EvtnJdtkTgQxCYmV95XuEnBk1Kx2zNvqtERsRnyqbtvv78qY63DMCMiNNkPJeg1YbNk4Li7FzPokiNE4YfPZ3uQVEKzNdrgUCPuMh5ShcBmDV4v35AbbwWWQpfh6j7dLsXzDKMG5i4fuoctfthSBC8ipsbNo563zorHd6iyoFofLeAxNW9eTZC4oZdskhep1wu3BYyYCEdrmtUTXKueK3JTpnzb1uRKYNFWdQKMv2UwfxrxWwaDv7BxFbrRstAc4wznZkjtQ1C2VmKrjU3UuVv235r9tFwojEoCuRbGqtg2DzW
+  ergo_tree_bytes: 1016043c040004000e202f9111945d8f05f5c12732743e601b1de802fe741c38065e6a6372e1329c96fa01000502010105000400040004020402040204080400040a05c8010e206e5c5a93e24ba3bdcd2b510d8623a9c6e74efe7e0e6d20c114c47a19b299f57f0400040404020408d80ed60199a37300d602b2a4730100d603b5a4d901036395e6c672030605eded928cc77203017201938cb2db6308720373020001730393e4c672030504e4c6720205047304d604b17203d605b0720386027305860273067307d901053c413d0563d803d607e4c68c7205020605d6088c720501d6098c720802860272078602ed8c720901908c72080172079a8c7209027207d6068c720502d6078c720501d608db63087202d609b27208730800d60ab2a5730900d60bdb6308720ad60cb2720b730a00d60db27208730b00d60eb2a5730c00ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02cde4c6b27203e4e30004000407d18f8cc77202017201d1927204730dd18c720601d190997207e4c6b27203730e0006059d9c72077e730f057310d1938c7209017311d193b2720b7312007209d1938c720c018c720d01d1928c720c02998c720d027e9c7204731305d193b1720bb17208d193e4c6720a04059d8c7206027e720405d193e4c6720a05049ae4c6720205047314d193c2720ac27202d192c1720ac17202d1928cc7720a0199a37315d193db6308720edb6308a7d193c2720ec2a7d192c1720ec1a7
   pool_nft_index: 17
   oracle_token_id_index: 3
   min_data_points_index: 13
   min_data_points: 4
-  buffer_index: 21
+  buffer_length_index: 21
   buffer_length: 4
   max_deviation_percent_index: 15
   max_deviation_percent: 5
   epoch_length_index: 0
   epoch_length: 30
 pool_contract_parameters:
-  p2s: 3R221rmtBS5mwaKUTfwXpmGoUk4PjKLXuD6aRd1xyuCaRLNtzinwTGsZnhs4Fen3Rz46GYcgLezUe3Aunm7gZYWgYyEWCGfPYsmTptYtd8U2o2pp8NvNL7yQ79vJUamqqEtVt1i7eVHKAZarHP51n
+  ergo_tree_bytes: 1004040204000e202f9111945d8f05f5c12732743e601b1de802fe741c38065e6a6372e1329c96fa0e2048e025a1e3e789adceddc5d212590b0f1f62113c4882795712d542a866d117e8d801d6018cb2db6308b2a473000073010001d1ec93720173029372017303
   refresh_nft_index: 2
   update_nft_index: 3
 update_contract_parameters:
-  p2s: 3c2tfyDoE3VryrPkj4f6Drw4QCf4Cx2rHRwbMy3rp9JZwArEB7L18ePfXVpwxgPJ21E4vu5SnKzumuCSwgjUMxL6LTYncGWozPf71Xz1Bx8X2aUuNnkTxrJK9NJwuEyBdbnCiYv18a6Cbib5T9wovLuhDdcrdTsXbyyWy9iojqgvrApU4Ge31Xgxmir4sgVFX8pR6po1VCpSwbtvbP9pJyApVmkYGuWT7vMpoapPcsD4qRdn9cetGZL2Nz8dNvJyE4LRaE97VokTYFCpvM2NbAa8GkwXhBc4SsnFQKchR7PUch1CjZi4sVfBZL4Zma94UrpgP5oMNujzJx865mQsBm1h2dL87Dgfba81npafZxzDT9EU82UgWwhTYcnPiqZft5T9sQTsWiNtvMwTvXFVXAvfcPBr5meEkut2fx1p8ZmPLYoRGvDi9eLucRhpuhpAsLdBSS3iuHVn7bU4MAUYaquHD97CDFoTL2FZkfnELJHfqZMt3rtrjcC1VpMq2TgXPK5PsbsD9nEQYJTSex
+  ergo_tree_bytes: 100e040004000400040204020e2014717f917cdb1951fc378e31ffc0a0a778bddb10d6509c201cb4ed2550ef9f830400040004000e20b1f2f35d727bf21c599c7ea151184d91df7567c4b1423e54b7fb93cfdc77f810010005000400040cd806d601b2a4730000d602b2db63087201730100d603b2a5730200d604db63087203d605b2a5730300d606b27204730400d1ededed938c7202017305ededededed937202b27204730600938cc77201018cc772030193c17201c1720393c672010405c67203040593c672010504c672030504efe6c672030661edededed93db63087205db6308a793c27205c2a792c17205c1a7918cc77205018cc7a701efe6c67205046192b0b5a4d9010763d801d609db630872079591b172097307edededed938cb2720973080001730993e4c6720705048cc7a70193e4c67207060ecbc2720393e4c67207070e8c72060193e4c6720708058c720602730a730bd9010741639a8c7207018cb2db63088c720702730c00027e730d05
   pool_nft_index: 5
   ballot_token_index: 9
   min_votes_index: 13
   min_votes: 6
 ballot_contract_parameters:
-  p2s: KKTr5Kf9nPN9o2FAhMHorL6oucAzavWXyqqzDhVVBPcbmtcSzCAWHXN4qeFJh58jbinfZcMCxHqrHp5GBVffxNxV2D1o91NimDxZVsgNjiGd1B5y5j9LsAixoU3GbmMeJKiXBvahu2emyLWQva3oWQaAPRGaSMY8fUeqvPNZcFqd2zgUTZ2gYWdDrsKZGK36mnTtio4F9kBkquPBt5VyQfGjjTjU3MhCRrKtg5UesyndY4mA
+  ergo_tree_bytes: 10070580dac409040204020400040204000e2048e025a1e3e789adceddc5d212590b0f1f62113c4882795712d542a866d117e8d803d601b2a5e4e3000400d602c672010407d603e4c6a70407ea02d1ededede6720293c27201c2a793db63087201db6308a792c172017300eb02cd7203d1ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47202720392c17201c1a7efe6c672010561
   min_storage_rent_index: 0
   min_storage_rent: 10000000
   update_nft_index: 6
 oracle_contract_parameters:
-    p2s: CxiAhQ241nmgPp39VgGTWPjKDNauyuu8p9Rc2x5pWf5znRwmFC3TbNqGBmBZmAhE6SUG2xMBpdLp3GZUQs9VEcrnHtCzpMqXcdsbtELqoPRAmHtNarK8VnfyhHzZijDGggbwEZzQRhw1U45N75BFYWrZSdgrgZLnpr5pC1Rs979hB8UTYHU2p1vPqPbJe44tvZ7E1mJJqqKFBdCR2hW8Ka7dCTWEv4yviUWRtHjpFnBCsFanMQ8R7YdHxh1Z36JFCscdvHvHCQsCZo7Z3AAdq8F5cwoWrZMY9eBP
+    ergo_tree_bytes: 100a040004000580dac409040004000e2014717f917cdb1951fc378e31ffc0a0a778bddb10d6509c201cb4ed2550ef9f830402040204020402d804d601b2a5e4e3000400d602db63087201d603db6308a7d604e4c6a70407ea02d1ededed93b27202730000b2720373010093c27201c2a7e6c67201040792c172017302eb02cd7204d1ededededed938cb2db6308b2a4730300730400017305938cb27202730600018cb2720373070001918cb27202730800028cb272037309000293e4c672010407720492c17201c1a7efe6c672010561
     pool_nft_index: 5
 ballot_parameters:
   contract_parameters:
@@ -468,6 +475,10 @@ ballot_parameters:
             NetworkPrefix::Testnet,
             &Address::P2Pk(secret.public_image()),
         );
+        let old_config = OracleConfig {
+            oracle_address: network_address.clone(),
+            ..old_config
+        };
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = network_address.address().script().unwrap();
 
@@ -516,10 +527,6 @@ ballot_parameters:
             refresh_contract_parameters: Some(RefreshContractParameters::default()),
             pool_contract_parameters: Some(PoolContractParameters::default()),
             update_contract_parameters: Some(UpdateContractParameters::default()),
-            addresses: Addresses {
-                address_for_oracle_tokens: network_address.clone(),
-                wallet_address_for_chain_transaction: network_address,
-            },
         };
 
         let height = ctx.pre_header.height;

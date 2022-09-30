@@ -6,6 +6,7 @@ use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
 use ergo_lib::chain::transaction::TxIoVec;
+use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
@@ -13,7 +14,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
 use ergo_lib::ergotree_ir::chain::token::Token;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::mir::expr::Expr;
@@ -30,6 +30,7 @@ use crate::box_kind::PoolBoxWrapperInputs;
 use crate::box_kind::UpdateBoxWrapper;
 use crate::box_kind::VoteBallotBoxWrapper;
 use crate::contracts::oracle::OracleContract;
+use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
@@ -61,8 +62,10 @@ pub(crate) struct OracleBoxMock {
 }
 
 impl LocalDatapointBoxSource for OracleBoxMock {
-    fn get_local_oracle_datapoint_box(&self) -> std::result::Result<OracleBoxWrapper, StageError> {
-        Ok(self.oracle_box.clone())
+    fn get_local_oracle_datapoint_box(
+        &self,
+    ) -> std::result::Result<Option<OracleBoxWrapper>, StageError> {
+        Ok(Some(self.oracle_box.clone()))
     }
 }
 
@@ -72,8 +75,8 @@ pub(crate) struct BallotBoxMock {
 }
 
 impl LocalBallotBoxSource for BallotBoxMock {
-    fn get_ballot_box(&self) -> std::result::Result<BallotBoxWrapper, StageError> {
-        Ok(self.ballot_box.clone())
+    fn get_ballot_box(&self) -> std::result::Result<Option<BallotBoxWrapper>, StageError> {
+        Ok(Some(self.ballot_box.clone()))
     }
 }
 
@@ -116,12 +119,16 @@ pub(crate) fn make_pool_box(
     pool_contract_parameters: &PoolContractParameters,
     token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
+    let pool_contract_inputs = PoolContractInputs::build_with(
+        pool_contract_parameters.clone(),
+        token_ids.refresh_nft_token_id.clone(),
+        token_ids.update_nft_token_id.clone(),
+    )
+    .unwrap();
     let pool_box_wrapper_inputs = PoolBoxWrapperInputs {
-        contract_parameters: pool_contract_parameters,
-        pool_nft_token_id: &token_ids.pool_nft_token_id,
-        reward_token_id: &token_ids.reward_token_id,
-        refresh_nft_token_id: &token_ids.refresh_nft_token_id,
-        update_nft_token_id: &token_ids.update_nft_token_id,
+        contract_inputs: pool_contract_inputs.clone(),
+        pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+        reward_token_id: token_ids.reward_token_id.clone(),
     };
     let tokens = vec![
         Token::from((
@@ -138,12 +145,9 @@ pub(crate) fn make_pool_box(
     PoolBoxWrapper::new(
         ErgoBox::new(
             value,
-            PoolContract::new(PoolContractInputs::from((
-                pool_contract_parameters,
-                token_ids,
-            )))
-            .unwrap()
-            .ergo_tree(),
+            PoolContract::build_with(&pool_contract_inputs)
+                .unwrap()
+                .ergo_tree(),
             Some(tokens),
             NonMandatoryRegisters::new(
                 vec![
@@ -159,7 +163,7 @@ pub(crate) fn make_pool_box(
             0,
         )
         .unwrap(),
-        pool_box_wrapper_inputs,
+        &pool_box_wrapper_inputs,
     )
     .unwrap()
 }
@@ -183,13 +187,11 @@ pub(crate) fn make_datapoint_box(
     .try_into()
     .unwrap();
     let parameters = OracleContractParameters::default();
-    let oracle_contract_inputs = OracleContractInputs {
-        contract_parameters: &parameters,
-        pool_nft_token_id: &token_ids.pool_nft_token_id,
-    };
+    let oracle_contract_inputs =
+        OracleContractInputs::build_with(parameters, token_ids.pool_nft_token_id.clone()).unwrap();
     ErgoBox::new(
         value,
-        OracleContract::new(oracle_contract_inputs)
+        OracleContract::checked_load(&oracle_contract_inputs)
             .unwrap()
             .ergo_tree(),
         Some(tokens),
@@ -281,11 +283,28 @@ pub fn init_log_tests() {
 
 pub fn generate_token_ids() -> TokenIds {
     TokenIds {
-        pool_nft_token_id: force_any_val::<TokenId>(),
-        refresh_nft_token_id: force_any_val::<TokenId>(),
-        update_nft_token_id: force_any_val::<TokenId>(),
-        oracle_token_id: force_any_val::<TokenId>(),
-        reward_token_id: force_any_val::<TokenId>(),
-        ballot_token_id: force_any_val::<TokenId>(),
+        pool_nft_token_id: force_any_val::<Digest32>().into(),
+        refresh_nft_token_id: force_any_val::<Digest32>().into(),
+        update_nft_token_id: force_any_val::<Digest32>().into(),
+        oracle_token_id: force_any_val::<Digest32>().into(),
+        reward_token_id: force_any_val::<Digest32>().into(),
+        ballot_token_id: force_any_val::<Digest32>().into(),
+    }
+}
+
+impl TryFrom<(OracleContractParameters, &TokenIds)> for OracleBoxWrapperInputs {
+    type Error = OracleContractError;
+    fn try_from(
+        (contract_parameters, token_ids): (OracleContractParameters, &TokenIds),
+    ) -> Result<Self, Self::Error> {
+        let contract_inputs = OracleContractInputs::build_with(
+            contract_parameters,
+            token_ids.pool_nft_token_id.clone(),
+        )?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id: token_ids.oracle_token_id.clone(),
+            reward_token_id: token_ids.reward_token_id.clone(),
+        })
     }
 }

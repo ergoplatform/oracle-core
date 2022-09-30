@@ -13,19 +13,11 @@ use ergo_lib::wallet::Wallet;
 use sigma_test_util::force_any_val;
 
 use crate::cli_commands::bootstrap::perform_bootstrap_chained_transaction;
-use crate::cli_commands::bootstrap::Addresses;
 use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
-use crate::cli_commands::bootstrap::NftMintDetails;
-use crate::cli_commands::bootstrap::OracleConfigFields;
-use crate::cli_commands::bootstrap::TokenMintDetails;
-use crate::cli_commands::bootstrap::TokensToMint;
-use crate::contracts::ballot::BallotContractParameters;
-use crate::contracts::pool::PoolContractParameters;
-use crate::contracts::refresh::RefreshContractParameters;
-use crate::contracts::update::UpdateContractParameters;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
+use crate::oracle_config::OracleConfig;
 use crate::oracle_config::BASE_FEE;
 use crate::pool_commands::test_utils::init_log_tests;
 use crate::pool_commands::test_utils::LocalTxSigner;
@@ -44,7 +36,7 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
     }
 }
 
-fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> OracleConfigFields {
+fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> OracleConfig {
     let ctx = force_any_val::<ErgoStateContext>();
 
     let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
@@ -52,46 +44,8 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
     let network_address = NetworkAddress::new(NetworkPrefix::Mainnet, address);
 
     let state = BootstrapConfig {
-        tokens_to_mint: TokensToMint {
-            pool_nft: NftMintDetails {
-                name: "pool NFT".into(),
-                description: "Pool NFT".into(),
-            },
-            refresh_nft: NftMintDetails {
-                name: "refresh NFT".into(),
-                description: "refresh NFT".into(),
-            },
-            update_nft: NftMintDetails {
-                name: "update NFT".into(),
-                description: "update NFT".into(),
-            },
-            oracle_tokens: TokenMintDetails {
-                name: "oracle token".into(),
-                description: "oracle token".into(),
-                quantity: 15,
-            },
-            ballot_tokens: TokenMintDetails {
-                name: "ballot token".into(),
-                description: "ballot token".into(),
-                quantity: 15,
-            },
-            reward_tokens: TokenMintDetails {
-                name: "reward token".into(),
-                description: "reward token".into(),
-                quantity: 100_000_000,
-            },
-        },
-        refresh_contract_parameters: RefreshContractParameters::default(),
-        pool_contract_parameters: PoolContractParameters::default(),
-        update_contract_parameters: UpdateContractParameters::default(),
-        ballot_contract_parameters: BallotContractParameters::default(),
-        addresses: Addresses {
-            address_for_oracle_tokens: network_address.clone(),
-            wallet_address_for_chain_transaction: network_address,
-        },
-        node_ip: "127.0.0.1".into(),
-        node_port: "9053".into(),
-        node_api_key: "hello".into(),
+        oracle_address: network_address,
+        ..BootstrapConfig::default()
     };
 
     let height = ctx.pre_header.height;

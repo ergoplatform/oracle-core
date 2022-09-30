@@ -7,7 +7,6 @@ use ergo_lib::{
     ergotree_ir::{
         chain::{
             address::Address,
-            ergo_box::box_value::BoxValue,
             token::{Token, TokenAmount},
         },
         sigma_protocol::sigma_boolean::ProveDlog,
@@ -22,11 +21,13 @@ use thiserror::Error;
 
 use crate::{
     actions::PublishDataPointAction,
-    box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapperInputs, PoolBox},
+    box_kind::{
+        make_oracle_box_candidate, OracleBox, OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox,
+    },
     contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
-    oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError},
+    oracle_state::{PoolBoxSource, StageError},
     wallet::WalletDataSource,
 };
 
@@ -63,9 +64,9 @@ pub fn build_publish_datapoint_action(
     let new_datapoint = datapoint_source.get_datapoint()?;
     let epoch_counter = pool_box_source.get_pool_box()?.epoch_counter();
     match inputs {
-        PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source) => {
+        PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box) => {
             build_subsequent_publish_datapoint_action(
-                local_datapoint_box_source,
+                *local_datapoint_box,
                 wallet,
                 epoch_counter,
                 height,
@@ -88,14 +89,14 @@ pub fn build_publish_datapoint_action(
 }
 
 pub fn build_subsequent_publish_datapoint_action(
-    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
+    local_datapoint_box: OracleBoxWrapper,
     wallet: &dyn WalletDataSource,
     current_epoch_counter: u32,
     height: u32,
     change_address: Address,
     new_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
+    let in_oracle_box = local_datapoint_box;
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
     }
@@ -128,7 +129,6 @@ pub fn build_subsequent_publish_datapoint_action(
         height,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
 
     // The following context value ensures that `outIndex` in the oracle contract is properly set.
@@ -172,7 +172,7 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::new(inputs.into())?,
+        &OracleContract::checked_load(&inputs.contract_inputs)?,
         public_key,
         new_datapoint,
         1,
@@ -189,7 +189,6 @@ pub fn build_publish_first_datapoint_action(
         height,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
 
     // The following context value ensures that `outIndex` in the oracle contract is properly set.
@@ -237,11 +236,12 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
+    use crate::box_kind::OracleBoxWrapper;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
-        make_wallet_unspent_box, OracleBoxMock, PoolBoxMock, WalletDataMock,
+        make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -291,8 +291,8 @@ mod tests {
         };
 
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
-        let oracle_box = (
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
+        let oracle_box = OracleBoxWrapper::new(
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
@@ -301,11 +301,9 @@ mod tests {
                 BASE_FEE.checked_mul_u32(100).unwrap(),
                 height - 9,
             ),
-            oracle_box_wrapper_inputs,
+            &oracle_box_wrapper_inputs,
         )
-            .try_into()
-            .unwrap();
-        let local_datapoint_box_source = OracleBoxMock { oracle_box };
+        .unwrap();
 
         let change_address =
             AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
@@ -324,9 +322,7 @@ mod tests {
         let datapoint_source = MockDatapointSource {};
         let action = build_publish_datapoint_action(
             &pool_box_mock,
-            PublishDataPointCommandInputs::LocalDataPointBoxExists(
-                &local_datapoint_box_source as &dyn LocalDatapointBoxSource,
-            ),
+            PublishDataPointCommandInputs::LocalDataPointBoxExists(oracle_box.clone().into()),
             &wallet_mock,
             &datapoint_source,
             height,
@@ -336,11 +332,7 @@ mod tests {
 
         let mut possible_input_boxes = vec![
             pool_box_mock.get_pool_box().unwrap().get_box().clone(),
-            local_datapoint_box_source
-                .get_local_oracle_datapoint_box()
-                .unwrap()
-                .get_box()
-                .clone(),
+            oracle_box.get_box().clone(),
         ];
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
@@ -407,7 +399,7 @@ mod tests {
 
         let oracle_contract_parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::from((&oracle_contract_parameters, &token_ids));
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

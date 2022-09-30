@@ -10,7 +10,7 @@
 #![deny(unused_mut)]
 #![deny(unused_imports)]
 #![deny(clippy::wildcard_enum_match_arm)]
-// #![deny(clippy::todo)]
+#![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
 
 #[macro_use]
@@ -52,6 +52,7 @@ use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use node_interface::new_node_interface;
+use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
 use state::process;
@@ -168,7 +169,6 @@ enum Command {
 
 fn main() {
     let args = Args::parse();
-    log::info!("{}", APP_VERSION);
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Trace)
@@ -176,6 +176,7 @@ fn main() {
         None
     };
     logging::setup_log(cmdline_log_level);
+    log::info!("{}", APP_VERSION);
 
     debug!("Args: {:?}", args);
 
@@ -209,6 +210,7 @@ fn main() {
 /// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
 fn handle_oracle_command(command: Command) {
     assert_wallet_unlocked(&new_node_interface());
+    register_and_save_scans().unwrap();
     let op = OraclePool::new().unwrap();
     match command {
         Command::Run {
@@ -322,7 +324,10 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     let wallet = WalletData::new();
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
-        Err(_) => PoolState::NeedsBootstrap,
+        Err(error) => {
+            log::debug!("error getting live epoch state: {}", error);
+            PoolState::NeedsBootstrap
+        }
     };
     if let Some(cmd) = process(pool_state, height)? {
         let action = build_action(

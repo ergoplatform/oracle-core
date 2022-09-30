@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use crate::box_kind::OracleBox;
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_ip, get_node_port, ORACLE_CONFIG};
 use crate::oracle_state::{OraclePool, StageDataSource};
@@ -19,7 +20,7 @@ async fn root() -> &'static str {
 /// Basic oracle information
 async fn oracle_info() -> impl IntoResponse {
     Json(json! ( {
-            "oracle_address": &ORACLE_CONFIG.oracle_address,
+            "oracle_address": &ORACLE_CONFIG.oracle_address.to_base58(),
         } ))
 }
 
@@ -33,18 +34,21 @@ async fn oracle_status() -> impl IntoResponse {
         Err(_) => false,
     };
     // Get latest datapoint the local oracle produced/submit
-    let self_datapoint = match op.get_datapoint_state() {
-        Ok(Some(d)) => d.datapoint,
+    let latest_oracle_box = op
+        .get_local_datapoint_box_source()
+        .get_local_oracle_datapoint_box();
+    let self_datapoint = match latest_oracle_box {
+        Ok(Some(ref d)) => d.rate(),
         Ok(None) | Err(_) => 0,
     };
     // Get latest datapoint submit epoch
-    let datapoint_epoch = match op.get_datapoint_state() {
-        Ok(Some(d)) => d.origin_epoch_id,
+    let datapoint_epoch = match latest_oracle_box {
+        Ok(Some(ref d)) => d.epoch_counter(),
         Ok(None) | Err(_) => 0,
     };
     // Get latest datapoint submit epoch
-    let datapoint_creation = match op.get_datapoint_state() {
-        Ok(Some(d)) => d.creation_height,
+    let datapoint_creation = match latest_oracle_box {
+        Ok(Some(ref d)) => d.get_box().creation_height,
         Ok(None) | Err(_) => 0,
     };
 
@@ -66,9 +70,9 @@ async fn pool_info() -> impl IntoResponse {
     Json(json!({
         "number_of_oracles": num_of_oracles,
         "datapoint_address": datapoint_stage.stage.contract_address,
-        "live_epoch_length": parameters.refresh_contract_parameters.epoch_length,
-        "deviation_range": parameters.refresh_contract_parameters.max_deviation_percent,
-        "consensus_num": parameters.refresh_contract_parameters.min_data_points,
+        "live_epoch_length": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().epoch_length(),
+        "deviation_range": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().max_deviation_percent(),
+        "consensus_num": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().min_data_points(),
         "oracle_pool_nft_id": parameters.token_ids.pool_nft_token_id,
         "oracle_pool_participant_token_id": parameters.token_ids.oracle_token_id,
 
