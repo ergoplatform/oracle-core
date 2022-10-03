@@ -1,4 +1,3 @@
-use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::LiveEpochState;
 use crate::oracle_state::StageError;
 use crate::pool_commands::PoolCommand;
@@ -8,6 +7,7 @@ pub struct EpochState {
     epoch_start_height: u64,
 }
 
+// TODO: remove NeedsBootstrap and use LiveEpochState?
 /// Enum for the state that the oracle pool is currently in
 #[derive(Debug, Clone)]
 pub enum PoolState {
@@ -15,7 +15,11 @@ pub enum PoolState {
     LiveEpoch(LiveEpochState),
 }
 
-pub fn process(pool_state: PoolState, height: u32) -> Result<Option<PoolCommand>, StageError> {
+pub fn process(
+    pool_state: PoolState,
+    epoch_length: u32,
+    height: u32,
+) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
         PoolState::NeedsBootstrap => {
             log::warn!(
@@ -24,11 +28,6 @@ pub fn process(pool_state: PoolState, height: u32) -> Result<Option<PoolCommand>
             Ok(None)
         }
         PoolState::LiveEpoch(live_epoch) => {
-            let epoch_length = ORACLE_CONFIG
-                .refresh_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .epoch_length() as u32;
             if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
                 if local_datapoint_box_state.epoch_id != live_epoch.epoch_id {
                     log::info!("Height {height}. Publishing datapoint. Last datapoint was published at {}, current epoch id is {})...", local_datapoint_box_state.epoch_id, live_epoch.epoch_id);

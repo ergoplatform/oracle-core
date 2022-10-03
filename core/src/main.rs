@@ -55,6 +55,7 @@ use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use node_interface::new_node_interface;
+use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
@@ -337,7 +338,12 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             PoolState::NeedsBootstrap
         }
     };
-    if let Some(cmd) = process(pool_state, height)? {
+    let epoch_length = ORACLE_CONFIG
+        .refresh_box_wrapper_inputs
+        .contract_inputs
+        .contract_parameters()
+        .epoch_length() as u32;
+    if let Some(cmd) = process(pool_state, epoch_length, height)? {
         let build_action_res = build_action(
             cmd,
             op,
