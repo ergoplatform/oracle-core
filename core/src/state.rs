@@ -31,12 +31,7 @@ pub fn process(pool_state: PoolState, height: u32) -> Result<Option<PoolCommand>
                 .epoch_length() as u32;
             if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
                 if local_datapoint_box_state.epoch_id != live_epoch.epoch_id {
-                    log::info!("Height {height}. Publishing datapoint");
-                    log::info!(
-                        "Last datapoint was published at {}, current epoch id is {})...",
-                        local_datapoint_box_state.epoch_id,
-                        live_epoch.epoch_id
-                    );
+                    log::info!("Height {height}. Publishing datapoint. Last datapoint was published at {}, current epoch id is {})...", local_datapoint_box_state.epoch_id, live_epoch.epoch_id);
                     Ok(Some(PoolCommand::PublishSubsequentDataPoint {
                         republish: false,
                     }))
@@ -49,8 +44,7 @@ pub fn process(pool_state: PoolState, height: u32) -> Result<Option<PoolCommand>
                         republish: true,
                     }))
                 } else if height >= live_epoch.latest_pool_box_height + epoch_length {
-                    log::info!("Height {height}. Refresh action.");
-                    log::info!("Height {height}. Last epoch id {}, previous epoch started (pool box) at {}", live_epoch.epoch_id, live_epoch.latest_pool_box_height,);
+                    log::info!("Height {height}. Refresh action. Height {height}. Last epoch id {}, previous epoch started (pool box) at {}", live_epoch.epoch_id, live_epoch.latest_pool_box_height,);
                     Ok(Some(PoolCommand::Refresh))
                 } else {
                     Ok(None)
