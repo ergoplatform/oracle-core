@@ -29,21 +29,39 @@ pub fn process(pool_state: PoolState, height: u32) -> Result<Option<PoolCommand>
                 .contract_inputs
                 .contract_parameters()
                 .epoch_length() as u32;
-            let epoch_is_over = height >= live_epoch.latest_pool_box_height + epoch_length
-                && live_epoch.commit_datapoint_in_epoch;
-            if epoch_is_over {
-                log::info!(
-                    "Height {height}. Epoch id {}, previous epoch ended (pool box) at {} + epoch lengh {epoch_length}, calling refresh action",
-                    live_epoch.epoch_id,
-                    live_epoch.latest_pool_box_height,
-                );
-                Ok(Some(PoolCommand::Refresh))
-            } else if !live_epoch.commit_datapoint_in_epoch {
-                log::info!("Height {height}. Publishing datapoint...");
-                Ok(Some(PoolCommand::PublishDataPoint))
+            if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
+                if local_datapoint_box_state.epoch_id != live_epoch.epoch_id {
+                    log::info!("Height {height}. Publishing datapoint");
+                    log::info!(
+                        "Last datapoint was published at {}, current epoch id is {})...",
+                        local_datapoint_box_state.epoch_id,
+                        live_epoch.epoch_id
+                    );
+                    Ok(Some(PoolCommand::PublishSubsequentDataPoint {
+                        republish: false,
+                    }))
+                } else if local_datapoint_box_state.height < height - epoch_length {
+                    log::info!(
+                        "Height {height}. Re-publishing datapoint (last one is too old, at {})...",
+                        local_datapoint_box_state.height
+                    );
+                    Ok(Some(PoolCommand::PublishSubsequentDataPoint {
+                        republish: true,
+                    }))
+                } else if height >= live_epoch.latest_pool_box_height + epoch_length {
+                    log::info!("Height {height}. Refresh action.");
+                    log::info!("Height {height}. Last epoch id {}, previous epoch started (pool box) at {}", live_epoch.epoch_id, live_epoch.latest_pool_box_height,);
+                    Ok(Some(PoolCommand::Refresh))
+                } else {
+                    Ok(None)
+                }
             } else {
-                Ok(None)
+                // no last local datapoint posted
+                log::info!("Height {height}. Publishing datapoint (first)...");
+                Ok(Some(PoolCommand::PublishFirstDataPoint))
             }
         }
     }
 }
+
+// TODO: add tests

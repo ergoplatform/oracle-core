@@ -205,7 +205,7 @@ impl From<OracleBoxWrapper> for ErgoBox {
 pub fn make_oracle_box_candidate(
     contract: &OracleContract,
     public_key: ProveDlog,
-    datapoint: u64,
+    datapoint: i64,
     epoch_counter: u32,
     oracle_token: Token,
     reward_token: Token,

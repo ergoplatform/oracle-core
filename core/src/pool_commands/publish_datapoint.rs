@@ -21,17 +21,13 @@ use thiserror::Error;
 
 use crate::{
     actions::PublishDataPointAction,
-    box_kind::{
-        make_oracle_box_candidate, OracleBox, OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox,
-    },
+    box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapper, OracleBoxWrapperInputs},
     contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
-    oracle_state::{PoolBoxSource, StageError},
+    oracle_state::StageError,
     wallet::WalletDataSource,
 };
-
-use super::PublishDataPointCommandInputs;
 
 #[derive(Debug, Error, From)]
 pub enum PublishDatapointActionError {
@@ -53,59 +49,24 @@ pub enum PublishDatapointActionError {
     OracleContract(OracleContractError),
 }
 
-pub fn build_publish_datapoint_action(
-    pool_box_source: &dyn PoolBoxSource,
-    inputs: PublishDataPointCommandInputs,
+pub fn build_subsequent_publish_datapoint_action(
+    local_datapoint_box: &OracleBoxWrapper,
     wallet: &dyn WalletDataSource,
-    datapoint_source: &dyn DataPointSource,
     height: u32,
     change_address: Address,
+    datapoint_source: &dyn DataPointSource,
+    new_epoch_counter: u32,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint()?;
-    let epoch_counter = pool_box_source.get_pool_box()?.epoch_counter();
-    match inputs {
-        PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box) => {
-            build_subsequent_publish_datapoint_action(
-                *local_datapoint_box,
-                wallet,
-                epoch_counter,
-                height,
-                change_address,
-                new_datapoint,
-            )
-        }
-        PublishDataPointCommandInputs::FirstDataPoint {
-            public_key,
-            oracle_box_wrapper_inputs: oracle_box_inputs,
-        } => build_publish_first_datapoint_action(
-            wallet,
-            height,
-            change_address,
-            new_datapoint as u64,
-            public_key,
-            oracle_box_inputs,
-        ),
-    }
-}
-
-pub fn build_subsequent_publish_datapoint_action(
-    local_datapoint_box: OracleBoxWrapper,
-    wallet: &dyn WalletDataSource,
-    current_epoch_counter: u32,
-    height: u32,
-    change_address: Address,
-    new_datapoint: i64,
-) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let in_oracle_box = local_datapoint_box;
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
     }
-    let new_epoch_counter: u32 = current_epoch_counter + 1;
 
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
         in_oracle_box.public_key(),
-        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64) as u64,
+        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64),
         new_epoch_counter,
         in_oracle_box.oracle_token(),
         in_oracle_box.reward_token(),
@@ -145,10 +106,11 @@ pub fn build_publish_first_datapoint_action(
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
-    new_datapoint: u64,
     public_key: ProveDlog,
     inputs: OracleBoxWrapperInputs,
+    datapoint_source: &dyn DataPointSource,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
+    let new_datapoint = datapoint_source.get_datapoint()?;
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
@@ -236,9 +198,10 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::box_kind::OracleBoxWrapper;
+    use crate::box_kind::{OracleBoxWrapper, PoolBox};
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
+    use crate::oracle_state::PoolBoxSource;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
@@ -320,13 +283,13 @@ mod tests {
         };
 
         let datapoint_source = MockDatapointSource {};
-        let action = build_publish_datapoint_action(
-            &pool_box_mock,
-            PublishDataPointCommandInputs::LocalDataPointBoxExists(oracle_box.clone().into()),
+        let action = build_subsequent_publish_datapoint_action(
+            &oracle_box,
             &wallet_mock,
-            &datapoint_source,
             height,
             change_address,
+            &datapoint_source,
+            2,
         )
         .unwrap();
 
@@ -406,9 +369,9 @@ mod tests {
             },
             height,
             change_address,
-            100,
             secret.public_image(),
             oracle_box_wrapper_inputs,
+            &MockDatapointSource {},
         )
         .unwrap();
 
