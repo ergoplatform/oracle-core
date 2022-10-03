@@ -1,11 +1,5 @@
-#![allow(unused_imports)]
-
-use crate::actions::CollectionError;
-use crate::datapoint_source::DataPointSource;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::LiveEpochState;
-use crate::oracle_state::OraclePool;
-use crate::oracle_state::Stage;
 use crate::oracle_state::StageError;
 use crate::pool_commands::PoolCommand;
 use anyhow::Result;

@@ -18,9 +18,6 @@ pub enum PoolAction {
 }
 
 #[derive(Debug)]
-pub struct BootstrapAction {}
-
-#[derive(Debug)]
 pub struct RefreshAction {
     pub tx: UnsignedTransaction,
 }
@@ -28,16 +25,6 @@ pub struct RefreshAction {
 #[derive(Debug)]
 pub struct PublishDataPointAction {
     pub tx: UnsignedTransaction,
-}
-
-#[derive(Error, Debug)]
-pub enum CollectionError {
-    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted datapoints within the deviation range.")]
-    FailedToReachConsensus(),
-    #[error("Failed collecting datapoints. The local oracle did not post a datapoint in the current epoch.")]
-    LocalOracleFailedToPostDatapoint(),
-    #[error("Failed collecting datapoints. The local oracle did not post a datapoint within the deviation range (when compared to datapoints posted by other oracles in the pool).")]
-    LocalOracleFailedToPostDatapointWithinDeviation(),
 }
 
 #[derive(Error, Debug, From)]

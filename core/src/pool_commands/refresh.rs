@@ -23,6 +23,7 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
+use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -36,9 +37,9 @@ use std::convert::TryInto;
 
 #[derive(Debug, From, Error)]
 pub enum RefreshActionError {
-    #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys},")]
+    #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys:?},")]
     FailedToReachConsensus {
-        found_public_keys: String,
+        found_public_keys: Vec<ProveDlog>,
         found_num: u32,
         expected: u32,
     },
@@ -89,9 +90,8 @@ pub fn build_refresh_action(
             expected: min_data_points,
             found_public_keys: valid_in_oracle_boxes
                 .iter()
-                .map(|b| format!("{:?}", b.public_key()))
-                .collect::<Vec<_>>()
-                .join(","),
+                .map(|b| b.public_key())
+                .collect(),
         });
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());

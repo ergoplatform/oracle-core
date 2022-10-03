@@ -38,11 +38,14 @@ mod tests;
 mod wallet;
 
 use actions::execute_action;
+use actions::PoolAction;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::debug;
@@ -326,6 +329,7 @@ fn handle_oracle_command(command: Command) {
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
     let height = current_block_height()? as u32;
     let wallet = WalletData::new();
+    let networt_change_address = get_change_address_from_node()?;
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
@@ -334,40 +338,52 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         }
     };
     if let Some(cmd) = process(pool_state, height)? {
-        let action = match build_action(
+        let build_action_res = build_action(
             cmd,
             op,
             &wallet,
             height as u32,
-            get_change_address_from_node()?,
-        ) {
-            Ok(action) => action,
-            Err(PoolCommandError::RefreshActionError(
-                e @ RefreshActionError::FailedToReachConsensus {
-                    expected: _,
-                    found_public_keys: _,
-                    found_num: _,
-                },
-            )) => {
-                log::error!("{e}");
-                return Ok(());
-            }
-            Err(e) => {
-                return Err(anyhow!(e));
+            networt_change_address.address(),
+        );
+        if let Some(action) =
+            continue_if_consensus_error(networt_change_address.network(), build_action_res)?
+        {
+            if !read_only {
+                execute_action(action)?;
             }
         };
-        if !read_only {
-            execute_action(action)?;
-        }
     }
     Ok(())
 }
 
-fn get_change_address_from_node() -> Result<Address, anyhow::Error> {
+fn continue_if_consensus_error(
+    network_prefix: NetworkPrefix,
+    res: Result<PoolAction, PoolCommandError>,
+) -> Result<Option<PoolAction>, PoolCommandError> {
+    match res {
+        Ok(action) => Ok(Some(action)),
+        Err(PoolCommandError::RefreshActionError(RefreshActionError::FailedToReachConsensus {
+            expected,
+            found_public_keys,
+            found_num,
+        })) => {
+            let found_oracle_addresses: String = found_public_keys
+                .into_iter()
+                .map(|pk| NetworkAddress::new(network_prefix, &Address::P2Pk(pk)).to_base58())
+                .collect::<Vec<String>>()
+                .join(", ");
+            log::error!("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from addresses {found_oracle_addresses},");
+            Ok(None)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn get_change_address_from_node() -> Result<NetworkAddress, anyhow::Error> {
     let change_address_str = get_wallet_status()?
         .change_address
         .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
-    let addr = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
+    let addr = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
     Ok(addr)
 }
 
