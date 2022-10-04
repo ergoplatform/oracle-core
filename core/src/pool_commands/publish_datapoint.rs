@@ -57,7 +57,7 @@ pub fn build_subsequent_publish_datapoint_action(
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: u32,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    let new_datapoint = datapoint_source.get_datapoint()?;
+    let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
     let in_oracle_box = local_datapoint_box;
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
@@ -110,7 +110,7 @@ pub fn build_publish_first_datapoint_action(
     inputs: OracleBoxWrapperInputs,
     datapoint_source: &dyn DataPointSource,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    let new_datapoint = datapoint_source.get_datapoint()?;
+    let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
@@ -256,14 +256,7 @@ mod tests {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let oracle_box = OracleBoxWrapper::new(
-            make_datapoint_box(
-                *oracle_pub_key,
-                200,
-                1,
-                &token_ids,
-                BASE_FEE.checked_mul_u32(100).unwrap(),
-                height - 9,
-            ),
+            make_datapoint_box(*oracle_pub_key, 200, 1, &token_ids, *BASE_FEE, height - 99),
             &oracle_box_wrapper_inputs,
         )
         .unwrap();
@@ -287,7 +280,7 @@ mod tests {
             &oracle_box,
             &wallet_mock,
             height,
-            change_address,
+            change_address.clone(),
             &datapoint_source,
             2,
         )
@@ -301,12 +294,32 @@ mod tests {
 
         let tx_context = TransactionContext::new(
             action.tx.clone(),
-            find_input_boxes(action.tx, possible_input_boxes),
+            find_input_boxes(action.tx, possible_input_boxes.clone()),
             Vec::new(),
         )
         .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+
+        // epoch id is not incremented
+        let action_republish = build_subsequent_publish_datapoint_action(
+            &oracle_box,
+            &wallet_mock,
+            height,
+            change_address,
+            &datapoint_source,
+            1,
+        )
+        .unwrap();
+        let tx_context_republish = TransactionContext::new(
+            action_republish.tx.clone(),
+            find_input_boxes(action_republish.tx, possible_input_boxes),
+            Vec::new(),
+        )
+        .unwrap();
+        let _signed_tx_republish = wallet
+            .sign_transaction(tx_context_republish, &ctx, None)
+            .unwrap();
     }
 
     #[test]
