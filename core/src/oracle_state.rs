@@ -16,7 +16,6 @@ use crate::scans::{
     register_update_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
 use crate::state::PoolState;
-use crate::{BlockHeight, NanoErg};
 use anyhow::Error;
 use derive_more::From;
 
@@ -166,23 +165,8 @@ pub struct UpdateBoxScan<'a> {
 pub struct LiveEpochState {
     pub epoch_id: u32,
     pub commit_datapoint_in_epoch: bool,
-    pub epoch_ends: BlockHeight,
     pub latest_pool_datapoint: u64,
-}
-
-/// The state of the oracle pool when it is in the Epoch Preparation stage
-#[derive(Debug, Clone)]
-pub struct PreparationState {
-    pub funds: NanoErg,
-    pub next_epoch_ends: BlockHeight,
-    pub latest_pool_datapoint: u64,
-}
-
-/// The current UTXO-set state of all of the Pool Deposit boxes
-#[derive(Debug, Clone)]
-pub struct PoolDepositsState {
-    pub number_of_boxes: u64,
-    pub total_nanoergs: NanoErg,
+    pub latest_pool_box_height: u32,
 }
 
 impl<'a> OraclePool<'a> {
@@ -255,7 +239,7 @@ impl<'a> OraclePool<'a> {
             data_point_source,
             datapoint_stage: DatapointStage {
                 stage: Stage {
-                    contract_address: datapoint_contract.to_base16_bytes().unwrap(),
+                    contract_address: datapoint_contract.to_base16_bytes()?,
                     scan: datapoint_scan,
                 },
                 oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
@@ -292,21 +276,13 @@ impl<'a> OraclePool<'a> {
             false
         };
 
-        let latest_pool_datapoint = pool_box.rate();
-
-        // Block height epochs ends is held in R5 of the epoch box
-        let epoch_ends = pool_box.get_box().creation_height
-            + ORACLE_CONFIG
-                .refresh_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .epoch_length() as u32;
+        let latest_pool_datapoint = pool_box.rate() as u64;
 
         let epoch_state = LiveEpochState {
             epoch_id,
             commit_datapoint_in_epoch,
-            epoch_ends: epoch_ends as u64,
-            latest_pool_datapoint: latest_pool_datapoint as u64,
+            latest_pool_datapoint,
+            latest_pool_box_height: pool_box.get_box().creation_height,
         };
 
         Ok(epoch_state)
@@ -442,8 +418,8 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
             .stage
             .get_boxes()?
             .into_iter()
-            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs).unwrap())
-            .collect();
+            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
+            .collect::<std::result::Result<Vec<OracleBoxWrapper>, OracleBoxError>>()?;
         Ok(res)
     }
 }
@@ -511,45 +487,33 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
         OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
             .ergo_tree();
 
-    let mut scans = vec![
-        register_datapoint_scan(
-            &oracle_pool_participant_token_id,
-            &datapoint_contract_address,
-        )
-        .unwrap(),
-        register_update_box_scan(&config.token_ids.update_nft_token_id).unwrap(),
-        register_pool_box_scan(config.pool_box_wrapper_inputs.clone()).unwrap(),
-        register_refresh_box_scan(
-            refresh_box_scan_name,
-            config.refresh_box_wrapper_inputs.clone(),
-        )
-        .unwrap(),
-    ];
-
-    // Local datapoint box may not exist yet.
-    if let Ok(local_scan) = register_local_oracle_datapoint_scan(
-        &oracle_pool_participant_token_id,
-        &datapoint_contract_address,
-        &local_oracle_address,
-    ) {
-        scans.push(local_scan);
-    }
-
     let ballot_contract_address =
         BallotContract::checked_load(&config.ballot_box_wrapper_inputs.contract_inputs)?
             .ergo_tree();
-    // Local ballot box may not exist yet.
-    if let Ok(local_scan) = register_local_ballot_box_scan(
-        &ballot_contract_address,
-        &config.token_ids.ballot_token_id,
-        &config.oracle_address,
-    ) {
-        scans.push(local_scan);
-    }
-    scans.push(
-        register_ballot_box_scan(&ballot_contract_address, &config.token_ids.ballot_token_id)
-            .unwrap(),
-    );
+
+    let scans = vec![
+        register_datapoint_scan(
+            &oracle_pool_participant_token_id,
+            &datapoint_contract_address,
+        )?,
+        register_update_box_scan(&config.token_ids.update_nft_token_id)?,
+        register_pool_box_scan(config.pool_box_wrapper_inputs.clone())?,
+        register_refresh_box_scan(
+            refresh_box_scan_name,
+            config.refresh_box_wrapper_inputs.clone(),
+        )?,
+        register_local_oracle_datapoint_scan(
+            &oracle_pool_participant_token_id,
+            &datapoint_contract_address,
+            &local_oracle_address,
+        )?,
+        register_local_ballot_box_scan(
+            &ballot_contract_address,
+            &config.token_ids.ballot_token_id,
+            &config.oracle_address,
+        )?,
+        register_ballot_box_scan(&ballot_contract_address, &config.token_ids.ballot_token_id)?,
+    ];
 
     log::info!("Registering UTXO-Set Scans");
     save_scan_ids_locally(scans)?;

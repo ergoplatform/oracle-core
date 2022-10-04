@@ -1,11 +1,5 @@
-#![allow(unused_imports)]
-
-use crate::actions::CollectionError;
-use crate::datapoint_source::DataPointSource;
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::LiveEpochState;
-use crate::oracle_state::OraclePool;
-use crate::oracle_state::PreparationState;
-use crate::oracle_state::Stage;
 use crate::oracle_state::StageError;
 use crate::pool_commands::PoolCommand;
 use anyhow::Result;
@@ -21,7 +15,7 @@ pub enum PoolState {
     LiveEpoch(LiveEpochState),
 }
 
-pub fn process(pool_state: PoolState, height: u64) -> Result<Option<PoolCommand>, StageError> {
+pub fn process(pool_state: PoolState, height: u32) -> Result<Option<PoolCommand>, StageError> {
     match pool_state {
         PoolState::NeedsBootstrap => {
             log::warn!(
@@ -30,13 +24,22 @@ pub fn process(pool_state: PoolState, height: u64) -> Result<Option<PoolCommand>
             Ok(None)
         }
         PoolState::LiveEpoch(live_epoch) => {
-            let epoch_is_over =
-                height >= live_epoch.epoch_ends && live_epoch.commit_datapoint_in_epoch;
+            let epoch_length = ORACLE_CONFIG
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .epoch_length() as u32;
+            let epoch_is_over = height >= live_epoch.latest_pool_box_height + epoch_length
+                && live_epoch.commit_datapoint_in_epoch;
             if epoch_is_over {
-                log::info!("Epoch is over, calling refresh");
+                log::info!(
+                    "Height {height}. Epoch id {}, previous epoch ended (pool box) at {} + epoch lengh {epoch_length}, calling refresh action",
+                    live_epoch.epoch_id,
+                    live_epoch.latest_pool_box_height,
+                );
                 Ok(Some(PoolCommand::Refresh))
             } else if !live_epoch.commit_datapoint_in_epoch {
-                log::info!("Commiting datapoint...");
+                log::info!("Height {height}. Publishing datapoint...");
                 Ok(Some(PoolCommand::PublishDataPoint))
             } else {
                 Ok(None)

@@ -190,9 +190,9 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::checked_load(
             refresh_contract_parameters.clone(),
-            c.token_ids.refresh_nft_token_id.clone(),
             c.token_ids.oracle_token_id.clone(),
-            c.token_ids.reward_token_id.clone(),
+            c.token_ids.pool_nft_token_id.clone(),
+            c.token_ids.refresh_nft_token_id.clone(),
         )
         .map_err(OracleConfigError::from)?;
 

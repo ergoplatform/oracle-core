@@ -98,17 +98,14 @@ async fn pool_status() -> impl IntoResponse {
 
     let mut latest_datapoint = 0;
     let mut current_epoch_id = "".to_string();
-    let mut epoch_ends = 0;
     if let Ok(l) = op.get_live_epoch_state() {
         latest_datapoint = l.latest_pool_datapoint;
         current_epoch_id = l.epoch_id.to_string();
-        epoch_ends = l.epoch_ends;
     }
     Json(json!({
             "current_pool_stage": current_stage,
             "latest_datapoint": latest_datapoint,
             "current_epoch_id" : current_epoch_id,
-            "epoch_ends": epoch_ends,
     }))
 }
 
