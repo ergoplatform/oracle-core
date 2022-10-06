@@ -123,9 +123,9 @@ pub fn build_publish_first_datapoint_action(
         amount: TokenAmount::try_from(1).unwrap(),
     };
 
-    // We need to deduct `2*tx_fee` from the wallet. `fee` goes to the output box and the remaining
-    // for tx fees.
-    let target_balance = tx_fee.checked_mul_u32(2).unwrap();
+    let contract = OracleContract::checked_load(&inputs.contract_inputs)?;
+    let min_storage_rent = contract.parameters().min_storage_rent;
+    let target_balance = min_storage_rent.checked_add(&tx_fee).unwrap();
 
     let wallet_boxes_selection = box_selector.select(
         unspent_boxes.clone(),
@@ -134,13 +134,13 @@ pub fn build_publish_first_datapoint_action(
     )?;
 
     let output_candidate = make_oracle_box_candidate(
-        &OracleContract::checked_load(&inputs.contract_inputs)?,
+        &contract,
         public_key,
         new_datapoint,
         1,
         oracle_token,
         reward_token,
-        *BASE_FEE,
+        min_storage_rent,
         height,
     )?;
 
@@ -256,7 +256,17 @@ mod tests {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let oracle_box = OracleBoxWrapper::new(
-            make_datapoint_box(*oracle_pub_key, 200, 1, &token_ids, *BASE_FEE, height - 99),
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                1,
+                &token_ids,
+                oracle_box_wrapper_inputs
+                    .contract_inputs
+                    .contract_parameters()
+                    .min_storage_rent,
+                height - 99,
+            ),
             &oracle_box_wrapper_inputs,
         )
         .unwrap();
@@ -375,7 +385,8 @@ mod tests {
 
         let oracle_contract_parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
-            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), &token_ids))
+                .unwrap();
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
@@ -387,6 +398,11 @@ mod tests {
             &MockDatapointSource {},
         )
         .unwrap();
+
+        assert_eq!(
+            action.tx.output_candidates.first().value,
+            oracle_contract_parameters.min_storage_rent
+        );
 
         let tx_context =
             TransactionContext::new(action.tx.clone(), unspent_boxes, Vec::new()).unwrap();
