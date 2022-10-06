@@ -1,4 +1,7 @@
+use std::convert::TryInto;
+
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -12,6 +15,7 @@ use thiserror::Error;
 pub struct OracleContract {
     ergo_tree: ErgoTree,
     pool_nft_index: usize,
+    min_storage_rent_index: usize,
 }
 
 #[derive(Debug, Error)]
@@ -103,25 +107,46 @@ impl OracleContract {
     ) -> Result<Self, OracleContractError> {
         // dbg!(ergo_tree.get_constants().unwrap());
 
-        let pool_nft_token_id = ergo_tree
-            .get_constant(inputs.contract_parameters.pool_nft_index)
-            .map_err(|_| {
-                OracleContractError::ParametersError(OracleContractParametersError::NoPoolNftId)
-            })?
-            .ok_or(OracleContractError::ParametersError(
-                OracleContractParametersError::NoPoolNftId,
-            ))?
-            .try_extract_into::<TokenId>()?;
+        let checked_contract_parameters = OracleContractParameters::checked_load(
+            ergo_tree_bytes,
+            inputs.contract_parameters.pool_nft_index,
+            inputs.contract_parameters.min_storage_rent_index,
+            inputs.contract_parameters.min_storage_rent,
+        )?;
+
+        // let pool_nft_token_id = ergo_tree
+        //     .get_constant(inputs.contract_parameters.pool_nft_index)
+        //     .map_err(|_| {
+        //         OracleContractError::ParametersError(OracleContractParametersError::NoPoolNftId)
+        //     })?
+        //     .ok_or(OracleContractError::ParametersError(
+        //         OracleContractParametersError::NoPoolNftId,
+        //     ))?
+        //     .try_extract_into::<TokenId>()?;
+
         if pool_nft_token_id != inputs.pool_nft_token_id {
             return Err(OracleContractError::UnknownPoolNftId {
                 expected: inputs.pool_nft_token_id.clone(),
                 got: pool_nft_token_id,
             });
         }
+        let min_storage_rent: BoxValue = ergo_tree
+            .get_constant(inputs.contract_parameters.min_storage_rent_index)
+            .map_err(|_| OracleContractError::NoMinVotes)?
+            .ok_or(OracleContractError::NoMinVotes)?
+            .try_extract_into::<i64>()?
+            .try_into()?;
+        if min_storage_rent != inputs.contract_parameters.min_storage_rent {
+            return Err(OracleContractError::MinVotesDiffers {
+                expected: inputs.contract_parameters.min_votes,
+                actual: min_storage_rent,
+            });
+        };
 
         Ok(Self {
             ergo_tree,
             pool_nft_index: inputs.contract_parameters.pool_nft_index,
+            min_storage_rent_index: inputs.contract_parameters.min_storage_rent_index,
         })
     }
 
@@ -142,7 +167,18 @@ impl OracleContract {
         OracleContractParameters {
             ergo_tree_bytes: self.ergo_tree.sigma_serialize_bytes().unwrap(),
             pool_nft_index: self.pool_nft_index,
+            min_storage_rent_index: self.min_storage_rent_index,
+            min_storage_rent: self.min_storage_rent(),
         }
+    }
+
+    fn min_storage_rent(&self) -> BoxValue {
+        let c = self
+            .ergo_tree
+            .get_constant(self.min_storage_rent_index)
+            .unwrap()
+            .unwrap();
+        c.try_extract_into::<i64>().unwrap().try_into().unwrap()
     }
 }
 
@@ -161,14 +197,31 @@ pub enum OracleContractParametersError {
 pub struct OracleContractParameters {
     ergo_tree_bytes: Vec<u8>,
     pool_nft_index: usize,
+    min_storage_rent_index: usize,
+    min_storage_rent: BoxValue,
 }
 
 impl OracleContractParameters {
     pub fn checked_load(
         ergo_tree_bytes: Vec<u8>,
         pool_nft_index: usize,
+        min_storage_rent_index: usize,
+        min_storage_rent: BoxValue,
     ) -> Result<Self, OracleContractParametersError> {
         let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
+
+        let min_storage_rent_from_tree: BoxValue = ergo_tree
+            .get_constant(min_storage_rent_index)
+            .map_err(|_| OracleContractError::NoMinVotes)?
+            .ok_or(OracleContractError::NoMinVotes)?
+            .try_extract_into::<i64>()?
+            .try_into()?;
+        if min_storage_rent != min_storage_rent_from_tree {
+            return Err(OracleContractError::MinVotesDiffers {
+                expected: min_storage_rent,
+                actual: min_storage_rent_from_tree,
+            });
+        };
 
         let _pool_nft = ergo_tree
             .get_constant(pool_nft_index)
@@ -178,6 +231,8 @@ impl OracleContractParameters {
         Ok(Self {
             ergo_tree_bytes,
             pool_nft_index,
+            min_storage_rent_index,
+            min_storage_rent,
         })
     }
 
@@ -187,6 +242,15 @@ impl OracleContractParameters {
 
     pub fn pool_nft_index(&self) -> usize {
         self.pool_nft_index
+    }
+
+    pub fn pool_nft_token_id(&self) -> TokenId {
+        self.ergo_tree
+            .get_constant(self.pool_nft_index)
+            .unwrap()
+            .unwrap()
+            .try_extract_into::<TokenId>()
+            .unwrap()
     }
 }
 
