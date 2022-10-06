@@ -187,9 +187,9 @@ pub enum OracleContractParametersError {
 /// Parameters for the oracle contract
 pub struct OracleContractParameters {
     ergo_tree_bytes: Vec<u8>,
-    pool_nft_index: usize,
-    min_storage_rent_index: usize,
-    min_storage_rent: BoxValue,
+    pub pool_nft_index: usize,
+    pub min_storage_rent_index: usize,
+    pub min_storage_rent: BoxValue,
 }
 
 impl OracleContractParameters {
@@ -200,6 +200,7 @@ impl OracleContractParameters {
         min_storage_rent: BoxValue,
     ) -> Result<Self, OracleContractParametersError> {
         let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
+        // dbg!(ergo_tree.get_constants().unwrap());
 
         let min_storage_rent_from_tree: BoxValue = ergo_tree
             .get_constant(min_storage_rent_index)
@@ -229,10 +230,6 @@ impl OracleContractParameters {
 
     pub fn ergo_tree_bytes(&self) -> Vec<u8> {
         self.ergo_tree_bytes.clone()
-    }
-
-    pub fn pool_nft_index(&self) -> usize {
-        self.pool_nft_index
     }
 
     pub fn pool_nft_token_id(&self) -> Result<TokenId, OracleContractParametersError> {
