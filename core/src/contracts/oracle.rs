@@ -10,6 +10,7 @@ use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
 #[derive(Clone)]
@@ -78,8 +79,14 @@ impl OracleContractInputs {
 
 impl OracleContract {
     pub fn checked_load(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
+        let checked_contract_parameters = OracleContractParameters::checked_load(
+            inputs.contract_parameters.ergo_tree_bytes(),
+            inputs.contract_parameters.pool_nft_index,
+            inputs.contract_parameters.min_storage_rent_index,
+            inputs.contract_parameters.min_storage_rent,
+        )?;
         let ergo_tree =
-            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
+            ErgoTree::sigma_parse_bytes(checked_contract_parameters.ergo_tree_bytes.as_slice())?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
             let expected_base16 = Self::build_with(inputs)
                 .unwrap()
@@ -92,8 +99,14 @@ impl OracleContract {
     }
 
     fn build_with(inputs: &OracleContractInputs) -> Result<Self, OracleContractError> {
+        let new_contract_parameters = OracleContractParameters::build_with(
+            inputs.contract_parameters.ergo_tree_bytes(),
+            inputs.contract_parameters.pool_nft_index,
+            inputs.contract_parameters.min_storage_rent_index,
+            inputs.contract_parameters.min_storage_rent,
+        )?;
         let ergo_tree =
-            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
+            ErgoTree::sigma_parse_bytes(new_contract_parameters.ergo_tree_bytes().as_slice())?
                 .with_constant(
                     inputs.contract_parameters.pool_nft_index,
                     inputs.pool_nft_token_id.clone().into(),
@@ -181,6 +194,10 @@ pub enum OracleContractParametersError {
     TryExtractFrom(TryExtractFromError),
     #[error("oracle contract parameters: BoxValue error {0:?}")]
     BoxValue(BoxValueError),
+    #[error("oracle contract parameters: ergo tree constant error{0:?}")]
+    ErgoTreeConstantError(ErgoTreeConstantError),
+    #[error("oracle contract parameters: sigma serialization error {0}")]
+    SigmaSerialization(SigmaSerializationError),
 }
 
 #[derive(Debug, Clone)]
@@ -228,6 +245,28 @@ impl OracleContractParameters {
         })
     }
 
+    pub fn build_with(
+        ergo_tree_bytes: Vec<u8>,
+        pool_nft_index: usize,
+        min_storage_rent_index: usize,
+        min_storage_rent: BoxValue,
+    ) -> Result<Self, OracleContractParametersError> {
+        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?
+            .with_constant(min_storage_rent_index, min_storage_rent.into())?;
+
+        let _pool_nft = ergo_tree
+            .get_constant(pool_nft_index)
+            .map_err(|_| OracleContractParametersError::NoPoolNftId)?
+            .ok_or(OracleContractParametersError::NoPoolNftId)?
+            .try_extract_into::<TokenId>()?;
+        Ok(Self {
+            ergo_tree_bytes: ergo_tree.sigma_serialize_bytes()?,
+            pool_nft_index,
+            min_storage_rent_index,
+            min_storage_rent,
+        })
+    }
+
     pub fn ergo_tree_bytes(&self) -> Vec<u8> {
         self.ergo_tree_bytes.clone()
     }
@@ -245,6 +284,9 @@ impl OracleContractParameters {
 
 #[cfg(test)]
 mod tests {
+    use ergo_lib::ergo_chain_types::Digest32;
+    use sigma_test_util::force_any_val;
+
     use crate::pool_commands::test_utils::generate_token_ids;
 
     use super::*;
@@ -259,5 +301,26 @@ mod tests {
         };
         let c = OracleContract::build_with(&inputs).unwrap();
         assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
+    }
+
+    #[test]
+    fn test_build_with() {
+        let contract_parameters = OracleContractParameters::default();
+        let new_min_storage_rent = force_any_val::<BoxValue>();
+        let new_contract_parameters = OracleContractParameters::build_with(
+            contract_parameters.ergo_tree_bytes(),
+            contract_parameters.pool_nft_index,
+            contract_parameters.min_storage_rent_index,
+            new_min_storage_rent,
+        )
+        .unwrap();
+        let new_pool_nft_token_id: TokenId = force_any_val::<Digest32>().into();
+        let inputs = OracleContractInputs {
+            contract_parameters: new_contract_parameters,
+            pool_nft_token_id: new_pool_nft_token_id.clone(),
+        };
+        let new_contract = OracleContract::build_with(&inputs).unwrap();
+        assert_eq!(new_contract.pool_nft_token_id(), new_pool_nft_token_id);
+        assert_eq!(new_contract.min_storage_rent(), new_min_storage_rent);
     }
 }

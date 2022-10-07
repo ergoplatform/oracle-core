@@ -489,7 +489,7 @@ mod tests {
                 },
                 pool_box_hash.clone(),
                 new_reward_tokens.clone(),
-                ballot_contract.min_storage_rent().try_into().unwrap(),
+                ballot_contract.min_storage_rent(),
                 height,
             )
             .unwrap();

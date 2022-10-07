@@ -9,7 +9,6 @@ use ergo_lib::{
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
         address::{Address, AddressEncoder, AddressEncoderError},
-        ergo_box::box_value::BoxValue,
         token::{Token, TokenAmount, TokenId},
     },
     wallet::{
@@ -197,8 +196,7 @@ fn build_tx_for_first_ballot_box(
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let out_ballot_box_value =
-        BoxValue::try_from(ballot_contract_parameters.min_storage_rent()).unwrap();
+    let out_ballot_box_value = ballot_contract_parameters.min_storage_rent();
     let reward_token = Token {
         token_id: reward_token_id,
         amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
