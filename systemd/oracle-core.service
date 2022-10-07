@@ -1,12 +1,15 @@
 [Unit]
 Description=Oracle Core v2.0
 Documentation=https://github.com/ergoplatform/oracle-core
+After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 # Config file is in ~/.config/oracle-core/
 ExecStart=bash -c "cd ~/.config/oracle-core; ~/.cargo/bin/oracle-core run"
 Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=default.target
