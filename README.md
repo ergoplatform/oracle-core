@@ -26,11 +26,17 @@ cargo test check_contract_hashes -- --nocapture
 
 Check these values against those described in EIP-23.
 
-## Systemd
-To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed, along with the oracle-core service:
+## Install from Source
+oracle-core can be installed using cargo install:
 
 ``` console
 cargo install --path core
+```
+
+## Systemd
+To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed, and the oracle-core binary should be installed in ~/.cargo/bin
+
+``` console
 cp systemd/oracle-core.service ~/.config/systemd/user/oracle-core.service
 systemctl --user enable oracle-core.service
 ```
