@@ -7,7 +7,8 @@ Wants=network.target
 [Service]
 Type=simple
 # Config file is in ~/.config/oracle-core/
-ExecStart=bash -c "cd ~/.config/oracle-core; ~/.cargo/bin/oracle-core run"
+WorkingDirectory=/home/USER/.config/oracle-core
+ExecStart=/home/USER/.cargo/bin/oracle-core run
 Restart=on-failure
 RestartSec=5
 
