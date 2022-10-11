@@ -362,4 +362,27 @@ mod tests {
         assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
         assert_eq!(c.min_votes(), parameters.min_votes);
     }
+
+    #[test]
+    fn test_build_with() {
+        let default_parameters = UpdateContractParameters::default();
+        let new_parameters = UpdateContractParameters::build_with(
+            default_parameters.ergo_tree_bytes(),
+            default_parameters.pool_nft_index(),
+            default_parameters.ballot_token_index(),
+            default_parameters.min_votes_index(),
+            default_parameters.min_votes() + 1,
+        )
+        .unwrap();
+        let token_ids = generate_token_ids();
+        let inputs = UpdateContractInputs {
+            contract_parameters: new_parameters.clone(),
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+            ballot_token_id: token_ids.ballot_token_id.clone(),
+        };
+        let c = UpdateContract::build_with(&inputs).unwrap();
+        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(c.min_votes(), new_parameters.min_votes);
+    }
 }

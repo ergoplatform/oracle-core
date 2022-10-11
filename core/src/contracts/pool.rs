@@ -255,4 +255,18 @@ mod tests {
         assert_eq!(c.refresh_nft_token_id(), token_ids.refresh_nft_token_id,);
         assert_eq!(c.update_nft_token_id(), token_ids.update_nft_token_id,);
     }
+
+    #[test]
+    fn test_build_with() {
+        let contract_parameters = PoolContractParameters::default();
+        let token_ids = generate_token_ids();
+        let inputs = PoolContractInputs {
+            contract_parameters,
+            refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
+            update_nft_token_id: token_ids.update_nft_token_id.clone(),
+        };
+        let c = PoolContract::build_with(&inputs).unwrap();
+        assert_eq!(c.refresh_nft_token_id(), token_ids.refresh_nft_token_id,);
+        assert_eq!(c.update_nft_token_id(), token_ids.update_nft_token_id,);
+    }
 }
