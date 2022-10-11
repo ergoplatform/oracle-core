@@ -353,7 +353,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             network_change_address.address(),
         );
         if let Some(action) =
-            continue_if_non_fatal(networt_change_address.network(), build_action_res)?
+            continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
                 execute_action(action)?;
