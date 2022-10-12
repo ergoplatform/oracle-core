@@ -34,7 +34,7 @@ cargo install --path core
 ```
 
 ## Systemd
-To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed, and the oracle-core binary should be installed in ~/.cargo/bin
+To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
 
 ``` console
 cp systemd/oracle-core.service ~/.config/systemd/user/oracle-core.service
