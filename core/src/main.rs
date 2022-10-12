@@ -332,8 +332,7 @@ fn handle_oracle_command(command: Command) {
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
     let height = current_block_height().context("Failed to get the current height")? as u32;
     let wallet = WalletData::new();
-    let network_change_address =
-        get_change_address_from_node().context("Failed to get the change address")?;
+    let network_change_address = get_change_address_from_node()?;
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
@@ -346,7 +345,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .contract_inputs
         .contract_parameters()
         .epoch_length() as u32;
-    if let Some(cmd) = process(pool_state, epoch_length, height)? {
+    if let Some(cmd) = process(pool_state, epoch_length, height) {
         let build_action_res = build_action(
             cmd,
             op,
