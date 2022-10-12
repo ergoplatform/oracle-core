@@ -16,7 +16,6 @@ use ergo_lib::{
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
-use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
@@ -26,7 +25,7 @@ use crate::{
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
     oracle_state::StageError,
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 #[derive(Debug, Error, From)]
@@ -39,8 +38,8 @@ pub enum PublishDatapointActionError {
     TxBuilder(TxBuilderError),
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
-    #[error("node error: {0}")]
-    Node(NodeError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
     #[error("box selector error: {0}")]
     BoxSelector(BoxSelectorError),
     #[error("datapoint source error: {0}")]

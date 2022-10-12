@@ -24,7 +24,6 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
-use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
 use thiserror::Error;
 
@@ -32,8 +31,6 @@ pub type Result<T> = std::result::Result<T, StageError>;
 
 #[derive(Debug, From, Error)]
 pub enum StageError {
-    #[error("node error: {0}")]
-    NodeError(NodeError),
     #[error("unexpected data error: {0}")]
     UnexpectedData(TryExtractFromError),
     #[error("scan error: {0}")]

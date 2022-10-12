@@ -13,6 +13,7 @@ use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
+use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
 use derive_more::From;
@@ -30,7 +31,6 @@ use ergo_lib::wallet::box_selector::BoxSelectorError;
 use ergo_lib::wallet::box_selector::SimpleBoxSelector;
 use ergo_lib::wallet::tx_builder::TxBuilder;
 use ergo_lib::wallet::tx_builder::TxBuilderError;
-use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use std::convert::TryInto;
@@ -47,8 +47,8 @@ pub enum RefreshActionError {
     NotEnoughDatapoints,
     #[error("stage error: {0}")]
     StageError(StageError),
-    #[error("node error: {0}")]
-    NodeError(NodeError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
     #[error("box selector error: {0}")]
     BoxSelectorError(BoxSelectorError),
     #[error("tx builder error: {0}")]

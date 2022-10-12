@@ -28,7 +28,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 #[derive(Debug, Error, From)]
@@ -57,6 +57,8 @@ pub enum ExtractRewardTokensActionError {
     NoChangeAddressSetInNode,
     #[error("IO error: {0}")]
     Io(std::io::Error),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 pub fn extract_reward_tokens(

@@ -31,7 +31,7 @@ pub enum PoolCommand {
 pub enum PoolCommandError {
     #[error("stage error: {0}")]
     StageError(StageError),
-    #[error("box builder error: {0}")]
+    #[error("unexpected error: {0}")]
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
     RefreshActionError(RefreshActionError),

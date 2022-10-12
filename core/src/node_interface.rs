@@ -1,6 +1,6 @@
 use crate::{
     oracle_config::{get_node_api_key, get_node_ip, get_node_port},
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 use ergo_lib::{
     chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
@@ -58,8 +58,8 @@ impl SignTransaction for NodeInterface {
 }
 
 impl WalletDataSource for NodeInterface {
-    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>> {
-        self.unspent_boxes()
+    fn get_unspent_wallet_boxes(&self) -> std::result::Result<Vec<ErgoBox>, WalletDataError> {
+        self.unspent_boxes().map_err(Into::into)
     }
 }
 

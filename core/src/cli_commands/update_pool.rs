@@ -29,7 +29,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{CastBallotBoxVoteParameters, OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 use derive_more::From;
 use thiserror::Error;
@@ -64,6 +64,8 @@ pub enum UpdatePoolError {
     YamlError(serde_yaml::Error),
     #[error("Update pool: could not find unspent wallot boxes that do not contain ballot tokens")]
     NoUsableWalletBoxes,
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 pub fn update_pool(

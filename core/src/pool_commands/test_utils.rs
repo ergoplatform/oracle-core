@@ -43,6 +43,7 @@ use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::VoteBallotBoxesSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
+use crate::wallet::WalletDataError;
 
 use super::*;
 
@@ -97,7 +98,7 @@ pub(crate) struct WalletDataMock {
 }
 
 impl WalletDataSource for WalletDataMock {
-    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
+    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, WalletDataError> {
         Ok(self.unspent_boxes.clone())
     }
 }
