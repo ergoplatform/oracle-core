@@ -180,7 +180,7 @@ fn main() {
     let args = Args::parse();
 
     let cmdline_log_level = if args.verbose {
-        Some(LevelFilter::Trace)
+        Some(LevelFilter::Debug)
     } else {
         None
     };
