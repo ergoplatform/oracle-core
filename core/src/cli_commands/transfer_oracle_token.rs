@@ -20,7 +20,9 @@ use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
-    box_kind::{make_oracle_box_candidate, OracleBox},
+    box_kind::{
+        make_collected_oracle_box_candidate, make_oracle_box_candidate, OracleBox, OracleBoxWrapper,
+    },
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
@@ -118,16 +120,28 @@ fn build_transfer_oracle_token_tx(
         );
     }
     if let Address::P2Pk(p2pk_dest) = &oracle_token_destination {
-        let oracle_box_candidate = make_oracle_box_candidate(
-            in_oracle_box.contract(),
-            p2pk_dest.clone(),
-            in_oracle_box.rate() as i64,
-            in_oracle_box.epoch_counter(),
-            in_oracle_box.oracle_token(),
-            in_oracle_box.reward_token(),
-            in_oracle_box.get_box().value,
-            height,
-        )?;
+        let oracle_box_candidate =
+            if let OracleBoxWrapper::Posted(ref posted_oracle_box) = in_oracle_box {
+                make_oracle_box_candidate(
+                    posted_oracle_box.contract(),
+                    p2pk_dest.clone(),
+                    posted_oracle_box.rate() as i64,
+                    posted_oracle_box.epoch_counter(),
+                    posted_oracle_box.oracle_token(),
+                    posted_oracle_box.reward_token(),
+                    posted_oracle_box.get_box().value,
+                    height,
+                )?
+            } else {
+                make_collected_oracle_box_candidate(
+                    in_oracle_box.contract(),
+                    p2pk_dest.clone(),
+                    in_oracle_box.oracle_token(),
+                    in_oracle_box.reward_token(),
+                    in_oracle_box.get_box().value,
+                    height,
+                )?
+            };
 
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
 

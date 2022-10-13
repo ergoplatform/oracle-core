@@ -21,6 +21,7 @@ pub mod refresh;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
+#[derive(Debug)]
 pub enum PoolCommand {
     Refresh,
     PublishFirstDataPoint,
@@ -54,7 +55,8 @@ pub fn build_action(
 ) -> Result<PoolAction, PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
-    let current_epoch_counter = op.get_pool_box_source().get_pool_box()?.epoch_counter();
+    let pool_box = op.get_pool_box_source().get_pool_box()?;
+    let current_epoch_counter = pool_box.epoch_counter();
     let oracle_public_key =
         if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
             public_key
@@ -90,6 +92,7 @@ pub fn build_action(
                     change_address,
                     &*op.data_point_source,
                     new_epoch_counter,
+                    pool_box.rate(),
                 )
                 .map_err(Into::into)
                 .map(Into::into)

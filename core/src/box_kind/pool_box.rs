@@ -19,7 +19,7 @@ pub trait PoolBox {
     fn pool_nft_token(&self) -> Token;
     fn reward_token(&self) -> Token;
     fn epoch_counter(&self) -> u32;
-    fn rate(&self) -> u64;
+    fn rate(&self) -> i64;
     fn get_box(&self) -> &ErgoBox;
 }
 
@@ -110,12 +110,12 @@ impl PoolBox for PoolBoxWrapper {
             .unwrap() as u32
     }
 
-    fn rate(&self) -> u64 {
+    fn rate(&self) -> i64 {
         self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<i64>()
-            .unwrap() as u64
+            .unwrap()
     }
 
     fn reward_token(&self) -> Token {

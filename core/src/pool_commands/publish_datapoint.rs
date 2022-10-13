@@ -55,6 +55,7 @@ pub fn build_subsequent_publish_datapoint_action(
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: u32,
+    pool_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
     let in_oracle_box = local_datapoint_box;
@@ -65,7 +66,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
         in_oracle_box.public_key(),
-        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64),
+        compute_new_datapoint(new_datapoint, pool_datapoint),
         new_epoch_counter,
         in_oracle_box.oracle_token(),
         in_oracle_box.reward_token(),
@@ -197,7 +198,7 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::box_kind::{OracleBoxWrapper, PoolBox};
+    use crate::box_kind::PoolBox;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::oracle_state::PoolBoxSource;
@@ -219,11 +220,13 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     #[derive(Debug)]
-    struct MockDatapointSource {}
+    struct MockDatapointSource {
+        datapoint: i64,
+    }
 
     impl DataPointSource for MockDatapointSource {
         fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
-            Ok(201)
+            Ok(self.datapoint)
         }
     }
 
@@ -284,7 +287,7 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
         };
 
-        let datapoint_source = MockDatapointSource {};
+        let datapoint_source = MockDatapointSource { datapoint: 201 };
         let action = build_subsequent_publish_datapoint_action(
             &oracle_box,
             &wallet_mock,
@@ -292,6 +295,7 @@ mod tests {
             change_address.clone(),
             &datapoint_source,
             2,
+            datapoint_source.datapoint - 1,
         )
         .unwrap();
 
@@ -318,6 +322,7 @@ mod tests {
             change_address,
             &datapoint_source,
             1,
+            datapoint_source.datapoint - 1,
         )
         .unwrap();
         let tx_context_republish = TransactionContext::new(
@@ -394,7 +399,7 @@ mod tests {
             change_address,
             secret.public_image(),
             oracle_box_wrapper_inputs,
-            &MockDatapointSource {},
+            &MockDatapointSource { datapoint: 201 },
         )
         .unwrap();
 

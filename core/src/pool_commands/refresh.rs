@@ -2,10 +2,9 @@ use crate::actions::RefreshAction;
 use crate::box_kind::make_collected_oracle_box_candidate;
 use crate::box_kind::make_pool_box_candidate;
 use crate::box_kind::make_refresh_box_candidate;
-use crate::box_kind::OracleBox;
-use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBox;
 use crate::box_kind::PoolBoxWrapper;
+use crate::box_kind::PostedOracleBox;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
@@ -249,7 +248,7 @@ fn build_out_refresh_box(
 }
 
 fn build_out_oracle_boxes(
-    valid_oracle_boxes: &Vec<OracleBoxWrapper>,
+    valid_oracle_boxes: &Vec<PostedOracleBox>,
     creation_height: u32,
     my_public_key: &EcPoint,
 ) -> Result<Vec<ErgoBoxCandidate>, RefreshActionError> {
@@ -299,8 +298,8 @@ mod tests {
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
-    use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::OracleBoxWrapperInputs;
+    use crate::box_kind::PostedOracleBox;
     use crate::box_kind::RefreshBoxWrapper;
     use crate::box_kind::RefreshBoxWrapperInputs;
     use crate::contracts::oracle::OracleContractParameters;
@@ -332,13 +331,13 @@ mod tests {
 
     #[derive(Clone)]
     struct DatapointStageMock {
-        datapoints: Vec<OracleBoxWrapper>,
+        datapoints: Vec<PostedOracleBox>,
     }
 
     impl DatapointBoxesSource for DatapointStageMock {
         fn get_oracle_datapoint_boxes(
             &self,
-        ) -> std::result::Result<Vec<OracleBoxWrapper>, StageError> {
+        ) -> std::result::Result<Vec<PostedOracleBox>, StageError> {
             Ok(self.datapoints.clone())
         }
     }
@@ -381,7 +380,7 @@ mod tests {
         creation_height: u32,
         oracle_contract_parameters: &OracleContractParameters,
         token_ids: &TokenIds,
-    ) -> Vec<OracleBoxWrapper> {
+    ) -> Vec<PostedOracleBox> {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), token_ids))
                 .unwrap();
@@ -389,7 +388,7 @@ mod tests {
             .into_iter()
             .zip(pub_keys)
             .map(|(datapoint, pub_key)| {
-                OracleBoxWrapper::new(
+                PostedOracleBox::new(
                     make_datapoint_box(
                         pub_key.clone(),
                         datapoint,

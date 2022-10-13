@@ -32,15 +32,15 @@ async fn oracle_status() -> impl IntoResponse {
     let latest_oracle_box = op
         .get_local_datapoint_box_source()
         .get_local_oracle_datapoint_box();
-    let self_datapoint = match latest_oracle_box {
-        Ok(Some(ref d)) => d.rate(),
-        Ok(None) | Err(_) => 0,
-    };
-    // Get latest datapoint submit epoch
-    let datapoint_epoch = match latest_oracle_box {
-        Ok(Some(ref d)) => d.epoch_counter(),
-        Ok(None) | Err(_) => 0,
-    };
+    // let self_datapoint = match latest_oracle_box {
+    //     Ok(Some(ref d)) => d.rate().unwrap_or(0),
+    //     Ok(None) | Err(_) => 0,
+    // };
+    // // Get latest datapoint submit epoch
+    // let datapoint_epoch = match latest_oracle_box {
+    //     Ok(Some(ref d)) => d.epoch_counter().unwrap_or(0),
+    //     Ok(None) | Err(_) => 0,
+    // };
     // Get latest datapoint submit epoch
     let datapoint_creation = match latest_oracle_box {
         Ok(Some(ref d)) => d.get_box().creation_height,
@@ -48,8 +48,8 @@ async fn oracle_status() -> impl IntoResponse {
     };
 
     Json(json! ({
-        "latest_datapoint": self_datapoint,
-        "latest_datapoint_epoch": datapoint_epoch,
+        // "latest_datapoint": self_datapoint,
+        // "latest_datapoint_epoch": datapoint_epoch,
         "latest_datapoint_creation_height": datapoint_creation,
     }))
 }
