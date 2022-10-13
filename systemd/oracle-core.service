@@ -1,0 +1,16 @@
+[Unit]
+Description=Oracle Core v2.0
+Documentation=https://github.com/ergoplatform/oracle-core
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+# Config file is in ~/.config/oracle-core/
+WorkingDirectory=[PATH TO oracle_config.yml]
+ExecStart=[PATH TO BINARY]/oracle-core run
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -8,7 +8,7 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 
 ## Roadmap
 ### In progress
-- v2.0-aplha. The first run of the oracle pool, testing how all the components work together. See [the remaining tasks](https://github.com/ergoplatform/oracle-core/milestone/1)
+- v2.0-alpha. The first run of the oracle pool, testing how all the components work together. See [the remaining tasks](https://github.com/ergoplatform/oracle-core/milestone/1)
 ### Next
 - v2.0-beta. Run a public oracle pool on testnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/5)
 - v2.0-RC. Launch on the mainnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/4)
@@ -26,4 +26,17 @@ cargo test check_contract_hashes -- --nocapture
 
 Check these values against those described in EIP-23.
 
+## Install from Source
+oracle-core can be installed using cargo install:
 
+``` console
+cargo install --path core
+```
+
+## Systemd
+To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
+
+``` console
+cp systemd/oracle-core.service ~/.config/systemd/user/oracle-core.service
+systemctl --user enable oracle-core.service
+```
