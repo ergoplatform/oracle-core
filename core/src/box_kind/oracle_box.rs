@@ -53,9 +53,11 @@ pub enum OracleBoxError {
     EcPoint(String),
 }
 
-// TODO: convert this one and others to named structs
 #[derive(Clone)]
-pub struct OracleBoxWrapper(ErgoBox, OracleContract);
+pub struct OracleBoxWrapper {
+    ergo_box: ErgoBox,
+    contract: OracleContract,
+}
 
 impl OracleBoxWrapper {
     pub fn new(b: ErgoBox, inputs: &OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
@@ -107,21 +109,36 @@ impl OracleBoxWrapper {
         let contract =
             OracleContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
-        Ok(Self(b, contract))
+        Ok(Self {
+            ergo_box: b,
+            contract,
+        })
     }
 }
 
 impl OracleBox for OracleBoxWrapper {
     fn oracle_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
     }
 
     fn reward_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .clone()
     }
 
     fn public_key(&self) -> ProveDlog {
-        self.0
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
@@ -130,7 +147,7 @@ impl OracleBox for OracleBoxWrapper {
     }
 
     fn epoch_counter(&self) -> u32 {
-        self.0
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R5.into())
             .unwrap()
             .try_extract_into::<i32>()
@@ -138,7 +155,7 @@ impl OracleBox for OracleBoxWrapper {
     }
 
     fn rate(&self) -> u64 {
-        self.0
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R6.into())
             .unwrap()
             .try_extract_into::<i64>()
@@ -146,11 +163,11 @@ impl OracleBox for OracleBoxWrapper {
     }
 
     fn get_box(&self) -> &ErgoBox {
-        &self.0
+        &self.ergo_box
     }
 
     fn contract(&self) -> &OracleContract {
-        &self.1
+        &self.contract
     }
 }
 
@@ -197,7 +214,7 @@ impl OracleBoxWrapperInputs {
 
 impl From<OracleBoxWrapper> for ErgoBox {
     fn from(w: OracleBoxWrapper) -> Self {
-        w.0.clone()
+        w.ergo_box.clone()
     }
 }
 
