@@ -41,9 +41,12 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
     match exec_res {
         Ok(_) => Ok(()),
         Err(ActionExecError::NodeError(NodeError::BadRequest(msg)))
-            if msg.as_str() == "Double spending attempt" =>
+            if msg.as_str() == "Double spending attempt"
+                || msg.contains("it is invalidated earlier or the pool is full") =>
         {
-            log::info!("Node returned double spending attempt error, probably due to our previous tx is still in the mempool)");
+            log::info!(
+                "Node rejected tx, probably due to our previous tx is still in the mempool)"
+            );
             Ok(())
         }
         Err(e) => Err(e),
