@@ -72,7 +72,12 @@ pub fn build_refresh_action(
 
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
-    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let min_start_height = height - in_refresh_box.contract().epoch_length() as u32;
+    let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src
+        .get_oracle_datapoint_boxes()?
+        .into_iter()
+        .filter(|b| b.get_box().creation_height > min_start_height)
+        .collect();
     let deviation_range = max_deviation_percent;
     in_oracle_boxes.sort_by_key(|b| b.rate());
     let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes(
