@@ -164,6 +164,9 @@ fn filtered_oracle_boxes(
     oracle_boxes: Vec<u64>,
     deviation_range: u32,
 ) -> Result<Vec<u64>, RefreshActionError> {
+    if oracle_boxes.is_empty() {
+        return Ok(oracle_boxes);
+    }
     let mut successful_boxes = oracle_boxes.clone();
     // The min oracle box's rate must be within deviation_range(5%) of that of the max
     while !deviation_check(deviation_range, &successful_boxes) {
