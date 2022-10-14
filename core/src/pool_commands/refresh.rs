@@ -108,6 +108,11 @@ pub fn build_refresh_action(
         in_pool_box.get_box().clone(),
         in_refresh_box.get_box().clone(),
     ];
+    let my_input_oracle_box_index: i32 = valid_in_oracle_boxes
+        .iter()
+        .position(|b| b.public_key().h.as_ref() == my_oracle_pk)
+        .unwrap() as i32; // TODO: handle error
+
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
         .clone()
         .into_iter()
@@ -131,7 +136,9 @@ pub fn build_refresh_action(
         change_address,
     );
     let in_refresh_box_ctx_ext = ContextExtension {
-        values: vec![(0, 0i32.into())].into_iter().collect(),
+        values: vec![(0, my_input_oracle_box_index.into())]
+            .into_iter()
+            .collect(),
     };
     b.set_context_extension(in_refresh_box.get_box().box_id(), in_refresh_box_ctx_ext);
     valid_in_oracle_boxes
@@ -449,7 +456,7 @@ mod tests {
 
         let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_keys,
-            vec![194, 70, 196, 197, 198, 200],
+            vec![199, 70, 196, 197, 198, 200],
             1,
             BASE_FEE.checked_mul_u32(100).unwrap(),
             height - 9,
