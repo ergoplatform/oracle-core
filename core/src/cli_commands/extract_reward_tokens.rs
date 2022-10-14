@@ -126,7 +126,7 @@ fn build_extract_reward_tokens_tx(
         let oracle_box_candidate = make_oracle_box_candidate(
             in_oracle_box.contract(),
             in_oracle_box.public_key(),
-            in_oracle_box.rate(),
+            in_oracle_box.rate() as i64,
             in_oracle_box.epoch_counter(),
             in_oracle_box.oracle_token(),
             single_reward_token,

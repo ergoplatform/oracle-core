@@ -28,11 +28,6 @@ async fn oracle_info() -> impl IntoResponse {
 async fn oracle_status() -> impl IntoResponse {
     let op = OraclePool::new().unwrap();
 
-    // Check whether waiting for datapoint to be submit to oracle core
-    let waiting_for_submit = match op.get_live_epoch_state() {
-        Ok(l) => !l.commit_datapoint_in_epoch,
-        Err(_) => false,
-    };
     // Get latest datapoint the local oracle produced/submit
     let latest_oracle_box = op
         .get_local_datapoint_box_source()
@@ -53,7 +48,6 @@ async fn oracle_status() -> impl IntoResponse {
     };
 
     Json(json! ({
-        "waiting_for_datapoint_submit": waiting_for_submit,
         "latest_datapoint": self_datapoint,
         "latest_datapoint_epoch": datapoint_epoch,
         "latest_datapoint_creation_height": datapoint_creation,

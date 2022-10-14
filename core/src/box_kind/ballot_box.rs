@@ -51,7 +51,7 @@ pub enum BallotBoxError {
 pub trait BallotBox {
     fn contract(&self) -> &BallotContract;
     fn ballot_token(&self) -> Token;
-    fn min_storage_rent(&self) -> u64;
+    fn min_storage_rent(&self) -> BoxValue;
     fn ballot_token_owner(&self) -> ProveDlog;
     fn get_box(&self) -> &ErgoBox;
 }
@@ -211,7 +211,7 @@ impl BallotBox for BallotBoxWrapper {
             .clone()
     }
 
-    fn min_storage_rent(&self) -> u64 {
+    fn min_storage_rent(&self) -> BoxValue {
         self.contract.min_storage_rent()
     }
 
@@ -244,7 +244,7 @@ impl BallotBox for VoteBallotBoxWrapper {
             .clone()
     }
 
-    fn min_storage_rent(&self) -> u64 {
+    fn min_storage_rent(&self) -> BoxValue {
         self.contract.min_storage_rent()
     }
 

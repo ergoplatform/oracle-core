@@ -164,9 +164,17 @@ pub struct UpdateBoxScan<'a> {
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
     pub epoch_id: u32,
-    pub commit_datapoint_in_epoch: bool,
+    // TODO: newtypes fo epoch id, height, datapoint
+    pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
     pub latest_pool_box_height: u32,
+}
+
+/// Last posted datapoint box info by the local oracle
+#[derive(Debug, Clone)]
+pub struct LocalDatapointState {
+    pub epoch_id: u32,
+    pub height: u32,
 }
 
 impl<'a> OraclePool<'a> {
@@ -267,22 +275,21 @@ impl<'a> OraclePool<'a> {
         let epoch_id: u32 = pool_box.epoch_counter();
 
         // Whether datapoint was commit in the current Live Epoch
-        let commit_datapoint_in_epoch = if let Some(local_data_point_box) = self
+        let local_datapoint_box_state = self
             .get_local_datapoint_box_source()
             .get_local_oracle_datapoint_box()?
-        {
-            epoch_id == local_data_point_box.epoch_counter()
-        } else {
-            false
-        };
+            .map(|local_data_point_box| LocalDatapointState {
+                epoch_id: local_data_point_box.epoch_counter(),
+                height: local_data_point_box.get_box().creation_height,
+            });
 
         let latest_pool_datapoint = pool_box.rate() as u64;
 
         let epoch_state = LiveEpochState {
             epoch_id,
-            commit_datapoint_in_epoch,
             latest_pool_datapoint,
             latest_pool_box_height: pool_box.get_box().creation_height,
+            local_datapoint_box_state,
         };
 
         Ok(epoch_state)

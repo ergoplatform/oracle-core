@@ -587,6 +587,9 @@ impl RefreshContractParameters {
 #[cfg(test)]
 mod tests {
 
+    use ergo_lib::ergo_chain_types::Digest32;
+    use sigma_test_util::force_any_val;
+
     use crate::pool_commands::test_utils::generate_token_ids;
 
     use super::*;
@@ -607,5 +610,44 @@ mod tests {
         assert_eq!(c.buffer(), parameters.buffer_length);
         assert_eq!(c.max_deviation_percent(), parameters.max_deviation_percent);
         assert_eq!(c.epoch_length(), parameters.epoch_length);
+    }
+
+    #[test]
+    fn test_build_with() {
+        let contract_parameters = RefreshContractParameters::default();
+        let expected_min_data_points = 99;
+        let expected_buffer_length = 100;
+        let expected_max_deviation_percent = 88;
+        let expected_epoch_length = 1000;
+        let new_contract_parameter_inputs = RefreshContractParametersInputs {
+            ergo_tree_bytes: contract_parameters.ergo_tree_bytes(),
+            pool_nft_index: contract_parameters.pool_nft_index(),
+            oracle_token_id_index: contract_parameters.oracle_token_id_index(),
+            min_data_points_index: contract_parameters.min_data_points_index(),
+            min_data_points: expected_min_data_points,
+            buffer_length_index: contract_parameters.buffer_length_index(),
+            buffer_length: expected_buffer_length,
+            max_deviation_percent_index: contract_parameters.max_deviation_percent_index(),
+            max_deviation_percent: expected_max_deviation_percent,
+            epoch_length_index: contract_parameters.epoch_length_index(),
+            epoch_length: expected_epoch_length,
+        };
+        let new_contract_parameters =
+            RefreshContractParameters::build_with(new_contract_parameter_inputs).unwrap();
+        let inputs = RefreshContractInputs {
+            contract_parameters: new_contract_parameters,
+            oracle_token_id: force_any_val::<Digest32>().into(),
+            pool_nft_token_id: force_any_val::<Digest32>().into(),
+        };
+        let new_contract = RefreshContract::build_with(&inputs).unwrap();
+        assert_eq!(new_contract.min_data_points(), expected_min_data_points);
+        assert_eq!(new_contract.buffer(), expected_buffer_length);
+        assert_eq!(
+            new_contract.max_deviation_percent(),
+            expected_max_deviation_percent
+        );
+        assert_eq!(new_contract.epoch_length(), expected_epoch_length);
+        assert_eq!(new_contract.oracle_token_id(), inputs.oracle_token_id);
+        assert_eq!(new_contract.pool_nft_token_id(), inputs.pool_nft_token_id);
     }
 }

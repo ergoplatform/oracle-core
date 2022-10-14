@@ -55,9 +55,11 @@ use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use node_interface::new_node_interface;
+use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
+use pool_commands::publish_datapoint::PublishDatapointActionError::DataPointSource;
 use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use state::process;
@@ -337,7 +339,12 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             PoolState::NeedsBootstrap
         }
     };
-    if let Some(cmd) = process(pool_state, height)? {
+    let epoch_length = ORACLE_CONFIG
+        .refresh_box_wrapper_inputs
+        .contract_inputs
+        .contract_parameters()
+        .epoch_length() as u32;
+    if let Some(cmd) = process(pool_state, epoch_length, height)? {
         let build_action_res = build_action(
             cmd,
             op,
@@ -346,7 +353,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             network_change_address.address(),
         );
         if let Some(action) =
-            continue_if_consensus_error(network_change_address.network(), build_action_res)?
+            continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
                 execute_action(action)?;
@@ -356,7 +363,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     Ok(())
 }
 
-fn continue_if_consensus_error(
+fn continue_if_non_fatal(
     network_prefix: NetworkPrefix,
     res: Result<PoolAction, PoolCommandError>,
 ) -> Result<Option<PoolAction>, PoolCommandError> {
@@ -373,6 +380,10 @@ fn continue_if_consensus_error(
                 .collect::<Vec<String>>()
                 .join(", ");
             log::error!("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from addresses {found_oracle_addresses},");
+            Ok(None)
+        }
+        Err(PoolCommandError::PublishDatapointActionError(DataPointSource(e))) => {
+            log::error!("Failed to get datapoint with error: {}", e);
             Ok(None)
         }
         Err(e) => Err(e),
