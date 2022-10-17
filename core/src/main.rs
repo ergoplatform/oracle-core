@@ -95,6 +95,9 @@ struct Args {
     /// Increase the verbosity of the output to trace log level overriding the log level in the config file.
     #[clap(short, long)]
     verbose: bool,
+    /// Set path of configuration file to use. Default is ./oracle_config.yaml
+    #[clap(short, long)]
+    config_file: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -169,6 +172,13 @@ enum Command {
 
 fn main() {
     let args = Args::parse();
+    debug!("Args: {:?}", args);
+    oracle_config::CONFIG_FILE_PATH
+        .set(
+            args.config_file
+                .unwrap_or(oracle_config::DEFAULT_CONFIG_FILE_NAME.to_string()),
+        )
+        .unwrap();
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Trace)
@@ -177,8 +187,6 @@ fn main() {
     };
     logging::setup_log(cmdline_log_level);
     log::info!("{}", APP_VERSION);
-
-    debug!("Args: {:?}", args);
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {

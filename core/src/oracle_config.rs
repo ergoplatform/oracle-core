@@ -21,6 +21,7 @@ use ergo_lib::{
     wallet::tx_builder::SUGGESTED_TX_FEE,
 };
 use log::LevelFilter;
+use once_cell::sync;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -150,7 +151,9 @@ impl OracleConfig {
     }
 
     fn load() -> Result<Self, anyhow::Error> {
-        Self::load_from_str(&std::fs::read_to_string(DEFAULT_CONFIG_FILE_NAME)?)
+        Self::load_from_str(&std::fs::read_to_string(
+            CONFIG_FILE_PATH.get().expect("Config file path not set"),
+        )?)
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
@@ -190,6 +193,7 @@ pub enum OracleConfigError {
     BallotContractErro(BallotContractError),
 }
 
+pub static CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
