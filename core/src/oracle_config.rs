@@ -151,9 +151,10 @@ impl OracleConfig {
     }
 
     fn load() -> Result<Self, anyhow::Error> {
-        Self::load_from_str(&std::fs::read_to_string(
-            CONFIG_FILE_PATH.get().expect("Config file path not set"),
-        )?)
+        let config_file_path = CONFIG_FILE_PATH
+            .get()
+            .ok_or_else(|| anyhow!("Oracle config file not loaded"))?;
+        Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
     }
 
     fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
