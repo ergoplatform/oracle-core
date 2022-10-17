@@ -35,6 +35,7 @@ cargo install --path core
 
 ## Systemd
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
+The default configuration file path is ~/.config/oracle-core/oracle_config.yaml. This can be changed inside the .service file
 
 ``` console
 cp systemd/oracle-core.service ~/.config/systemd/user/oracle-core.service

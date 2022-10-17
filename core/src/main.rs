@@ -184,7 +184,7 @@ fn main() {
     oracle_config::CONFIG_FILE_PATH
         .set(
             args.config_file
-                .unwrap_or(oracle_config::DEFAULT_CONFIG_FILE_NAME.to_string()),
+                .unwrap_or_else(|| oracle_config::DEFAULT_CONFIG_FILE_NAME.to_string()),
         )
         .unwrap();
 
