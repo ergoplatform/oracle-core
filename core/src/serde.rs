@@ -1,10 +1,11 @@
 //! Types to allow oracle configuration to convert to and from Serde.
 
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::{
     address::{AddressEncoder, AddressEncoderError},
+    ergo_box::box_value::BoxValueError,
     token::TokenId,
 };
 use log::LevelFilter;
@@ -73,6 +74,8 @@ pub enum SerdeConversionError {
     RefreshContractParameters(RefreshContractParametersError),
     #[error("Update contract parameter error: {0}")]
     UpdateContractParameters(UpdateContractParametersError),
+    #[error("BoxValueError: {0}")]
+    BoxValueError(BoxValueError),
 }
 
 impl From<OracleConfig> for OracleConfigSerde {
@@ -135,6 +138,8 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
         let oracle_contract_parameters = OracleContractParameters::checked_load(
             base16::decode(c.oracle_contract_parameters.ergo_tree_bytes.as_str())?,
             c.oracle_contract_parameters.pool_nft_index,
+            c.oracle_contract_parameters.min_storage_rent_index,
+            c.oracle_contract_parameters.min_storage_rent.try_into()?,
         )?;
 
         let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::checked_load(
@@ -180,7 +185,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 
         let ballot_contract_parameters = BallotContractParameters::checked_load(
             base16::decode(c.ballot_contract_parameters.ergo_tree_bytes.as_str())?,
-            c.ballot_contract_parameters.min_storage_rent,
+            c.ballot_contract_parameters.min_storage_rent.try_into()?,
             c.ballot_contract_parameters.min_storage_rent_index,
             c.ballot_contract_parameters.update_nft_index,
         )?;
@@ -190,9 +195,9 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::checked_load(
             refresh_contract_parameters.clone(),
-            c.token_ids.refresh_nft_token_id.clone(),
             c.token_ids.oracle_token_id.clone(),
-            c.token_ids.reward_token_id.clone(),
+            c.token_ids.pool_nft_token_id.clone(),
+            c.token_ids.refresh_nft_token_id.clone(),
         )
         .map_err(OracleConfigError::from)?;
 
@@ -324,12 +329,14 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
         let ballot_contract_parameters = BallotContractParameters::build_with(
             base16::decode(c.ballot_contract_parameters.ergo_tree_bytes.as_str())?,
             c.ballot_contract_parameters.min_storage_rent_index,
-            c.ballot_contract_parameters.min_storage_rent,
+            c.ballot_contract_parameters.min_storage_rent.try_into()?,
             c.ballot_contract_parameters.update_nft_index,
         )?;
-        let oracle_contract_parameters = OracleContractParameters::checked_load(
+        let oracle_contract_parameters = OracleContractParameters::build_with(
             base16::decode(c.oracle_contract_parameters.ergo_tree_bytes.as_str())?,
             c.oracle_contract_parameters.pool_nft_index,
+            c.oracle_contract_parameters.min_storage_rent_index,
+            c.oracle_contract_parameters.min_storage_rent.try_into()?,
         )?;
         let oracle_address =
             AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
@@ -357,13 +364,17 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
 pub struct OracleContractParametersSerde {
     ergo_tree_bytes: String,
     pool_nft_index: usize,
+    min_storage_rent_index: usize,
+    min_storage_rent: u64,
 }
 
 impl From<OracleContractParameters> for OracleContractParametersSerde {
     fn from(p: OracleContractParameters) -> Self {
         OracleContractParametersSerde {
             ergo_tree_bytes: base16::encode_lower(p.ergo_tree_bytes().as_slice()),
-            pool_nft_index: p.pool_nft_index(),
+            pool_nft_index: p.pool_nft_index,
+            min_storage_rent_index: p.min_storage_rent_index,
+            min_storage_rent: *p.min_storage_rent.as_u64(),
         }
     }
 }
@@ -431,7 +442,7 @@ impl From<BallotContractParameters> for BallotContractParametersSerde {
         BallotContractParametersSerde {
             ergo_tree_bytes: base16::encode_lower(c.ergo_tree_bytes().as_slice()),
             min_storage_rent_index: c.min_storage_rent_index(),
-            min_storage_rent: c.min_storage_rent(),
+            min_storage_rent: *c.min_storage_rent().as_u64(),
             update_nft_index: c.update_nft_index(),
         }
     }

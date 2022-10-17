@@ -25,6 +25,7 @@ use sigma_test_util::force_any_val;
 
 use crate::box_kind::BallotBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
+use crate::box_kind::OracleBoxWrapperInputs;
 use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::PoolBoxWrapperInputs;
 use crate::box_kind::UpdateBoxWrapper;

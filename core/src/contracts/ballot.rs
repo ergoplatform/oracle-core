@@ -1,5 +1,9 @@
+use std::convert::TryInto;
+
 use base16::DecodeError;
 use derive_more::From;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
+use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValueError;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
@@ -31,6 +35,8 @@ pub enum BallotContractError {
     TryExtractFrom(TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]
     WrappedWithExpectedP2SAddress(String, Box<Self>),
+    #[error("contract error: min storage rent error: {0:?}")]
+    MinStorageRent(BoxValueError),
 }
 
 #[derive(Clone, Debug)]
@@ -93,7 +99,7 @@ impl BallotContract {
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
                 .with_constant(
                     parameters.min_storage_rent_index,
-                    (parameters.min_storage_rent as i64).into(),
+                    parameters.min_storage_rent.into(),
                 )?
                 .with_constant(
                     parameters.update_nft_index,
@@ -109,7 +115,7 @@ impl BallotContract {
     ) -> Result<Self, BallotContractError> {
         // dbg!(ergo_tree.get_constants().unwrap());
         let parameters = inputs.contract_parameters.clone();
-        let min_storage_rent = ergo_tree
+        let min_storage_rent: BoxValue = ergo_tree
             .get_constant(parameters.min_storage_rent_index)
             .map_err(|_| {
                 BallotContractError::ParametersError(
@@ -119,7 +125,8 @@ impl BallotContract {
             .ok_or(BallotContractError::ParametersError(
                 BallotContractParametersError::NoMinStorageRent,
             ))?
-            .try_extract_into::<i64>()? as u64;
+            .try_extract_into::<i64>()?
+            .try_into()?;
         if min_storage_rent != parameters.min_storage_rent {
             return Err(BallotContractError::ParametersError(
                 BallotContractParametersError::MinStorageRentDiffers {
@@ -148,13 +155,15 @@ impl BallotContract {
         })
     }
 
-    pub fn min_storage_rent(&self) -> u64 {
+    pub fn min_storage_rent(&self) -> BoxValue {
         self.ergo_tree
             .get_constant(self.min_storage_rent_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<i64>()
-            .unwrap() as u64
+            .unwrap()
+            .try_into()
+            .unwrap()
     }
 
     pub fn update_nft_token_id(&self) -> TokenId {
@@ -185,7 +194,7 @@ impl BallotContract {
 pub struct BallotContractParameters {
     ergo_tree_bytes: Vec<u8>,
     min_storage_rent_index: usize,
-    min_storage_rent: u64,
+    min_storage_rent: BoxValue,
     update_nft_index: usize,
 }
 
@@ -198,7 +207,12 @@ pub enum BallotContractParametersError {
     #[error(
         "ballot contract parameters: unexpected `min storage rent` value. Expected {expected:?}, got {actual:?}"
     )]
-    MinStorageRentDiffers { expected: u64, actual: u64 },
+    MinStorageRentDiffers {
+        expected: BoxValue,
+        actual: BoxValue,
+    },
+    #[error("contract error: min storage rent error: {0:?}")]
+    MinStorageRent(BoxValueError),
     #[error("ballot contract parameters: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),
     #[error("ballot contract parameters: sigma serialization error {0}")]
@@ -215,11 +229,11 @@ impl BallotContractParameters {
     pub fn build_with(
         ergo_tree_bytes: Vec<u8>,
         min_storage_rent_index: usize,
-        min_storage_rent: u64,
+        min_storage_rent: BoxValue,
         update_nft_index: usize,
     ) -> Result<Self, BallotContractParametersError> {
         let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?
-            .with_constant(min_storage_rent_index, (min_storage_rent as i64).into())?;
+            .with_constant(min_storage_rent_index, min_storage_rent.into())?;
 
         let _update_nft = ergo_tree
             .get_constant(update_nft_index)
@@ -237,16 +251,17 @@ impl BallotContractParameters {
 
     pub fn checked_load(
         ergo_tree_bytes: Vec<u8>,
-        min_storage_rent: u64,
+        min_storage_rent: BoxValue,
         min_storage_rent_index: usize,
         update_nft_index: usize,
     ) -> Result<Self, BallotContractParametersError> {
         let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
-        let actual_min_storage_rent = ergo_tree
+        let actual_min_storage_rent: BoxValue = ergo_tree
             .get_constant(min_storage_rent_index)
             .map_err(|_| BallotContractParametersError::NoMinStorageRent)?
             .ok_or(BallotContractParametersError::NoMinStorageRent)?
-            .try_extract_into::<i64>()? as u64;
+            .try_extract_into::<i64>()?
+            .try_into()?;
         let _update_nft = ergo_tree
             .get_constant(update_nft_index)
             .map_err(|_| BallotContractParametersError::NoUpdateNftId)?
@@ -275,7 +290,7 @@ impl BallotContractParameters {
         self.min_storage_rent_index
     }
 
-    pub fn min_storage_rent(&self) -> u64 {
+    pub fn min_storage_rent(&self) -> BoxValue {
         self.min_storage_rent
     }
 
@@ -286,6 +301,7 @@ impl BallotContractParameters {
 
 #[cfg(test)]
 mod tests {
+    use ergo_lib::ergo_chain_types::Digest32;
     use sigma_test_util::force_any_val;
 
     use super::*;
@@ -300,5 +316,26 @@ mod tests {
         };
         let c = BallotContract::build_with(&inputs).unwrap();
         assert_eq!(c.update_nft_token_id(), update_nft_token_id);
+    }
+
+    #[test]
+    fn test_build_with() {
+        let contract_parameters = BallotContractParameters::default();
+        let new_min_storage_rent = force_any_val::<BoxValue>();
+        let new_contract_parameters = BallotContractParameters::build_with(
+            contract_parameters.ergo_tree_bytes(),
+            contract_parameters.min_storage_rent_index,
+            new_min_storage_rent,
+            contract_parameters.update_nft_index,
+        )
+        .unwrap();
+        let new_update_nft_token_id: TokenId = force_any_val::<Digest32>().into();
+        let inputs = BallotContractInputs {
+            contract_parameters: new_contract_parameters,
+            update_nft_token_id: new_update_nft_token_id.clone(),
+        };
+        let new_contract = BallotContract::build_with(&inputs).unwrap();
+        assert_eq!(new_contract.update_nft_token_id(), new_update_nft_token_id);
+        assert_eq!(new_contract.min_storage_rent(), new_min_storage_rent);
     }
 }

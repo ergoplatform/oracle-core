@@ -108,9 +108,9 @@ impl OracleConfig {
         )?;
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::build_with(
             bootstrap.refresh_contract_parameters.clone(),
-            token_ids.refresh_nft_token_id.clone(),
             token_ids.oracle_token_id.clone(),
-            token_ids.reward_token_id.clone(),
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.refresh_nft_token_id.clone(),
         )?;
         let pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
             bootstrap.pool_contract_parameters.clone(),

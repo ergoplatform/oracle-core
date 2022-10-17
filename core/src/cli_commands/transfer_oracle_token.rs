@@ -119,7 +119,7 @@ fn build_transfer_oracle_token_tx(
         let oracle_box_candidate = make_oracle_box_candidate(
             in_oracle_box.contract(),
             p2pk_dest.clone(),
-            in_oracle_box.rate(),
+            in_oracle_box.rate() as i64,
             in_oracle_box.epoch_counter(),
             in_oracle_box.oracle_token(),
             in_oracle_box.reward_token(),

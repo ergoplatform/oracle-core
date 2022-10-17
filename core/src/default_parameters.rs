@@ -1,6 +1,10 @@
 //! Default parameter values for all Oracle-pool contracts. Tracks values described in EIP-0023.
 
-use ergo_lib::ergo_chain_types::blake2b256_hash;
+use std::convert::TryInto;
+
+use ergo_lib::{
+    ergo_chain_types::blake2b256_hash, ergotree_ir::chain::ergo_box::box_value::BoxValue,
+};
 
 use crate::contracts::{
     ballot::BallotContractParameters,
@@ -16,7 +20,7 @@ impl Default for BallotContractParameters {
         // https://scastie.scala-lang.org/P977Sr4qTKylV427dIP75Q
         let ergo_tree_bytes = base16::decode("10070580dac409040204020400040204000e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d803d601b2a5e4e3000400d602c672010407d603e4c6a70407ea02d1ededede6720293c27201c2a793db63087201db6308a792c172017300eb02cd7203d1ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47202720392c17201c1a7efe6c672010561").unwrap();
         let min_storage_rent_index = 0;
-        let min_storage_rent = 10000000;
+        let min_storage_rent: BoxValue = 10000000u64.try_into().unwrap();
         let update_nft_index = 6;
         BallotContractParameters::checked_load(
             ergo_tree_bytes,
@@ -34,7 +38,15 @@ impl Default for OracleContractParameters {
         // https://scastie.scala-lang.org/Ub0eB9H7TOuPgq6sAf4cMQ
         let ergo_tree_bytes = base16::decode("100a040004000580dac409040004000e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570402040204020402d804d601b2a5e4e3000400d602db63087201d603db6308a7d604e4c6a70407ea02d1ededed93b27202730000b2720373010093c27201c2a7e6c67201040792c172017302eb02cd7204d1ededededed938cb2db6308b2a4730300730400017305938cb27202730600018cb2720373070001918cb27202730800028cb272037309000293e4c672010407720492c17201c1a7efe6c672010561").unwrap();
         let pool_nft_index = 5;
-        OracleContractParameters::checked_load(ergo_tree_bytes, pool_nft_index).unwrap()
+        let min_storage_rent_index = 2;
+        let min_storage_rent = 10000000u64.try_into().unwrap();
+        OracleContractParameters::checked_load(
+            ergo_tree_bytes,
+            pool_nft_index,
+            min_storage_rent_index,
+            min_storage_rent,
+        )
+        .unwrap()
     }
 }
 
