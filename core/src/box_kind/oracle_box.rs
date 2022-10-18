@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
@@ -8,12 +6,16 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenId;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
+use crate::contracts::oracle::OracleContractInputs;
+use crate::contracts::oracle::OracleContractParameters;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
@@ -29,16 +31,26 @@ pub trait OracleBox {
 pub enum OracleBoxError {
     #[error("oracle box: no tokens found")]
     NoTokens,
+    #[error("oracle box: no oracle token found")]
+    NoOracleToken,
+    #[error("oracle box: unknown oracle token id in `TOKENS(0)`")]
+    UnknownOracleTokenId,
     #[error("oracle box: no reward token found")]
     NoRewardToken,
+    #[error("oracle box: unknown reward token id in `TOKENS(1)`")]
+    UnknownRewardTokenId,
     #[error("oracle box: no public key in R4")]
-    NoPublicKey,
+    NoPublicKeyInR4,
     #[error("oracle box: no epoch counter in R5")]
     NoEpochCounter,
     #[error("oracle box: no data point in R6")]
     NoDataPoint,
-    #[error("oracle contract: {0:?}")]
+    #[error("oracle box: {0:?}")]
     OracleContractError(#[from] OracleContractError),
+    #[error("oracle box: TryExtractFrom error {0:?}")]
+    TryExtractFrom(#[from] TryExtractFromError),
+    #[error("oracle box: Can't create EcPoint from String {0}")]
+    EcPoint(String),
 }
 
 // TODO: convert this one and others to named structs
@@ -46,16 +58,20 @@ pub enum OracleBoxError {
 pub struct OracleBoxWrapper(ErgoBox, OracleContract);
 
 impl OracleBoxWrapper {
-    pub fn new(b: ErgoBox) -> Result<Self, OracleBoxError> {
-        let _oracle_token_id = b
+    pub fn new(b: ErgoBox, inputs: &OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
+        let oracle_token_id = b
             .tokens
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
-            .get(0)
-            .ok_or(OracleBoxError::NoTokens)?
+            .first()
             .token_id
             .clone();
-        let _reward_token_id = b
+
+        if oracle_token_id != inputs.oracle_token_id {
+            return Err(OracleBoxError::UnknownOracleTokenId);
+        }
+
+        let reward_token_id = b
             .tokens
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
@@ -64,31 +80,32 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if b.get_register(NonMandatoryRegisterId::R4.into())
-            .ok_or(OracleBoxError::NoPublicKey)?
-            .try_extract_into::<EcPoint>()
-            .is_err()
-        {
-            return Err(OracleBoxError::NoPublicKey);
+        if reward_token_id != inputs.reward_token_id {
+            return Err(OracleBoxError::UnknownRewardTokenId);
         }
 
-        if b.get_register(NonMandatoryRegisterId::R5.into())
-            .ok_or(OracleBoxError::NoEpochCounter)?
-            .try_extract_into::<i32>()
-            .is_err()
-        {
-            return Err(OracleBoxError::NoEpochCounter);
-        }
+        // We won't be analysing the actual address since there exists multiple oracle boxes that
+        // will be inputs for the 'refresh pool' operation.
+        let _ = b
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .ok_or(OracleBoxError::NoPublicKeyInR4)?
+            .try_extract_into::<EcPoint>()?;
 
-        if b.get_register(NonMandatoryRegisterId::R6.into())
+        // Similarly we won't be inspecting the actual published data point.
+        let _ = b
+            .get_register(NonMandatoryRegisterId::R6.into())
             .ok_or(OracleBoxError::NoDataPoint)?
-            .try_extract_into::<i64>()
-            .is_err()
-        {
-            return Err(OracleBoxError::NoDataPoint);
-        }
+            .try_extract_into::<i64>()?;
 
-        let contract = OracleContract::from_ergo_tree(b.ergo_tree.clone())?;
+        // No need to analyse the epoch counter as its validity is checked within the pool and
+        // oracle contracts.
+        let _ = b
+            .get_register(NonMandatoryRegisterId::R5.into())
+            .ok_or(OracleBoxError::NoEpochCounter)?
+            .try_extract_into::<i32>()?;
+
+        let contract =
+            OracleContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
         Ok(Self(b, contract))
     }
@@ -137,11 +154,44 @@ impl OracleBox for OracleBoxWrapper {
     }
 }
 
-impl TryFrom<ErgoBox> for OracleBoxWrapper {
-    type Error = OracleBoxError;
+#[derive(Clone, Debug)]
+pub struct OracleBoxWrapperInputs {
+    pub contract_inputs: OracleContractInputs,
+    /// Ballot token is expected to reside in `tokens(0)` of the oracle box.
+    pub oracle_token_id: TokenId,
+    /// Reward token is expected to reside in `tokens(1)` of the oracle box.
+    pub reward_token_id: TokenId,
+}
 
-    fn try_from(value: ErgoBox) -> Result<Self, Self::Error> {
-        OracleBoxWrapper::new(value)
+impl OracleBoxWrapperInputs {
+    pub fn checked_load(
+        oracle_contract_parameters: OracleContractParameters,
+        pool_token_id: TokenId,
+        oracle_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let contract_inputs =
+            OracleContractInputs::checked_load(oracle_contract_parameters, pool_token_id)?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id,
+            reward_token_id,
+        })
+    }
+
+    pub fn build_with(
+        oracle_contract_parameters: OracleContractParameters,
+        pool_token_id: TokenId,
+        oracle_token_id: TokenId,
+        reward_token_id: TokenId,
+    ) -> Result<Self, OracleContractError> {
+        let contract_inputs =
+            OracleContractInputs::build_with(oracle_contract_parameters, pool_token_id)?;
+        Ok(Self {
+            contract_inputs,
+            oracle_token_id,
+            reward_token_id,
+        })
     }
 }
 
@@ -155,7 +205,7 @@ impl From<OracleBoxWrapper> for ErgoBox {
 pub fn make_oracle_box_candidate(
     contract: &OracleContract,
     public_key: ProveDlog,
-    datapoint: u64,
+    datapoint: i64,
     epoch_counter: u32,
     oracle_token: Token,
     reward_token: Token,

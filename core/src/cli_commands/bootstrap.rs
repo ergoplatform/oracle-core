@@ -1,5 +1,5 @@
 //! Bootstrap a new oracle pool
-use std::{convert::TryInto, io::Write};
+use std::{convert::TryInto, io::Write, path::Path};
 
 use derive_more::From;
 use ergo_lib::{
@@ -9,92 +9,76 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkAddress},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
             },
-            token::{Token, TokenId},
+            token::Token,
         },
         ergo_tree::ErgoTree,
         serialization::SigmaParsingError,
     },
     wallet::{
         box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
-        tx_builder::{TxBuilder, TxBuilderError},
+        tx_builder::{self, TxBuilder, TxBuilderError},
     },
 };
 use ergo_node_interface::{node_interface::NodeError, NodeInterface};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::{
     box_kind::{make_pool_box_candidate, make_refresh_box_candidate},
-    contracts::{pool::PoolContract, refresh::RefreshContract},
-    node_interface::SubmitTransaction,
-    wallet::{WalletDataSource, WalletSign},
+    contracts::{
+        ballot::{BallotContractError, BallotContractParameters},
+        oracle::OracleContractParameters,
+        pool::{PoolContract, PoolContractError, PoolContractInputs, PoolContractParameters},
+        refresh::{
+            RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
+        },
+        update::{
+            UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
+        },
+    },
+    datapoint_source::PredefinedDataPointSource,
+    node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
+    oracle_config::{OracleConfig, TokenIds},
+    oracle_config::{OracleConfigError, BASE_FEE},
+    serde::BootstrapConfigSerde,
+    wallet::WalletDataSource,
 };
-
-// Note that we need the following trait implementations for `NodeInterface` because we can't rely
-// on any of the functions in the `crate::node_interface` module since they all implicitly rely on
-// the existence of an oracle-pool `yaml` config file.
-
-impl SubmitTransaction for NodeInterface {
-    fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<String> {
-        self.submit_transaction(tx)
-    }
-}
-
-impl WalletSign for NodeInterface {
-    fn sign_transaction_with_inputs(
-        &self,
-        unsigned_tx: &ergo_lib::chain::transaction::unsigned::UnsignedTransaction,
-        _inputs: ergo_lib::chain::transaction::TxIoVec<ErgoBox>,
-        _data_boxes: Option<ergo_lib::chain::transaction::TxIoVec<ErgoBox>>,
-    ) -> Result<Transaction, NodeError> {
-        self.sign_transaction(unsigned_tx)
-    }
-}
-
-impl WalletDataSource for NodeInterface {
-    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, NodeError> {
-        self.unspent_boxes()
-    }
-}
 
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
-pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
-    let s = std::fs::read_to_string(yaml_config_file_name.clone())?;
-    let yaml = &YamlLoader::load_from_str(&s).unwrap()[0];
-    let config = bootstrap_config_from_yaml(yaml)?;
+pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
+    let s = std::fs::read_to_string(config_file_name)?;
+    let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
-    info!("{} loaded", yaml_config_file_name);
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
-    let node = NodeInterface::new(&config.node_api_key, &config.node_ip, &config.node_port);
-    let prefix = if config.is_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
+    let node = NodeInterface::new(
+        &config.node_api_key,
+        &config.node_ip,
+        &config.node_port.to_string(),
+    );
+    assert_wallet_unlocked(&node);
     let change_address_str = node
         .wallet_status()?
         .change_address
         .ok_or(BootstrapError::NoChangeAddressSetInNode)?;
     debug!("Change address: {}", change_address_str);
 
-    let change_address = AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
+    let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     let input = BootstrapInput {
         config,
-        wallet: &node,
-        wallet_sign: &node,
-        submit_tx: &node,
-        tx_fee: BoxValue::SAFE_USER_MIN,
-        erg_value_per_box: BoxValue::SAFE_USER_MIN,
+        wallet: &node as &dyn WalletDataSource,
+        tx_signer: &node as &dyn SignTransaction,
+        submit_tx: &node as &dyn SubmitTransaction,
+        tx_fee: *BASE_FEE,
+        erg_value_per_box: *BASE_FEE,
         change_address,
         height: node.current_block_height()? as u32,
     };
@@ -103,13 +87,31 @@ pub fn bootstrap(yaml_config_file_name: String) -> Result<(), BootstrapError> {
     let s = serde_yaml::to_string(&oracle_config)?;
     let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_CONFIG_FILE_NAME)?;
     file.write_all(s.as_bytes())?;
+    info!(
+        "Oracle configuration file created: {}",
+        crate::oracle_config::DEFAULT_CONFIG_FILE_NAME
+    );
+    Ok(())
+}
+
+pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<(), BootstrapError> {
+    if Path::new(&config_file_name).exists() {
+        return Err(BootstrapError::ConfigFilenameAlreadyExists);
+    }
+
+    let config = BootstrapConfig::default();
+    let config_serde = BootstrapConfigSerde::from(config);
+
+    let s = serde_yaml::to_string(&config_serde)?;
+    let mut file = std::fs::File::create(&config_file_name)?;
+    file.write_all(s.as_bytes())?;
     Ok(())
 }
 
 pub struct BootstrapInput<'a> {
     pub config: BootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
-    pub wallet_sign: &'a dyn WalletSign,
+    pub tx_signer: &'a dyn SignTransaction,
     pub submit_tx: &'a dyn SubmitTransaction,
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
@@ -120,13 +122,13 @@ pub struct BootstrapInput<'a> {
 /// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
 /// mint the oracle-pool tokens then create the pool and refresh boxes as described in EIP-23:
 /// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
-pub fn perform_bootstrap_chained_transaction(
+pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
-) -> Result<OracleConfigFields, BootstrapError> {
+) -> Result<OracleConfig, BootstrapError> {
     let BootstrapInput {
         config,
         wallet,
-        wallet_sign,
+        tx_signer: wallet_sign,
         submit_tx,
         tx_fee,
         erg_value_per_box,
@@ -165,10 +167,7 @@ pub fn perform_bootstrap_chained_transaction(
     // This variable represents the index `i` described above.
     let mut num_transactions_left = 8;
 
-    let wallet_pk_ergo_tree = config
-        .addresses
-        .wallet_address_for_chain_transaction
-        .script()?;
+    let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -208,7 +207,7 @@ pub fn perform_bootstrap_chained_transaction(
         let token_box_guard =
             different_token_box_guard.unwrap_or_else(|| wallet_pk_ergo_tree.clone());
         let mut builder = ErgoBoxCandidateBuilder::new(erg_value_per_box, token_box_guard, height);
-        builder.mint_token(token.clone(), token_name, token_desc, 1);
+        builder.mint_token(token.clone(), token_name, token_desc, 0);
         let mut output_candidates = vec![builder.build()?];
 
         let remaining_funds = ErgoBoxCandidateBuilder::new(
@@ -226,7 +225,6 @@ pub fn perform_bootstrap_chained_transaction(
             height,
             tx_fee,
             change_address.clone(),
-            BoxValue::MIN,
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
@@ -236,7 +234,7 @@ pub fn perform_bootstrap_chained_transaction(
     };
 
     // Mint pool NFT token --------------------------------------------------------------------------
-    info!("Minting pool NFT tx");
+    info!("Creating and signing minting pool NFT tx");
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     debug!("unspent boxes: {:?}", unspent_boxes);
     let target_balance = calc_target_balance(num_transactions_left)?;
@@ -256,7 +254,7 @@ pub fn perform_bootstrap_chained_transaction(
     debug!("signed_mint_pool_nft_tx: {:?}", signed_mint_pool_nft_tx);
 
     // Mint refresh NFT token ----------------------------------------------------------------------
-    info!("Minting refresh NFT tx");
+    info!("Creating and signing minting refresh NFT tx");
     let inputs = filter_tx_outputs(signed_mint_pool_nft_tx.outputs.clone());
     debug!("inputs for refresh NFT mint: {:?}", inputs);
     let (refresh_nft_token, signed_mint_refresh_nft_tx) = mint_token(
@@ -272,46 +270,9 @@ pub fn perform_bootstrap_chained_transaction(
         signed_mint_refresh_nft_tx
     );
 
-    // Mint update NFT token -----------------------------------------------------------------------
-    info!("Minting update NFT tx");
-    let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
-    debug!("inputs for update NFT mint: {:?}", inputs);
-    let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
-        inputs,
-        &mut num_transactions_left,
-        config.tokens_to_mint.update_nft.name.clone(),
-        config.tokens_to_mint.update_nft.description.clone(),
-        1.try_into().unwrap(),
-        None,
-    )?;
-    debug!("signed_mint_update_nft_tx: {:?}", signed_mint_update_nft_tx);
-
-    // Mint oracle tokens --------------------------------------------------------------------------
-    info!("Minting oracle tokens tx");
-    let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
-    debug!("inputs for oracle tokens mint: {:?}", inputs);
-    let oracle_tokens_pk_ergo_tree = config.addresses.address_for_oracle_tokens.script()?;
-    let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
-        inputs,
-        &mut num_transactions_left,
-        config.tokens_to_mint.oracle_tokens.name.clone(),
-        config.tokens_to_mint.oracle_tokens.description.clone(),
-        config
-            .tokens_to_mint
-            .oracle_tokens
-            .quantity
-            .try_into()
-            .unwrap(),
-        Some(oracle_tokens_pk_ergo_tree),
-    )?;
-    debug!(
-        "signed_mint_oracle_tokens_tx: {:?}",
-        signed_mint_oracle_tokens_tx
-    );
-
     // Mint ballot tokens --------------------------------------------------------------------------
-    info!("Minting ballot tokens tx");
-    let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
+    info!("Creating and signing minting ballot tokens tx");
+    let inputs = filter_tx_outputs(signed_mint_refresh_nft_tx.outputs.clone());
     debug!("inputs for ballot tokens mint: {:?}", inputs);
     let (ballot_token, signed_mint_ballot_tokens_tx) = mint_token(
         inputs,
@@ -331,9 +292,53 @@ pub fn perform_bootstrap_chained_transaction(
         signed_mint_ballot_tokens_tx
     );
 
-    // Mint reward tokens --------------------------------------------------------------------------
-    info!("Minting reward tokens tx");
+    // Mint update NFT token -----------------------------------------------------------------------
+
+    let update_contract = UpdateContract::checked_load(&UpdateContractInputs::build_with(
+        config.update_contract_parameters.clone(),
+        pool_nft_token.token_id.clone(),
+        ballot_token.token_id.clone(),
+    )?)?;
+
+    info!("Creating and signing minting update NFT tx");
     let inputs = filter_tx_outputs(signed_mint_ballot_tokens_tx.outputs.clone());
+    debug!("inputs for update NFT mint: {:?}", inputs);
+    let (update_nft_token, signed_mint_update_nft_tx) = mint_token(
+        inputs,
+        &mut num_transactions_left,
+        config.tokens_to_mint.update_nft.name.clone(),
+        config.tokens_to_mint.update_nft.description.clone(),
+        1.try_into().unwrap(),
+        Some(update_contract.ergo_tree()),
+    )?;
+    debug!("signed_mint_update_nft_tx: {:?}", signed_mint_update_nft_tx);
+
+    // Mint oracle tokens --------------------------------------------------------------------------
+    info!("Creating and signing minting oracle tokens tx");
+    let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
+    debug!("inputs for oracle tokens mint: {:?}", inputs);
+    let oracle_tokens_pk_ergo_tree = config.oracle_address.address().script()?;
+    let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
+        inputs,
+        &mut num_transactions_left,
+        config.tokens_to_mint.oracle_tokens.name.clone(),
+        config.tokens_to_mint.oracle_tokens.description.clone(),
+        config
+            .tokens_to_mint
+            .oracle_tokens
+            .quantity
+            .try_into()
+            .unwrap(),
+        Some(oracle_tokens_pk_ergo_tree),
+    )?;
+    debug!(
+        "signed_mint_oracle_tokens_tx: {:?}",
+        signed_mint_oracle_tokens_tx
+    );
+
+    // Mint reward tokens --------------------------------------------------------------------------
+    info!("Creating and signing minting reward tokens tx");
+    let inputs = filter_tx_outputs(signed_mint_oracle_tokens_tx.outputs.clone());
     debug!("inputs for reward tokens mint: {:?}", inputs);
     let (reward_token, signed_mint_reward_tokens_tx) = mint_token(
         inputs,
@@ -350,10 +355,23 @@ pub fn perform_bootstrap_chained_transaction(
     )?;
 
     // Create pool box -----------------------------------------------------------------------------
-    info!("Create pool box tx");
-    let pool_contract = PoolContract::new()
-        .with_refresh_nft_token_id(refresh_nft_token.token_id.clone())
-        .with_update_nft_token_id(update_nft_token.token_id.clone());
+    info!("Create and sign pool box tx");
+
+    let token_ids = TokenIds {
+        pool_nft_token_id: pool_nft_token.token_id.clone(),
+        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
+        update_nft_token_id: update_nft_token.token_id.clone(),
+        oracle_token_id: oracle_token.token_id.clone(),
+        reward_token_id: reward_token.token_id.clone(),
+        ballot_token_id: ballot_token.token_id.clone(),
+    };
+
+    let pool_contract = PoolContract::build_with(&PoolContractInputs::build_with(
+        config.pool_contract_parameters.clone(),
+        refresh_nft_token.token_id.clone(),
+        update_nft_token.token_id.clone(),
+    )?)
+    .unwrap();
 
     let reward_tokens_for_pool_box = Token {
         token_id: reward_token.token_id.clone(),
@@ -369,7 +387,7 @@ pub fn perform_bootstrap_chained_transaction(
         0,
         1,
         pool_nft_token.clone(),
-        reward_tokens_for_pool_box,
+        reward_tokens_for_pool_box.clone(),
         erg_value_per_box,
         height,
     )?;
@@ -405,7 +423,7 @@ pub fn perform_bootstrap_chained_transaction(
     let box_selection = box_selector.select(
         inputs,
         target_balance,
-        &[pool_nft_token.clone(), reward_token.clone()],
+        &[pool_nft_token.clone(), reward_tokens_for_pool_box.clone()],
     )?;
     let inputs = box_selection.boxes.clone();
     let tx_builder = TxBuilder::new(
@@ -414,7 +432,6 @@ pub fn perform_bootstrap_chained_transaction(
         height,
         tx_fee,
         change_address.clone(),
-        BoxValue::MIN,
     );
     let pool_box_tx = tx_builder.build()?;
     debug!("unsigned pool_box_tx: {:?}", pool_box_tx);
@@ -423,22 +440,14 @@ pub fn perform_bootstrap_chained_transaction(
     num_transactions_left -= 1;
 
     // Create refresh box --------------------------------------------------------------------------
-    info!("Create refresh box tx");
-    let RefreshContractParameters {
-        epoch_length,
-        buffer,
-        min_data_points,
-        max_deviation_percent,
-        ..
-    } = config.refresh_contract_parameters;
+    info!("Create and sign refresh box tx");
 
-    let refresh_contract = RefreshContract::new()
-        .with_oracle_token_id(oracle_token.token_id.clone())
-        .with_pool_nft_token_id(pool_nft_token.token_id.clone())
-        .with_epoch_length(epoch_length)
-        .with_buffer(buffer)
-        .with_min_data_points(min_data_points)
-        .with_max_deviation_percent(max_deviation_percent);
+    let refresh_contract_inputs = RefreshContractInputs::build_with(
+        config.refresh_contract_parameters.clone(),
+        token_ids.oracle_token_id,
+        token_ids.pool_nft_token_id,
+    )?;
+    let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
 
     let refresh_box_candidate = make_refresh_box_candidate(
         &refresh_contract,
@@ -451,7 +460,7 @@ pub fn perform_bootstrap_chained_transaction(
 
     let target_balance = calc_target_balance(num_transactions_left)?;
     let box_selector = SimpleBoxSelector::new();
-    let mut inputs = filter_tx_outputs(signed_mint_reward_tokens_tx.outputs.clone());
+    let mut inputs = filter_tx_outputs(signed_pool_box_tx.outputs.clone());
 
     // Need to find the box containing the refresh NFT, and transfer this token to the refresh box.
     let box_with_refresh_nft = signed_mint_refresh_nft_tx
@@ -479,7 +488,6 @@ pub fn perform_bootstrap_chained_transaction(
         height,
         tx_fee,
         change_address.clone(),
-        BoxValue::MIN,
     );
     let refresh_box_tx = tx_builder.build()?;
     debug!("unsigned refresh_box_tx: {:?}", refresh_box_tx);
@@ -488,315 +496,62 @@ pub fn perform_bootstrap_chained_transaction(
 
     // ---------------------------------------------------------------------------------------------
     let tx_id = submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
-    info!("Minting pool NFT TxId: {}", tx_id);
+    info!("Minted pool NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
-    info!("Minting refresh NFT TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
-    info!("Minting update NFT TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
-    info!("Minting oracle tokens TxId: {}", tx_id);
+    info!("Minted refresh NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
-    info!("Minting ballot tokens TxId: {}", tx_id);
+    info!("Minted ballot tokens TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
+    info!("Minted update NFT TxId: {}", tx_id);
+    let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
+    info!("Minted oracle tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
-    info!("Minting reward tokens TxId: {}", tx_id);
+    info!("Minted reward tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_pool_box_tx)?;
-    info!("Creating initial pool box TxId: {}", tx_id);
+    info!("Created initial pool box TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
-    info!("Creating initial refresh box TxId: {}", tx_id);
+    info!("Created initial refresh box TxId: {}", tx_id);
 
-    Ok(OracleConfigFields {
-        pool_nft: pool_nft_token.token_id,
-        refresh_nft: refresh_nft_token.token_id,
-        update_nft: update_nft_token.token_id,
-        oracle_token: oracle_token.token_id,
-        ballot_token: ballot_token.token_id,
-        reward_token: reward_token.token_id,
-        node_ip: config.node_ip,
-        node_port: config.node_port,
-        node_api_key: config.node_api_key,
-    })
+    let token_ids = TokenIds {
+        pool_nft_token_id: pool_nft_token.token_id,
+        refresh_nft_token_id: refresh_nft_token.token_id,
+        update_nft_token_id: update_nft_token.token_id,
+        oracle_token_id: oracle_token.token_id,
+        reward_token_id: reward_token.token_id,
+        ballot_token_id: ballot_token.token_id,
+    };
+    info!("Minted tokens: {:?}", token_ids);
+
+    Ok(OracleConfig::create(config, token_ids, height)?)
 }
 
-fn bootstrap_config_from_yaml(yaml: &Yaml) -> Result<BootstrapConfig, BootstrapError> {
-    let is_mainnet = yaml["is_mainnet"]
-        .as_bool()
-        .ok_or_else(|| BootstrapError::YamlRust("`is_mainnet` missing".into()))?;
-
-    let network_prefix = if is_mainnet {
-        NetworkPrefix::Mainnet
-    } else {
-        NetworkPrefix::Testnet
-    };
-
-    let tokens_to_mint: TokensToMint = {
-        // We'd like to use `serde_yaml` to deserialize `TokensToMint`. Since we're committed to
-        // using `yaml-rust` we extract out the contents of the `tokens_to_mint` field in the YAML
-        // file, convert it back to a YAML string, then pass it to `serde_yaml`.
-        let hash = yaml["tokens_to_mint"]
-            .as_hash()
-            .ok_or_else(|| BootstrapError::YamlRust("`tokens_to_mint` missing".into()))?
-            .clone();
-        let mut out = String::new();
-        let mut emitter = YamlEmitter::new(&mut out);
-        emitter.dump(&Yaml::Hash(hash)).unwrap();
-        serde_yaml::from_str(&out)?
-    };
-
-    let address_for_minted_tokens_str = yaml["addresses"]["address_for_oracle_tokens"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`address_for_oracle_tokens` missing".into()))?;
-    let address_for_minted_tokens = AddressEncoder::new(network_prefix)
-        .parse_address_from_str(address_for_minted_tokens_str)?;
-
-    let wallet_address_for_chain_transaction_str = yaml["addresses"]
-        ["wallet_address_for_chain_transaction"]
-        .as_str()
-        .ok_or_else(|| {
-            BootstrapError::YamlRust("`wallet_address_for_chain_transaction` missing".into())
-        })?;
-    let wallet_address_for_chain_transaction = AddressEncoder::new(network_prefix)
-        .parse_address_from_str(wallet_address_for_chain_transaction_str)?;
-
-    let addresses = Addresses {
-        address_for_oracle_tokens: address_for_minted_tokens,
-        wallet_address_for_chain_transaction,
-    };
-
-    let refresh_contract_parameters: RefreshContractParameters = {
-        // The struct is created via the same process as `tokens_to_mint` above.
-        let hash = yaml["refresh_contract_parameters"]
-            .as_hash()
-            .ok_or_else(|| {
-                BootstrapError::YamlRust("`refresh_contract_parameters` missing".into())
-            })?
-            .clone();
-        let mut out = String::new();
-        let mut emitter = YamlEmitter::new(&mut out);
-        emitter.dump(&Yaml::Hash(hash)).unwrap();
-        serde_yaml::from_str(&out)?
-    };
-    let node_ip = yaml["node_ip"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`node_ip` missing".into()))?
-        .into();
-
-    let node_port = yaml["node_port"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`node_port` missing".into()))?
-        .into();
-
-    let node_api_key = yaml["node_api_key"]
-        .as_str()
-        .ok_or_else(|| BootstrapError::YamlRust("`node_api_key` missing".into()))?
-        .into();
-
-    Ok(BootstrapConfig {
-        refresh_contract_parameters,
-        tokens_to_mint,
-        node_ip,
-        node_port,
-        node_api_key,
-        is_mainnet,
-        addresses,
-    })
-}
-
-/// An instance of this struct is created from an operator-provided YAML file. Note that we don't
-/// derive `Deserialize` here since we need to verify the address types against the `is_mainnet`
-/// field.
+/// An instance of this struct is created from an operator-provided YAML file.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "crate::serde::BootstrapConfigSerde")]
 pub struct BootstrapConfig {
+    pub oracle_contract_parameters: OracleContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
+    pub pool_contract_parameters: PoolContractParameters,
+    pub update_contract_parameters: UpdateContractParameters,
+    pub ballot_contract_parameters: BallotContractParameters,
     pub tokens_to_mint: TokensToMint,
     pub node_ip: String,
-    pub node_port: String,
+    pub node_port: u16,
     pub node_api_key: String,
-    pub is_mainnet: bool,
-    pub addresses: Addresses,
+    pub core_api_port: u16,
+    pub data_point_source: Option<PredefinedDataPointSource>,
+    pub data_point_source_custom_script: Option<String>,
+    pub oracle_address: NetworkAddress,
+    pub base_fee: u64,
 }
 
-pub struct Addresses {
-    pub address_for_oracle_tokens: Address,
-    pub wallet_address_for_chain_transaction: Address,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct TokensToMint {
-    pub pool_nft: NftMintDetails,
-    pub refresh_nft: NftMintDetails,
-    pub update_nft: NftMintDetails,
-    pub oracle_tokens: TokenMintDetails,
-    pub ballot_tokens: TokenMintDetails,
-    pub reward_tokens: TokenMintDetails,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct RefreshContractParameters {
-    pub epoch_length: u32,
-    pub buffer: u32,
-    pub total_oracles: u32,
-    pub min_data_points: u32,
-    pub max_deviation_percent: u32,
-    pub total_ballots: u32,
-    pub min_votes: u32,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct TokenMintDetails {
-    pub name: String,
-    pub description: String,
-    pub quantity: u64,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct NftMintDetails {
-    pub name: String,
-    pub description: String,
-}
-
-#[derive(Serialize)]
-pub struct OracleConfigFields {
-    #[serde(serialize_with = "token_id_as_base64_string")]
-    pub pool_nft: TokenId,
-    #[serde(serialize_with = "token_id_as_base64_string")]
-    pub refresh_nft: TokenId,
-    #[serde(serialize_with = "token_id_as_base64_string")]
-    pub update_nft: TokenId,
-    #[serde(serialize_with = "token_id_as_base64_string")]
-    pub oracle_token: TokenId,
-    #[serde(serialize_with = "token_id_as_base64_string")]
-    pub ballot_token: TokenId,
-    #[serde(serialize_with = "token_id_as_base64_string")]
-    pub reward_token: TokenId,
-    pub node_ip: String,
-    pub node_port: String,
-    pub node_api_key: String,
-}
-
-#[derive(Debug, Error, From)]
-pub enum BootstrapError {
-    #[error("tx builder error: {0}")]
-    TxBuilder(TxBuilderError),
-    #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
-    #[error("node error: {0}")]
-    Node(NodeError),
-    #[error("box selector error: {0}")]
-    BoxSelector(BoxSelectorError),
-    #[error("box value error: {0}")]
-    BoxValue(BoxValueError),
-    #[error("IO error: {0}")]
-    Io(std::io::Error),
-    #[error("serde-yaml error: {0}")]
-    SerdeYaml(serde_yaml::Error),
-    #[error("yaml-rust error: {0}")]
-    YamlRust(String),
-    #[error("AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
-    #[error("SigmaParsing error: {0}")]
-    SigmaParse(SigmaParsingError),
-    #[error("Node doesn't have a change address set")]
-    NoChangeAddressSetInNode,
-}
-
-fn token_id_as_base64_string<S>(value: &TokenId, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let bytes: Vec<u8> = value.clone().into();
-    serializer.serialize_str(&base64::encode(bytes))
-}
-
-#[cfg(test)]
-mod tests {
-    use ergo_lib::{
-        chain::{
-            ergo_state_context::ErgoStateContext,
-            transaction::{unsigned::UnsignedTransaction, TxId, TxIoVec},
-        },
-        ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
-        ergotree_ir::{
-            chain::{
-                address::AddressEncoder,
-                ergo_box::{ErgoBox, NonMandatoryRegisters},
-            },
-            ergo_tree::ErgoTree,
-        },
-        wallet::{signing::TransactionContext, Wallet},
-    };
-    use sigma_test_util::force_any_val;
-
-    use super::*;
-    use crate::pool_commands::test_utils::WalletDataMock;
-
-    struct SubmitTxMock {}
-
-    impl SubmitTransaction for SubmitTxMock {
-        fn submit_transaction(
-            &self,
-            _: &ergo_lib::chain::transaction::Transaction,
-        ) -> crate::node_interface::Result<String> {
-            // Return empty string as TxId
-            Ok("".into())
-        }
-    }
-
-    struct TestWallet {
-        ctx: ErgoStateContext,
-        wallet: Wallet,
-        guard: ErgoTree,
-    }
-
-    impl WalletSign for TestWallet {
-        fn sign_transaction_with_inputs(
-            &self,
-            unsigned_tx: &UnsignedTransaction,
-            inputs: TxIoVec<ErgoBox>,
-            data_boxes: Option<TxIoVec<ErgoBox>>,
-        ) -> Result<ergo_lib::chain::transaction::Transaction, NodeError> {
-            let tx = self
-                .wallet
-                .sign_transaction(
-                    TransactionContext::new(
-                        unsigned_tx.clone(),
-                        inputs.as_vec().clone(),
-                        data_boxes.map_or(Vec::new(), |bv| bv.as_vec().clone()),
-                    )
-                    .unwrap(),
-                    &self.ctx,
-                    None,
-                )
-                .unwrap();
-            Ok(tx)
-        }
-    }
-
-    #[test]
-    fn test_bootstrap() {
-        let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
-        let secret = force_any_val::<DlogProverInput>();
-        let address = Address::P2Pk(secret.public_image());
-        let is_mainnet = address.content_bytes()[0] < NetworkPrefix::Testnet as u8;
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let ergo_tree = address.script().unwrap();
-
-        let value = BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap();
-        let unspent_boxes = vec![ErgoBox::new(
-            value,
-            ergo_tree.clone(),
-            None,
-            NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),
-            height - 9,
-            force_any_val::<TxId>(),
-            0,
+impl Default for BootstrapConfig {
+    fn default() -> Self {
+        let address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw",
         )
-        .unwrap()];
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
-
-        let state = BootstrapConfig {
+        .unwrap();
+        BootstrapConfig {
             tokens_to_mint: TokensToMint {
                 pool_nft: NftMintDetails {
                     name: "pool NFT".into(),
@@ -826,51 +581,334 @@ mod tests {
                     quantity: 100_000_000,
                 },
             },
-            refresh_contract_parameters: RefreshContractParameters {
-                epoch_length: 30,
-                buffer: 4,
-                total_oracles: 15,
-                min_data_points: 4,
-                max_deviation_percent: 5,
-                total_ballots: 15,
-                min_votes: 6,
-            },
-            addresses: Addresses {
-                address_for_oracle_tokens: address.clone(),
-                wallet_address_for_chain_transaction: address.clone(),
-            },
+            oracle_address: address,
             node_ip: "127.0.0.1".into(),
-            node_port: "9053".into(),
+            node_port: 9053,
             node_api_key: "hello".into(),
-            is_mainnet,
+            refresh_contract_parameters: RefreshContractParameters::default(),
+            pool_contract_parameters: PoolContractParameters::default(),
+            update_contract_parameters: UpdateContractParameters::default(),
+            ballot_contract_parameters: BallotContractParameters::default(),
+            oracle_contract_parameters: OracleContractParameters::default(),
+            core_api_port: 9010,
+            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
+            data_point_source_custom_script: None,
+            base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TokensToMint {
+    pub pool_nft: NftMintDetails,
+    pub refresh_nft: NftMintDetails,
+    pub update_nft: NftMintDetails,
+    pub oracle_tokens: TokenMintDetails,
+    pub ballot_tokens: TokenMintDetails,
+    pub reward_tokens: TokenMintDetails,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TokenMintDetails {
+    pub name: String,
+    pub description: String,
+    pub quantity: u64,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct NftMintDetails {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Error, From)]
+pub enum BootstrapError {
+    #[error("tx builder error: {0}")]
+    TxBuilder(TxBuilderError),
+    #[error("box builder error: {0}")]
+    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    #[error("node error: {0}")]
+    Node(NodeError),
+    #[error("box selector error: {0}")]
+    BoxSelector(BoxSelectorError),
+    #[error("box value error: {0}")]
+    BoxValue(BoxValueError),
+    #[error("IO error: {0}")]
+    Io(std::io::Error),
+    #[error("serde-yaml error: {0}")]
+    SerdeYaml(serde_yaml::Error),
+    #[error("yaml-rust error: {0}")]
+    YamlRust(String),
+    #[error("AddressEncoder error: {0}")]
+    AddressEncoder(AddressEncoderError),
+    #[error("SigmaParsing error: {0}")]
+    SigmaParse(SigmaParsingError),
+    #[error("Node doesn't have a change address set")]
+    NoChangeAddressSetInNode,
+    #[error("Node doesn't have a change address set")]
+    RefreshContract(RefreshContractError),
+    #[error("Update contract error: {0}")]
+    UpdateContract(UpdateContractError),
+    #[error("Bootstrap config file already exists")]
+    ConfigFilenameAlreadyExists,
+    #[error("Ballot contract error: {0}")]
+    BallotContractError(BallotContractError),
+    #[error("Oracle config error: {0}")]
+    OracleConfigError(OracleConfigError),
+    #[error("Pool contract error: {0}")]
+    PoolContractError(PoolContractError),
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use ergo_lib::{
+        chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
+        ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
+        ergotree_ir::chain::{
+            address::{AddressEncoder, NetworkPrefix},
+            ergo_box::{ErgoBox, NonMandatoryRegisters},
+            token::TokenId,
+        },
+        wallet::Wallet,
+    };
+    use sigma_test_util::force_any_val;
+
+    use super::*;
+    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
+    use std::cell::RefCell;
+    #[derive(Default)]
+    pub(crate) struct SubmitTxMock {
+        transactions: RefCell<Vec<ergo_lib::chain::transaction::Transaction>>,
+    }
+
+    impl SubmitTransaction for SubmitTxMock {
+        fn submit_transaction(
+            &self,
+            tx: &ergo_lib::chain::transaction::Transaction,
+        ) -> crate::node_interface::Result<String> {
+            self.transactions.borrow_mut().push(tx.clone());
+            // Return empty string as TxId
+            Ok("".into())
+        }
+    }
+
+    #[test]
+    fn test_bootstrap() {
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = ctx.pre_header.height;
+        let secret = force_any_val::<DlogProverInput>();
+        let address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image()),
+        );
+        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let ergo_tree = address.address().script().unwrap();
+
+        let value = BASE_FEE.checked_mul_u32(10000).unwrap();
+        let unspent_boxes = vec![ErgoBox::new(
+            value,
+            ergo_tree.clone(),
+            None,
+            NonMandatoryRegisters::empty(),
+            height - 9,
+            force_any_val::<TxId>(),
+            0,
+        )
+        .unwrap()];
+        let change_address =
+            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
+                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
+                .unwrap();
+
+        let default_bootstrap_config = BootstrapConfig::default();
+        let bootstrap_config = BootstrapConfig {
+            oracle_address: address,
+            ..default_bootstrap_config
         };
 
         let height = ctx.pre_header.height;
+        let submit_tx = SubmitTxMock::default();
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
-            config: state,
+            config: bootstrap_config.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
             },
-            wallet_sign: &mut TestWallet {
-                ctx,
-                wallet,
-                guard: ergo_tree,
+            tx_signer: &mut LocalTxSigner {
+                ctx: &ctx,
+                wallet: &wallet,
             },
-            submit_tx: &SubmitTxMock {},
-            tx_fee: BoxValue::SAFE_USER_MIN,
-            erg_value_per_box: BoxValue::SAFE_USER_MIN,
+            submit_tx: &submit_tx,
+            tx_fee: *BASE_FEE,
+            erg_value_per_box: *BASE_FEE,
             change_address,
             height,
         })
         .unwrap();
 
+        let token_ids = &oracle_config.token_ids;
+        // Find output box guarding the Update NFT
+        let txs = submit_tx.transactions.borrow();
+        let update_nft_box = txs
+            .iter()
+            .flat_map(|tx| tx.outputs.iter())
+            .find(|output| {
+                output
+                    .tokens
+                    .clone()
+                    .into_iter()
+                    .flatten()
+                    .any(|token| token.token_id == token_ids.update_nft_token_id)
+            })
+            .unwrap();
+        // Check that Update NFT is guarded by UpdateContract, and parameters are correct
+
+        let update_contract_inputs = UpdateContractInputs::build_with(
+            UpdateContractParameters::default(),
+            token_ids.pool_nft_token_id.clone(),
+            token_ids.ballot_token_id.clone(),
+        )
+        .unwrap();
+        let update_contract = crate::contracts::update::UpdateContract::from_ergo_tree(
+            update_nft_box.ergo_tree.clone(),
+            &update_contract_inputs,
+        )
+        .unwrap();
+        assert!(
+            update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes()
+        );
+        assert!(update_contract.pool_nft_token_id() == token_ids.pool_nft_token_id);
+        assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id);
         let s = serde_yaml::to_string(&oracle_config).unwrap();
         println!("{}", s);
 
         // Quickly check an encoding
-        let bytes: Vec<u8> = oracle_config.ballot_token.clone().into();
+        let bytes: Vec<u8> = token_ids.ballot_token_id.clone().into();
         let encoded = base64::encode(bytes);
         let ballot_id = TokenId::from_base64(&encoded).unwrap();
-        assert_eq!(oracle_config.ballot_token, ballot_id);
+        assert_eq!(token_ids.ballot_token_id, ballot_id);
+
+        // Check that refresh contract is updated
+        assert_ne!(
+            oracle_config
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .refresh_contract_parameters
+                .ergo_tree_bytes()
+        );
+        // Check that ballot contract is updated
+        assert_ne!(
+            oracle_config
+                .ballot_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .ballot_contract_parameters
+                .ergo_tree_bytes()
+        );
+        // Check that oracle contract is updated
+        assert_ne!(
+            oracle_config
+                .oracle_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .oracle_contract_parameters
+                .ergo_tree_bytes()
+        );
+        // Check that pool contract is updated
+        assert_ne!(
+            oracle_config
+                .pool_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .ergo_tree_bytes(),
+            bootstrap_config.pool_contract_parameters.ergo_tree_bytes()
+        );
+        // Check that update contract is updated
+        assert_ne!(
+            oracle_config
+                .update_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .ergo_tree_bytes(),
+            bootstrap_config
+                .update_contract_parameters
+                .ergo_tree_bytes()
+        );
+    }
+
+    #[test]
+    fn test_custom_contract_param() {
+        let config: BootstrapConfig = serde_yaml::from_str("
+---
+oracle_contract_parameters:
+  ergo_tree_bytes: 100a040004000580dac409040004000e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570402040204020402d804d601b2a5e4e3000400d602db63087201d603db6308a7d604e4c6a70407ea02d1ededed93b27202730000b2720373010093c27201c2a7e6c67201040792c172017302eb02cd7204d1ededededed938cb2db6308b2a4730300730400017305938cb27202730600018cb2720373070001918cb27202730800028cb272037309000293e4c672010407720492c17201c1a7efe6c672010561
+  pool_nft_index: 5
+  min_storage_rent_index: 2
+  min_storage_rent: 10000000
+refresh_contract_parameters:
+  ergo_tree_bytes: 1016043c040004000e202a472d4a614e645267556b58703273357638792f423f4528482b4d625065536801000502010105000400040004020402040204080400040a05c8010e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570400040404020408d80ed60199a37300d602b2a4730100d603b5a4d901036395e6c672030605eded928cc77203017201938cb2db6308720373020001730393e4c672030504e4c6720205047304d604b17203d605b0720386027305860273067307d901053c413d0563d803d607e4c68c7205020605d6088c720501d6098c720802860272078602ed8c720901908c72080172079a8c7209027207d6068c720502d6078c720501d608db63087202d609b27208730800d60ab2a5730900d60bdb6308720ad60cb2720b730a00d60db27208730b00d60eb2a5730c00ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02ea02cde4c6b27203e4e30004000407d18f8cc77202017201d1927204730dd18c720601d190997207e4c6b27203730e0006059d9c72077e730f057310d1938c7209017311d193b2720b7312007209d1938c720c018c720d01d1928c720c02998c720d027e9c7204731305d193b1720bb17208d193e4c6720a04059d8c7206027e720405d193e4c6720a05049ae4c6720205047314d193c2720ac27202d192c1720ac17202d1928cc7720a0199a37315d193db6308720edb6308a7d193c2720ec2a7d192c1720ec1a7
+  pool_nft_index: 17
+  oracle_token_id_index: 3
+  min_data_points_index: 13
+  min_data_points: 2
+  buffer_length_index: 21
+  buffer_length: 4
+  max_deviation_percent_index: 15
+  max_deviation_percent: 5
+  epoch_length_index: 0
+  epoch_length: 30
+pool_contract_parameters:
+  ergo_tree_bytes: 1004040204000e20546a576e5a7234753778214125442a472d4b614e645267556b587032733576380e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d801d6018cb2db6308b2a473000073010001d1ec93720173029372017303
+  refresh_nft_index: 2
+  update_nft_index: 3
+update_contract_parameters:
+  ergo_tree_bytes: 100e040004000400040204020e20472b4b6250655368566d597133743677397a24432646294a404d635166546a570400040004000e203f4428472d4b6150645367566b5970337336763979244226452948404d625165010005000400040cd806d601b2a4730000d602b2db63087201730100d603b2a5730200d604db63087203d605b2a5730300d606b27204730400d1ededed938c7202017305ededededed937202b27204730600938cc77201018cc772030193c17201c1720393c672010405c67203040593c672010504c672030504efe6c672030661edededed93db63087205db6308a793c27205c2a792c17205c1a7918cc77205018cc7a701efe6c67205046192b0b5a4d9010763d801d609db630872079591b172097307edededed938cb2720973080001730993e4c6720705048cc7a70193e4c67207060ecbc2720393e4c67207070e8c72060193e4c6720708058c720602730a730bd9010741639a8c7207018cb2db63088c720702730c00027e730d05
+  pool_nft_index: 5
+  ballot_token_index: 9
+  min_votes_index: 13
+  min_votes: 2
+ballot_contract_parameters:
+  ergo_tree_bytes: 10070580dac409040204020400040204000e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d803d601b2a5e4e3000400d602c672010407d603e4c6a70407ea02d1ededede6720293c27201c2a793db63087201db6308a792c172017300eb02cd7203d1ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47202720392c17201c1a7efe6c672010561
+  min_storage_rent_index: 0
+  min_storage_rent: 10000000
+  update_nft_index: 6
+tokens_to_mint:
+  pool_nft:
+    name: pool NFT
+    description: Pool NFT
+  refresh_nft:
+    name: refresh NFT
+    description: refresh NFT
+  update_nft:
+    name: update NFT
+    description: update NFT
+  oracle_tokens:
+    name: oracle token
+    description: oracle token
+    quantity: 15
+  ballot_tokens:
+    name: ballot token
+    description: ballot token
+    quantity: 15
+  reward_tokens:
+    name: reward token
+    description: reward token
+    quantity: 100000000
+node_ip: 10.94.77.47
+node_port: 9052
+node_api_key: hello
+core_api_port: 9010
+data_point_source: NanoErgUsd
+data_point_source_custom_script: ~
+oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW
+base_fee: 1100000
+").unwrap();
+        assert_eq!(config.refresh_contract_parameters.min_data_points(), 2);
     }
 }

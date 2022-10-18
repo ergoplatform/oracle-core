@@ -1,30 +1,30 @@
 use derive_more::From;
 use ergo_lib::ergo_chain_types::DigestNError;
-use ergo_lib::ergotree_ir::chain::address::{
-    Address, AddressEncoder, AddressEncoderError, NetworkPrefix,
-};
-use ergo_lib::ergotree_ir::chain::token::TokenId;
-use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
+use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoderError};
 use thiserror::Error;
 
 use crate::actions::PoolAction;
+use crate::box_kind::PoolBox;
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_state::{LocalDatapointBoxSource, OraclePool, StageError};
+use crate::oracle_state::{OraclePool, StageError};
 use crate::wallet::WalletDataSource;
 
-use self::publish_datapoint::build_publish_datapoint_action;
-use self::publish_datapoint::PublishDatapointActionError;
+use self::publish_datapoint::build_publish_first_datapoint_action;
+use self::publish_datapoint::{
+    build_subsequent_publish_datapoint_action, PublishDatapointActionError,
+};
 use self::refresh::build_refresh_action;
-use self::refresh::RefrechActionError;
+use self::refresh::RefreshActionError;
 
-mod publish_datapoint;
-mod refresh;
+pub mod publish_datapoint;
+pub mod refresh;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
 pub enum PoolCommand {
     Refresh,
-    PublishDataPoint,
+    PublishFirstDataPoint,
+    PublishSubsequentDataPoint { republish: bool },
 }
 
 #[derive(Debug, From, Error)]
@@ -34,7 +34,7 @@ pub enum PoolCommandError {
     #[error("box builder error: {0}")]
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
-    RefrechActionError(RefrechActionError),
+    RefreshActionError(RefreshActionError),
     #[error("error on building PublishDatapointAction: {0}")]
     PublishDatapointActionError(PublishDatapointActionError),
     #[error("Digest error: {0}")]
@@ -52,69 +52,73 @@ pub fn build_action(
     height: u32,
     change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {
-    let pool_box_source = op.get_pool_box_source();
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
+    let current_epoch_counter = op.get_pool_box_source().get_pool_box()?.epoch_counter();
+    let oracle_public_key =
+        if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
+            public_key
+        } else {
+            return Err(PoolCommandError::WrongOracleAddressType);
+        };
+
     match cmd {
-        PoolCommand::Refresh => build_refresh_action(
-            pool_box_source,
-            refresh_box_source,
-            datapoint_stage_src,
-            ORACLE_CONFIG.max_deviation_percent as u32,
-            ORACLE_CONFIG.min_data_points as u32,
+        PoolCommand::PublishFirstDataPoint => build_publish_first_datapoint_action(
             wallet,
             height,
             change_address,
+            oracle_public_key,
+            ORACLE_CONFIG.oracle_box_wrapper_inputs.clone(),
+            &*op.data_point_source,
         )
         .map_err(Into::into)
         .map(Into::into),
-        PoolCommand::PublishDataPoint => {
-            let inputs = if let Some(local_datapoint_box_source) =
-                op.get_local_datapoint_box_source()
+        PoolCommand::PublishSubsequentDataPoint { republish } => {
+            if let Some(local_datapoint_box) = op
+                .get_local_datapoint_box_source()
+                .get_local_oracle_datapoint_box()?
             {
-                PublishDataPointCommandInputs::LocalDataPointBoxExists(local_datapoint_box_source)
-            } else {
-                let address_encoder = if ORACLE_CONFIG.on_mainnet {
-                    AddressEncoder::new(NetworkPrefix::Mainnet)
+                let new_epoch_counter = if republish {
+                    current_epoch_counter
                 } else {
-                    AddressEncoder::new(NetworkPrefix::Testnet)
+                    current_epoch_counter + 1
                 };
-                let address =
-                    address_encoder.parse_address_from_str(&ORACLE_CONFIG.oracle_address)?;
-                if let Address::P2Pk(public_key) = address {
-                    PublishDataPointCommandInputs::FirstDataPoint {
-                        oracle_token_id: ORACLE_CONFIG.oracle_pool_participant_token_id.clone(),
-                        reward_token_id: ORACLE_CONFIG.reward_token_id.clone(),
-                        pool_nft: ORACLE_CONFIG.oracle_pool_nft.clone(),
-                        public_key,
-                    }
-                } else {
-                    return Err(PoolCommandError::WrongOracleAddressType);
-                }
-            };
-            build_publish_datapoint_action(
-                pool_box_source,
-                inputs,
-                wallet,
-                &*op.data_point_source,
-                height,
-                change_address,
-            )
-            .map_err(Into::into)
-            .map(Into::into)
+                build_subsequent_publish_datapoint_action(
+                    &local_datapoint_box,
+                    wallet,
+                    height,
+                    change_address,
+                    &*op.data_point_source,
+                    new_epoch_counter,
+                )
+                .map_err(Into::into)
+                .map(Into::into)
+            } else {
+                Err(PoolCommandError::Unexpected(
+                    "{cmd} error: No local datapoint box found".to_string(),
+                ))
+            }
         }
+        PoolCommand::Refresh => build_refresh_action(
+            op.get_pool_box_source(),
+            refresh_box_source,
+            datapoint_stage_src,
+            ORACLE_CONFIG
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .max_deviation_percent() as u32,
+            ORACLE_CONFIG
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .min_data_points() as u32,
+            wallet,
+            height,
+            change_address,
+            oracle_public_key.h.as_ref(),
+        )
+        .map_err(Into::into)
+        .map(Into::into),
     }
-}
-
-pub enum PublishDataPointCommandInputs<'a> {
-    /// Local datapoint box already exists so pass in the associated `LocalDatapoinBoxSource`
-    /// instance
-    LocalDataPointBoxExists(&'a dyn LocalDatapointBoxSource),
-    /// The first datapoint will be submitted, so there doesn't exist a local datapoint box now.
-    FirstDataPoint {
-        oracle_token_id: TokenId,
-        reward_token_id: TokenId,
-        pool_nft: TokenId,
-        public_key: ProveDlog,
-    },
 }

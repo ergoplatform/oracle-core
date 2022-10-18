@@ -7,6 +7,20 @@ use thiserror::Error;
 
 pub trait DataPointSource: std::fmt::Debug {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
+
+    fn get_datapoint_retry(&self, retries: u8) -> Result<i64, DataPointSourceError> {
+        let mut last_error = None;
+        for _ in 0..retries {
+            match self.get_datapoint() {
+                Ok(datapoint) => return Ok(datapoint),
+                Err(err) => {
+                    log::warn!("Failed to get datapoint from source: {}, retrying ...", err);
+                    last_error = Some(err)
+                }
+            }
+        }
+        Err(last_error.unwrap())
+    }
 }
 
 #[derive(Debug, From, Error)]

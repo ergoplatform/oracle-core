@@ -29,7 +29,7 @@ fn main() {
                     println!("cargo:warning=Error getting commit hash, error: {}", e)
                 }
             }
-            println!("cargo:rustc-env=GIT_COMMIT_HASH={}", commit_hash);
+            println!("cargo:rustc-env=GIT_COMMIT_HASH={}", &commit_hash[0..7]);
             println!("cargo:rustc-env=GIT_COMMIT_DATE={}", commit_date);
         }
     };

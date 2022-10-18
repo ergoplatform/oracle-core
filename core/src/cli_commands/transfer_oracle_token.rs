@@ -8,10 +8,7 @@ use ergo_lib::{
     },
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
-        chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkPrefix},
-            ergo_box::box_value::BoxValue,
-        },
+        chain::address::{Address, AddressEncoder, AddressEncoderError},
         serialization::SigmaParsingError,
     },
     wallet::{
@@ -26,8 +23,8 @@ use crate::{
     box_kind::{make_oracle_box_candidate, OracleBox},
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::ORACLE_CONFIG,
-    oracle_state::{LocalDatapointBoxSource, OraclePool, StageError},
+    oracle_config::BASE_FEE,
+    oracle_state::{LocalDatapointBoxSource, StageError},
     wallet::WalletDataSource,
 };
 
@@ -61,51 +58,44 @@ pub enum TransferOracleTokenActionError {
 
 pub fn transfer_oracle_token(
     wallet: &dyn WalletDataSource,
+    local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
 ) -> Result<(), TransferOracleTokenActionError> {
-    let op = OraclePool::new().unwrap();
-    if let Some(local_datapoint_box_source) = op.get_local_datapoint_box_source() {
-        let prefix = if ORACLE_CONFIG.on_mainnet {
-            NetworkPrefix::Mainnet
-        } else {
-            NetworkPrefix::Testnet
-        };
-        let rewards_destination =
-            AddressEncoder::new(prefix).parse_address_from_str(&rewards_destination_str)?;
+    let rewards_destination =
+        AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
 
-        let change_address_str = get_wallet_status()?
-            .change_address
-            .ok_or(TransferOracleTokenActionError::NoChangeAddressSetInNode)?;
+    let change_address_str = get_wallet_status()?
+        .change_address
+        .ok_or(TransferOracleTokenActionError::NoChangeAddressSetInNode)?;
 
-        let change_address =
-            AddressEncoder::new(prefix).parse_address_from_str(&change_address_str)?;
-        let unsigned_tx = build_transfer_oracle_token_tx(
-            local_datapoint_box_source,
-            wallet,
-            rewards_destination,
-            current_block_height()? as u32,
-            change_address,
-        )?;
+    let (change_address, network_prefix) = {
+        let a = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
+        (a.address(), a.network())
+    };
+    let unsigned_tx = build_transfer_oracle_token_tx(
+        local_datapoint_box_source,
+        wallet,
+        rewards_destination.address(),
+        current_block_height()? as u32,
+        change_address,
+    )?;
 
+    println!(
+        "YOU WILL BE TRANSFERRING YOUR ORACLE TOKEN TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
+        rewards_destination_str
+    );
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    if input == "YES" {
+        let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
         println!(
-            "YOU WILL BE TRANSFERRING YOUR ORACLE TOKEN TO {}. TYPE 'YES' TO INITIATE THE TRANSACTION.",
-            rewards_destination_str
+            "Transaction made. Check status here: {}",
+            ergo_explorer_transaction_link(tx_id_str, network_prefix)
         );
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        if input == "YES" {
-            let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
-            println!(
-                "Transaction made. Check status here: {}",
-                ergo_explorer_transaction_link(tx_id_str, prefix)
-            );
-        } else {
-            println!("Aborting the transaction.")
-        }
-        Ok(())
     } else {
-        Err(TransferOracleTokenActionError::NoLocalDatapointBox)
+        println!("Aborting the transaction.")
     }
+    Ok(())
 }
 fn build_transfer_oracle_token_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
@@ -114,9 +104,11 @@ fn build_transfer_oracle_token_tx(
     height: u32,
     change_address: Address,
 ) -> Result<UnsignedTransaction, TransferOracleTokenActionError> {
-    let in_oracle_box = local_datapoint_box_source.get_local_oracle_datapoint_box()?;
+    let in_oracle_box = local_datapoint_box_source
+        .get_local_oracle_datapoint_box()?
+        .ok_or(TransferOracleTokenActionError::NoLocalDatapointBox)?;
     let num_reward_tokens = *in_oracle_box.reward_token().amount.as_u64();
-    if num_reward_tokens != 1 {
+    if num_reward_tokens <= 1 {
         return Err(
             TransferOracleTokenActionError::IncorrectNumberOfRewardTokensInOracleBox(
                 num_reward_tokens as usize,
@@ -127,7 +119,7 @@ fn build_transfer_oracle_token_tx(
         let oracle_box_candidate = make_oracle_box_candidate(
             in_oracle_box.contract(),
             p2pk_dest.clone(),
-            in_oracle_box.rate(),
+            in_oracle_box.rate() as i64,
             in_oracle_box.epoch_counter(),
             in_oracle_box.oracle_token(),
             in_oracle_box.reward_token(),
@@ -137,7 +129,7 @@ fn build_transfer_oracle_token_tx(
 
         let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
 
-        let target_balance = BoxValue::SAFE_USER_MIN;
+        let target_balance = *BASE_FEE;
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
@@ -153,7 +145,6 @@ fn build_transfer_oracle_token_tx(
             height,
             target_balance,
             change_address,
-            BoxValue::MIN,
         );
         // The following context value ensures that `outIndex` in the oracle contract is properly set.
         let ctx_ext = ContextExtension {
@@ -169,19 +160,19 @@ fn build_transfer_oracle_token_tx(
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
+
+    use std::convert::TryFrom;
 
     use super::*;
-    use crate::contracts::refresh::RefreshContract;
+    use crate::box_kind::{OracleBoxWrapper, OracleBoxWrapperInputs};
+    use crate::contracts::oracle::OracleContractParameters;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, make_datapoint_box, make_wallet_unspent_box, OracleBoxMock,
-        WalletDataMock,
+        find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
+        OracleBoxMock, WalletDataMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-    use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
-    use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
@@ -190,23 +181,25 @@ mod tests {
     fn test_transfer_oracle_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
-        let reward_token_id = force_any_val::<TokenId>();
-        dbg!(&reward_token_id);
+        let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
-        let oracle_box = make_datapoint_box(
-            *oracle_pub_key,
-            200,
-            1,
-            refresh_contract.oracle_token_id(),
-            Token::from((reward_token_id, 1u64.try_into().unwrap())),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
-            height - 9,
+        let parameters = OracleContractParameters::default();
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::try_from((parameters, &token_ids)).unwrap();
+        let oracle_box = OracleBoxWrapper::new(
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                1,
+                &token_ids,
+                BASE_FEE.checked_mul_u32(100).unwrap(),
+                height - 9,
+            ),
+            &oracle_box_wrapper_inputs,
         )
-        .try_into()
         .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
@@ -217,7 +210,8 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
+            None,
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
@@ -233,6 +227,7 @@ mod tests {
 
         let mut possible_input_boxes = vec![local_datapoint_box_source
             .get_local_oracle_datapoint_box()
+            .unwrap()
             .unwrap()
             .get_box()
             .clone()];

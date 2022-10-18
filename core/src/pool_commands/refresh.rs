@@ -8,6 +8,7 @@ use crate::box_kind::PoolBox;
 use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
+use crate::oracle_config::BASE_FEE;
 use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
@@ -16,11 +17,13 @@ use crate::wallet::WalletDataSource;
 
 use derive_more::From;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
+use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenAmount;
+use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -33,9 +36,13 @@ use thiserror::Error;
 use std::convert::TryInto;
 
 #[derive(Debug, From, Error)]
-pub enum RefrechActionError {
-    #[error("Failed collecting datapoints. The minimum consensus number could not be reached, meaning that an insufficient number of oracles posted datapoints within the deviation range: found {found}, expected {expected}")]
-    FailedToReachConsensus { found: u32, expected: u32 },
+pub enum RefreshActionError {
+    #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys:?},")]
+    FailedToReachConsensus {
+        found_public_keys: Vec<ProveDlog>,
+        found_num: u32,
+        expected: u32,
+    },
     #[error("Not enough datapoints left during the removal of the outliers")]
     NotEnoughDatapoints,
     #[error("stage error: {0}")]
@@ -60,8 +67,9 @@ pub fn build_refresh_action(
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
-) -> Result<RefreshAction, RefrechActionError> {
-    let tx_fee = BoxValue::SAFE_USER_MIN;
+    my_oracle_pk: &EcPoint,
+) -> Result<RefreshAction, RefreshActionError> {
+    let tx_fee = *BASE_FEE;
 
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
@@ -77,16 +85,21 @@ pub fn build_refresh_action(
         .filter(|b| valid_in_oracle_boxes_datapoints.contains(&b.rate()))
         .collect::<Vec<_>>();
     if (valid_in_oracle_boxes.len() as u32) < min_data_points {
-        return Err(RefrechActionError::FailedToReachConsensus {
-            found: valid_in_oracle_boxes.len() as u32,
+        return Err(RefreshActionError::FailedToReachConsensus {
+            found_num: valid_in_oracle_boxes.len() as u32,
             expected: min_data_points,
+            found_public_keys: valid_in_oracle_boxes
+                .iter()
+                .map(|b| b.public_key())
+                .collect(),
         });
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
     let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement)?;
     let out_refresh_box = build_out_refresh_box(&in_refresh_box, height)?;
-    let mut out_oracle_boxes = build_out_oracle_boxes(&valid_in_oracle_boxes, height)?;
+    let mut out_oracle_boxes =
+        build_out_oracle_boxes(&valid_in_oracle_boxes, height, my_oracle_pk)?;
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
@@ -117,7 +130,6 @@ pub fn build_refresh_action(
         height as u32,
         tx_fee,
         change_address,
-        BoxValue::MIN,
     );
     let in_refresh_box_ctx_ext = ContextExtension {
         values: vec![(0, 0i32.into())].into_iter().collect(),
@@ -140,14 +152,14 @@ pub fn build_refresh_action(
 fn filtered_oracle_boxes(
     oracle_boxes: Vec<u64>,
     deviation_range: u32,
-) -> Result<Vec<u64>, RefrechActionError> {
+) -> Result<Vec<u64>, RefreshActionError> {
     let mut successful_boxes = oracle_boxes.clone();
     // The min oracle box's rate must be within deviation_range(5%) of that of the max
     while !deviation_check(deviation_range, &successful_boxes) {
         // Removing largest deviation outlier
         successful_boxes = remove_largest_local_deviation_datapoint(successful_boxes)?;
     }
-    dbg!(&successful_boxes);
+    // dbg!(&successful_boxes);
     Ok(successful_boxes)
 }
 
@@ -163,10 +175,10 @@ fn deviation_check(max_deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool
 /// said datapoint which deviates further.
 fn remove_largest_local_deviation_datapoint(
     datapoint_boxes: Vec<u64>,
-) -> Result<Vec<u64>, RefrechActionError> {
+) -> Result<Vec<u64>, RefreshActionError> {
     // Check if sufficient number of datapoint boxes to start removing
     if datapoint_boxes.len() <= 2 {
-        Err(RefrechActionError::NotEnoughDatapoints)
+        Err(RefreshActionError::NotEnoughDatapoints)
     } else {
         let mean = (datapoint_boxes.iter().sum::<u64>() as f32) / datapoint_boxes.len() as f32;
         let min_datapoint = *datapoint_boxes.iter().min().unwrap();
@@ -199,7 +211,7 @@ fn build_out_pool_box(
     creation_height: u32,
     rate: u64,
     reward_decrement: u64,
-) -> Result<ErgoBoxCandidate, RefrechActionError> {
+) -> Result<ErgoBoxCandidate, RefreshActionError> {
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
     let reward_token = in_pool_box.reward_token();
     let new_reward_token: Token = (
@@ -226,7 +238,7 @@ fn build_out_pool_box(
 fn build_out_refresh_box(
     in_refresh_box: &RefreshBoxWrapper,
     creation_height: u32,
-) -> Result<ErgoBoxCandidate, RefrechActionError> {
+) -> Result<ErgoBoxCandidate, RefreshActionError> {
     make_refresh_box_candidate(
         in_refresh_box.contract(),
         in_refresh_box.refresh_nft_token(),
@@ -239,15 +251,23 @@ fn build_out_refresh_box(
 fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<OracleBoxWrapper>,
     creation_height: u32,
-) -> Result<Vec<ErgoBoxCandidate>, RefrechActionError> {
+    my_public_key: &EcPoint,
+) -> Result<Vec<ErgoBoxCandidate>, RefreshActionError> {
     valid_oracle_boxes
         .iter()
         .map(|in_ob| {
             let mut reward_token_new = in_ob.reward_token();
-            reward_token_new.amount = reward_token_new
-                .amount
-                .checked_add(&1u64.try_into().unwrap())
-                .unwrap();
+            reward_token_new.amount = if in_ob.public_key().h.as_ref() == my_public_key {
+                let increment: TokenAmount =
+                // additional 1 reward token per collected oracle box goes to the collector
+                    (1 + valid_oracle_boxes.len() as u64).try_into().unwrap();
+                reward_token_new.amount.checked_add(&increment).unwrap()
+            } else {
+                reward_token_new
+                    .amount
+                    .checked_add(&1u64.try_into().unwrap())
+                    .unwrap()
+            };
             make_collected_oracle_box_candidate(
                 in_ob.contract(),
                 in_ob.public_key(),
@@ -258,11 +278,12 @@ fn build_out_oracle_boxes(
             )
             .map_err(Into::into)
         })
-        .collect::<Result<Vec<ErgoBoxCandidate>, RefrechActionError>>()
+        .collect::<Result<Vec<ErgoBoxCandidate>, RefreshActionError>>()
 }
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::convert::TryInto;
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
@@ -274,16 +295,23 @@ mod tests {
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
-    use ergo_lib::ergotree_ir::chain::token::TokenId;
     use ergo_lib::wallet::signing::TransactionContext;
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
     use crate::box_kind::OracleBoxWrapper;
+    use crate::box_kind::OracleBoxWrapperInputs;
     use crate::box_kind::RefreshBoxWrapper;
-    use crate::contracts::pool::PoolContract;
+    use crate::box_kind::RefreshBoxWrapperInputs;
+    use crate::contracts::oracle::OracleContractParameters;
+    use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
+    use crate::contracts::refresh::RefreshContractInputs;
+    use crate::contracts::refresh::RefreshContractParameters;
+    use crate::oracle_config::TokenIds;
+    use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::StageError;
+    use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
@@ -316,50 +344,62 @@ mod tests {
     }
 
     fn make_refresh_box(
-        refresh_nft: &TokenId,
         value: BoxValue,
+        inputs: &RefreshBoxWrapperInputs,
         creation_height: u32,
     ) -> RefreshBoxWrapper {
-        let tokens = vec![Token::from((refresh_nft.clone(), 1u64.try_into().unwrap()))]
-            .try_into()
-            .unwrap();
-        ErgoBox::new(
-            value,
-            RefreshContract::new().ergo_tree(),
-            Some(tokens),
-            NonMandatoryRegisters::empty(),
-            creation_height,
-            force_any_val::<TxId>(),
-            0,
-        )
-        .unwrap()
+        let tokens = vec![Token::from((
+            inputs.refresh_nft_token_id.clone(),
+            1u64.try_into().unwrap(),
+        ))]
         .try_into()
+        .unwrap();
+        RefreshBoxWrapper::new(
+            ErgoBox::new(
+                value,
+                RefreshContract::checked_load(&inputs.contract_inputs)
+                    .unwrap()
+                    .ergo_tree(),
+                Some(tokens),
+                NonMandatoryRegisters::empty(),
+                creation_height,
+                force_any_val::<TxId>(),
+                0,
+            )
+            .unwrap(),
+            inputs,
+        )
         .unwrap()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn make_datapoint_boxes(
         pub_keys: Vec<EcPoint>,
         datapoints: Vec<i64>,
         epoch_counter: i32,
-        oracle_token_id: TokenId,
-        reward_token: Token,
         value: BoxValue,
         creation_height: u32,
+        oracle_contract_parameters: &OracleContractParameters,
+        token_ids: &TokenIds,
     ) -> Vec<OracleBoxWrapper> {
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), token_ids))
+                .unwrap();
         datapoints
             .into_iter()
             .zip(pub_keys)
             .map(|(datapoint, pub_key)| {
-                make_datapoint_box(
-                    pub_key.clone(),
-                    datapoint,
-                    epoch_counter,
-                    oracle_token_id.clone(),
-                    reward_token.clone(),
-                    value,
-                    creation_height,
+                OracleBoxWrapper::new(
+                    make_datapoint_box(
+                        pub_key.clone(),
+                        datapoint,
+                        epoch_counter,
+                        token_ids,
+                        value,
+                        creation_height,
+                    ),
+                    &oracle_box_wrapper_inputs,
                 )
-                .try_into()
                 .unwrap()
             })
             .collect()
@@ -369,41 +409,53 @@ mod tests {
     fn test_refresh_pool() {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
-        let refresh_contract = RefreshContract::new();
-        let pool_contract = PoolContract::new();
-        let reward_token_id = force_any_val::<TokenId>();
-        let pool_nft_token_id = refresh_contract.pool_nft_token_id();
-        let refresh_nft = pool_contract.refresh_nft_token_id();
-        dbg!(&reward_token_id);
-        let in_refresh_box = make_refresh_box(&refresh_nft, BoxValue::SAFE_USER_MIN, height - 32);
+        let pool_contract_parameters = PoolContractParameters::default();
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let refresh_contract_parameters = RefreshContractParameters::default();
+        let token_ids = generate_token_ids();
+        dbg!(&token_ids);
+
+        let refresh_contract_inputs = RefreshContractInputs::build_with(
+            refresh_contract_parameters,
+            token_ids.oracle_token_id.clone(),
+            token_ids.pool_nft_token_id.clone(),
+        )
+        .unwrap();
+
+        let inputs = RefreshBoxWrapperInputs {
+            refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
+            contract_inputs: refresh_contract_inputs,
+        };
+        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
             1,
-            pool_nft_token_id,
-            Token::from((reward_token_id.clone(), 100u64.try_into().unwrap())).clone(),
-            BoxValue::SAFE_USER_MIN,
+            *BASE_FEE,
             height - 32, // from previous epoch
+            &pool_contract_parameters,
+            &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
         let oracle_pub_keys = vec![
-            *oracle_pub_key,
+            *oracle_pub_key.clone(),
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
             force_any_val::<EcPoint>(),
         ];
+
         let in_oracle_boxes = make_datapoint_boxes(
             oracle_pub_keys,
             vec![194, 70, 196, 197, 198, 200],
             1,
-            refresh_contract.oracle_token_id(),
-            Token::from((reward_token_id, 5u64.try_into().unwrap())),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(100).unwrap(),
+            BASE_FEE.checked_mul_u32(100).unwrap(),
             height - 9,
+            &oracle_contract_parameters,
+            &token_ids,
         );
 
         let pool_box_mock = PoolBoxMock {
@@ -423,7 +475,8 @@ mod tests {
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
-            BoxValue::SAFE_USER_MIN.checked_mul_u32(10000).unwrap(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
+            None,
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
@@ -437,6 +490,7 @@ mod tests {
             &wallet_mock,
             height,
             change_address,
+            &oracle_pub_key,
         )
         .unwrap();
 

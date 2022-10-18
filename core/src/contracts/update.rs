@@ -1,81 +1,182 @@
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+use base16::DecodeError;
+use derive_more::From;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
+use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::{Literal, TryExtractInto};
-use ergo_lib::ergotree_ir::types::stype::SType;
+use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
+use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
 #[derive(Clone)]
 pub struct UpdateContract {
     ergo_tree: ErgoTree,
+    pool_nft_index: usize,
+    ballot_token_index: usize,
+    min_votes_index: usize,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, From)]
 pub enum UpdateContractError {
     #[error("update contract: failed to get pool NFT from constants")]
     NoPoolNftId,
+    #[error("update contract: unknown pool NFT defined in constants")]
+    UnknownPoolNftId,
     #[error("update contract: failed to get ballot token id from constants")]
     NoBallotTokenId,
-    #[error("update: failed to get minimum votes (must be SInt)")]
-    MinVotesError,
+    #[error("update contract: unknown ballot token id defined in constants")]
+    UnknownBallotTokenId,
+    #[error("update contract: failed to get minimum votes (must be SInt)")]
+    NoMinVotes,
+    #[error(
+        "update contract: unexpected `min votes` value from constants. Expected {expected}, got {actual}"
+    )]
+    MinVotesDiffers { expected: u64, actual: u64 },
+    #[error("update contract: sigma parsing error {0}")]
+    SigmaParsing(SigmaParsingError),
+    #[error("update contract: ergo tree constant error {0:?}")]
+    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("update contract: TryExtractFrom error {0:?}")]
+    TryExtractFrom(TryExtractFromError),
+    #[error("contract error: {1:?}, expected P2S: {0}")]
+    WrappedWithExpectedP2SAddress(String, Box<Self>),
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateContractInputs {
+    contract_parameters: UpdateContractParameters,
+    pub pool_nft_token_id: TokenId,
+    pub ballot_token_id: TokenId,
+}
+
+impl UpdateContractInputs {
+    pub fn build_with(
+        contract_parameters: UpdateContractParameters,
+        pool_nft_token_id: TokenId,
+        ballot_token_id: TokenId,
+    ) -> Result<Self, UpdateContractError> {
+        let inputs_to_create_contract = Self {
+            contract_parameters,
+            pool_nft_token_id,
+            ballot_token_id,
+        };
+        let update_contract = UpdateContract::build_with(&inputs_to_create_contract)?;
+        let new_parameters = update_contract.parameters();
+        Ok(Self {
+            contract_parameters: new_parameters,
+            ..inputs_to_create_contract
+        })
+    }
+
+    pub fn checked_load(
+        contract_parameters: UpdateContractParameters,
+        pool_nft_token_id: TokenId,
+        ballot_token_id: TokenId,
+    ) -> Result<Self, UpdateContractError> {
+        let contract_inputs = Self {
+            contract_parameters,
+            pool_nft_token_id,
+            ballot_token_id,
+        };
+        let _ = UpdateContract::checked_load(&contract_inputs)?;
+        Ok(contract_inputs)
+    }
+
+    pub fn contract_parameters(&self) -> &UpdateContractParameters {
+        &self.contract_parameters
+    }
 }
 
 impl UpdateContract {
-    // from https://wallet.plutomonkey.com/p2s/?source=eyAvLyBUaGlzIGJveCAodXBkYXRlIGJveCk6CiAgICAgICAgIC8vIFJlZ2lzdGVycyBlbXB0eSAKICAgICAgICAgLy8gCiAgICAgICAgIC8vIGJhbGxvdCBib3hlcyAoSW5wdXRzKQogICAgICAgICAvLyBSNCB0aGUgcHViIGtleSBvZiB2b3RlciBbR3JvdXBFbGVtZW50XSAobm90IHVzZWQgaGVyZSkKICAgICAgICAgLy8gUjUgdGhlIGNyZWF0aW9uIGhlaWdodCBvZiB0aGlzIGJveCBbSW50XQogICAgICAgICAvLyBSNiB0aGUgdmFsdWUgdm90ZWQgZm9yIFtDb2xsW0J5dGVdXSAoaGFzaCBvZiB0aGUgbmV3IHBvb2wgYm94IHNjcmlwdCkKICAgICAgICAgLy8gUjcgdGhlIHJld2FyZCB0b2tlbiBpZCBpbiBuZXcgYm94IAogICAgICAgICAvLyBSOCB0aGUgbnVtYmVyIG9mIHJld2FyZCB0b2tlbnMgaW4gbmV3IGJveCAKICAgICAgIAogICAgICAgICB2YWwgcG9vbE5GVCA9IGZyb21CYXNlNjQoIlJ5dExZbEJsVTJoV2JWbHhNM1EyZHpsNkpFTW1SaWxLUUUxalVXWlVhbGM9IikgLy8gVE9ETyByZXBsYWNlIHdpdGggYWN0dWFsIAogICAgICAKICAgICAgICAgdmFsIGJhbGxvdFRva2VuSWQgPSBmcm9tQmFzZTY0KCJQMFFvUnkxTFlWQmtVMmRXYTFsd00zTTJkamw1SkVJbVJTbElRRTFpVVdVPSIpIC8vIFRPRE8gcmVwbGFjZSB3aXRoIGFjdHVhbCAKICAgICAgIAogICAgICAgICB2YWwgbWluVm90ZXMgPSA2IC8vIFRPRE8gcmVwbGFjZSB3aXRoIGFjdHVhbAogICAgICAgICAKICAgICAgICAgdmFsIHBvb2xJbiA9IElOUFVUUygwKSAvLyBwb29sIGJveCBpcyAxc3QgaW5wdXQKICAgICAgICAgdmFsIHBvb2xPdXQgPSBPVVRQVVRTKDApIC8vIGNvcHkgb2YgcG9vbCBib3ggaXMgdGhlIDFzdCBvdXRwdXQKICAgICAgIAogICAgICAgICB2YWwgdXBkYXRlQm94T3V0ID0gT1VUUFVUUygxKSAvLyBjb3B5IG9mIHRoaXMgYm94IGlzIHRoZSAybmQgb3V0cHV0CiAgICAgICAKICAgICAgICAgLy8gY29tcHV0ZSB0aGUgaGFzaCBvZiB0aGUgcG9vbCBvdXRwdXQgYm94LiBUaGlzIHNob3VsZCBiZSB0aGUgdmFsdWUgdm90ZWQgZm9yCiAgICAgICAgIHZhbCBwb29sT3V0SGFzaCA9IGJsYWtlMmIyNTYocG9vbE91dC5wcm9wb3NpdGlvbkJ5dGVzKQogICAgICAgICB2YWwgcmV3YXJkVG9rZW5JZCA9IHBvb2xPdXQudG9rZW5zKDEpLl8xCiAgICAgICAgIHZhbCByZXdhcmRBbXQgPSBwb29sT3V0LnRva2VucygxKS5fMgogICAgICAgICAKICAgICAgICAgdmFsIHZhbGlkUG9vbEluID0gcG9vbEluLnRva2VucygwKS5fMSA9PSBwb29sTkZUCiAgICAgICAgIAogICAgICAgICB2YWwgdmFsaWRQb29sT3V0ID0gcG9vbEluLnByb3Bvc2l0aW9uQnl0ZXMgIT0gcG9vbE91dC5wcm9wb3NpdGlvbkJ5dGVzICAmJiAvLyBzY3JpcHQgc2hvdWxkIG5vdCBiZSBwcmVzZXJ2ZWQKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBvb2xJbi50b2tlbnMoMCkgPT0gcG9vbE91dC50b2tlbnMoMCkgICAgICAgICAgICAgICAgJiYgLy8gTkZUIHByZXNlcnZlZAogICAgICAgICAgICAgICAgICAgICAgICAgICAgcG9vbEluLmNyZWF0aW9uSW5mby5fMSA9PSBwb29sT3V0LmNyZWF0aW9uSW5mby5fMSAgICAmJiAvLyBjcmVhdGlvbiBoZWlnaHQgcHJlc2VydmVkCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBwb29sSW4udmFsdWUgPT0gcG9vbE91dC52YWx1ZSAgICAgICAgICAgICAgICAgICAgICAgICYmIC8vIHZhbHVlIHByZXNlcnZlZCAKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBvb2xJbi5SNFtMb25nXSA9PSBwb29sT3V0LlI0W0xvbmddICAgICAgICAgICAgICAgICAgJiYgLy8gcmF0ZSBwcmVzZXJ2ZWQgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgcG9vbEluLlI1W0ludF0gPT0gcG9vbE91dC5SNVtJbnRdICAgICAgICAgICAgICAgICAgICAmJiAvLyBjb3VudGVyIHByZXNlcnZlZAogICAgICAgICAgICAgICAgICAgICAgICAgICAgISAocG9vbE91dC5SNltBbnldLmlzRGVmaW5lZCkKICAgICAgIAogICAgICAgICAKICAgICAgICAgdmFsIHZhbGlkVXBkYXRlT3V0ID0gdXBkYXRlQm94T3V0LnRva2VucyA9PSBTRUxGLnRva2VucyAgICAgICAgICAgICAgICAgICAgICYmCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHVwZGF0ZUJveE91dC5wcm9wb3NpdGlvbkJ5dGVzID09IFNFTEYucHJvcG9zaXRpb25CeXRlcyAmJgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1cGRhdGVCb3hPdXQudmFsdWUgPj0gU0VMRi52YWx1ZSAgICAgICAgICAgICAgICAgICAgICAgJiYKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlQm94T3V0LmNyZWF0aW9uSW5mby5fMSA+IFNFTEYuY3JlYXRpb25JbmZvLl8xICAgICYmCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICEgKHVwZGF0ZUJveE91dC5SNFtBbnldLmlzRGVmaW5lZCkgCiAgICAgICAKICAgICAgICAgZGVmIGlzVmFsaWRCYWxsb3QoYjpCb3gpID0gaWYgKGIudG9rZW5zLnNpemUgPiAwKSB7CiAgICAgICAgICAgYi50b2tlbnMoMCkuXzEgPT0gYmFsbG90VG9rZW5JZCAgICAgICAmJgogICAgICAgICAgIGIuUjVbSW50XS5nZXQgPT0gU0VMRi5jcmVhdGlvbkluZm8uXzEgJiYgLy8gZW5zdXJlIHZvdGUgY29ycmVzcG9uZHMgdG8gdGhpcyBib3ggYnkgY2hlY2tpbmcgY3JlYXRpb24gaGVpZ2h0CiAgICAgICAgICAgYi5SNltDb2xsW0J5dGVdXS5nZXQgPT0gcG9vbE91dEhhc2ggICAmJiAvLyBjaGVjayBwcm9wb3NpdGlvbiB2b3RlZCBmb3IKICAgICAgICAgICBiLlI3W0NvbGxbQnl0ZV1dLmdldCA9PSByZXdhcmRUb2tlbklkICYmIC8vIGNoZWNrIHJld2FyZFRva2VuSWQgdm90ZWQgZm9yCiAgICAgICAgICAgYi5SOFtMb25nXS5nZXQgPT0gcmV3YXJkQW10ICAgICAgICAgICAgICAvLyBjaGVjayByZXdhcmRUb2tlbkFtdCB2b3RlZCBmb3IKICAgICAgICAgfSBlbHNlIGZhbHNlCiAgICAgICAgIAogICAgICAgICB2YWwgYmFsbG90Qm94ZXMgPSBJTlBVVFMuZmlsdGVyKGlzVmFsaWRCYWxsb3QpCiAgICAgICAgIAogICAgICAgICB2YWwgdm90ZXNDb3VudCA9IGJhbGxvdEJveGVzLmZvbGQoMEwsIHsoYWNjdW06IExvbmcsIGI6IEJveCkgPT4gYWNjdW0gKyBiLnRva2VucygwKS5fMn0pCiAgICAgICAgIAogICAgICAgICBzaWdtYVByb3AodmFsaWRQb29sSW4gJiYgdmFsaWRQb29sT3V0ICYmIHZhbGlkVXBkYXRlT3V0ICYmIHZvdGVzQ291bnQgPj0gbWluVm90ZXMpICAKICAgICAgIH0KICAgICAgIA==
-    const P2S: &'static str = "RGQjcwtwcPBVwTFZMaGyo471kgwcwtMjrUy41RqWhAtY2ovdKAQ2Ce3cUaF6S7LGMrV3boM5rGKR5K2vjyheDXtVuEoUpZefQ2qa7H8MPBaYfAWqttNpyp5A1GfYviWfSbbEsbUSptgUMHH9MTLCnkvQdfxtC9HvKX8gJdaJBhEF4KHUBDVcsuMX33vcqi7Y5voEjunnmgvbpcYBG6HAkZtz15uXh1TskFpumFDgqwMbExapeRRXbq3EjuVAqEeoibastYMLrZ1evAq1bZP9mFoQRd15kUgBHvRQLwHJzdcRSz1pCM6UXTsna599VQBCiqKRZ9iCDffeUGuvjJBgzm5gouMCpaEc6LJn5Z2ta5MFAvQpd1MhtvTBL6X6NFKbYJxNWFK7igqbf9nDtbkcrUjRD2LKeqEapNRbLnxyMd6Dd5nMKZLuthkgsK3BSmN4YKh2S94wNE5PRDM1FULTg1RC7tFvRV5aKmcKD25M7qYwXwLqWoRPCk7C8CqCdSHT2cJTM3RAx6xSbt5Cq";
-    const POOL_NFT_INDEX: usize = 5;
-    const BALLOT_TOKEN_INDEX: usize = 9;
-    const MIN_VOTES_INDEX: usize = 13;
-
-    pub fn new() -> Self {
-        let encoder = AddressEncoder::new(NetworkPrefix::Mainnet);
-        let addr = encoder.parse_address_from_str(Self::P2S).unwrap();
-        let ergo_tree = addr.script().unwrap();
-        Self::from_ergo_tree(ergo_tree).unwrap()
+    fn build_with(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
+                .with_constant(
+                    inputs.contract_parameters.pool_nft_index,
+                    inputs.pool_nft_token_id.clone().into(),
+                )?
+                .with_constant(
+                    inputs.contract_parameters.ballot_token_index,
+                    inputs.ballot_token_id.clone().into(),
+                )?
+                .with_constant(
+                    inputs.contract_parameters.min_votes_index,
+                    (inputs.contract_parameters.min_votes as i32).into(),
+                )?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
+        Ok(contract)
     }
-    pub fn from_ergo_tree(ergo_tree: ErgoTree) -> Result<Self, UpdateContractError> {
-        dbg!(ergo_tree.get_constants().unwrap());
-        if ergo_tree
-            .get_constant(Self::POOL_NFT_INDEX)
+
+    pub fn checked_load(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
+        let ergo_tree =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
+        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+            let expected_base16 = Self::build_with(inputs)
+                .unwrap()
+                .ergo_tree
+                .to_base16_bytes()
+                .unwrap();
+            UpdateContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
+        })?;
+        Ok(contract)
+    }
+    pub fn from_ergo_tree(
+        ergo_tree: ErgoTree,
+        inputs: &UpdateContractInputs,
+    ) -> Result<Self, UpdateContractError> {
+        // dbg!(ergo_tree.get_constants().unwrap());
+        let pool_nft_token_id = ergo_tree
+            .get_constant(inputs.contract_parameters.pool_nft_index)
             .map_err(|_| UpdateContractError::NoPoolNftId)?
             .ok_or(UpdateContractError::NoPoolNftId)?
-            .try_extract_into::<TokenId>()
-            .is_err()
-        {
-            return Err(UpdateContractError::NoPoolNftId);
+            .try_extract_into::<TokenId>()?;
+        if pool_nft_token_id != inputs.pool_nft_token_id {
+            return Err(UpdateContractError::UnknownPoolNftId);
         };
 
-        if ergo_tree
-            .get_constant(Self::BALLOT_TOKEN_INDEX)
+        let ballot_token_id = ergo_tree
+            .get_constant(inputs.contract_parameters.ballot_token_index)
             .map_err(|_| UpdateContractError::NoBallotTokenId)?
             .ok_or(UpdateContractError::NoBallotTokenId)?
-            .try_extract_into::<TokenId>()
-            .is_err()
-        {
-            return Err(UpdateContractError::NoBallotTokenId);
+            .try_extract_into::<TokenId>()?;
+        if ballot_token_id != inputs.ballot_token_id {
+            return Err(UpdateContractError::UnknownBallotTokenId);
         };
-        if ergo_tree
-            .get_constant(Self::MIN_VOTES_INDEX)
-            .map_err(|_| UpdateContractError::MinVotesError)?
-            .ok_or(UpdateContractError::MinVotesError)?
-            .tpe
-            != SType::SInt
-        {
-            return Err(UpdateContractError::MinVotesError);
+
+        let min_votes = ergo_tree
+            .get_constant(inputs.contract_parameters.min_votes_index)
+            .map_err(|_| UpdateContractError::NoMinVotes)?
+            .ok_or(UpdateContractError::NoMinVotes)?
+            .try_extract_into::<i32>()? as u64;
+        if min_votes != inputs.contract_parameters.min_votes {
+            return Err(UpdateContractError::MinVotesDiffers {
+                expected: inputs.contract_parameters.min_votes,
+                actual: min_votes,
+            });
         };
-        Ok(Self { ergo_tree })
+        Ok(Self {
+            ergo_tree,
+            pool_nft_index: inputs.contract_parameters.pool_nft_index,
+            ballot_token_index: inputs.contract_parameters.ballot_token_index,
+            min_votes_index: inputs.contract_parameters.min_votes_index,
+        })
     }
 
-    pub fn min_votes(&self) -> i32 {
+    pub fn ergo_tree(&self) -> ErgoTree {
+        self.ergo_tree.clone()
+    }
+
+    pub fn min_votes(&self) -> u64 {
         let vote_constant = self
             .ergo_tree
-            .get_constant(Self::MIN_VOTES_INDEX)
+            .get_constant(self.min_votes_index)
             .unwrap()
             .unwrap();
         if let Literal::Int(votes) = vote_constant.v {
-            votes
+            votes as u64
         } else {
             panic!(
                 "update: minimum votes is wrong type, expected SInt, found {:?}",
@@ -83,75 +184,205 @@ impl UpdateContract {
             );
         }
     }
-    pub fn with_min_votes(self, min_votes: i32) -> Self {
-        let tree = self
-            .ergo_tree
-            .with_constant(Self::MIN_VOTES_INDEX, min_votes.into())
-            .unwrap();
-        UpdateContract { ergo_tree: tree }
-    }
+
     pub fn pool_nft_token_id(&self) -> TokenId {
         self.ergo_tree
-            .get_constant(Self::POOL_NFT_INDEX)
+            .get_constant(self.pool_nft_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap()
-    }
-    pub fn with_pool_nft_token_id(self, token_id: TokenId) -> Self {
-        let tree = self
-            .ergo_tree
-            .with_constant(Self::POOL_NFT_INDEX, token_id.clone().into())
-            .unwrap();
-        Self { ergo_tree: tree }
     }
 
     pub fn ballot_token_id(&self) -> TokenId {
         self.ergo_tree
-            .get_constant(Self::BALLOT_TOKEN_INDEX)
+            .get_constant(self.ballot_token_index)
             .unwrap()
             .unwrap()
             .try_extract_into::<TokenId>()
             .unwrap()
     }
-    pub fn with_ballot_token_id(self, token_id: TokenId) -> Self {
-        let tree = self
-            .ergo_tree
-            .with_constant(Self::BALLOT_TOKEN_INDEX, token_id.clone().into())
-            .unwrap();
-        Self { ergo_tree: tree }
+
+    pub fn parameters(&self) -> UpdateContractParameters {
+        UpdateContractParameters {
+            ergo_tree_bytes: self.ergo_tree.sigma_serialize_bytes().unwrap(),
+            pool_nft_index: self.pool_nft_index,
+            ballot_token_index: self.ballot_token_index,
+            min_votes_index: self.min_votes_index,
+            min_votes: self.min_votes(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Parameters for the update contract
+pub struct UpdateContractParameters {
+    ergo_tree_bytes: Vec<u8>,
+    pool_nft_index: usize,
+    ballot_token_index: usize,
+    min_votes_index: usize,
+    min_votes: u64,
+}
+
+#[derive(Debug, Error, From)]
+pub enum UpdateContractParametersError {
+    #[error("update contract parameters: failed to get pool NFT from constants")]
+    NoPoolNftId,
+    #[error("update contract parameters: failed to get ballot token id from constants")]
+    NoBallotTokenId,
+    #[error("update contract parameters: sigma parsing error {0}")]
+    SigmaParsing(SigmaParsingError),
+    #[error("update contract parameters: failed to get minimum votes (must be SInt)")]
+    NoMinVotes,
+    #[error(
+        "update contract parameters: unexpected `min votes` value from constants. Expected {expected}, got {actual}"
+    )]
+    MinVotesDiffers { expected: u64, actual: u64 },
+    #[error("update contract parameters: TryExtractFrom error {0:?}")]
+    TryExtractFrom(TryExtractFromError),
+    #[error("update contract parameters: ergo tree constant error {0:?}")]
+    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("update contract parameters: sigma serialization error {0}")]
+    SigmaSerialization(SigmaSerializationError),
+    #[error("update contract parameters: base16 decoding error {0}")]
+    Decode(DecodeError),
+}
+
+impl UpdateContractParameters {
+    pub fn build_with(
+        ergo_tree_bytes: Vec<u8>,
+        pool_nft_index: usize,
+        ballot_token_index: usize,
+        min_votes_index: usize,
+        min_votes: u64,
+    ) -> Result<Self, UpdateContractParametersError> {
+        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?
+            .with_constant(min_votes_index, (min_votes as i32).into())
+            .map_err(UpdateContractParametersError::ErgoTreeConstant)?;
+        let _pool_nft = ergo_tree
+            .get_constant(pool_nft_index)
+            .map_err(|_| UpdateContractParametersError::NoPoolNftId)?
+            .ok_or(UpdateContractParametersError::NoPoolNftId)?
+            .try_extract_into::<TokenId>()?;
+        let _ballot_token = ergo_tree
+            .get_constant(ballot_token_index)
+            .map_err(|_| UpdateContractParametersError::NoBallotTokenId)?
+            .ok_or(UpdateContractParametersError::NoBallotTokenId)?
+            .try_extract_into::<TokenId>()?;
+        Ok(Self {
+            ergo_tree_bytes: base16::decode(&ergo_tree.to_base16_bytes()?)?,
+            pool_nft_index,
+            ballot_token_index,
+            min_votes_index,
+            min_votes,
+        })
+    }
+
+    pub fn checked_load(
+        ergo_tree_bytes: Vec<u8>,
+        pool_nft_index: usize,
+        ballot_token_index: usize,
+        min_votes_index: usize,
+        min_votes: u64,
+    ) -> Result<Self, UpdateContractParametersError> {
+        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
+        let min_votes_ergo_tree = ergo_tree
+            .get_constant(min_votes_index)
+            .map_err(|_| UpdateContractParametersError::NoMinVotes)?
+            .ok_or(UpdateContractParametersError::NoMinVotes)?
+            .try_extract_into::<i32>()? as u64;
+
+        if min_votes != min_votes_ergo_tree {
+            return Err(UpdateContractParametersError::MinVotesDiffers {
+                expected: min_votes,
+                actual: min_votes_ergo_tree,
+            });
+        }
+
+        let _pool_nft = ergo_tree
+            .get_constant(pool_nft_index)
+            .map_err(|_| UpdateContractParametersError::NoPoolNftId)?
+            .ok_or(UpdateContractParametersError::NoPoolNftId)?
+            .try_extract_into::<TokenId>()?;
+
+        let _ballot_token = ergo_tree
+            .get_constant(ballot_token_index)
+            .map_err(|_| UpdateContractParametersError::NoBallotTokenId)?
+            .ok_or(UpdateContractParametersError::NoBallotTokenId)?
+            .try_extract_into::<TokenId>()?;
+
+        Ok(Self {
+            ergo_tree_bytes,
+            pool_nft_index,
+            ballot_token_index,
+            min_votes_index,
+            min_votes,
+        })
+    }
+
+    pub fn ergo_tree_bytes(&self) -> Vec<u8> {
+        self.ergo_tree_bytes.clone()
+    }
+
+    pub fn pool_nft_index(&self) -> usize {
+        self.pool_nft_index
+    }
+
+    pub fn ballot_token_index(&self) -> usize {
+        self.ballot_token_index
+    }
+
+    pub fn min_votes_index(&self) -> usize {
+        self.min_votes_index
+    }
+
+    pub fn min_votes(&self) -> u64 {
+        self.min_votes
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use crate::pool_commands::test_utils::generate_token_ids;
+
     use super::*;
 
     #[test]
     fn test_constant_parsing() {
-        let c = UpdateContract::new();
-        assert_eq!(
-            c.pool_nft_token_id(),
-            TokenId::from_base64("RytLYlBlU2hWbVlxM3Q2dzl6JEMmRilKQE1jUWZUalc").unwrap()
-        );
-        assert_eq!(
-            c.ballot_token_id(),
-            TokenId::from_base64("P0QoRy1LYVBkU2dWa1lwM3M2djl5JEImRSlIQE1iUWU").unwrap()
-        );
-        assert_eq!(c.min_votes(), 6);
+        let parameters = UpdateContractParameters::default();
+        let token_ids = generate_token_ids();
+        let inputs = UpdateContractInputs {
+            contract_parameters: parameters.clone(),
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+            ballot_token_id: token_ids.ballot_token_id.clone(),
+        };
+        let c = UpdateContract::build_with(&inputs).unwrap();
+        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(c.min_votes(), parameters.min_votes);
     }
+
     #[test]
-    fn test_constant_update() {
-        let new_pool_nft_token_id =
-            TokenId::from_base64("RYTLYLBLU2HWBVLXM3Q2dzl6JEMmRilKQE1jUWZUalc").unwrap();
-        let new_ballot_token_id =
-            TokenId::from_base64("P0QORY1LYVBKU2dWa1lwM3M2djl5JEImRSlIQE1iUWU").unwrap();
-        let c = UpdateContract::new()
-            .with_min_votes(7)
-            .with_ballot_token_id(new_ballot_token_id.clone())
-            .with_pool_nft_token_id(new_pool_nft_token_id.clone());
-        assert_eq!(c.min_votes(), 7);
-        assert_eq!(c.ballot_token_id(), new_ballot_token_id);
-        assert_eq!(c.pool_nft_token_id(), new_pool_nft_token_id);
+    fn test_build_with() {
+        let default_parameters = UpdateContractParameters::default();
+        let new_parameters = UpdateContractParameters::build_with(
+            default_parameters.ergo_tree_bytes(),
+            default_parameters.pool_nft_index(),
+            default_parameters.ballot_token_index(),
+            default_parameters.min_votes_index(),
+            default_parameters.min_votes() + 1,
+        )
+        .unwrap();
+        let token_ids = generate_token_ids();
+        let inputs = UpdateContractInputs {
+            contract_parameters: new_parameters.clone(),
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+            ballot_token_id: token_ids.ballot_token_id.clone(),
+        };
+        let c = UpdateContract::build_with(&inputs).unwrap();
+        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(c.min_votes(), new_parameters.min_votes);
     }
 }
