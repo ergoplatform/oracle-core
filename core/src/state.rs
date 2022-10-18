@@ -33,9 +33,11 @@ pub fn process(
                     Collected { height: _ } => {
                         Some(PoolCommand::PublishSubsequentDataPoint { republish: false })
                     }
-                    Posted { epoch_id, height } => {
-                        if height < current_height - epoch_length && epoch_id == live_epoch.epoch_id
-                        {
+                    Posted {
+                        epoch_id: _,
+                        height,
+                    } => {
+                        if height < current_height - epoch_length {
                             Some(PoolCommand::PublishSubsequentDataPoint { republish: true })
                         } else if current_height >= live_epoch.latest_pool_box_height + epoch_length
                         {

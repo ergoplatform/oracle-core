@@ -160,7 +160,7 @@ pub struct UpdateBoxScan<'a> {
 /// The state of the oracle pool when it is in the Live Epoch stage
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
-    pub epoch_id: u32,
+    pub pool_box_epoch_id: u32,
     // TODO: newtypes fo epoch id, height, datapoint
     pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
@@ -288,7 +288,7 @@ impl<'a> OraclePool<'a> {
         let latest_pool_datapoint = pool_box.rate() as u64;
 
         let epoch_state = LiveEpochState {
-            epoch_id,
+            pool_box_epoch_id: epoch_id,
             latest_pool_datapoint,
             latest_pool_box_height: pool_box.get_box().creation_height,
             local_datapoint_box_state,
