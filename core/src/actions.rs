@@ -54,14 +54,12 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
 }
 
 fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
-    log::debug!("Executing refresh action: {:?}", action);
     let tx_id = sign_and_submit_transaction(&action.tx)?;
     log::info!("Refresh action executed successfully, tx id: {}", tx_id);
     Ok(())
 }
 
 fn execute_publish_datapoint_action(action: PublishDataPointAction) -> Result<(), ActionExecError> {
-    log::debug!("Executing publish datapoint action: {:?}", action);
     let tx_id = sign_and_submit_transaction(&action.tx)?;
     log::info!("Datapoint published successfully, tx id: {}", tx_id);
     Ok(())
