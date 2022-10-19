@@ -75,7 +75,7 @@ pub fn build_action(
         )
         .map_err(Into::into)
         .map(Into::into),
-        PoolCommand::PublishSubsequentDataPoint { republish } => {
+        PoolCommand::PublishSubsequentDataPoint { republish: _ } => {
             if let Some(local_datapoint_box) = op
                 .get_local_datapoint_box_source()
                 .get_local_oracle_datapoint_box()?
