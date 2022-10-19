@@ -20,6 +20,7 @@ pub fn process(
     epoch_length: u32,
     current_height: u32,
 ) -> Option<PoolCommand> {
+    let min_start_height = current_height - epoch_length;
     match pool_state {
         PoolState::NeedsBootstrap => {
             log::warn!(
@@ -35,11 +36,10 @@ pub fn process(
                         Some(PoolCommand::PublishSubsequentDataPoint { republish: false })
                     }
                     Posted { epoch_id, height } => {
-                        if height < current_height - epoch_length
-                            || epoch_id != live_epoch.pool_box_epoch_id
-                        {
+                        if height < min_start_height || epoch_id != live_epoch.pool_box_epoch_id {
                             Some(PoolCommand::PublishSubsequentDataPoint { republish: true })
-                        } else if current_height >= live_epoch.latest_pool_box_height + epoch_length
+                        } else if live_epoch.latest_pool_box_height < min_start_height
+                            && epoch_id == live_epoch.pool_box_epoch_id
                         {
                             Some(PoolCommand::Refresh)
                         } else {
