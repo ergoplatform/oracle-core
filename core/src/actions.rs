@@ -55,7 +55,7 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
 
 fn execute_refresh_action(action: RefreshAction) -> Result<(), ActionExecError> {
     let tx_id = sign_and_submit_transaction(&action.tx)?;
-    log::info!("Refresh action executed successfully, tx id: {}", tx_id);
+    log::info!("Refresh tx published successfully, tx id: {}", tx_id);
     Ok(())
 }
 

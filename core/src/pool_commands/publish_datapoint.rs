@@ -238,10 +238,11 @@ mod tests {
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = OracleContractParameters::default();
         let pool_contract_parameters = PoolContractParameters::default();
+        let pool_box_epoch_id = 1;
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
-            1,
+            pool_box_epoch_id,
             *BASE_FEE,
             height - 32, // from previous epoch
             &pool_contract_parameters,
@@ -261,7 +262,7 @@ mod tests {
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
-                1,
+                pool_box_epoch_id - 1,
                 &token_ids,
                 oracle_box_wrapper_inputs
                     .contract_inputs
@@ -294,7 +295,7 @@ mod tests {
             height,
             change_address.clone(),
             &datapoint_source,
-            2,
+            pool_box_epoch_id as u32,
             datapoint_source.datapoint - 1,
         )
         .unwrap();
@@ -314,26 +315,25 @@ mod tests {
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
 
-        // epoch id is not incremented
-        let action_republish = build_subsequent_publish_datapoint_action(
-            &oracle_box,
-            &wallet_mock,
-            height,
-            change_address,
-            &datapoint_source,
-            1,
-            datapoint_source.datapoint - 1,
-        )
-        .unwrap();
-        let tx_context_republish = TransactionContext::new(
-            action_republish.tx.clone(),
-            find_input_boxes(action_republish.tx, possible_input_boxes),
-            Vec::new(),
-        )
-        .unwrap();
-        let _signed_tx_republish = wallet
-            .sign_transaction(tx_context_republish, &ctx, None)
-            .unwrap();
+        // let action_republish = build_subsequent_publish_datapoint_action(
+        //     &oracle_box,
+        //     &wallet_mock,
+        //     height,
+        //     change_address,
+        //     &datapoint_source,
+        //     pool_box_epoch_id as u32,
+        //     datapoint_source.datapoint - 1,
+        // )
+        // .unwrap();
+        // let tx_context_republish = TransactionContext::new(
+        //     action_republish.tx.clone(),
+        //     find_input_boxes(action_republish.tx, possible_input_boxes),
+        //     Vec::new(),
+        // )
+        // .unwrap();
+        // let _signed_tx_republish = wallet
+        //     .sign_transaction(tx_context_republish, &ctx, None)
+        //     .unwrap();
     }
 
     #[test]

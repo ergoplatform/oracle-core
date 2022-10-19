@@ -28,16 +28,16 @@ pub fn process(
             None
         }
         PoolState::LiveEpoch(live_epoch) => {
+            log::debug!("Height {current_height}. Live epoch state: {live_epoch:?}");
             if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
                 match local_datapoint_box_state {
                     Collected { height: _ } => {
                         Some(PoolCommand::PublishSubsequentDataPoint { republish: false })
                     }
-                    Posted {
-                        epoch_id: _,
-                        height,
-                    } => {
-                        if height < current_height - epoch_length {
+                    Posted { epoch_id, height } => {
+                        if height < current_height - epoch_length
+                            || epoch_id != live_epoch.pool_box_epoch_id
+                        {
                             Some(PoolCommand::PublishSubsequentDataPoint { republish: true })
                         } else if current_height >= live_epoch.latest_pool_box_height + epoch_length
                         {

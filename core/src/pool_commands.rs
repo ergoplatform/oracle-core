@@ -80,7 +80,7 @@ pub fn build_action(
                 .get_local_datapoint_box_source()
                 .get_local_oracle_datapoint_box()?
             {
-                let new_epoch_counter = current_epoch_counter + 1;
+                let new_epoch_counter = current_epoch_counter;
                 build_subsequent_publish_datapoint_action(
                     &local_datapoint_box,
                     wallet,

@@ -53,13 +53,13 @@ pub enum OracleBoxError {
     ExpectedPostedOracleBox,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostedOracleBox {
     ergo_box: ErgoBox,
     contract: OracleContract,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CollectedOracleBox {
     ergo_box: ErgoBox,
     contract: OracleContract,

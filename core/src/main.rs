@@ -404,5 +404,6 @@ fn log_on_launch() {
     log::info!("{}", APP_VERSION);
     if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
         log::info!("Token ids: {:?}", config.token_ids);
+        log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
 }

@@ -96,9 +96,7 @@ pub fn get_serialized_highest_value_unspent_box() -> Result<String> {
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
 pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
-    let res = new_node_interface().scan_boxes(scan_id);
-    debug!("Scan boxes: {:?}", res);
-    res
+    new_node_interface().scan_boxes(scan_id)
 }
 
 pub fn rescan_from_height(height: u32) -> Result<()> {

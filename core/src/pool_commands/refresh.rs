@@ -69,18 +69,22 @@ pub fn build_refresh_action(
     my_oracle_pk: &EcPoint,
 ) -> Result<RefreshAction, RefreshActionError> {
     let tx_fee = *BASE_FEE;
-
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
     let min_start_height = height - in_refresh_box.contract().epoch_length() as u32;
+    let in_pool_box_epoch_id = in_pool_box.epoch_counter();
     let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src
         .get_oracle_datapoint_boxes()?
         .into_iter()
-        .filter(|b| b.get_box().creation_height > min_start_height)
+        .filter(|b| {
+            b.get_box().creation_height > min_start_height
+                && b.epoch_counter() == in_pool_box_epoch_id
+        })
         .collect();
+    // log::info!("Building refresh action {:?}", in_oracle_boxes);
     let deviation_range = max_deviation_percent;
     in_oracle_boxes.sort_by_key(|b| b.rate());
-    let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes(
+    let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes_by_rate(
         in_oracle_boxes.iter().map(|b| b.rate()).collect(),
         deviation_range,
     )?;
@@ -160,7 +164,7 @@ pub fn build_refresh_action(
     Ok(RefreshAction { tx })
 }
 
-fn filtered_oracle_boxes(
+fn filtered_oracle_boxes_by_rate(
     oracle_boxes: Vec<u64>,
     deviation_range: u32,
 ) -> Result<Vec<u64>, RefreshActionError> {
@@ -440,10 +444,11 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
+        let pool_box_epoch_id = 1;
         let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
-            1,
+            pool_box_epoch_id,
             *BASE_FEE,
             height - 32, // from previous epoch
             &pool_contract_parameters,
@@ -463,14 +468,19 @@ mod tests {
         ];
 
         let in_oracle_boxes = make_datapoint_boxes(
-            oracle_pub_keys,
+            oracle_pub_keys.clone(),
             vec![199, 70, 196, 197, 198, 200],
-            1,
+            pool_box_epoch_id,
             BASE_FEE.checked_mul_u32(100).unwrap(),
             height - 9,
             &oracle_contract_parameters,
             &token_ids,
         );
+        let mut in_oracle_boxes_raw: Vec<ErgoBox> = in_oracle_boxes
+            .clone()
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         let pool_box_mock = PoolBoxMock {
             pool_box: in_pool_box,
@@ -483,10 +493,6 @@ mod tests {
             AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
-        let datapoint_stage_mock = DatapointStageMock {
-            datapoints: in_oracle_boxes.clone(),
-        };
-
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
             BASE_FEE.checked_mul_u32(10000).unwrap(),
@@ -498,12 +504,14 @@ mod tests {
         let action = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
-            &datapoint_stage_mock,
+            &(DatapointStageMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
             5,
             4,
             &wallet_mock,
             height,
-            change_address,
+            change_address.clone(),
             &oracle_pub_key,
         )
         .unwrap();
@@ -516,8 +524,6 @@ mod tests {
                 .get_box()
                 .clone(),
         ];
-        let mut in_oracle_boxes_raw: Vec<ErgoBox> =
-            in_oracle_boxes.into_iter().map(Into::into).collect();
         possible_input_boxes.append(&mut in_oracle_boxes_raw);
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
@@ -529,28 +535,54 @@ mod tests {
         .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+
+        assert!(
+            build_refresh_action(
+                &pool_box_mock,
+                &refresh_box_mock,
+                &(DatapointStageMock {
+                    datapoints: make_datapoint_boxes(
+                        oracle_pub_keys,
+                        vec![199, 70, 196, 197, 198, 200],
+                        pool_box_epoch_id + 1,
+                        BASE_FEE.checked_mul_u32(100).unwrap(),
+                        height - 9,
+                        &oracle_contract_parameters,
+                        &token_ids,
+                    ),
+                }),
+                5,
+                4,
+                &wallet_mock,
+                height,
+                change_address,
+                &oracle_pub_key,
+            )
+            .is_err(),
+            "oracle boxes with epoch id different from pool box epoch id should not be accepted"
+        );
     }
 
     #[test]
     fn test_oracle_deviation_check() {
         assert_eq!(
-            filtered_oracle_boxes(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![70, 95, 96, 97, 98, 99, 200], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![70, 95, 96, 97, 98, 99, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![70, 95, 96, 97, 98, 99], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![70, 95, 96, 97, 98, 99], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![70, 70, 95, 96, 97, 98, 99], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![70, 70, 95, 96, 97, 98, 99], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![95, 96, 97, 98, 99, 200, 200], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![95, 96, 97, 98, 99, 200, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
     }
