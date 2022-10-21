@@ -44,9 +44,7 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
             if msg.as_str() == "Double spending attempt"
                 || msg.contains("it is invalidated earlier or the pool is full") =>
         {
-            log::info!(
-                "Node rejected tx, probably due to our previous tx is still in the mempool)"
-            );
+            log::info!("Node rejected tx, probably, due to this tx is already in the mempool)");
             Ok(())
         }
         Err(e) => Err(e),
