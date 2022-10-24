@@ -7,7 +7,6 @@ pub struct EpochState {
     epoch_start_height: u64,
 }
 
-// TODO: remove NeedsBootstrap and use LiveEpochState?
 /// Enum for the state that the oracle pool is currently in
 #[derive(Debug, Clone)]
 pub enum PoolState {

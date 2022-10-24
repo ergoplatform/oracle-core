@@ -264,7 +264,6 @@ pub fn register_ballot_box_scan(
     Scan::register("Ballot Box Scan", scan_json)
 }
 
-// TODO: We don't currently scan for ErgoTree, since config does not store min_votes
 pub fn register_update_box_scan(update_nft_token_id: &TokenId) -> Result<Scan> {
     let scan_json = json! ( {
         "predicate": "and",
