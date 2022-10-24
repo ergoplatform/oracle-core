@@ -246,8 +246,7 @@ fn handle_oracle_command(command: Command) {
             }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
-                    error!("Fatal error: {:?}", e);
-                    std::process::exit(exitcode::SOFTWARE);
+                    error!("error: {:?}", e);
                 }
                 // Delay loop restart
                 thread::sleep(Duration::new(30, 0));
@@ -363,7 +362,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             network_change_address.address(),
         );
         if let Some(action) =
-            continue_if_non_fatal(network_change_address.network(), build_action_res)?
+            log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
                 execute_action(action)?;
@@ -373,7 +372,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     Ok(())
 }
 
-fn continue_if_non_fatal(
+fn log_and_continue_if_non_fatal(
     network_prefix: NetworkPrefix,
     res: Result<PoolAction, PoolCommandError>,
 ) -> Result<Option<PoolAction>, PoolCommandError> {
