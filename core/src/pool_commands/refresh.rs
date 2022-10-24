@@ -54,6 +54,8 @@ pub enum RefreshActionError {
     TxBuilderError(TxBuilderError),
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
+    #[error("failed to found my own oracle box in the filtered posted oracle boxes")]
+    MyOracleBoxNoFound,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -120,7 +122,8 @@ pub fn build_refresh_action(
     let my_input_oracle_box_index: i32 = valid_in_oracle_boxes
         .iter()
         .position(|b| b.public_key().h.as_ref() == my_oracle_pk)
-        .unwrap() as i32; // TODO: handle error
+        .ok_or(RefreshActionError::MyOracleBoxNoFound)?
+        as i32;
 
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
         .clone()
