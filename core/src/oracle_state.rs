@@ -161,7 +161,6 @@ pub struct UpdateBoxScan<'a> {
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
     pub pool_box_epoch_id: u32,
-    // TODO: newtypes fo epoch id, height, datapoint
     pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
     pub latest_pool_box_height: u32,
