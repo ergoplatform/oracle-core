@@ -13,7 +13,56 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 - v2.0-beta. Run a public oracle pool on testnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/5)
 - v2.0-RC. Launch on the mainnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/4)
 
-## Verifying contracts
+
+## Getting started
+### Download
+Get the latest release binary from [Releases](https://github.com/ergoplatform/oracle-core/releases)
+Or install it from the source code with:
+``` console
+cargo install --path core
+```
+If you want to run it as systemd daemon check out [this](https://github.com/ergoplatform/oracle-core#how-to-run-as-systemd-daemon) section.
+Run it with `oracle-core --help` or `oracle-core <SUBCOMMAND> --help` to see the available commands and their options.
+
+## Bootstrapping a new oracle pool
+To bootstrap a new oracle pool:
+- Run `oracle-core bootstrap --generate-config-template bootstrap.yml` to generate an example of the bootstrap config file.
+- Edit `bootstrap.yml` (see the parameters list below);
+- Run `oracle-core bootstrap bootstrap.yml` to mint tokens and create pool, refresh, update boxes. The `oracle_config.yaml` file will be generated. It contains the configuration needed to run this pool;
+- Run an oracle with `oracle-core -c oracle_config.yaml run`;
+
+Bootstrap parameters available to edit:
+- oracle_address - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.);
+- node_ip, node_port, node_api_key - node connection parameters;
+- [token]:name, description - token names and descriptions that will be used to mint tokens;
+- [token]:quantity - number of tokens to mint;
+- data_point_source - can be one of the following: NanoErgUsd, NanoErgXau, NanoErgAda;
+- data_point_source_custom_script - path to script that will be called to fetch a new datapoint;
+- min_data_points - minimal number of posted datapoint boxes needed to update the pool box (consensus);
+- max_deviation_percent - a cut off for the lowest and highest posted datapoints(i.e. datapoints deviated more than this will be filtered out and not take part in the refresh of the pool box);
+- epoch_length - minimal number of blocks between refresh(pool box) actions;
+- min_votes - minimal number of posted ballot boxes voting for a change to the refresh/pool box contracts;
+- min_storage_rent - box value in nanoERG used in oracle and ballot boxes;
+- base_fee - a tx fee in nanoERG to use in transactions;
+
+
+## Invite new oracle to the running pool
+
+## Joining a running pool
+
+
+
+
+## How to run as systemd daemon
+To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
+The default configuration file path is ~/.config/oracle-core/oracle_config.yaml. This can be changed inside the .service file
+
+``` console
+cp systemd/oracle-core.service ~/.config/systemd/user/oracle-core.service
+systemctl --user enable oracle-core.service
+```
+
+## Verifying contracts against EIP-23
 
 It is recommended to check that the contracts used are indeed coming from EIP-23. Run the following command to get encoded hashes of each contract:
 ```console
@@ -25,19 +74,3 @@ cargo test check_contract_hashes -- --nocapture
 ```
 
 Check these values against those described in EIP-23.
-
-## Install from Source
-oracle-core can be installed using cargo install:
-
-``` console
-cargo install --path core
-```
-
-## Systemd
-To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
-The default configuration file path is ~/.config/oracle-core/oracle_config.yaml. This can be changed inside the .service file
-
-``` console
-cp systemd/oracle-core.service ~/.config/systemd/user/oracle-core.service
-systemctl --user enable oracle-core.service
-```
