@@ -26,32 +26,39 @@ Run it with `oracle-core --help` or `oracle-core <SUBCOMMAND> --help` to see the
 
 ## Bootstrapping a new oracle pool
 To bootstrap a new oracle pool:
-- Run `oracle-core bootstrap --generate-config-template bootstrap.yml` to generate an example of the bootstrap config file.
-- Edit `bootstrap.yml` (see the parameters list below);
-- Run `oracle-core bootstrap bootstrap.yml` to mint tokens and create pool, refresh, update boxes. The `oracle_config.yaml` file will be generated. It contains the configuration needed to run this pool;
+- Run `oracle-core bootstrap --generate-config-template bootstrap.yaml` to generate an example of the bootstrap config file.
+- Edit `bootstrap.yaml` (see the parameters list below);
+- Make sure node's wallet is unlocked;
+- Run `oracle-core bootstrap bootstrap.yaml` to mint tokens and create pool, refresh, update boxes. The `oracle_config.yaml` file will be generated. It contains the configuration needed to run this pool;
 - Run an oracle with `oracle-core -c oracle_config.yaml run`;
 
 Bootstrap parameters available to edit:
-- oracle_address - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.);
-- node_ip, node_port, node_api_key - node connection parameters;
-- [token]:name, description - token names and descriptions that will be used to mint tokens;
-- [token]:quantity - number of tokens to mint;
-- data_point_source - can be one of the following: NanoErgUsd, NanoErgXau, NanoErgAda;
-- data_point_source_custom_script - path to script that will be called to fetch a new datapoint;
-- min_data_points - minimal number of posted datapoint boxes needed to update the pool box (consensus);
-- max_deviation_percent - a cut off for the lowest and highest posted datapoints(i.e. datapoints deviated more than this will be filtered out and not take part in the refresh of the pool box);
-- epoch_length - minimal number of blocks between refresh(pool box) actions;
-- min_votes - minimal number of posted ballot boxes voting for a change to the refresh/pool box contracts;
-- min_storage_rent - box value in nanoERG used in oracle and ballot boxes;
-- base_fee - a tx fee in nanoERG to use in transactions;
-
+- `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
+- `node_ip`, `node_port`, `node_api_key` - node connection parameters;
+- `[token]:name`, `description` - token names and descriptions that will be used to mint tokens;
+- `[token]:quantity` - number of tokens to mint;
+- `data_point_source` - can be one of the following: NanoErgUsd, NanoErgXau, NanoErgAda;
+- `data_point_source_custom_script` - path to script that will be called to fetch a new datapoint;
+- `min_data_points` - minimal number of posted datapoint boxes needed to update the pool box (consensus);
+- `max_deviation_percent` - a cut off for the lowest and highest posted datapoints(i.e. datapoints deviated more than this will be filtered out and not take part in the refresh of the pool box);
+- `epoch_length` - minimal number of blocks between refresh(pool box) actions;
+- `min_votes` - minimal number of posted ballot boxes voting for a change to the refresh/pool box contracts;
+- `min_storage_rent` - box value in nanoERG used in oracle and ballot boxes;
+- `base_fee` - a tx fee in nanoERG to use in transactions;
 
 ## Invite new oracle to the running pool
+To invite a new oracle the person that bootstrapped the pool need to send one oracle token and one reward token. On bootstrap X oracle and reward tokens are sent to the `oracle_address`, where X is the total oracle token quantity minted on bootstrap.
+Besides the tokens the `oracle_config.yaml` config file that you are running now should be sent as well. Be carefull to cleanup the `node_api_key` and `oracle_address` fields before you send it and instruct the invited oracle to set them to their liking.
 
 ## Joining a running pool
+To join the existing pool one oracle and one reward token must be received to the address which will be used as `oracle_address` in the config file of the oracle. The received `oracle_config.yaml` config file must have the following fields updated to your setup:
+- `oracle_address`;
+- `node_api_key`;
+- `node_ip`, `node_port` are set appropriately for your node;
 
-
-
+To run the oracle:
+- Make sure node's wallet is unlocked;
+- Run an oracle with `oracle-core -c oracle_config.yaml run`;
 
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
