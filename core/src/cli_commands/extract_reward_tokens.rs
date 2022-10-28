@@ -88,7 +88,7 @@ pub fn extract_reward_tokens(
     );
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
-    if input == "YES" {
+    if input.trim() == "YES" {
         let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
         println!(
             "Transaction made. Check status here: {}",
