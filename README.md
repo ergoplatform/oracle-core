@@ -26,11 +26,22 @@ Run it with `oracle-core --help` or `oracle-core <SUBCOMMAND> --help` to see the
 
 ## Bootstrapping a new oracle pool
 To bootstrap a new oracle pool:
-- Run `oracle-core bootstrap --generate-config-template bootstrap.yaml` to generate an example of the bootstrap config file.
+- Run
+``` console
+oracle-core bootstrap --generate-config-template bootstrap.yaml
+```
+to generate an example of the bootstrap config file.
 - Edit `bootstrap.yaml` (see the parameters list below);
 - Make sure node's wallet is unlocked;
-- Run `oracle-core bootstrap bootstrap.yaml` to mint tokens and create pool, refresh, update boxes. The `oracle_config.yaml` file will be generated. It contains the configuration needed to run this pool;
-- Run an oracle with `oracle-core -c oracle_config.yaml run`;
+- Run 
+``` console
+oracle-core bootstrap bootstrap.yaml
+``` 
+to mint tokens and create pool, refresh, update boxes. The `oracle_config.yaml` file will be generated. It contains the configuration needed to run this pool;
+- Run an oracle with 
+``` console
+oracle-core -c oracle_config.yaml run
+```
 
 Bootstrap parameters available to edit:
 - `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
@@ -58,12 +69,20 @@ To join the existing pool one oracle and one reward token must be received to th
 
 To run the oracle:
 - Make sure node's wallet is unlocked;
-- Run an oracle with `oracle-core -c oracle_config.yaml run`;
+- Run an oracle with 
+``` console
+oracle-core -c oracle_config.yaml run
+```
 
 ## Extract reward tokens
 Since the earned reward tokens are accumulating in the oracle box there is a command to send all accumulated reward tokensminus 1 (needed for the contract) to the specified address:
-`oracle-core extract-reward-tokens <ADDRESS>`
-To show the amount of accumulated reward tokens in the oracle box run `oracle-core print-reward-tokens`.
+``` console
+oracle-core extract-reward-tokens <ADDRESS>
+```
+To show the amount of accumulated reward tokens in the oracle box run 
+``` console
+oracle-core print-reward-tokens
+```
 
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
