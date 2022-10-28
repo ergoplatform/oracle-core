@@ -60,6 +60,11 @@ To run the oracle:
 - Make sure node's wallet is unlocked;
 - Run an oracle with `oracle-core -c oracle_config.yaml run`;
 
+## Extract reward tokens
+Since the earned reward tokens are accumulating in the oracle box there is a command to send all accumulated reward tokensminus 1 (needed for the contract) to the specified address:
+`oracle-core extract-reward-tokens <ADDRESS>`
+To show the amount of accumulated reward tokens in the oracle box run `oracle-core print-reward-tokens`.
+
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
 The default configuration file path is ~/.config/oracle-core/oracle_config.yaml. This can be changed inside the .service file
