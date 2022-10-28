@@ -131,13 +131,13 @@ enum Command {
         enable_rest_api: bool,
     },
 
-    /// Extract reward tokens to a chosen address
+    /// Send reward tokens accumulated in the oracle box to a chosen address
     ExtractRewardTokens {
         /// Base58 encoded address to send reward tokens to
         rewards_address: String,
     },
 
-    /// Print the number of reward tokens earned by the oracle.
+    /// Print the number of reward tokens earned by the oracle (in the last posted/collected oracle box)
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
