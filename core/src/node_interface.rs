@@ -129,12 +129,12 @@ pub fn submit_transaction(signed_tx: &Transaction) -> Result<TxId> {
 /// Sign an `UnsignedTransaction` and then submit it to the mempool.
 pub fn sign_and_submit_transaction(unsigned_tx: &UnsignedTransaction) -> Result<TxId> {
     let node = new_node_interface();
-    log::debug!(
+    log::trace!(
         "Signing transaction: {}",
         serde_json::to_string_pretty(&unsigned_tx).unwrap()
     );
     let signed_tx = node.sign_transaction(unsigned_tx, None, None)?;
-    log::debug!(
+    log::trace!(
         "Submitting signed transaction: {}",
         serde_json::to_string_pretty(&signed_tx).unwrap()
     );

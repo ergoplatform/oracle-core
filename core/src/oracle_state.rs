@@ -161,7 +161,6 @@ pub struct UpdateBoxScan<'a> {
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
     pub pool_box_epoch_id: u32,
-    // TODO: newtypes fo epoch id, height, datapoint
     pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
     pub latest_pool_box_height: u32,
@@ -423,13 +422,21 @@ impl StageDataSource for Stage {
 
 impl<'a> DatapointBoxesSource for DatapointStage<'a> {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
-        let res = self
+        let oracle_boxes: Vec<OracleBoxWrapper> = self
             .stage
             .get_boxes()?
             .into_iter()
-            .map(|b| PostedOracleBox::new(b, self.oracle_box_wrapper_inputs))
-            .collect::<std::result::Result<Vec<PostedOracleBox>, OracleBoxError>>()?;
-        Ok(res)
+            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
+            .collect::<std::result::Result<Vec<OracleBoxWrapper>, _>>()?;
+
+        let posted_boxes = oracle_boxes
+            .into_iter()
+            .filter_map(|b| match b {
+                OracleBoxWrapper::Posted(p) => Some(p),
+                OracleBoxWrapper::Collected(_) => None,
+            })
+            .collect();
+        Ok(posted_boxes)
     }
 }
 

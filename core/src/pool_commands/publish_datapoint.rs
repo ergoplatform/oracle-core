@@ -55,7 +55,7 @@ pub fn build_subsequent_publish_datapoint_action(
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: u32,
-    pool_datapoint: i64,
+    _pool_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
     let in_oracle_box = local_datapoint_box;
@@ -66,7 +66,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
         in_oracle_box.public_key(),
-        compute_new_datapoint(new_datapoint, pool_datapoint),
+        new_datapoint,
         new_epoch_counter,
         in_oracle_box.oracle_token(),
         in_oracle_box.reward_token(),
@@ -160,37 +160,6 @@ pub fn build_publish_first_datapoint_action(
     tx_builder.set_context_extension(box_id, ctx_ext);
     let tx = tx_builder.build()?;
     Ok(PublishDataPointAction { tx })
-}
-
-fn compute_new_datapoint(datapoint: i64, old_datapoint: i64) -> i64 {
-    // Difference calc
-    let difference = datapoint as f64 / old_datapoint as f64;
-
-    // If the new datapoint is twice as high, post the new datapoint
-    #[allow(clippy::if_same_then_else)]
-    if difference > 2.00 {
-        datapoint
-    }
-    // If the new datapoint is half, post the new datapoint
-    else if difference < 0.50 {
-        datapoint
-    }
-    // TODO: remove 0.5% cap, kushti asked on TG:
-    // >Lets run 2.0 with no delay in data update in the default data provider
-    // >No, data provider currently cap oracle price change at 0.5 percent per epoch
-    //
-    // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
-    else if difference < 0.9951 {
-        (old_datapoint as f64 * 0.9951) as i64
-    }
-    // If the new datapoint is 0.49% to 100% higher, post 0.49% higher than old
-    else if difference > 1.0049 {
-        (old_datapoint as f64 * 1.0049) as i64
-    }
-    // Else if the difference is within 0.49% either way, post the new datapoint
-    else {
-        datapoint
-    }
 }
 
 #[cfg(test)]

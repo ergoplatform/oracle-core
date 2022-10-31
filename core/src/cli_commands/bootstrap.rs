@@ -72,13 +72,14 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     debug!("Change address: {}", change_address_str);
 
     let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
+    let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
         config,
         wallet: &node as &dyn WalletDataSource,
         tx_signer: &node as &dyn SignTransaction,
         submit_tx: &node as &dyn SubmitTransaction,
         tx_fee: *BASE_FEE,
-        erg_value_per_box: *BASE_FEE,
+        erg_value_per_box,
         change_address,
         height: node.current_block_height()? as u32,
     };

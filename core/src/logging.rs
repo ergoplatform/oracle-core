@@ -5,6 +5,7 @@ use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
 use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
 use log4rs::append::rolling_file::RollingFileAppender;
 use log4rs::config::Appender;
+use log4rs::config::Logger;
 use log4rs::config::Root;
 use log4rs::Config;
 
@@ -61,11 +62,18 @@ pub fn setup_log(override_log_level: Option<LevelFilter>) {
                 ),
             ),
         )
+        .logger(
+            Logger::builder()
+                .appender("logfile")
+                .appender("stdout")
+                .additive(false)
+                .build("oracle_core", log_level),
+        )
         .build(
             Root::builder()
                 .appender("stdout")
                 .appender("logfile")
-                .build(log_level),
+                .build(LevelFilter::Info),
         )
         .unwrap();
 
