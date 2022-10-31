@@ -13,7 +13,7 @@ use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OracleContract {
     ergo_tree: ErgoTree,
     pool_nft_index: usize,

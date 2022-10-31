@@ -47,7 +47,7 @@ use crate::{
     oracle_config::{OracleConfig, TokenIds},
     oracle_config::{OracleConfigError, BASE_FEE},
     serde::BootstrapConfigSerde,
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
@@ -657,6 +657,8 @@ pub enum BootstrapError {
     OracleConfigError(OracleConfigError),
     #[error("Pool contract error: {0}")]
     PoolContractError(PoolContractError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 #[cfg(test)]

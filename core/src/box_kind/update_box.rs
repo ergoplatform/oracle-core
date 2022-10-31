@@ -20,7 +20,10 @@ pub enum UpdateBoxError {
 }
 
 #[derive(Clone)]
-pub struct UpdateBoxWrapper(ErgoBox, UpdateContract);
+pub struct UpdateBoxWrapper {
+    ergo_box: ErgoBox,
+    contract: UpdateContract,
+}
 
 impl UpdateBoxWrapper {
     pub fn new(b: ErgoBox, inputs: &UpdateBoxWrapperInputs) -> Result<Self, UpdateBoxError> {
@@ -38,22 +41,31 @@ impl UpdateBoxWrapper {
         let contract =
             UpdateContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
-        Ok(Self(b, contract))
+        Ok(Self {
+            ergo_box: b,
+            contract,
+        })
     }
     pub fn ergo_tree(&self) -> ErgoTree {
-        self.1.ergo_tree()
+        self.contract.ergo_tree()
     }
     pub fn update_nft(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
     }
     pub fn ballot_token_id(&self) -> TokenId {
-        self.1.ballot_token_id().clone()
+        self.contract.ballot_token_id().clone()
     }
     pub fn get_box(&self) -> &ErgoBox {
-        &self.0
+        &self.ergo_box
     }
     pub fn min_votes(&self) -> u32 {
-        self.1.min_votes() as u32
+        self.contract.min_votes() as u32
     }
 }
 
@@ -101,6 +113,6 @@ impl UpdateBoxWrapperInputs {
 
 impl From<UpdateBoxWrapper> for ErgoBox {
     fn from(w: UpdateBoxWrapper) -> Self {
-        w.0.clone()
+        w.ergo_box.clone()
     }
 }

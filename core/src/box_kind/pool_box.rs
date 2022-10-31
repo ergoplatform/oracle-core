@@ -19,7 +19,7 @@ pub trait PoolBox {
     fn pool_nft_token(&self) -> Token;
     fn reward_token(&self) -> Token;
     fn epoch_counter(&self) -> u32;
-    fn rate(&self) -> u64;
+    fn rate(&self) -> i64;
     fn get_box(&self) -> &ErgoBox;
 }
 
@@ -42,7 +42,10 @@ pub enum PoolBoxError {
 }
 
 #[derive(Clone, Debug)]
-pub struct PoolBoxWrapper(ErgoBox, PoolContract);
+pub struct PoolBoxWrapper {
+    ergo_box: ErgoBox,
+    contract: PoolContract,
+}
 
 impl PoolBoxWrapper {
     pub fn new(b: ErgoBox, inputs: &PoolBoxWrapperInputs) -> Result<Self, PoolBoxError> {
@@ -81,41 +84,56 @@ impl PoolBoxWrapper {
             return Err(PoolBoxError::NoRewardToken);
         }
         let contract = PoolContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
-        Ok(Self(b, contract))
+        Ok(Self {
+            ergo_box: b,
+            contract,
+        })
     }
 }
 
 impl PoolBox for PoolBoxWrapper {
     fn pool_nft_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
     }
 
     fn epoch_counter(&self) -> u32 {
-        self.0
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R5.into())
             .unwrap()
             .try_extract_into::<i32>()
             .unwrap() as u32
     }
 
-    fn rate(&self) -> u64 {
-        self.0
+    fn rate(&self) -> i64 {
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<i64>()
-            .unwrap() as u64
+            .unwrap()
     }
 
     fn reward_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .clone()
     }
 
     fn get_box(&self) -> &ErgoBox {
-        &self.0
+        &self.ergo_box
     }
 
     fn contract(&self) -> &PoolContract {
-        &self.1
+        &self.contract
     }
 }
 

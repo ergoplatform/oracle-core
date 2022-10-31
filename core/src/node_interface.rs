@@ -1,6 +1,6 @@
 use crate::{
     oracle_config::{get_node_api_key, get_node_ip, get_node_port},
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 use ergo_lib::{
     chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
@@ -58,8 +58,8 @@ impl SignTransaction for NodeInterface {
 }
 
 impl WalletDataSource for NodeInterface {
-    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>> {
-        self.unspent_boxes()
+    fn get_unspent_wallet_boxes(&self) -> std::result::Result<Vec<ErgoBox>, WalletDataError> {
+        self.unspent_boxes().map_err(Into::into)
     }
 }
 
@@ -96,9 +96,7 @@ pub fn get_serialized_highest_value_unspent_box() -> Result<String> {
 
 /// Using the `scan_id` of a registered scan, acquires unspent boxes which have been found by said scan
 pub fn get_scan_boxes(scan_id: &String) -> Result<Vec<ErgoBox>> {
-    let res = new_node_interface().scan_boxes(scan_id);
-    debug!("Scan boxes: {:?}", res);
-    res
+    new_node_interface().scan_boxes(scan_id)
 }
 
 pub fn rescan_from_height(height: u32) -> Result<()> {
@@ -131,9 +129,15 @@ pub fn submit_transaction(signed_tx: &Transaction) -> Result<TxId> {
 /// Sign an `UnsignedTransaction` and then submit it to the mempool.
 pub fn sign_and_submit_transaction(unsigned_tx: &UnsignedTransaction) -> Result<TxId> {
     let node = new_node_interface();
-    log::debug!("Signing transaction: {:?}", unsigned_tx);
+    log::debug!(
+        "Signing transaction: {}",
+        serde_json::to_string_pretty(&unsigned_tx).unwrap()
+    );
     let signed_tx = node.sign_transaction(unsigned_tx, None, None)?;
-    log::debug!("Submitting signed transaction: {:?}", signed_tx);
+    log::debug!(
+        "Submitting signed transaction: {}",
+        serde_json::to_string_pretty(&signed_tx).unwrap()
+    );
     node.submit_transaction(&signed_tx)
 }
 
