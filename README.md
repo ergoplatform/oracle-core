@@ -84,6 +84,15 @@ To show the amount of accumulated reward tokens in the oracle box run
 oracle-core print-reward-tokens
 ```
 
+## Transfer the oracle token to a new operator
+Be aware that reward tokens currently accumulated in the oracle box are transferred as well.
+Run
+``` console
+oracle-core transfer-oracle-token <ADDRESS>
+```
+Ensure the new address has enough coins for tx fees to run in a pool.
+As with inviting a new oracle, the `oracle_config.yaml` config file you are running now should also be sent. Again, clean up the `node_api_key` and `oracle_address` fields before you send it and instruct the invited oracle to set them to their liking.
+
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
 The default configuration file path is ~/.config/oracle-core/oracle_config.yaml. This can be changed inside the .service file
