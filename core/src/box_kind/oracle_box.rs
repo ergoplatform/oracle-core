@@ -22,8 +22,6 @@ pub trait OracleBox {
     fn oracle_token(&self) -> Token;
     fn reward_token(&self) -> Token;
     fn public_key(&self) -> ProveDlog;
-    fn epoch_counter(&self) -> u32;
-    fn rate(&self) -> u64;
     fn get_box(&self) -> &ErgoBox;
 }
 
@@ -51,11 +49,27 @@ pub enum OracleBoxError {
     TryExtractFrom(#[from] TryExtractFromError),
     #[error("oracle box: Can't create EcPoint from String {0}")]
     EcPoint(String),
+    #[error("oracle box: expected posted oracle box")]
+    ExpectedPostedOracleBox,
 }
 
-// TODO: convert this one and others to named structs
+#[derive(Clone, Debug)]
+pub struct PostedOracleBox {
+    ergo_box: ErgoBox,
+    contract: OracleContract,
+}
+
+#[derive(Clone, Debug)]
+pub struct CollectedOracleBox {
+    ergo_box: ErgoBox,
+    contract: OracleContract,
+}
+
 #[derive(Clone)]
-pub struct OracleBoxWrapper(ErgoBox, OracleContract);
+pub enum OracleBoxWrapper {
+    Posted(PostedOracleBox),
+    Collected(CollectedOracleBox),
+}
 
 impl OracleBoxWrapper {
     pub fn new(b: ErgoBox, inputs: &OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
@@ -91,37 +105,59 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoPublicKeyInR4)?
             .try_extract_into::<EcPoint>()?;
 
-        // Similarly we won't be inspecting the actual published data point.
-        let _ = b
-            .get_register(NonMandatoryRegisterId::R6.into())
-            .ok_or(OracleBoxError::NoDataPoint)?
-            .try_extract_into::<i64>()?;
-
-        // No need to analyse the epoch counter as its validity is checked within the pool and
-        // oracle contracts.
-        let _ = b
+        let epoch_counter_opt = b
             .get_register(NonMandatoryRegisterId::R5.into())
-            .ok_or(OracleBoxError::NoEpochCounter)?
-            .try_extract_into::<i32>()?;
+            .and_then(|r| r.try_extract_into::<i32>().ok());
+
+        let rate_opt = b
+            .get_register(NonMandatoryRegisterId::R6.into())
+            .and_then(|r| r.try_extract_into::<i64>().ok());
 
         let contract =
             OracleContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
-        Ok(Self(b, contract))
+        let collected_oracle_box = OracleBoxWrapper::Collected(CollectedOracleBox {
+            ergo_box: b.clone(),
+            contract: contract.clone(),
+        });
+
+        let posted_oracle_box = OracleBoxWrapper::Posted(PostedOracleBox {
+            ergo_box: b,
+            contract,
+        });
+
+        match (epoch_counter_opt, rate_opt) {
+            (Some(_), Some(_)) => Ok(posted_oracle_box),
+            (None, None) => Ok(collected_oracle_box),
+            (Some(_), None) => Err(OracleBoxError::NoDataPoint),
+            (None, Some(_)) => Err(OracleBoxError::NoEpochCounter),
+        }
     }
 }
 
 impl OracleBox for OracleBoxWrapper {
     fn oracle_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
+        self.get_box()
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
     }
 
     fn reward_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(1).unwrap().clone()
+        self.get_box()
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .clone()
     }
 
     fn public_key(&self) -> ProveDlog {
-        self.0
+        self.get_box()
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
@@ -129,28 +165,80 @@ impl OracleBox for OracleBoxWrapper {
             .into()
     }
 
-    fn epoch_counter(&self) -> u32 {
-        self.0
+    fn get_box(&self) -> &ErgoBox {
+        match self {
+            OracleBoxWrapper::Posted(p) => &p.ergo_box,
+            OracleBoxWrapper::Collected(c) => &c.ergo_box,
+        }
+    }
+
+    fn contract(&self) -> &OracleContract {
+        match self {
+            OracleBoxWrapper::Posted(p) => &p.contract,
+            OracleBoxWrapper::Collected(c) => &c.contract,
+        }
+    }
+}
+
+impl PostedOracleBox {
+    pub fn new(b: ErgoBox, inputs: &OracleBoxWrapperInputs) -> Result<Self, OracleBoxError> {
+        OracleBoxWrapper::new(b, inputs).and_then(|b| match b {
+            OracleBoxWrapper::Posted(p) => Ok(p),
+            OracleBoxWrapper::Collected(_) => Err(OracleBoxError::ExpectedPostedOracleBox),
+        })
+    }
+
+    pub fn oracle_token(&self) -> Token {
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
+    }
+
+    pub fn reward_token(&self) -> Token {
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .clone()
+    }
+
+    pub fn public_key(&self) -> ProveDlog {
+        self.ergo_box
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .unwrap()
+            .try_extract_into::<EcPoint>()
+            .unwrap()
+            .into()
+    }
+
+    pub fn contract(&self) -> &OracleContract {
+        &self.contract
+    }
+
+    pub fn get_box(&self) -> &ErgoBox {
+        &self.ergo_box
+    }
+
+    pub fn epoch_counter(&self) -> u32 {
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R5.into())
             .unwrap()
             .try_extract_into::<i32>()
             .unwrap() as u32
     }
 
-    fn rate(&self) -> u64 {
-        self.0
+    pub fn rate(&self) -> u64 {
+        self.ergo_box
             .get_register(NonMandatoryRegisterId::R6.into())
             .unwrap()
             .try_extract_into::<i64>()
             .unwrap() as u64
-    }
-
-    fn get_box(&self) -> &ErgoBox {
-        &self.0
-    }
-
-    fn contract(&self) -> &OracleContract {
-        &self.1
     }
 }
 
@@ -197,7 +285,13 @@ impl OracleBoxWrapperInputs {
 
 impl From<OracleBoxWrapper> for ErgoBox {
     fn from(w: OracleBoxWrapper) -> Self {
-        w.0.clone()
+        w.get_box().clone()
+    }
+}
+
+impl From<PostedOracleBox> for ErgoBox {
+    fn from(w: PostedOracleBox) -> Self {
+        w.ergo_box.clone()
     }
 }
 

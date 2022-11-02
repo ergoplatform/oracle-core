@@ -33,7 +33,10 @@ pub enum RefreshBoxError {
 }
 
 #[derive(Clone)]
-pub struct RefreshBoxWrapper(ErgoBox, RefreshContract);
+pub struct RefreshBoxWrapper {
+    ergo_box: ErgoBox,
+    contract: RefreshContract,
+}
 
 #[derive(Clone, Debug)]
 pub struct RefreshBoxWrapperInputs {
@@ -94,21 +97,30 @@ impl RefreshBoxWrapper {
 
         let contract =
             RefreshContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
-        Ok(Self(b, contract))
+        Ok(Self {
+            ergo_box: b,
+            contract,
+        })
     }
 }
 
 impl RefreshBox for RefreshBoxWrapper {
     fn refresh_nft_token(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
     }
 
     fn get_box(&self) -> &ErgoBox {
-        &self.0
+        &self.ergo_box
     }
 
     fn contract(&self) -> &RefreshContract {
-        &self.1
+        &self.contract
     }
 }
 

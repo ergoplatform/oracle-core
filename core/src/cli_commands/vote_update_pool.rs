@@ -27,7 +27,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{TokenIds, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 use derive_more::From;
 use thiserror::Error;
@@ -56,6 +56,8 @@ pub enum VoteUpdatePoolError {
     Digest(DigestNError),
     #[error("Vote update pool: Ballot contract error {0}")]
     BallotContract(BallotContractError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 pub fn vote_update_pool(

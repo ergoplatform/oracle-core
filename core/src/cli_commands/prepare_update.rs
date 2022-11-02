@@ -45,7 +45,7 @@ use crate::{
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
-    wallet::WalletDataSource,
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 use super::bootstrap::{NftMintDetails, TokenMintDetails};
@@ -386,6 +386,8 @@ pub enum PrepareUpdateError {
     NoMintDetails,
     #[error("Serde conversion error {0}")]
     SerdeConversion(SerdeConversionError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 #[cfg(test)]

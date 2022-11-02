@@ -40,6 +40,7 @@ mod wallet;
 use actions::execute_action;
 use actions::PoolAction;
 use anyhow::anyhow;
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use ergo_lib::ergotree_ir::chain::address::Address;
@@ -131,13 +132,13 @@ enum Command {
         enable_rest_api: bool,
     },
 
-    /// Extract reward tokens to a chosen address
+    /// Send reward tokens accumulated in the oracle box to a chosen address
     ExtractRewardTokens {
         /// Base58 encoded address to send reward tokens to
         rewards_address: String,
     },
 
-    /// Print the number of reward tokens earned by the oracle.
+    /// Print the number of reward tokens earned by the oracle (in the last posted/collected oracle box)
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
@@ -189,7 +190,7 @@ fn main() {
         .unwrap();
 
     let cmdline_log_level = if args.verbose {
-        Some(LevelFilter::Trace)
+        Some(LevelFilter::Debug)
     } else {
         None
     };
@@ -245,8 +246,7 @@ fn handle_oracle_command(command: Command) {
             }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
-                    error!("Fatal error: {:?}", e);
-                    std::process::exit(exitcode::SOFTWARE);
+                    error!("error: {:?}", e);
                 }
                 // Delay loop restart
                 thread::sleep(Duration::new(30, 0));
@@ -337,7 +337,7 @@ fn handle_oracle_command(command: Command) {
 }
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
-    let height = current_block_height()? as u32;
+    let height = current_block_height().context("Failed to get the current height")? as u32;
     let wallet = WalletData::new();
     let network_change_address = get_change_address_from_node()?;
     let pool_state = match op.get_live_epoch_state() {
@@ -352,7 +352,8 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .contract_inputs
         .contract_parameters()
         .epoch_length() as u32;
-    if let Some(cmd) = process(pool_state, epoch_length, height)? {
+    if let Some(cmd) = process(pool_state, epoch_length, height) {
+        log::info!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_res = build_action(
             cmd,
             op,
@@ -361,7 +362,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             network_change_address.address(),
         );
         if let Some(action) =
-            continue_if_non_fatal(network_change_address.network(), build_action_res)?
+            log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
                 execute_action(action)?;
@@ -371,7 +372,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     Ok(())
 }
 
-fn continue_if_non_fatal(
+fn log_and_continue_if_non_fatal(
     network_prefix: NetworkPrefix,
     res: Result<PoolAction, PoolCommandError>,
 ) -> Result<Option<PoolAction>, PoolCommandError> {
@@ -410,5 +411,6 @@ fn log_on_launch() {
     log::info!("{}", APP_VERSION);
     if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
         log::info!("Token ids: {:?}", config.token_ids);
+        log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
 }
