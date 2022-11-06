@@ -9,6 +9,10 @@ use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
+use crate::spec_token::OracleTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::TokenIdKind;
+
 #[derive(Clone)]
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
@@ -28,11 +32,17 @@ pub enum RefreshContractError {
     #[error(
         "refresh contract: unexpected `pool NFT` token id. Expected {expected:?}, got {actual:?}"
     )]
-    PoolNftTokenIdDiffers { expected: TokenId, actual: TokenId },
+    PoolNftTokenIdDiffers {
+        expected: PoolTokenId,
+        actual: TokenId,
+    },
     #[error(
         "refresh contract: unexpected `oracle` token id. Expected {expected:?}, got {actual:?}"
     )]
-    OracleTokenIdDiffers { expected: TokenId, actual: TokenId },
+    OracleTokenIdDiffers {
+        expected: OracleTokenId,
+        actual: TokenId,
+    },
     #[error("refresh contract: sigma parsing error {0}")]
     SigmaParsing(#[from] SigmaParsingError),
     #[error("refresh contract: ergo tree constant error {0:?}")]
@@ -74,7 +84,7 @@ impl RefreshContract {
                 RefreshContractParametersError::NoPoolNftId,
             ))?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != inputs.pool_nft_token_id {
+        if pool_nft_token_id != inputs.pool_nft_token_id.token_id() {
             return Err(RefreshContractError::PoolNftTokenIdDiffers {
                 expected: inputs.pool_nft_token_id.clone(),
                 actual: pool_nft_token_id,
@@ -90,7 +100,7 @@ impl RefreshContract {
                 RefreshContractParametersError::NoOracleTokenId,
             ))?
             .try_extract_into::<TokenId>()?;
-        if oracle_token_id != inputs.oracle_token_id {
+        if oracle_token_id != inputs.oracle_token_id.token_id() {
             return Err(RefreshContractError::OracleTokenIdDiffers {
                 expected: inputs.oracle_token_id.clone(),
                 actual: oracle_token_id,
@@ -187,12 +197,12 @@ impl RefreshContract {
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
                 .with_constant(
                     inputs.contract_parameters.pool_nft_index,
-                    inputs.pool_nft_token_id.clone().into(),
+                    inputs.pool_nft_token_id.clone().token_id().into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
                     inputs.contract_parameters.oracle_token_id_index,
-                    inputs.oracle_token_id.clone().into(),
+                    inputs.oracle_token_id.clone().token_id().into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
@@ -304,15 +314,15 @@ impl RefreshContract {
 #[derive(Clone, Debug)]
 pub struct RefreshContractInputs {
     contract_parameters: RefreshContractParameters,
-    pub oracle_token_id: TokenId,
-    pub pool_nft_token_id: TokenId,
+    pub oracle_token_id: OracleTokenId,
+    pub pool_nft_token_id: PoolTokenId,
 }
 
 impl RefreshContractInputs {
     pub fn build_with(
         contract_parameters: RefreshContractParameters,
-        oracle_token_id: TokenId,
-        pool_nft_token_id: TokenId,
+        oracle_token_id: OracleTokenId,
+        pool_nft_token_id: PoolTokenId,
     ) -> Result<Self, RefreshContractError> {
         let refresh_contract = RefreshContract::build_with(&RefreshContractInputs {
             contract_parameters,
@@ -329,8 +339,8 @@ impl RefreshContractInputs {
 
     pub fn checked_load(
         contract_parameters: RefreshContractParameters,
-        oracle_token_id: TokenId,
-        pool_nft_token_id: TokenId,
+        oracle_token_id: OracleTokenId,
+        pool_nft_token_id: PoolTokenId,
     ) -> Result<Self, RefreshContractError> {
         let contract_inputs = RefreshContractInputs {
             contract_parameters,

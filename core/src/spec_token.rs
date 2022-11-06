@@ -1,23 +1,23 @@
 use std::convert::TryFrom;
 
+use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 /// Special tokens (newtypes) for tokens used in oracle_core
 use ergo_lib::ergotree_ir::chain::token::TokenId;
-use ergo_lib::ergotree_ir::chain::token::Token;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SpecToken<T: TokenIdKind> {
-    pub id: T,
+    pub token_id: T,
     pub amount: TokenAmount,
 }
 
 impl<T: TokenIdKind> Into<Token> for SpecToken<T> {
     fn into(self) -> Token {
         Token {
-            token_id: self.id.token_id(),
-            amount: self.amount
+            token_id: self.token_id.token_id(),
+            amount: self.amount,
         }
     }
 }
@@ -30,16 +30,15 @@ impl<T: TokenIdKind> TryFrom<Token> for SpecToken<T> {
             return Err("Token ID does not match ORACLE_CONFIG".into());
         }
         Ok(SpecToken {
-            id: token_id,
-            amount: token.amount
+            token_id,
+            amount: token.amount,
         })
     }
-
 }
 
 impl<T: TokenIdKind> SpecToken<T> {
     pub fn token_id(&self) -> TokenId {
-        self.id.token_id()
+        self.token_id.token_id()
     }
     pub fn token_amount(&self) -> TokenAmount {
         self.amount
@@ -66,7 +65,10 @@ impl TokenIdKind for PoolTokenId {
         Self(token)
     }
     fn load_from_oracle_config() -> Result<Self, String> {
-        crate::oracle_config::MAYBE_ORACLE_CONFIG.map(|cfg| cfg.token_ids.pool_nft_token_id)
+        crate::oracle_config::MAYBE_ORACLE_CONFIG
+            .as_ref()
+            .map(|cfg| cfg.token_ids.pool_nft_token_id.clone())
+            .map_err(|e| e.clone())
     }
 }
 
@@ -82,7 +84,10 @@ impl TokenIdKind for UpdateTokenId {
         Self(token)
     }
     fn load_from_oracle_config() -> Result<Self, String> {
-        crate::oracle_config::MAYBE_ORACLE_CONFIG.map(|cfg| cfg.token_ids.update_nft_token_id)
+        crate::oracle_config::MAYBE_ORACLE_CONFIG
+            .as_ref()
+            .map(|cfg| cfg.token_ids.update_nft_token_id.clone())
+            .map_err(|e| e.clone())
     }
 }
 
@@ -98,7 +103,10 @@ impl TokenIdKind for RefreshTokenId {
         Self(token)
     }
     fn load_from_oracle_config() -> Result<Self, String> {
-        crate::oracle_config::MAYBE_ORACLE_CONFIG.map(|cfg| cfg.token_ids.refresh_nft_token_id)
+        crate::oracle_config::MAYBE_ORACLE_CONFIG
+            .as_ref()
+            .map(|cfg| cfg.token_ids.refresh_nft_token_id.clone())
+            .map_err(|e| e.clone())
     }
 }
 
@@ -113,7 +121,10 @@ impl TokenIdKind for RewardTokenId {
         Self(token)
     }
     fn load_from_oracle_config() -> Result<Self, String> {
-        crate::oracle_config::MAYBE_ORACLE_CONFIG.map(|cfg| cfg.token_ids.reward_token_id)
+        crate::oracle_config::MAYBE_ORACLE_CONFIG
+            .as_ref()
+            .map(|cfg| cfg.token_ids.reward_token_id.clone())
+            .map_err(|e| e.clone())
     }
 }
 
@@ -129,7 +140,10 @@ impl TokenIdKind for OracleTokenId {
         Self(token)
     }
     fn load_from_oracle_config() -> Result<Self, String> {
-        crate::oracle_config::MAYBE_ORACLE_CONFIG.map(|cfg| cfg.token_ids.oracle_token_id)
+        crate::oracle_config::MAYBE_ORACLE_CONFIG
+            .as_ref()
+            .map(|cfg| cfg.token_ids.oracle_token_id.clone())
+            .map_err(|e| e.clone())
     }
 }
 
@@ -144,6 +158,9 @@ impl TokenIdKind for BallotTokenId {
         Self(token)
     }
     fn load_from_oracle_config() -> Result<Self, String> {
-        crate::oracle_config::MAYBE_ORACLE_CONFIG.map(|cfg| cfg.token_ids.ballot_token_id)
+        crate::oracle_config::MAYBE_ORACLE_CONFIG
+            .as_ref()
+            .map(|cfg| cfg.token_ids.ballot_token_id.clone())
+            .map_err(|e| e.clone())
     }
 }

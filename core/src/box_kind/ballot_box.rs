@@ -3,6 +3,7 @@ use crate::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
     oracle_config::CastBallotBoxVoteParameters,
+    spec_token::{BallotTokenId, TokenIdKind, UpdateTokenId},
 };
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -75,7 +76,7 @@ impl BallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id.token_id() {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -97,14 +98,14 @@ impl BallotBoxWrapper {
 pub struct BallotBoxWrapperInputs {
     pub contract_inputs: BallotContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the ballot box.
-    pub ballot_token_id: TokenId,
+    pub ballot_token_id: BallotTokenId,
 }
 
 impl BallotBoxWrapperInputs {
     pub fn build_with(
         ballot_contract_parameters: BallotContractParameters,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, BallotContractError> {
         let contract_inputs =
             BallotContractInputs::build_with(ballot_contract_parameters, update_nft_token_id)?;
@@ -116,8 +117,8 @@ impl BallotBoxWrapperInputs {
 
     pub fn checked_load(
         ballot_contract_parameters: BallotContractParameters,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, BallotContractError> {
         let contract_inputs =
             BallotContractInputs::checked_load(ballot_contract_parameters, update_nft_token_id)?;
@@ -145,7 +146,7 @@ impl VoteBallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id.token_id() {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 

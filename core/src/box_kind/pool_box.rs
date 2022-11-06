@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
@@ -5,7 +7,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::chain::token::Token;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
@@ -13,11 +14,17 @@ use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::RefreshTokenId;
+use crate::spec_token::RewardTokenId;
+use crate::spec_token::SpecToken;
+use crate::spec_token::TokenIdKind;
+use crate::spec_token::UpdateTokenId;
 
 pub trait PoolBox {
     fn contract(&self) -> &PoolContract;
-    fn pool_nft_token(&self) -> Token;
-    fn reward_token(&self) -> Token;
+    fn pool_nft_token(&self) -> SpecToken<PoolTokenId>;
+    fn reward_token(&self) -> SpecToken<RewardTokenId>;
     fn epoch_counter(&self) -> u32;
     fn rate(&self) -> i64;
     fn get_box(&self) -> &ErgoBox;
@@ -50,7 +57,7 @@ pub struct PoolBoxWrapper {
 impl PoolBoxWrapper {
     pub fn new(b: ErgoBox, inputs: &PoolBoxWrapperInputs) -> Result<Self, PoolBoxError> {
         if let Some(token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(0) {
-            if token.token_id != inputs.pool_nft_token_id {
+            if token.token_id != inputs.pool_nft_token_id.token_id() {
                 return Err(PoolBoxError::UnknownPoolNftId);
             }
         } else {
@@ -77,7 +84,7 @@ impl PoolBoxWrapper {
         }
 
         if let Some(reward_token) = b.tokens.as_ref().ok_or(PoolBoxError::NoTokens)?.get(1) {
-            if reward_token.token_id != inputs.reward_token_id {
+            if reward_token.token_id != inputs.reward_token_id.token_id() {
                 return Err(PoolBoxError::UnknownRewardTokenId);
             }
         } else {
@@ -92,7 +99,7 @@ impl PoolBoxWrapper {
 }
 
 impl PoolBox for PoolBoxWrapper {
-    fn pool_nft_token(&self) -> Token {
+    fn pool_nft_token(&self) -> SpecToken<PoolTokenId> {
         self.ergo_box
             .tokens
             .as_ref()
@@ -100,6 +107,8 @@ impl PoolBox for PoolBoxWrapper {
             .get(0)
             .unwrap()
             .clone()
+            .try_into()
+            .unwrap()
     }
 
     fn epoch_counter(&self) -> u32 {
@@ -118,7 +127,7 @@ impl PoolBox for PoolBoxWrapper {
             .unwrap()
     }
 
-    fn reward_token(&self) -> Token {
+    fn reward_token(&self) -> SpecToken<RewardTokenId> {
         self.ergo_box
             .tokens
             .as_ref()
@@ -126,6 +135,8 @@ impl PoolBox for PoolBoxWrapper {
             .get(1)
             .unwrap()
             .clone()
+            .try_into()
+            .unwrap()
     }
 
     fn get_box(&self) -> &ErgoBox {
@@ -141,18 +152,18 @@ impl PoolBox for PoolBoxWrapper {
 pub struct PoolBoxWrapperInputs {
     pub contract_inputs: PoolContractInputs,
     /// Pool NFT token is expected to reside in `tokens(0)` of the pool box.
-    pub pool_nft_token_id: TokenId,
+    pub pool_nft_token_id: PoolTokenId,
     /// Reward token is expected to reside in `tokens(1)` of the pool box.
-    pub reward_token_id: TokenId,
+    pub reward_token_id: RewardTokenId,
 }
 
 impl PoolBoxWrapperInputs {
     pub fn build_with(
         contract_parameters: PoolContractParameters,
-        refresh_nft_token_id: TokenId,
-        update_nft_token_id: TokenId,
-        pool_nft_token_id: TokenId,
-        reward_token_id: TokenId,
+        refresh_nft_token_id: RefreshTokenId,
+        update_nft_token_id: UpdateTokenId,
+        pool_nft_token_id: PoolTokenId,
+        reward_token_id: RewardTokenId,
     ) -> Result<Self, PoolContractError> {
         let contract_inputs = PoolContractInputs::build_with(
             contract_parameters,
@@ -168,10 +179,10 @@ impl PoolBoxWrapperInputs {
 
     pub fn checked_load(
         contract_parameters: PoolContractParameters,
-        refresh_nft_token_id: TokenId,
-        update_nft_token_id: TokenId,
-        pool_nft_token_id: TokenId,
-        reward_token_id: TokenId,
+        refresh_nft_token_id: RefreshTokenId,
+        update_nft_token_id: UpdateTokenId,
+        pool_nft_token_id: PoolTokenId,
+        reward_token_id: RewardTokenId,
     ) -> Result<Self, PoolContractError> {
         let contract_inputs = PoolContractInputs::checked_load(
             contract_parameters,
@@ -190,7 +201,25 @@ pub fn make_pool_box_candidate(
     contract: &PoolContract,
     datapoint: i64,
     epoch_counter: i32,
-    pool_nft_token: Token,
+    pool_nft_token: SpecToken<PoolTokenId>,
+    reward_token: SpecToken<RewardTokenId>,
+    value: BoxValue,
+    creation_height: u32,
+) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
+    builder.add_token(pool_nft_token.into());
+    builder.add_token(reward_token.into());
+    builder.build()
+}
+
+/// Make a pool box without type-checking reward token. Mainly used when updating the pool
+pub fn make_pool_box_candidate_unchecked(
+    contract: &PoolContract,
+    datapoint: i64,
+    epoch_counter: i32,
+    pool_nft_token: SpecToken<PoolTokenId>,
     reward_token: Token,
     value: BoxValue,
     creation_height: u32,
@@ -198,7 +227,7 @@ pub fn make_pool_box_candidate(
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
     builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
     builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
-    builder.add_token(pool_nft_token.clone());
-    builder.add_token(reward_token.clone());
+    builder.add_token(pool_nft_token.into());
+    builder.add_token(reward_token);
     builder.build()
 }

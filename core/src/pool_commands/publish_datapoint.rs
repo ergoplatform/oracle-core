@@ -7,7 +7,7 @@ use ergo_lib::{
     ergotree_ir::{
         chain::{
             address::Address,
-            token::{Token, TokenAmount},
+            token::TokenAmount,
         },
         sigma_protocol::sigma_boolean::ProveDlog,
     },
@@ -25,6 +25,7 @@ use crate::{
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
     oracle_state::StageError,
+    spec_token::{OracleTokenId, RewardTokenId, SpecToken},
     wallet::{WalletDataError, WalletDataSource},
 };
 
@@ -114,11 +115,11 @@ pub fn build_publish_first_datapoint_action(
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
-    let oracle_token = Token {
+    let oracle_token: SpecToken<OracleTokenId> = SpecToken {
         token_id: inputs.oracle_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
-    let reward_token = Token {
+    let reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: inputs.reward_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
@@ -130,7 +131,7 @@ pub fn build_publish_first_datapoint_action(
     let wallet_boxes_selection = box_selector.select(
         unspent_boxes.clone(),
         target_balance,
-        &[oracle_token.clone(), reward_token.clone()],
+        &[oracle_token.clone().into(), reward_token.clone().into()],
     )?;
 
     let output_candidate = make_oracle_box_candidate(

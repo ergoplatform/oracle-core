@@ -452,6 +452,7 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         // Note that the following variable was created from the existing `scanIDs.json`.
         let oracle_pool = OraclePool::new()?;
 
+        /// TODO: This will break after update since get_pool_box will see the token IDs dont match
         let scan_pool_box_wrapper = oracle_pool.get_pool_box_source().get_pool_box()?;
         let config_pool_box_bytes = &config
             .pool_box_wrapper_inputs

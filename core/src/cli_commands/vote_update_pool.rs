@@ -27,6 +27,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{TokenIds, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
+    spec_token::TokenIdKind,
     wallet::{WalletDataError, WalletDataSource},
 };
 use derive_more::From;
@@ -209,7 +210,7 @@ fn build_tx_for_first_ballot_box(
     )?;
     let contract = BallotContract::checked_load(&inputs)?;
     let ballot_token = Token {
-        token_id: token_ids.ballot_token_id.clone(),
+        token_id: token_ids.ballot_token_id.token_id(),
         amount: 1.try_into().unwrap(),
     };
     if let Address::P2Pk(ballot_token_owner) = &ballot_token_owner_address {

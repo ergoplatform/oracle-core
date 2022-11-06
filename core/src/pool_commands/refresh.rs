@@ -12,6 +12,8 @@ use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
+use crate::spec_token::RewardTokenId;
+use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
@@ -21,7 +23,6 @@ use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
-use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_lib::wallet::box_selector::BoxSelection;
@@ -235,14 +236,13 @@ fn build_out_pool_box(
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
     let reward_token = in_pool_box.reward_token();
-    let new_reward_token: Token = (
-        reward_token.token_id,
-        reward_token
+    let new_reward_token: SpecToken<RewardTokenId> = SpecToken {
+        token_id: reward_token.token_id,
+        amount: reward_token
             .amount
             .checked_sub(&reward_decrement.try_into().unwrap())
             .unwrap(),
-    )
-        .into();
+    };
 
     make_pool_box_candidate(
         in_pool_box.contract(),

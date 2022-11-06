@@ -8,6 +8,10 @@ use crate::contracts::update::UpdateContract;
 use crate::contracts::update::UpdateContractError;
 use crate::contracts::update::UpdateContractInputs;
 use crate::contracts::update::UpdateContractParameters;
+use crate::spec_token::BallotTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::TokenIdKind;
+use crate::spec_token::UpdateTokenId;
 
 #[derive(Debug, Error)]
 pub enum UpdateBoxError {
@@ -35,7 +39,7 @@ impl UpdateBoxWrapper {
             .ok_or(UpdateBoxError::NoTokens)?
             .token_id
             .clone();
-        if update_token_id != inputs.update_nft_token_id {
+        if update_token_id != inputs.update_nft_token_id.token_id() {
             return Err(UpdateBoxError::IncorrectUpdateTokenId(update_token_id));
         }
         let contract =
@@ -72,15 +76,15 @@ impl UpdateBoxWrapper {
 #[derive(Debug, Clone)]
 pub struct UpdateBoxWrapperInputs {
     pub contract_inputs: UpdateContractInputs,
-    pub update_nft_token_id: TokenId,
+    pub update_nft_token_id: UpdateTokenId,
 }
 
 impl UpdateBoxWrapperInputs {
     pub fn build_with(
         update_contract_parameters: UpdateContractParameters,
-        pool_nft_token_id: TokenId,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        pool_nft_token_id: PoolTokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, UpdateContractError> {
         let contract_inputs = UpdateContractInputs::build_with(
             update_contract_parameters,
@@ -95,9 +99,9 @@ impl UpdateBoxWrapperInputs {
 
     pub fn checked_load(
         update_contract_parameters: UpdateContractParameters,
-        pool_nft_token_id: TokenId,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        pool_nft_token_id: PoolTokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, UpdateContractError> {
         let contract_inputs = UpdateContractInputs::checked_load(
             update_contract_parameters,

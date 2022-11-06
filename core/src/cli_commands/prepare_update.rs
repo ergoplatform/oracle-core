@@ -45,6 +45,9 @@ use crate::{
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
+    spec_token::{
+        BallotTokenId, OracleTokenId, RefreshTokenId, RewardTokenId, TokenIdKind, UpdateTokenId,
+    },
     wallet::{WalletDataError, WalletDataSource},
 };
 
@@ -241,7 +244,8 @@ pub(crate) fn perform_update_chained_transaction(
             token_mint_details.quantity.try_into().unwrap(),
             None,
         )?;
-        new_oracle_config.token_ids.oracle_token_id = token.token_id;
+        new_oracle_config.token_ids.oracle_token_id =
+            OracleTokenId::from_token_id_unchecked(token.token_id);
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
         transactions.push(tx);
     }
@@ -255,7 +259,8 @@ pub(crate) fn perform_update_chained_transaction(
             token_mint_details.quantity.try_into().unwrap(),
             None,
         )?;
-        new_oracle_config.token_ids.ballot_token_id = token.token_id;
+        new_oracle_config.token_ids.ballot_token_id =
+            BallotTokenId::from_token_id_unchecked(token.token_id);
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
     }
     if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
@@ -268,7 +273,8 @@ pub(crate) fn perform_update_chained_transaction(
             token_mint_details.quantity.try_into().unwrap(),
             None,
         )?;
-        new_oracle_config.token_ids.reward_token_id = token.token_id;
+        new_oracle_config.token_ids.reward_token_id =
+            RewardTokenId::from_token_id_unchecked(token.token_id);
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
         transactions.push(tx);
     }
@@ -292,10 +298,11 @@ pub(crate) fn perform_update_chained_transaction(
             1.try_into().unwrap(),
             Some(refresh_contract.ergo_tree()),
         )?;
-        new_oracle_config.token_ids.refresh_nft_token_id = token.token_id.clone();
+        new_oracle_config.token_ids.refresh_nft_token_id =
+            RefreshTokenId::from_token_id_unchecked(token.token_id.clone());
         new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
             contract_inputs: refresh_contract_inputs,
-            refresh_nft_token_id: token.token_id,
+            refresh_nft_token_id: new_oracle_config.token_ids.refresh_nft_token_id.clone(),
         };
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
         info!("Refresh contract tx id: {:?}", tx.id());
@@ -321,10 +328,11 @@ pub(crate) fn perform_update_chained_transaction(
             1.try_into().unwrap(),
             Some(update_contract.ergo_tree()),
         )?;
-        new_oracle_config.token_ids.update_nft_token_id = token.token_id.clone();
+        new_oracle_config.token_ids.update_nft_token_id =
+            UpdateTokenId::from_token_id_unchecked(token.token_id.clone());
         new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
             contract_inputs: update_contract_inputs,
-            update_nft_token_id: token.token_id,
+            update_nft_token_id: new_oracle_config.token_ids.update_nft_token_id.clone(),
         };
         info!("Update contract tx id: {:?}", tx.id());
         transactions.push(tx);
