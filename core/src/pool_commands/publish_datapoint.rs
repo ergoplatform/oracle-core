@@ -5,10 +5,7 @@ use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
-        chain::{
-            address::Address,
-            token::TokenAmount,
-        },
+        chain::{address::Address, token::TokenAmount},
         sigma_protocol::sigma_boolean::ProveDlog,
     },
     wallet::{

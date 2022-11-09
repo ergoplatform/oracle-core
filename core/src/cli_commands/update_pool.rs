@@ -24,8 +24,7 @@ use std::convert::TryInto;
 
 use crate::{
     box_kind::{
-        make_pool_box_candidate_unchecked, BallotBox, PoolBox,
-        PoolBoxWrapper, VoteBallotBoxWrapper,
+        make_pool_box_candidate_unchecked, BallotBox, PoolBox, PoolBoxWrapper, VoteBallotBoxWrapper,
     },
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
