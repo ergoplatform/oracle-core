@@ -70,7 +70,9 @@ pub trait StageDataSource {
 pub trait PoolBoxSource {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper>;
     /// Get Pool Box without any parameter/token checks
-    fn get_pool_box_raw(&self) -> Result<ErgoBox>;
+    fn get_pool_box_raw(&self) -> Result<ErgoBox> {
+        self.get_pool_box().map(|p| p.get_box().clone())
+    }
 }
 
 pub trait LocalBallotBoxSource {

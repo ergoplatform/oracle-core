@@ -614,8 +614,11 @@ mod tests {
             pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
         };
         let c = RefreshContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
-        assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
+        assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id.token_id(),);
         assert_eq!(c.min_data_points(), parameters.min_data_points);
         assert_eq!(c.buffer(), parameters.buffer_length);
         assert_eq!(c.max_deviation_percent(), parameters.max_deviation_percent);
@@ -646,8 +649,12 @@ mod tests {
             RefreshContractParameters::build_with(new_contract_parameter_inputs).unwrap();
         let inputs = RefreshContractInputs {
             contract_parameters: new_contract_parameters,
-            oracle_token_id: force_any_val::<Digest32>().into(),
-            pool_nft_token_id: force_any_val::<Digest32>().into(),
+            oracle_token_id: OracleTokenId::from_token_id_unchecked(
+                force_any_val::<Digest32>().into(),
+            ),
+            pool_nft_token_id: PoolTokenId::from_token_id_unchecked(
+                force_any_val::<Digest32>().into(),
+            ),
         };
         let new_contract = RefreshContract::build_with(&inputs).unwrap();
         assert_eq!(new_contract.min_data_points(), expected_min_data_points);
@@ -657,7 +664,13 @@ mod tests {
             expected_max_deviation_percent
         );
         assert_eq!(new_contract.epoch_length(), expected_epoch_length);
-        assert_eq!(new_contract.oracle_token_id(), inputs.oracle_token_id);
-        assert_eq!(new_contract.pool_nft_token_id(), inputs.pool_nft_token_id);
+        assert_eq!(
+            new_contract.oracle_token_id(),
+            inputs.oracle_token_id.token_id()
+        );
+        assert_eq!(
+            new_contract.pool_nft_token_id(),
+            inputs.pool_nft_token_id.token_id()
+        );
     }
 }

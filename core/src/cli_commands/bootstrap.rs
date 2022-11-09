@@ -800,10 +800,10 @@ pub(crate) mod tests {
         println!("{}", s);
 
         // Quickly check an encoding
-        let bytes: Vec<u8> = token_ids.ballot_token_id.clone().into();
+        let bytes: Vec<u8> = token_ids.ballot_token_id.token_id().into();
         let encoded = base64::encode(bytes);
         let ballot_id = TokenId::from_base64(&encoded).unwrap();
-        assert_eq!(token_ids.ballot_token_id, ballot_id);
+        assert_eq!(token_ids.ballot_token_id.token_id(), ballot_id);
 
         // Check that refresh contract is updated
         assert_ne!(

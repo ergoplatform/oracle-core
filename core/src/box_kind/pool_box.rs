@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
@@ -100,15 +98,19 @@ impl PoolBoxWrapper {
 
 impl PoolBox for PoolBoxWrapper {
     fn pool_nft_token(&self) -> SpecToken<PoolTokenId> {
-        self.ergo_box
+        let token = self
+            .ergo_box
             .tokens
             .as_ref()
             .unwrap()
             .get(0)
             .unwrap()
-            .clone()
-            .try_into()
-            .unwrap()
+            .clone();
+        // unchecked is safe here as PoolBoxWrapper::new validates token id
+        SpecToken {
+            token_id: PoolTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     fn epoch_counter(&self) -> u32 {
@@ -128,15 +130,18 @@ impl PoolBox for PoolBoxWrapper {
     }
 
     fn reward_token(&self) -> SpecToken<RewardTokenId> {
-        self.ergo_box
+        let token = self
+            .ergo_box
             .tokens
             .as_ref()
             .unwrap()
             .get(1)
             .unwrap()
-            .clone()
-            .try_into()
-            .unwrap()
+            .clone();
+        SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     fn get_box(&self) -> &ErgoBox {

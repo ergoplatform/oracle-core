@@ -303,7 +303,7 @@ fn build_update_pool_box_tx(
             ballot_box.contract().ergo_tree(),
             height,
         );
-        ballot_box_candidate.add_token(ballot_box.ballot_token());
+        ballot_box_candidate.add_token(ballot_box.ballot_token().into());
         ballot_box_candidate.set_register_value(
             NonMandatoryRegisterId::R4,
             (*ballot_box.ballot_token_owner().h).clone().into(),
@@ -376,6 +376,7 @@ mod tests {
             generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
             UpdateBoxMock, WalletDataMock,
         },
+        spec_token::{RefreshTokenId, SpecToken, TokenIdKind},
     };
 
     use super::build_update_pool_box_tx;
@@ -397,7 +398,7 @@ mod tests {
 
         let token_ids = generate_token_ids();
         dbg!(&token_ids);
-        let reward_tokens = Token {
+        let reward_tokens = SpecToken {
             token_id: token_ids.reward_token_id.clone(),
             amount: 1500.try_into().unwrap(),
         };
@@ -426,7 +427,7 @@ mod tests {
         let mut update_box_candidate =
             ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height);
         update_box_candidate.add_token(Token {
-            token_id: token_ids.update_nft_token_id.clone(),
+            token_id: token_ids.update_nft_token_id.token_id(),
             amount: 1.try_into().unwrap(),
         });
         let update_box = ErgoBox::from_box_candidate(
@@ -449,7 +450,7 @@ mod tests {
             &pool_contract,
             0,
             0,
-            Token {
+            SpecToken {
                 token_id: token_ids.pool_nft_token_id.clone(),
                 amount: 1.try_into().unwrap(),
             },
@@ -463,7 +464,8 @@ mod tests {
 
         let new_refresh_token_id = force_any_tokenid();
         let mut new_pool_contract_inputs = pool_contract_inputs.clone();
-        new_pool_contract_inputs.refresh_nft_token_id = new_refresh_token_id;
+        new_pool_contract_inputs.refresh_nft_token_id =
+            RefreshTokenId::from_token_id_unchecked(new_refresh_token_id);
         let new_pool_contract = PoolContract::build_with(&new_pool_contract_inputs).unwrap();
 
         let pool_box_bytes = new_pool_contract
@@ -488,7 +490,7 @@ mod tests {
                 &ballot_contract,
                 secret.public_image(),
                 update_box.creation_height,
-                Token {
+                SpecToken {
                     token_id: token_ids.ballot_token_id.clone(),
                     amount: 1.try_into().unwrap(),
                 },

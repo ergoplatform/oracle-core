@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
@@ -142,27 +140,34 @@ impl OracleBoxWrapper {
 
 impl OracleBox for OracleBoxWrapper {
     fn oracle_token(&self) -> SpecToken<OracleTokenId> {
-        self.get_box()
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(0)
             .unwrap()
-            .clone()
-            .try_into()
-            .unwrap()
+            .clone();
+        SpecToken {
+            // unchecked is safe here since OracleBoxWrapper::new checks if token id is valid
+            token_id: OracleTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     fn reward_token(&self) -> SpecToken<RewardTokenId> {
-        self.get_box()
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(1)
             .unwrap()
-            .clone()
-            .try_into()
-            .unwrap()
+            .clone();
+        SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     fn public_key(&self) -> ProveDlog {
@@ -198,27 +203,34 @@ impl PostedOracleBox {
     }
 
     pub fn oracle_token(&self) -> SpecToken<OracleTokenId> {
-        self.ergo_box
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(0)
             .unwrap()
-            .clone()
-            .try_into()
-            .unwrap()
+            .clone();
+        SpecToken {
+            // unchecked is safe here since OracleBoxWrapper::new checks if token id is valid
+            token_id: OracleTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     pub fn reward_token(&self) -> SpecToken<RewardTokenId> {
-        self.ergo_box
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(1)
             .unwrap()
-            .clone()
-            .try_into()
-            .unwrap()
+            .clone();
+        SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     pub fn public_key(&self) -> ProveDlog {

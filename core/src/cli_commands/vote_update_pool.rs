@@ -27,7 +27,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{TokenIds, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
-    spec_token::TokenIdKind,
+    spec_token::SpecToken,
     wallet::{WalletDataError, WalletDataSource},
 };
 use derive_more::From;
@@ -209,8 +209,8 @@ fn build_tx_for_first_ballot_box(
         token_ids.update_nft_token_id.clone(),
     )?;
     let contract = BallotContract::checked_load(&inputs)?;
-    let ballot_token = Token {
-        token_id: token_ids.ballot_token_id.token_id(),
+    let ballot_token = SpecToken {
+        token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
     };
     if let Address::P2Pk(ballot_token_owner) = &ballot_token_owner_address {
@@ -226,8 +226,11 @@ fn build_tx_for_first_ballot_box(
         )?;
         let box_selector = SimpleBoxSelector::new();
         let selection_target_balance = out_ballot_box_value.checked_add(&*BASE_FEE).unwrap();
-        let selection =
-            box_selector.select(unspent_boxes, selection_target_balance, &[ballot_token])?;
+        let selection = box_selector.select(
+            unspent_boxes,
+            selection_target_balance,
+            &[ballot_token.into()],
+        )?;
         let box_selection = BoxSelection {
             boxes: selection.boxes.as_vec().clone().try_into().unwrap(),
             change_boxes: selection.change_boxes,
@@ -275,6 +278,7 @@ mod tests {
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, WalletDataMock,
         },
+        spec_token::{SpecToken, TokenIdKind},
         wallet::WalletDataSource,
     };
 
@@ -301,7 +305,7 @@ mod tests {
         .unwrap();
 
         let ballot_token = Token {
-            token_id: token_ids.ballot_token_id.clone(),
+            token_id: token_ids.ballot_token_id.token_id(),
             amount: 1.try_into().unwrap(),
         };
         let wallet_unspent_box = make_wallet_unspent_box(
@@ -355,7 +359,7 @@ mod tests {
 
         let ballot_contract_parameters = BallotContractParameters::default();
         let token_ids = generate_token_ids();
-        let ballot_token = Token {
+        let ballot_token = SpecToken {
             token_id: token_ids.ballot_token_id.clone(),
             amount: 1.try_into().unwrap(),
         };
@@ -375,7 +379,7 @@ mod tests {
                 ballot_token,
                 new_pool_box_address_hash.clone(),
                 Token {
-                    token_id: token_ids.reward_token_id.clone(),
+                    token_id: token_ids.reward_token_id.token_id(),
                     amount: 100_000.try_into().unwrap(),
                 },
                 BoxValue::new(10_000_000).unwrap(),
@@ -404,7 +408,7 @@ mod tests {
             ballot_box,
             &wallet_mock,
             new_pool_box_address_hash,
-            token_ids.reward_token_id,
+            token_ids.reward_token_id.token_id(),
             100_000,
             height - 3,
             height,

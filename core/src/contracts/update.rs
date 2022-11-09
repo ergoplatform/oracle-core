@@ -362,8 +362,11 @@ mod tests {
             ballot_token_id: token_ids.ballot_token_id.clone(),
         };
         let c = UpdateContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
-        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id.token_id(),);
         assert_eq!(c.min_votes(), parameters.min_votes);
     }
 
@@ -385,8 +388,11 @@ mod tests {
             ballot_token_id: token_ids.ballot_token_id.clone(),
         };
         let c = UpdateContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
-        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id.token_id(),);
         assert_eq!(c.min_votes(), new_parameters.min_votes);
     }
 }

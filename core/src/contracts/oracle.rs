@@ -303,7 +303,10 @@ mod tests {
             pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
         };
         let c = OracleContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
     }
 
     #[test]
@@ -317,13 +320,17 @@ mod tests {
             new_min_storage_rent,
         )
         .unwrap();
-        let new_pool_nft_token_id: TokenId = force_any_val::<Digest32>().into();
+        let new_pool_nft_token_id: PoolTokenId =
+            PoolTokenId::from_token_id_unchecked(force_any_val::<Digest32>().into());
         let inputs = OracleContractInputs {
             contract_parameters: new_contract_parameters,
             pool_nft_token_id: new_pool_nft_token_id.clone(),
         };
         let new_contract = OracleContract::build_with(&inputs).unwrap();
-        assert_eq!(new_contract.pool_nft_token_id(), new_pool_nft_token_id);
+        assert_eq!(
+            new_contract.pool_nft_token_id(),
+            new_pool_nft_token_id.token_id()
+        );
         assert_eq!(new_contract.min_storage_rent(), new_min_storage_rent);
     }
 }

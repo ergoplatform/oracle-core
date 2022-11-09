@@ -312,13 +312,14 @@ mod tests {
     #[test]
     fn test_constant_parsing() {
         let contract_parameters = BallotContractParameters::default();
-        let update_nft_token_id = force_any_val::<TokenId>();
+        let update_nft_token_id =
+            UpdateTokenId::from_token_id_unchecked(force_any_val::<TokenId>());
         let inputs = BallotContractInputs {
             contract_parameters,
             update_nft_token_id: update_nft_token_id.clone(),
         };
         let c = BallotContract::build_with(&inputs).unwrap();
-        assert_eq!(c.update_nft_token_id(), update_nft_token_id);
+        assert_eq!(c.update_nft_token_id(), update_nft_token_id.token_id());
     }
 
     #[test]
@@ -332,13 +333,17 @@ mod tests {
             contract_parameters.update_nft_index,
         )
         .unwrap();
-        let new_update_nft_token_id: TokenId = force_any_val::<Digest32>().into();
+        let new_update_nft_token_id: UpdateTokenId =
+            UpdateTokenId::from_token_id_unchecked(force_any_val::<Digest32>().into());
         let inputs = BallotContractInputs {
             contract_parameters: new_contract_parameters,
             update_nft_token_id: new_update_nft_token_id.clone(),
         };
         let new_contract = BallotContract::build_with(&inputs).unwrap();
-        assert_eq!(new_contract.update_nft_token_id(), new_update_nft_token_id);
+        assert_eq!(
+            new_contract.update_nft_token_id(),
+            new_update_nft_token_id.token_id()
+        );
         assert_eq!(new_contract.min_storage_rent(), new_min_storage_rent);
     }
 }

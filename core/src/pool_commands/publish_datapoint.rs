@@ -173,6 +173,7 @@ mod tests {
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
     };
+    use crate::spec_token::TokenIdKind;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -310,11 +311,14 @@ mod tests {
 
         let token_ids = generate_token_ids();
         let tokens = BoxTokens::from_vec(vec![
-            Token::from((
-                token_ids.reward_token_id.clone(),
-                100u64.try_into().unwrap(),
-            )),
-            Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
+            Token {
+                token_id: token_ids.reward_token_id.token_id(),
+                amount: 100u64.try_into().unwrap(),
+            },
+            Token {
+                token_id: token_ids.oracle_token_id.token_id(),
+                amount: 1u64.try_into().unwrap(),
+            },
         ])
         .unwrap();
 
