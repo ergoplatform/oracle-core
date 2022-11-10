@@ -13,11 +13,11 @@ pub struct SpecToken<T: TokenIdKind> {
     pub amount: TokenAmount,
 }
 
-impl<T: TokenIdKind> Into<Token> for SpecToken<T> {
-    fn into(self) -> Token {
+impl<T: TokenIdKind> From<SpecToken<T>> for Token {
+    fn from(spec_token: SpecToken<T>) -> Token {
         Token {
-            token_id: self.token_id.token_id(),
-            amount: self.amount,
+            token_id: spec_token.token_id.token_id(),
+            amount: spec_token.amount,
         }
     }
 }

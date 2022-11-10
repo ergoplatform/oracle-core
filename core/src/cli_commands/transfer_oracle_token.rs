@@ -127,8 +127,8 @@ fn build_transfer_oracle_token_tx(
                     p2pk_dest.clone(),
                     posted_oracle_box.rate() as i64,
                     posted_oracle_box.epoch_counter(),
-                    posted_oracle_box.oracle_token().try_into().unwrap(), // TODO
-                    posted_oracle_box.reward_token().try_into().unwrap(),
+                    posted_oracle_box.oracle_token(),
+                    posted_oracle_box.reward_token(),
                     posted_oracle_box.get_box().value,
                     height,
                 )?
