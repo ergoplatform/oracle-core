@@ -9,6 +9,7 @@ use ergo_lib::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
         transaction::Transaction,
     },
+    ergo_chain_types::blake2b256_hash,
     ergotree_ir::{
         chain::{
             address::{Address, AddressEncoder, AddressEncoderError},
@@ -99,6 +100,15 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     };
 
     let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
+    let blake2b_pool_ergo_tree: String = blake2b256_hash(
+        new_config
+            .pool_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .as_slice(),
+    )
+    .into();
 
     info!("Update chain-transaction complete");
     info!("Writing new config file to oracle_config_updated.yaml");
@@ -107,6 +117,10 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
     info!("Updated oracle configuration file oracle_config_updated.yaml");
+    info!(
+        "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
+        blake2b_pool_ergo_tree
+    );
     Ok(())
 }
 
