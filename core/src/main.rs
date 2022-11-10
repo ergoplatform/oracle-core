@@ -150,13 +150,13 @@ enum Command {
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
-        /// The Blake2 hash of the address for the new pool box.
+        /// The base16-encoded blake2b hash of the serialized pool box contract for the new pool box.
         new_pool_box_address_hash_str: String,
-        /// The base-16 representation of the TokenId of the new reward tokens to be used.
+        /// The base16-encoded reward token id of the new pool box (use existing if unchanged)
         reward_token_id_str: String,
-        /// The reward token amount.
+        /// The reward token amount in the pool box at the time of update transaction is commited.
         reward_token_amount: u32,
-        /// The creation height of the update box.
+        /// The creation height of the update box (to be created by the update transaction).
         update_box_creation_height: u32,
     },
     /// Initiate the Update Pool transaction.
@@ -171,8 +171,9 @@ enum Command {
         reward_token_amount: Option<u64>,
     },
     /// Prepare updating oracle pool with new contracts/parameters.
+    /// Creates new refresh box and pool box if needed (e.g. if new reward tokens are minted)
     PrepareUpdate {
-        /// Name of update parameters file (.yaml)
+        /// Name of the parameters file (.yaml) with new contract parameters
         update_file: String,
     },
 
