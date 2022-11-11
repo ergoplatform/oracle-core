@@ -1,4 +1,7 @@
+#![allow(unused_imports)]
+
 use std::{
+    cmp::max,
     convert::{TryFrom, TryInto},
     io::Write,
 };
@@ -33,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
+    box_kind::{PoolBox, PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
     contracts::{
         pool::{PoolContractError, PoolContractParameters},
         refresh::{
@@ -45,6 +48,7 @@ use crate::{
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
+    oracle_state::{OraclePool, StageDataSource},
     serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     spec_token::{
         BallotTokenId, OracleTokenId, RefreshTokenId, RewardTokenId, TokenIdKind, UpdateTokenId,
@@ -121,10 +125,51 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
     );
+    print_reward_tokens_left()?;
     Ok(())
 }
 
-pub struct PrepareUpdateInput<'a> {
+fn print_reward_tokens_left() -> Result<(), PrepareUpdateError> {
+    let epoch_length = ORACLE_CONFIG
+        .refresh_box_wrapper_inputs
+        .contract_inputs
+        .contract_parameters()
+        .epoch_length() as u32;
+    let current_height: u32 = new_node_interface().current_block_height()? as u32;
+    let op = OraclePool::new().unwrap();
+    let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
+    let min_oracle_box_height = current_height - epoch_length;
+    let active_oracle_count = oracle_boxes
+        .into_iter()
+        .filter(|b| b.creation_height as u32 >= min_oracle_box_height)
+        .count() as u32;
+    let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
+    let pool_box_height = pool_box.get_box().creation_height;
+    let next_epoch_height = max(pool_box_height + epoch_length, current_height);
+    let reward_tokens_left = *pool_box.reward_token().amount.as_u64();
+    info!(
+        "Reward token id in the pool box: {}",
+        String::from(pool_box.reward_token().token_id)
+    );
+    info!(
+        "Current height is {}, pool box height (epoch start) {}, epoch length is {}",
+        current_height, pool_box_height, epoch_length
+    );
+    info!(
+        "Estimated active oracle count is {}, reward tokens in the pool box {}",
+        active_oracle_count, reward_tokens_left
+    );
+    for i in 0..10 {
+        info!(
+            "On new epoch height {} estimating reward tokens in the pool box: {}",
+            next_epoch_height + i * epoch_length,
+            reward_tokens_left - ((i + 1) * (active_oracle_count * 2)) as u64
+        );
+    }
+    Ok(())
+}
+
+struct PrepareUpdateInput<'a> {
     pub config: UpdateBootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
     pub tx_signer: &'a dyn SignTransaction,
@@ -136,7 +181,7 @@ pub struct PrepareUpdateInput<'a> {
     pub old_config: OracleConfig,
 }
 
-pub(crate) fn perform_update_chained_transaction(
+fn perform_update_chained_transaction(
     input: PrepareUpdateInput,
 ) -> Result<OracleConfig, PrepareUpdateError> {
     let PrepareUpdateInput {
