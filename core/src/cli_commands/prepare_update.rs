@@ -162,7 +162,7 @@ fn print_reward_tokens_left() -> Result<(), PrepareUpdateError> {
     for i in 0..10 {
         info!(
             "On new epoch height {} estimating reward tokens in the pool box: {}",
-            next_epoch_height + i * epoch_length,
+            next_epoch_height + i * (epoch_length + 1),
             reward_tokens_left - ((i + 1) * (active_oracle_count * 2)) as u64
         );
     }
