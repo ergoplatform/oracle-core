@@ -154,7 +154,7 @@ enum Command {
         new_pool_box_address_hash_str: String,
         /// The base16-encoded reward token id of the new pool box (use existing if unchanged)
         reward_token_id_str: String,
-        /// The reward token amount in the pool box at the time of update transaction is commited.
+        /// The reward token amount in the pool box at the time of update transaction is committed.
         reward_token_amount: u32,
         /// The creation height of the update box (to be created by the update transaction).
         update_box_creation_height: u32,
