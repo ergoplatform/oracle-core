@@ -528,14 +528,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
     info!("Created initial refresh box TxId: {}", tx_id);
 
-    // let token_ids = TokenIds {
-    //     pool_nft_token_id: pool_nft_token.token_id,
-    //     refresh_nft_token_id: refresh_nft_token.token_id,
-    //     update_nft_token_id: update_nft_token.token_id,
-    //     oracle_token_id: oracle_token.token_id,
-    //     reward_token_id: reward_token.token_id,
-    //     ballot_token_id: ballot_token.token_id,
-    // };
     info!("Minted tokens: {:?}", token_ids);
 
     Ok(OracleConfig::create(config, token_ids, height)?)
