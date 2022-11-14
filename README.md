@@ -93,6 +93,30 @@ oracle-core transfer-oracle-token <ADDRESS>
 Ensure the new address has enough coins for tx fees to run in a pool.
 As with inviting a new oracle, the `oracle_config.yaml` config file you are running now should also be sent. Again, clean up the `node_api_key` and `oracle_address` fields before you send it and instruct the invited oracle to set them to their liking.
 
+## Updating the contracts/tokens
+Changes to the contract(parameters)/tokens can be done in three steps:
+- `prepare-update` command submits a new refresh box with the updated refresh contract; 
+- `vote-update-pool` command submits oracle's ballot box voting for the changes;
+- `update-pool` command submits the update transaction, which produces a new pool box;
+
+### Create a new refresh box with `prepare-update` command 
+Create a YAML file describing what contract parameters should be updated and run
+```console
+oracle-core prepare-update <YAML file>
+```
+The output shows the new pool box contract hash and reward tokens amounts for the subsequent dozen epochs. To be used in the `vote-update-pool` command run by the oracles on the next step.
+
+### Vote for contract update with `vote-update-pool` command
+Run
+```console
+oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> UPDATE_BOX_CREATION_HEIGHT
+```
+Where:
+  <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
+  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
+  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
+  <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the update box (to be created by the update transaction).
+
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
 The default configuration file path is ~/.config/oracle-core/oracle_config.yaml. This can be changed inside the .service file
