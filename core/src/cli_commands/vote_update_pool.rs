@@ -159,7 +159,7 @@ fn build_tx_with_existing_ballot_box(
         new_pool_box_address_hash,
         reward_token,
         in_ballot_box.get_box().value,
-        update_box_creation_height,
+        height,
     )?;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, *BASE_FEE, &[])?;
