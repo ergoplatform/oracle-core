@@ -39,8 +39,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error, From)]
 pub enum UpdatePoolError {
-    #[error("Update pool: Not enough votes, expected {0}, found {1}")]
-    NotEnoughVotes(usize, usize),
+    #[error("Update pool: Not enough votes for {2:?}, expected {0}, found {1}")]
+    NotEnoughVotes(usize, usize, CastBallotBoxVoteParameters),
     #[error("Update pool: Pool parameters (refresh NFT, update NFT) unchanged")]
     PoolUnchanged,
     #[error("Update pool: ErgoBoxCandidateBuilderError {0}")]
@@ -206,7 +206,7 @@ fn build_update_pool_box_tx(
         pool_box_address_hash: pool_box_hash,
         reward_token_id: reward_tokens.token_id.clone(),
         reward_token_quantity: *reward_tokens.amount.as_u64(),
-        update_box_creation_height: update_box.get_box().creation_info().0,
+        update_box_creation_height: height as i32,
     };
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
@@ -237,6 +237,7 @@ fn build_update_pool_box_tx(
         return Err(UpdatePoolError::NotEnoughVotes(
             min_votes as usize,
             vote_ballot_boxes.len(),
+            vote_parameters,
         ));
     }
 
