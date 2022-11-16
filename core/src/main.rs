@@ -44,6 +44,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
+use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -66,6 +67,7 @@ use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use state::process;
 use state::PoolState;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::thread;
 use std::time::Duration;
@@ -318,7 +320,7 @@ fn handle_oracle_command(command: Command) {
                 reward_token_id
                     .zip(reward_token_amount)
                     .map(|(token_id, amount)| Token {
-                        token_id: TokenId::from_base64(&token_id).unwrap(),
+                        token_id: TokenId::from(Digest32::try_from(token_id).unwrap()),
                         amount: amount.try_into().unwrap(),
                     });
             if let Err(e) =
