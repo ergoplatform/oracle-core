@@ -406,6 +406,12 @@ fn perform_update_chained_transaction(
             new_oracle_config.token_ids.reward_token_id.clone(),
         )?;
         new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
+    } else if new_oracle_config.token_ids.refresh_nft_token_id
+        != old_config.token_ids.refresh_nft_token_id
+        || new_oracle_config.token_ids.update_nft_token_id
+            != old_config.token_ids.update_nft_token_id
+    {
+        return Err(PrepareUpdateError::PoolContractParametersNotProvided);
     }
 
     for tx in transactions {
@@ -455,6 +461,8 @@ pub enum PrepareUpdateError {
     SerdeConversion(SerdeConversionError),
     #[error("WalletData error: {0}")]
     WalletData(WalletDataError),
+    #[error("new tokens minted, pool contract has to be updated as well, please provide pool_contract_parameters")]
+    PoolContractParametersNotProvided,
 }
 
 #[cfg(test)]
