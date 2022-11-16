@@ -206,7 +206,7 @@ fn build_update_pool_box_tx(
         pool_box_address_hash: pool_box_hash,
         reward_token_id: reward_tokens.token_id.clone(),
         reward_token_quantity: *reward_tokens.amount.as_u64(),
-        update_box_creation_height: height as i32,
+        update_box_creation_height: update_box.get_box().creation_height as i32,
     };
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
