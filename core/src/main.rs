@@ -158,7 +158,7 @@ enum Command {
         reward_token_id_str: String,
         /// The reward token amount in the pool box at the time of update transaction is committed.
         reward_token_amount: u32,
-        /// The creation height of the update box (to be created by the update transaction).
+        /// The creation height of the existing update box.
         update_box_creation_height: u32,
     },
     /// Initiate the Update Pool transaction.
