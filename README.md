@@ -104,18 +104,37 @@ Create a YAML file describing what contract parameters should be updated and run
 ```console
 oracle-core prepare-update <YAML file>
 ```
+This will generate `oracle_config_updated.yaml` config file which should be used in `update-pool` command.
 The output shows the new pool box contract hash and reward tokens amounts for the subsequent dozen epochs. To be used in the `vote-update-pool` command run by the oracles on the next step.
 
 ### Vote for contract update with `vote-update-pool` command
 Run
 ```console
-oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> UPDATE_BOX_CREATION_HEIGHT
+oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> <UPDATE_BOX_CREATION_HEIGHT>
 ```
 Where:
   <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
   <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
   <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
-  <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the update box (to be created by the update transaction).
+  <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
+
+### Update the pool box contract with `update-pool` command
+Make sure the `oracle_config_updated.yaml` config file generated during the `prepare-update` command is in the same folder as the oracle-core binary.
+Run
+```console
+oracle-core update-pool 
+```
+to see the diff for the tokens.
+Run
+```console
+oracle-core update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> 
+```
+Where:
+  <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
+  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
+  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
+
+This will submit an update tx. After the update tx is confirmed, use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle)
 
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
