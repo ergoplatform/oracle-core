@@ -125,11 +125,11 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
     );
-    print_reward_tokens_left()?;
+    print_hints_for_voting()?;
     Ok(())
 }
 
-fn print_reward_tokens_left() -> Result<(), PrepareUpdateError> {
+fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
     let epoch_length = ORACLE_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
@@ -147,6 +147,9 @@ fn print_reward_tokens_left() -> Result<(), PrepareUpdateError> {
     let pool_box_height = pool_box.get_box().creation_height;
     let next_epoch_height = max(pool_box_height + epoch_length, current_height);
     let reward_tokens_left = *pool_box.reward_token().amount.as_u64();
+    let update_box = op.get_update_box_source().get_update_box().unwrap();
+    let update_box_height = update_box.get_box().creation_height;
+    info!("Update box height: {}", update_box_height);
     info!(
         "Reward token id in the pool box: {}",
         String::from(pool_box.reward_token().token_id)
