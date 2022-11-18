@@ -15,7 +15,6 @@ use crate::scans::{
     register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
     register_update_box_scan, save_scan_ids_locally, Scan, ScanError,
 };
-use crate::spec_token::TokenIdKind;
 use crate::state::PoolState;
 use anyhow::Error;
 use derive_more::From;
@@ -69,10 +68,6 @@ pub trait StageDataSource {
 
 pub trait PoolBoxSource {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper>;
-    /// Get Pool Box without any parameter/token checks
-    fn get_pool_box_raw(&self) -> Result<ErgoBox> {
-        self.get_pool_box().map(|p| p.get_box().clone())
-    }
 }
 
 pub trait LocalBallotBoxSource {
@@ -340,9 +335,6 @@ impl<'a> PoolBoxSource for PoolBoxScan<'a> {
         )?;
         Ok(box_wrapper)
     }
-    fn get_pool_box_raw(&self) -> Result<ErgoBox> {
-        self.scan.get_box()?.ok_or(StageError::PoolBoxNotFoundError)
-    }
 }
 
 impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
@@ -460,24 +452,22 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         // Note that the following variable was created from the existing `scanIDs.json`.
         let oracle_pool = OraclePool::new()?;
 
-        let scan_pool_box_wrapper = oracle_pool.get_pool_box_source().get_pool_box_raw()?;
+        let scan_pool_box_wrapper = oracle_pool.get_pool_box_source().get_pool_box()?;
         let config_pool_box_bytes = &config
             .pool_box_wrapper_inputs
             .contract_inputs
             .contract_parameters()
             .ergo_tree_bytes();
 
-        let pool_hash_changed =
-            blake2b256_hash(&scan_pool_box_wrapper.ergo_tree.sigma_serialize_bytes()?)
-                != blake2b256_hash(config_pool_box_bytes);
+        let pool_hash_changed = blake2b256_hash(
+            &scan_pool_box_wrapper
+                .get_box()
+                .ergo_tree
+                .sigma_serialize_bytes()?,
+        ) != blake2b256_hash(config_pool_box_bytes);
 
-        let reward_tokens_changed = scan_pool_box_wrapper
-            .tokens
-            .unwrap()
-            .get(1)
-            .unwrap()
-            .token_id
-            != config.pool_box_wrapper_inputs.reward_token_id.token_id();
+        let reward_tokens_changed = scan_pool_box_wrapper.reward_token().token_id
+            != config.pool_box_wrapper_inputs.reward_token_id;
 
         // The UpdatePool command will lead to either a change in the pool box script and/or a
         // change in the reward tokens.
