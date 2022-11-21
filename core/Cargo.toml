@@ -26,9 +26,9 @@ crossbeam = "0.8"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.3.0", features = ["cors"] }
 axum = "0.5"
-ergo-lib = { version = "0.20.0" }
+ergo-lib = { version = "0.21" }
 # ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "3ada03f6a803a4541ae6d36c28a74efe87c2325b" }
-ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "f10aa6ab8392524363faa2916a2b61ad6d99cb62" }
+ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "34a07b4c449c021034c1d1281a6f1025a97c0eda" }
 derive_more = "0.99"
 # bounded-vec = { version = "^0.5.0" }
 clap = {version = "=3.1.18", features = ["derive"]}
@@ -38,7 +38,7 @@ once_cell = "1.15.0"
 [dev-dependencies]
 # sigma-test-util = { version = "^0.3.0", path = "../../sigma-rust/sigma-test-util" }
 # ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "3ada03f6a803a4541ae6d36c28a74efe87c2325b" , features = ["arbitrary"]}
-ergo-lib = { version = "0.20.0", features = ["arbitrary"]}
+ergo-lib = { version = "0.21", features = ["arbitrary"]}
 proptest = {version = "1.0.0"}
 proptest-derive = {version = "0.3.0"}
 sigma-test-util = {version = "0.3.0"}
