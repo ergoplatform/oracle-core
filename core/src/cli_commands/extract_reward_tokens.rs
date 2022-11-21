@@ -30,6 +30,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
+    spec_token::SpecToken,
     wallet::{WalletDataError, WalletDataSource},
 };
 
@@ -123,8 +124,8 @@ fn build_extract_reward_tokens_tx(
         );
     }
     if let Address::P2Pk(_) = &rewards_destination {
-        let single_reward_token = Token {
-            token_id: in_oracle_box.reward_token().token_id.clone(),
+        let single_reward_token = SpecToken {
+            token_id: in_oracle_box.reward_token().token_id,
             amount: 1.try_into().unwrap(),
         };
         let oracle_box_candidate =
@@ -155,7 +156,7 @@ fn build_extract_reward_tokens_tx(
             ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height);
 
         let extracted_reward_tokens = Token {
-            token_id: in_oracle_box.reward_token().token_id.clone(),
+            token_id: in_oracle_box.reward_token().token_id(),
             amount: (num_reward_tokens - 1).try_into().unwrap(),
         };
 

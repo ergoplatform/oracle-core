@@ -5,8 +5,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
-use ergo_lib::ergotree_ir::chain::token::Token;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
@@ -16,11 +14,16 @@ use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
+use crate::spec_token::OracleTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::RewardTokenId;
+use crate::spec_token::SpecToken;
+use crate::spec_token::TokenIdKind;
 
 pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
-    fn oracle_token(&self) -> Token;
-    fn reward_token(&self) -> Token;
+    fn oracle_token(&self) -> SpecToken<OracleTokenId>;
+    fn reward_token(&self) -> SpecToken<RewardTokenId>;
     fn public_key(&self) -> ProveDlog;
     fn get_box(&self) -> &ErgoBox;
 }
@@ -81,7 +84,7 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if oracle_token_id != inputs.oracle_token_id {
+        if oracle_token_id != inputs.oracle_token_id.token_id() {
             return Err(OracleBoxError::UnknownOracleTokenId);
         }
 
@@ -94,7 +97,7 @@ impl OracleBoxWrapper {
             .token_id
             .clone();
 
-        if reward_token_id != inputs.reward_token_id {
+        if reward_token_id != inputs.reward_token_id.token_id() {
             return Err(OracleBoxError::UnknownRewardTokenId);
         }
 
@@ -136,24 +139,35 @@ impl OracleBoxWrapper {
 }
 
 impl OracleBox for OracleBoxWrapper {
-    fn oracle_token(&self) -> Token {
-        self.get_box()
+    fn oracle_token(&self) -> SpecToken<OracleTokenId> {
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(0)
             .unwrap()
-            .clone()
+            .clone();
+        SpecToken {
+            // unchecked is safe here since OracleBoxWrapper::new checks if token id is valid
+            token_id: OracleTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
-    fn reward_token(&self) -> Token {
-        self.get_box()
+    fn reward_token(&self) -> SpecToken<RewardTokenId> {
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(1)
             .unwrap()
-            .clone()
+            .clone();
+        SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     fn public_key(&self) -> ProveDlog {
@@ -188,24 +202,35 @@ impl PostedOracleBox {
         })
     }
 
-    pub fn oracle_token(&self) -> Token {
-        self.ergo_box
+    pub fn oracle_token(&self) -> SpecToken<OracleTokenId> {
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(0)
             .unwrap()
-            .clone()
+            .clone();
+        SpecToken {
+            // unchecked is safe here since OracleBoxWrapper::new checks if token id is valid
+            token_id: OracleTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
-    pub fn reward_token(&self) -> Token {
-        self.ergo_box
+    pub fn reward_token(&self) -> SpecToken<RewardTokenId> {
+        let token = self
+            .get_box()
             .tokens
             .as_ref()
             .unwrap()
             .get(1)
             .unwrap()
-            .clone()
+            .clone();
+        SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
     }
 
     pub fn public_key(&self) -> ProveDlog {
@@ -246,17 +271,17 @@ impl PostedOracleBox {
 pub struct OracleBoxWrapperInputs {
     pub contract_inputs: OracleContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the oracle box.
-    pub oracle_token_id: TokenId,
+    pub oracle_token_id: OracleTokenId,
     /// Reward token is expected to reside in `tokens(1)` of the oracle box.
-    pub reward_token_id: TokenId,
+    pub reward_token_id: RewardTokenId,
 }
 
 impl OracleBoxWrapperInputs {
     pub fn checked_load(
         oracle_contract_parameters: OracleContractParameters,
-        pool_token_id: TokenId,
-        oracle_token_id: TokenId,
-        reward_token_id: TokenId,
+        pool_token_id: PoolTokenId,
+        oracle_token_id: OracleTokenId,
+        reward_token_id: RewardTokenId,
     ) -> Result<Self, OracleContractError> {
         let contract_inputs =
             OracleContractInputs::checked_load(oracle_contract_parameters, pool_token_id)?;
@@ -269,9 +294,9 @@ impl OracleBoxWrapperInputs {
 
     pub fn build_with(
         oracle_contract_parameters: OracleContractParameters,
-        pool_token_id: TokenId,
-        oracle_token_id: TokenId,
-        reward_token_id: TokenId,
+        pool_token_id: PoolTokenId,
+        oracle_token_id: OracleTokenId,
+        reward_token_id: RewardTokenId,
     ) -> Result<Self, OracleContractError> {
         let contract_inputs =
             OracleContractInputs::build_with(oracle_contract_parameters, pool_token_id)?;
@@ -301,8 +326,8 @@ pub fn make_oracle_box_candidate(
     public_key: ProveDlog,
     datapoint: i64,
     epoch_counter: u32,
-    oracle_token: Token,
-    reward_token: Token,
+    oracle_token: SpecToken<OracleTokenId>,
+    reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
@@ -310,8 +335,8 @@ pub fn make_oracle_box_candidate(
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
     builder.set_register_value(NonMandatoryRegisterId::R6, (datapoint as i64).into());
-    builder.add_token(oracle_token.clone());
-    builder.add_token(reward_token.clone());
+    builder.add_token(oracle_token.into());
+    builder.add_token(reward_token.into());
     builder.build()
 }
 
@@ -320,14 +345,14 @@ pub fn make_oracle_box_candidate(
 pub fn make_collected_oracle_box_candidate(
     contract: &OracleContract,
     public_key: ProveDlog,
-    oracle_token: Token,
-    reward_token: Token,
+    oracle_token: SpecToken<OracleTokenId>,
+    reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
-    builder.add_token(oracle_token.clone());
-    builder.add_token(reward_token.clone());
+    builder.add_token(oracle_token.into());
+    builder.add_token(reward_token.into());
     builder.build()
 }

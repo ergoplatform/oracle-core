@@ -31,6 +31,7 @@ mod oracle_state;
 mod pool_commands;
 mod scans;
 mod serde;
+mod spec_token;
 mod state;
 mod templates;
 #[cfg(test)]

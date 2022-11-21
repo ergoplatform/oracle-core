@@ -4,11 +4,11 @@ use crate::contracts::pool::{PoolContract, PoolContractError};
 use crate::contracts::refresh::{RefreshContract, RefreshContractError};
 /// This file holds logic related to UTXO-set scans
 use crate::node_interface::{get_scan_boxes, register_scan};
+use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
@@ -157,7 +157,7 @@ pub fn register_refresh_box_scan(
 
 /// This function registers scanning for the oracle's personal Datapoint box
 pub fn register_local_oracle_datapoint_scan(
-    oracle_pool_participant_token: &TokenId,
+    oracle_pool_participant_token: &OracleTokenId,
     datapoint_address: &ErgoTree,
     oracle_address: &NetworkAddress,
 ) -> Result<Scan> {
@@ -190,7 +190,7 @@ pub fn register_local_oracle_datapoint_scan(
 
 /// This function registers scanning for all of the pools oracles' Datapoint boxes for datapoint collection
 pub fn register_datapoint_scan(
-    oracle_pool_participant_token: &TokenId,
+    oracle_pool_participant_token: &OracleTokenId,
     datapoint_address: &ErgoTree,
 ) -> Result<Scan> {
     let datapoint_bytes = datapoint_address.to_scan_bytes();
@@ -215,7 +215,7 @@ pub fn register_datapoint_scan(
 /// This function registers scanning for the local ballot box
 pub fn register_local_ballot_box_scan(
     ballot_contract_address: &ErgoTree,
-    ballot_token_id: &TokenId,
+    ballot_token_id: &BallotTokenId,
     ballot_token_owner_address: &NetworkAddress,
 ) -> Result<Scan> {
     // Raw EC bytes + type identifier
@@ -247,7 +247,7 @@ pub fn register_local_ballot_box_scan(
 /// Scan for all ballot boxes matching token id of oracle pool. When updating the pool box only ballot boxes voting for the new pool will be spent
 pub fn register_ballot_box_scan(
     ballot_contract_address: &ErgoTree,
-    ballot_token_id: &TokenId,
+    ballot_token_id: &BallotTokenId,
 ) -> Result<Scan> {
     let scan_json = json! ( {
         "predicate": "and",
@@ -264,7 +264,7 @@ pub fn register_ballot_box_scan(
     Scan::register("Ballot Box Scan", scan_json)
 }
 
-pub fn register_update_box_scan(update_nft_token_id: &TokenId) -> Result<Scan> {
+pub fn register_update_box_scan(update_nft_token_id: &UpdateTokenId) -> Result<Scan> {
     let scan_json = json! ( {
         "predicate": "and",
         "args": [

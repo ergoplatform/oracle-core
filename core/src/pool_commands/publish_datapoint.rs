@@ -5,10 +5,7 @@ use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
-        chain::{
-            address::Address,
-            token::{Token, TokenAmount},
-        },
+        chain::{address::Address, token::TokenAmount},
         sigma_protocol::sigma_boolean::ProveDlog,
     },
     wallet::{
@@ -25,6 +22,7 @@ use crate::{
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
     oracle_state::StageError,
+    spec_token::{OracleTokenId, RewardTokenId, SpecToken},
     wallet::{WalletDataError, WalletDataSource},
 };
 
@@ -114,11 +112,11 @@ pub fn build_publish_first_datapoint_action(
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
-    let oracle_token = Token {
+    let oracle_token: SpecToken<OracleTokenId> = SpecToken {
         token_id: inputs.oracle_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
-    let reward_token = Token {
+    let reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: inputs.reward_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
@@ -130,7 +128,7 @@ pub fn build_publish_first_datapoint_action(
     let wallet_boxes_selection = box_selector.select(
         unspent_boxes.clone(),
         target_balance,
-        &[oracle_token.clone(), reward_token.clone()],
+        &[oracle_token.clone().into(), reward_token.clone().into()],
     )?;
 
     let output_candidate = make_oracle_box_candidate(
@@ -175,6 +173,7 @@ mod tests {
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
     };
+    use crate::spec_token::TokenIdKind;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -312,11 +311,14 @@ mod tests {
 
         let token_ids = generate_token_ids();
         let tokens = BoxTokens::from_vec(vec![
-            Token::from((
-                token_ids.reward_token_id.clone(),
-                100u64.try_into().unwrap(),
-            )),
-            Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
+            Token {
+                token_id: token_ids.reward_token_id.token_id(),
+                amount: 100u64.try_into().unwrap(),
+            },
+            Token {
+                token_id: token_ids.oracle_token_id.token_id(),
+                amount: 1u64.try_into().unwrap(),
+            },
         ])
         .unwrap();
 

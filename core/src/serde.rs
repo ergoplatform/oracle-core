@@ -535,18 +535,20 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
     }
 }
 
-pub(crate) fn token_id_as_base64_string<S>(
-    value: &TokenId,
+pub(crate) fn token_id_as_base64_string<S, T: crate::spec_token::TokenIdKind>(
+    value: &T,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    let bytes: Vec<u8> = value.clone().into();
+    let bytes: Vec<u8> = value.token_id().into();
     serializer.serialize_str(&base64::encode(bytes))
 }
 
-pub(crate) fn token_id_from_base64<'de, D>(deserializer: D) -> Result<TokenId, D::Error>
+pub(crate) fn token_id_from_base64<'de, D, T: crate::spec_token::TokenIdKind>(
+    deserializer: D,
+) -> Result<T, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
@@ -554,5 +556,7 @@ where
     // runtime:
     //   "invalid type: string ..., expected a borrowed string"
     let s: String = serde::de::Deserialize::deserialize(deserializer)?;
-    TokenId::from_base64(&s).map_err(serde::de::Error::custom)
+    Ok(T::from_token_id_unchecked(
+        TokenId::from_base64(&s).map_err(serde::de::Error::custom)?,
+    ))
 }

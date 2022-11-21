@@ -11,6 +11,10 @@ use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
+use crate::spec_token::BallotTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::TokenIdKind;
+
 #[derive(Clone)]
 pub struct UpdateContract {
     ergo_tree: ErgoTree,
@@ -48,15 +52,15 @@ pub enum UpdateContractError {
 #[derive(Debug, Clone)]
 pub struct UpdateContractInputs {
     contract_parameters: UpdateContractParameters,
-    pub pool_nft_token_id: TokenId,
-    pub ballot_token_id: TokenId,
+    pub pool_nft_token_id: PoolTokenId,
+    pub ballot_token_id: BallotTokenId,
 }
 
 impl UpdateContractInputs {
     pub fn build_with(
         contract_parameters: UpdateContractParameters,
-        pool_nft_token_id: TokenId,
-        ballot_token_id: TokenId,
+        pool_nft_token_id: PoolTokenId,
+        ballot_token_id: BallotTokenId,
     ) -> Result<Self, UpdateContractError> {
         let inputs_to_create_contract = Self {
             contract_parameters,
@@ -73,8 +77,8 @@ impl UpdateContractInputs {
 
     pub fn checked_load(
         contract_parameters: UpdateContractParameters,
-        pool_nft_token_id: TokenId,
-        ballot_token_id: TokenId,
+        pool_nft_token_id: PoolTokenId,
+        ballot_token_id: BallotTokenId,
     ) -> Result<Self, UpdateContractError> {
         let contract_inputs = Self {
             contract_parameters,
@@ -96,11 +100,11 @@ impl UpdateContract {
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
                 .with_constant(
                     inputs.contract_parameters.pool_nft_index,
-                    inputs.pool_nft_token_id.clone().into(),
+                    inputs.pool_nft_token_id.token_id().into(),
                 )?
                 .with_constant(
                     inputs.contract_parameters.ballot_token_index,
-                    inputs.ballot_token_id.clone().into(),
+                    inputs.ballot_token_id.token_id().into(),
                 )?
                 .with_constant(
                     inputs.contract_parameters.min_votes_index,
@@ -133,7 +137,7 @@ impl UpdateContract {
             .map_err(|_| UpdateContractError::NoPoolNftId)?
             .ok_or(UpdateContractError::NoPoolNftId)?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != inputs.pool_nft_token_id {
+        if pool_nft_token_id != inputs.pool_nft_token_id.token_id() {
             return Err(UpdateContractError::UnknownPoolNftId);
         };
 
@@ -142,7 +146,7 @@ impl UpdateContract {
             .map_err(|_| UpdateContractError::NoBallotTokenId)?
             .ok_or(UpdateContractError::NoBallotTokenId)?
             .try_extract_into::<TokenId>()?;
-        if ballot_token_id != inputs.ballot_token_id {
+        if ballot_token_id != inputs.ballot_token_id.token_id() {
             return Err(UpdateContractError::UnknownBallotTokenId);
         };
 
@@ -358,8 +362,11 @@ mod tests {
             ballot_token_id: token_ids.ballot_token_id.clone(),
         };
         let c = UpdateContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
-        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id.token_id(),);
         assert_eq!(c.min_votes(), parameters.min_votes);
     }
 
@@ -381,8 +388,11 @@ mod tests {
             ballot_token_id: token_ids.ballot_token_id.clone(),
         };
         let c = UpdateContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
-        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
+        assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id.token_id(),);
         assert_eq!(c.min_votes(), new_parameters.min_votes);
     }
 }

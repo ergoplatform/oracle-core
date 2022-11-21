@@ -43,6 +43,13 @@ use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::VoteBallotBoxesSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
+use crate::spec_token::BallotTokenId;
+use crate::spec_token::OracleTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::RefreshTokenId;
+use crate::spec_token::RewardTokenId;
+use crate::spec_token::TokenIdKind;
+use crate::spec_token::UpdateTokenId;
 use crate::wallet::WalletDataError;
 
 use super::*;
@@ -134,11 +141,11 @@ pub(crate) fn make_pool_box(
     };
     let tokens = vec![
         Token::from((
-            token_ids.pool_nft_token_id.clone(),
+            token_ids.pool_nft_token_id.token_id(),
             1u64.try_into().unwrap(),
         )),
         Token::from((
-            token_ids.reward_token_id.clone(),
+            token_ids.reward_token_id.token_id(),
             100u64.try_into().unwrap(),
         )),
     ]
@@ -180,9 +187,12 @@ pub(crate) fn make_datapoint_box(
     creation_height: u32,
 ) -> ErgoBox {
     let tokens = vec![
-        Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
         Token::from((
-            token_ids.reward_token_id.clone(),
+            token_ids.oracle_token_id.token_id(),
+            1u64.try_into().unwrap(),
+        )),
+        Token::from((
+            token_ids.reward_token_id.token_id(),
             100u64.try_into().unwrap(),
         )),
     ]
@@ -285,12 +295,16 @@ pub fn init_log_tests() {
 
 pub fn generate_token_ids() -> TokenIds {
     TokenIds {
-        pool_nft_token_id: force_any_val::<Digest32>().into(),
-        refresh_nft_token_id: force_any_val::<Digest32>().into(),
-        update_nft_token_id: force_any_val::<Digest32>().into(),
-        oracle_token_id: force_any_val::<Digest32>().into(),
-        reward_token_id: force_any_val::<Digest32>().into(),
-        ballot_token_id: force_any_val::<Digest32>().into(),
+        pool_nft_token_id: PoolTokenId::from_token_id_unchecked(force_any_val::<Digest32>().into()),
+        refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(
+            force_any_val::<Digest32>().into(),
+        ),
+        update_nft_token_id: UpdateTokenId::from_token_id_unchecked(
+            force_any_val::<Digest32>().into(),
+        ),
+        oracle_token_id: OracleTokenId::from_token_id_unchecked(force_any_val::<Digest32>().into()),
+        reward_token_id: RewardTokenId::from_token_id_unchecked(force_any_val::<Digest32>().into()),
+        ballot_token_id: BallotTokenId::from_token_id_unchecked(force_any_val::<Digest32>().into()),
     }
 }
 
