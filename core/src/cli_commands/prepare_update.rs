@@ -152,7 +152,7 @@ fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
     info!("Update box height: {}", update_box_height);
     info!(
         "Reward token id in the pool box: {}",
-        String::from(pool_box.reward_token().token_id)
+        String::from(pool_box.reward_token().token_id.token_id())
     );
     info!(
         "Current height is {}, pool box height (epoch start) {}, epoch length is {}",

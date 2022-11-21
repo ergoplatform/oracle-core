@@ -225,7 +225,7 @@ fn build_tx_for_first_ballot_box(
             height,
         )?;
         let box_selector = SimpleBoxSelector::new();
-        let selection_target_balance = out_ballot_box_value.checked_add(&*BASE_FEE).unwrap();
+        let selection_target_balance = out_ballot_box_value.checked_add(&BASE_FEE).unwrap();
         let selection = box_selector.select(
             unspent_boxes,
             selection_target_balance,
