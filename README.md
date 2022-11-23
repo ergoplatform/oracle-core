@@ -98,6 +98,7 @@ Changes to the contract(parameters)/tokens can be done in three steps:
 - `prepare-update` command submits a new refresh box with the updated refresh contract; 
 - `vote-update-pool` command submits oracle's ballot box voting for the changes;
 - `update-pool` command submits the update transaction, which produces a new pool box;
+Each of the step is described below. See also a detailed instruction on [Updating the epoch length](docs/update_epoch_length.md)
 
 ### Create a new refresh box with `prepare-update` command 
 Create a YAML file describing what contract parameters should be updated and run
