@@ -114,10 +114,10 @@ Run
 oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> <UPDATE_BOX_CREATION_HEIGHT>
 ```
 Where:
-  <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
-  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
-  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
-  <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
+- <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
+- <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
+- <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
+- <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
 
 ### Update the pool box contract with `update-pool` command
 Make sure the `oracle_config_updated.yaml` config file generated during the `prepare-update` command is in the same folder as the oracle-core binary.
