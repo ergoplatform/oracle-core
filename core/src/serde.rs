@@ -495,7 +495,7 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
 
         let refresh_contract_parameters = if let Some(c) = config_serde.refresh_contract_parameters
         {
-            Some(RefreshContractParameters::checked_load(
+            Some(RefreshContractParameters::build_with(
                 RefreshContractParametersInputs {
                     ergo_tree_bytes: base16::decode(c.ergo_tree_bytes.as_str())?,
                     pool_nft_index: c.pool_nft_index,
@@ -515,7 +515,7 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
         };
 
         let update_contract_parameters = if let Some(c) = config_serde.update_contract_parameters {
-            Some(UpdateContractParameters::checked_load(
+            Some(UpdateContractParameters::build_with(
                 base16::decode(c.ergo_tree_bytes.as_str())?,
                 c.pool_nft_index,
                 c.ballot_token_index,

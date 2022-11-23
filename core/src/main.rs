@@ -44,6 +44,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
+use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -66,6 +67,7 @@ use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use state::process;
 use state::PoolState;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::thread;
 use std::time::Duration;
@@ -150,13 +152,13 @@ enum Command {
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
-        /// The Blake2 hash of the address for the new pool box.
+        /// The base16-encoded blake2b hash of the serialized pool box contract for the new pool box.
         new_pool_box_address_hash_str: String,
-        /// The base-16 representation of the TokenId of the new reward tokens to be used.
+        /// The base16-encoded reward token id of the new pool box (use existing if unchanged)
         reward_token_id_str: String,
-        /// The reward token amount.
+        /// The reward token amount in the pool box at the time of update transaction is committed.
         reward_token_amount: u32,
-        /// The creation height of the update box.
+        /// The creation height of the existing update box.
         update_box_creation_height: u32,
     },
     /// Initiate the Update Pool transaction.
@@ -171,8 +173,9 @@ enum Command {
         reward_token_amount: Option<u64>,
     },
     /// Prepare updating oracle pool with new contracts/parameters.
+    /// Creates new refresh box and pool box if needed (e.g. if new reward tokens are minted)
     PrepareUpdate {
-        /// Name of update parameters file (.yaml)
+        /// Name of the parameters file (.yaml) with new contract parameters
         update_file: String,
     },
 
@@ -317,7 +320,7 @@ fn handle_oracle_command(command: Command) {
                 reward_token_id
                     .zip(reward_token_amount)
                     .map(|(token_id, amount)| Token {
-                        token_id: TokenId::from_base64(&token_id).unwrap(),
+                        token_id: TokenId::from(Digest32::try_from(token_id).unwrap()),
                         amount: amount.try_into().unwrap(),
                     });
             if let Err(e) =

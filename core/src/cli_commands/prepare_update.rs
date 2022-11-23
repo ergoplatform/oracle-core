@@ -1,4 +1,7 @@
+#![allow(unused_imports)]
+
 use std::{
+    cmp::max,
     convert::{TryFrom, TryInto},
     io::Write,
 };
@@ -9,6 +12,7 @@ use ergo_lib::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
         transaction::Transaction,
     },
+    ergo_chain_types::blake2b256_hash,
     ergotree_ir::{
         chain::{
             address::{Address, AddressEncoder, AddressEncoderError},
@@ -32,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
+    box_kind::{PoolBox, PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
     contracts::{
         pool::{PoolContractError, PoolContractParameters},
         refresh::{
@@ -44,6 +48,7 @@ use crate::{
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
+    oracle_state::{OraclePool, StageDataSource},
     serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     spec_token::{
         BallotTokenId, OracleTokenId, RefreshTokenId, RewardTokenId, TokenIdKind, UpdateTokenId,
@@ -99,6 +104,15 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     };
 
     let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
+    let blake2b_pool_ergo_tree: String = blake2b256_hash(
+        new_config
+            .pool_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .as_slice(),
+    )
+    .into();
 
     info!("Update chain-transaction complete");
     info!("Writing new config file to oracle_config_updated.yaml");
@@ -107,10 +121,58 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
     info!("Updated oracle configuration file oracle_config_updated.yaml");
+    info!(
+        "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
+        blake2b_pool_ergo_tree
+    );
+    print_hints_for_voting()?;
     Ok(())
 }
 
-pub struct PrepareUpdateInput<'a> {
+fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
+    let epoch_length = ORACLE_CONFIG
+        .refresh_box_wrapper_inputs
+        .contract_inputs
+        .contract_parameters()
+        .epoch_length() as u32;
+    let current_height: u32 = new_node_interface().current_block_height()? as u32;
+    let op = OraclePool::new().unwrap();
+    let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
+    let min_oracle_box_height = current_height - epoch_length;
+    let active_oracle_count = oracle_boxes
+        .into_iter()
+        .filter(|b| b.creation_height as u32 >= min_oracle_box_height)
+        .count() as u32;
+    let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
+    let pool_box_height = pool_box.get_box().creation_height;
+    let next_epoch_height = max(pool_box_height + epoch_length, current_height);
+    let reward_tokens_left = *pool_box.reward_token().amount.as_u64();
+    let update_box = op.get_update_box_source().get_update_box().unwrap();
+    let update_box_height = update_box.get_box().creation_height;
+    info!("Update box height: {}", update_box_height);
+    info!(
+        "Reward token id in the pool box: {}",
+        String::from(pool_box.reward_token().token_id.token_id())
+    );
+    info!(
+        "Current height is {}, pool box height (epoch start) {}, epoch length is {}",
+        current_height, pool_box_height, epoch_length
+    );
+    info!(
+        "Estimated active oracle count is {}, reward tokens in the pool box {}",
+        active_oracle_count, reward_tokens_left
+    );
+    for i in 0..10 {
+        info!(
+            "On new epoch height {} estimating reward tokens in the pool box: {}",
+            next_epoch_height + i * (epoch_length + 1),
+            reward_tokens_left - ((i + 1) * (active_oracle_count * 2)) as u64
+        );
+    }
+    Ok(())
+}
+
+struct PrepareUpdateInput<'a> {
     pub config: UpdateBootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
     pub tx_signer: &'a dyn SignTransaction,
@@ -122,7 +184,7 @@ pub struct PrepareUpdateInput<'a> {
     pub old_config: OracleConfig,
 }
 
-pub(crate) fn perform_update_chained_transaction(
+fn perform_update_chained_transaction(
     input: PrepareUpdateInput,
 ) -> Result<OracleConfig, PrepareUpdateError> {
     let PrepareUpdateInput {
@@ -347,6 +409,12 @@ pub(crate) fn perform_update_chained_transaction(
             new_oracle_config.token_ids.reward_token_id.clone(),
         )?;
         new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
+    } else if new_oracle_config.token_ids.refresh_nft_token_id
+        != old_config.token_ids.refresh_nft_token_id
+        || new_oracle_config.token_ids.update_nft_token_id
+            != old_config.token_ids.update_nft_token_id
+    {
+        return Err(PrepareUpdateError::PoolContractParametersNotProvided);
     }
 
     for tx in transactions {
@@ -396,6 +464,8 @@ pub enum PrepareUpdateError {
     SerdeConversion(SerdeConversionError),
     #[error("WalletData error: {0}")]
     WalletData(WalletDataError),
+    #[error("new tokens minted, pool contract has to be updated as well, please provide pool_contract_parameters")]
+    PoolContractParametersNotProvided,
 }
 
 #[cfg(test)]
