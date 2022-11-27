@@ -23,12 +23,15 @@ use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
-    box_kind::{make_oracle_box_candidate, OracleBox},
+    box_kind::{
+        make_collected_oracle_box_candidate, make_oracle_box_candidate, OracleBox, OracleBoxWrapper,
+    },
     cli_commands::ergo_explorer_transaction_link,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
-    wallet::WalletDataSource,
+    spec_token::SpecToken,
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 #[derive(Debug, Error, From)]
@@ -57,6 +60,8 @@ pub enum ExtractRewardTokensActionError {
     NoChangeAddressSetInNode,
     #[error("IO error: {0}")]
     Io(std::io::Error),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 pub fn extract_reward_tokens(
@@ -88,7 +93,7 @@ pub fn extract_reward_tokens(
     );
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
-    if input == "YES" {
+    if input.trim() == "YES" {
         let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
         println!(
             "Transaction made. Check status here: {}",
@@ -119,27 +124,39 @@ fn build_extract_reward_tokens_tx(
         );
     }
     if let Address::P2Pk(_) = &rewards_destination {
-        let single_reward_token = Token {
-            token_id: in_oracle_box.reward_token().token_id.clone(),
+        let single_reward_token = SpecToken {
+            token_id: in_oracle_box.reward_token().token_id,
             amount: 1.try_into().unwrap(),
         };
-        let oracle_box_candidate = make_oracle_box_candidate(
-            in_oracle_box.contract(),
-            in_oracle_box.public_key(),
-            in_oracle_box.rate() as i64,
-            in_oracle_box.epoch_counter(),
-            in_oracle_box.oracle_token(),
-            single_reward_token,
-            in_oracle_box.get_box().value,
-            height,
-        )?;
+        let oracle_box_candidate =
+            if let OracleBoxWrapper::Posted(ref posted_oracle_box) = in_oracle_box {
+                make_oracle_box_candidate(
+                    posted_oracle_box.contract(),
+                    posted_oracle_box.public_key(),
+                    posted_oracle_box.rate() as i64,
+                    posted_oracle_box.epoch_counter(),
+                    posted_oracle_box.oracle_token(),
+                    single_reward_token,
+                    posted_oracle_box.get_box().value,
+                    height,
+                )?
+            } else {
+                make_collected_oracle_box_candidate(
+                    in_oracle_box.contract(),
+                    in_oracle_box.public_key(),
+                    in_oracle_box.oracle_token(),
+                    single_reward_token,
+                    in_oracle_box.get_box().value,
+                    height,
+                )?
+            };
 
         // Build box to hold extracted tokens
         let mut builder =
             ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height);
 
         let extracted_reward_tokens = Token {
-            token_id: in_oracle_box.reward_token().token_id.clone(),
+            token_id: in_oracle_box.reward_token().token_id(),
             amount: (num_reward_tokens - 1).try_into().unwrap(),
         };
 

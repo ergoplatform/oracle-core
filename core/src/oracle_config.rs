@@ -11,6 +11,9 @@ use crate::{
         refresh::RefreshContractError, update::UpdateContractError,
     },
     datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource},
+    spec_token::{
+        BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, UpdateTokenId,
+    },
 };
 use anyhow::anyhow;
 use derive_more::From;
@@ -66,32 +69,32 @@ pub struct TokenIds {
         serialize_with = "crate::serde::token_id_as_base64_string",
         deserialize_with = "crate::serde::token_id_from_base64"
     )]
-    pub pool_nft_token_id: TokenId,
+    pub pool_nft_token_id: PoolTokenId,
     #[serde(
         serialize_with = "crate::serde::token_id_as_base64_string",
         deserialize_with = "crate::serde::token_id_from_base64"
     )]
-    pub refresh_nft_token_id: TokenId,
+    pub refresh_nft_token_id: RefreshTokenId,
     #[serde(
         serialize_with = "crate::serde::token_id_as_base64_string",
         deserialize_with = "crate::serde::token_id_from_base64"
     )]
-    pub update_nft_token_id: TokenId,
+    pub update_nft_token_id: UpdateTokenId,
     #[serde(
         serialize_with = "crate::serde::token_id_as_base64_string",
         deserialize_with = "crate::serde::token_id_from_base64"
     )]
-    pub oracle_token_id: TokenId,
+    pub oracle_token_id: OracleTokenId,
     #[serde(
         serialize_with = "crate::serde::token_id_as_base64_string",
         deserialize_with = "crate::serde::token_id_from_base64"
     )]
-    pub reward_token_id: TokenId,
+    pub reward_token_id: RewardTokenId,
     #[serde(
         serialize_with = "crate::serde::token_id_as_base64_string",
         deserialize_with = "crate::serde::token_id_from_base64"
     )]
-    pub ballot_token_id: TokenId,
+    pub ballot_token_id: BallotTokenId,
 }
 
 impl OracleConfig {

@@ -10,7 +10,7 @@ description = "Simulator of the Ergo blockchain"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ergo-lib = { version = "0.20.0" }
+ergo-lib = { version = "0.21" }
 
 
 [dev-dependencies]

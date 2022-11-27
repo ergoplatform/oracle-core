@@ -1,9 +1,9 @@
-// This files relates to the state of the oracle/oracle pool.
 use crate::box_kind::{
     BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
     OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
-    PoolBoxWrapperInputs, RefreshBoxError, RefreshBoxWrapper, RefreshBoxWrapperInputs,
-    UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
+    PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError, RefreshBoxWrapper,
+    RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
+    VoteBallotBoxWrapper,
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
@@ -24,7 +24,6 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
-use ergo_node_interface::node_interface::NodeError;
 use std::path::Path;
 use thiserror::Error;
 
@@ -32,8 +31,6 @@ pub type Result<T> = std::result::Result<T, StageError>;
 
 #[derive(Debug, From, Error)]
 pub enum StageError {
-    #[error("node error: {0}")]
-    NodeError(NodeError),
     #[error("unexpected data error: {0}")]
     UnexpectedData(TryExtractFromError),
     #[error("scan error: {0}")]
@@ -82,7 +79,7 @@ pub trait RefreshBoxSource {
 }
 
 pub trait DatapointBoxesSource {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>>;
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>>;
 }
 
 pub trait LocalDatapointBoxSource {
@@ -163,8 +160,7 @@ pub struct UpdateBoxScan<'a> {
 /// The state of the oracle pool when it is in the Live Epoch stage
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
-    pub epoch_id: u32,
-    // TODO: newtypes fo epoch id, height, datapoint
+    pub pool_box_epoch_id: u32,
     pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
     pub latest_pool_box_height: u32,
@@ -172,9 +168,9 @@ pub struct LiveEpochState {
 
 /// Last posted datapoint box info by the local oracle
 #[derive(Debug, Clone)]
-pub struct LocalDatapointState {
-    pub epoch_id: u32,
-    pub height: u32,
+pub enum LocalDatapointState {
+    Collected { height: u32 },
+    Posted { epoch_id: u32, height: u32 },
 }
 
 impl<'a> OraclePool<'a> {
@@ -278,15 +274,20 @@ impl<'a> OraclePool<'a> {
         let local_datapoint_box_state = self
             .get_local_datapoint_box_source()
             .get_local_oracle_datapoint_box()?
-            .map(|local_data_point_box| LocalDatapointState {
-                epoch_id: local_data_point_box.epoch_counter(),
-                height: local_data_point_box.get_box().creation_height,
+            .map(|local_data_point_box| match local_data_point_box {
+                OracleBoxWrapper::Posted(ref posted_box) => LocalDatapointState::Posted {
+                    epoch_id: posted_box.epoch_counter(),
+                    height: local_data_point_box.get_box().creation_height,
+                },
+                OracleBoxWrapper::Collected(_) => LocalDatapointState::Collected {
+                    height: local_data_point_box.get_box().creation_height,
+                },
             });
 
         let latest_pool_datapoint = pool_box.rate() as u64;
 
         let epoch_state = LiveEpochState {
-            epoch_id,
+            pool_box_epoch_id: epoch_id,
             latest_pool_datapoint,
             latest_pool_box_height: pool_box.get_box().creation_height,
             local_datapoint_box_state,
@@ -420,14 +421,22 @@ impl StageDataSource for Stage {
 }
 
 impl<'a> DatapointBoxesSource for DatapointStage<'a> {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<OracleBoxWrapper>> {
-        let res = self
+    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
+        let oracle_boxes: Vec<OracleBoxWrapper> = self
             .stage
             .get_boxes()?
             .into_iter()
             .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
-            .collect::<std::result::Result<Vec<OracleBoxWrapper>, OracleBoxError>>()?;
-        Ok(res)
+            .collect::<std::result::Result<Vec<OracleBoxWrapper>, _>>()?;
+
+        let posted_boxes = oracle_boxes
+            .into_iter()
+            .filter_map(|b| match b {
+                OracleBoxWrapper::Posted(p) => Some(p),
+                OracleBoxWrapper::Collected(_) => None,
+            })
+            .collect();
+        Ok(posted_boxes)
     }
 }
 

@@ -8,6 +8,10 @@ use crate::contracts::update::UpdateContract;
 use crate::contracts::update::UpdateContractError;
 use crate::contracts::update::UpdateContractInputs;
 use crate::contracts::update::UpdateContractParameters;
+use crate::spec_token::BallotTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::TokenIdKind;
+use crate::spec_token::UpdateTokenId;
 
 #[derive(Debug, Error)]
 pub enum UpdateBoxError {
@@ -20,7 +24,10 @@ pub enum UpdateBoxError {
 }
 
 #[derive(Clone)]
-pub struct UpdateBoxWrapper(ErgoBox, UpdateContract);
+pub struct UpdateBoxWrapper {
+    ergo_box: ErgoBox,
+    contract: UpdateContract,
+}
 
 impl UpdateBoxWrapper {
     pub fn new(b: ErgoBox, inputs: &UpdateBoxWrapperInputs) -> Result<Self, UpdateBoxError> {
@@ -32,43 +39,52 @@ impl UpdateBoxWrapper {
             .ok_or(UpdateBoxError::NoTokens)?
             .token_id
             .clone();
-        if update_token_id != inputs.update_nft_token_id {
+        if update_token_id != inputs.update_nft_token_id.token_id() {
             return Err(UpdateBoxError::IncorrectUpdateTokenId(update_token_id));
         }
         let contract =
             UpdateContract::from_ergo_tree(b.ergo_tree.clone(), &inputs.contract_inputs)?;
 
-        Ok(Self(b, contract))
+        Ok(Self {
+            ergo_box: b,
+            contract,
+        })
     }
     pub fn ergo_tree(&self) -> ErgoTree {
-        self.1.ergo_tree()
+        self.contract.ergo_tree()
     }
     pub fn update_nft(&self) -> Token {
-        self.0.tokens.as_ref().unwrap().get(0).unwrap().clone()
+        self.ergo_box
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
     }
     pub fn ballot_token_id(&self) -> TokenId {
-        self.1.ballot_token_id().clone()
+        self.contract.ballot_token_id().clone()
     }
     pub fn get_box(&self) -> &ErgoBox {
-        &self.0
+        &self.ergo_box
     }
     pub fn min_votes(&self) -> u32 {
-        self.1.min_votes() as u32
+        self.contract.min_votes() as u32
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct UpdateBoxWrapperInputs {
     pub contract_inputs: UpdateContractInputs,
-    pub update_nft_token_id: TokenId,
+    pub update_nft_token_id: UpdateTokenId,
 }
 
 impl UpdateBoxWrapperInputs {
     pub fn build_with(
         update_contract_parameters: UpdateContractParameters,
-        pool_nft_token_id: TokenId,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        pool_nft_token_id: PoolTokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, UpdateContractError> {
         let contract_inputs = UpdateContractInputs::build_with(
             update_contract_parameters,
@@ -83,9 +99,9 @@ impl UpdateBoxWrapperInputs {
 
     pub fn checked_load(
         update_contract_parameters: UpdateContractParameters,
-        pool_nft_token_id: TokenId,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        pool_nft_token_id: PoolTokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, UpdateContractError> {
         let contract_inputs = UpdateContractInputs::checked_load(
             update_contract_parameters,
@@ -101,6 +117,6 @@ impl UpdateBoxWrapperInputs {
 
 impl From<UpdateBoxWrapper> for ErgoBox {
     fn from(w: UpdateBoxWrapper) -> Self {
-        w.0.clone()
+        w.ergo_box.clone()
     }
 }

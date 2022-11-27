@@ -2,10 +2,9 @@ use crate::actions::RefreshAction;
 use crate::box_kind::make_collected_oracle_box_candidate;
 use crate::box_kind::make_pool_box_candidate;
 use crate::box_kind::make_refresh_box_candidate;
-use crate::box_kind::OracleBox;
-use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::PoolBox;
 use crate::box_kind::PoolBoxWrapper;
+use crate::box_kind::PostedOracleBox;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
@@ -13,6 +12,9 @@ use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
+use crate::spec_token::RewardTokenId;
+use crate::spec_token::SpecToken;
+use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
 use derive_more::From;
@@ -21,7 +23,6 @@ use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
-use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_lib::wallet::box_selector::BoxSelection;
@@ -30,7 +31,6 @@ use ergo_lib::wallet::box_selector::BoxSelectorError;
 use ergo_lib::wallet::box_selector::SimpleBoxSelector;
 use ergo_lib::wallet::tx_builder::TxBuilder;
 use ergo_lib::wallet::tx_builder::TxBuilderError;
-use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use std::convert::TryInto;
@@ -47,14 +47,16 @@ pub enum RefreshActionError {
     NotEnoughDatapoints,
     #[error("stage error: {0}")]
     StageError(StageError),
-    #[error("node error: {0}")]
-    NodeError(NodeError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
     #[error("box selector error: {0}")]
     BoxSelectorError(BoxSelectorError),
     #[error("tx builder error: {0}")]
     TxBuilderError(TxBuilderError),
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
+    #[error("failed to found my own oracle box in the filtered posted oracle boxes")]
+    MyOracleBoxNoFound,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -70,13 +72,22 @@ pub fn build_refresh_action(
     my_oracle_pk: &EcPoint,
 ) -> Result<RefreshAction, RefreshActionError> {
     let tx_fee = *BASE_FEE;
-
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
-    let mut in_oracle_boxes = datapoint_stage_src.get_oracle_datapoint_boxes()?;
+    let min_start_height = height - in_refresh_box.contract().epoch_length() as u32;
+    let in_pool_box_epoch_id = in_pool_box.epoch_counter();
+    let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src
+        .get_oracle_datapoint_boxes()?
+        .into_iter()
+        .filter(|b| {
+            b.get_box().creation_height > min_start_height
+                && b.epoch_counter() == in_pool_box_epoch_id
+        })
+        .collect();
+    // log::info!("Building refresh action {:?}", in_oracle_boxes);
     let deviation_range = max_deviation_percent;
     in_oracle_boxes.sort_by_key(|b| b.rate());
-    let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes(
+    let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes_by_rate(
         in_oracle_boxes.iter().map(|b| b.rate()).collect(),
         deviation_range,
     )?;
@@ -109,6 +120,12 @@ pub fn build_refresh_action(
         in_pool_box.get_box().clone(),
         in_refresh_box.get_box().clone(),
     ];
+    let my_input_oracle_box_index: i32 = valid_in_oracle_boxes
+        .iter()
+        .position(|b| b.public_key().h.as_ref() == my_oracle_pk)
+        .ok_or(RefreshActionError::MyOracleBoxNoFound)?
+        as i32;
+
     let mut valid_in_oracle_raw_boxes = valid_in_oracle_boxes
         .clone()
         .into_iter()
@@ -132,7 +149,9 @@ pub fn build_refresh_action(
         change_address,
     );
     let in_refresh_box_ctx_ext = ContextExtension {
-        values: vec![(0, 0i32.into())].into_iter().collect(),
+        values: vec![(0, my_input_oracle_box_index.into())]
+            .into_iter()
+            .collect(),
     };
     b.set_context_extension(in_refresh_box.get_box().box_id(), in_refresh_box_ctx_ext);
     valid_in_oracle_boxes
@@ -149,10 +168,13 @@ pub fn build_refresh_action(
     Ok(RefreshAction { tx })
 }
 
-fn filtered_oracle_boxes(
+fn filtered_oracle_boxes_by_rate(
     oracle_boxes: Vec<u64>,
     deviation_range: u32,
 ) -> Result<Vec<u64>, RefreshActionError> {
+    if oracle_boxes.is_empty() {
+        return Ok(oracle_boxes);
+    }
     let mut successful_boxes = oracle_boxes.clone();
     // The min oracle box's rate must be within deviation_range(5%) of that of the max
     while !deviation_check(deviation_range, &successful_boxes) {
@@ -214,14 +236,13 @@ fn build_out_pool_box(
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
     let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
     let reward_token = in_pool_box.reward_token();
-    let new_reward_token: Token = (
-        reward_token.token_id,
-        reward_token
+    let new_reward_token: SpecToken<RewardTokenId> = SpecToken {
+        token_id: reward_token.token_id,
+        amount: reward_token
             .amount
             .checked_sub(&reward_decrement.try_into().unwrap())
             .unwrap(),
-    )
-        .into();
+    };
 
     make_pool_box_candidate(
         in_pool_box.contract(),
@@ -249,7 +270,7 @@ fn build_out_refresh_box(
 }
 
 fn build_out_oracle_boxes(
-    valid_oracle_boxes: &Vec<OracleBoxWrapper>,
+    valid_oracle_boxes: &Vec<PostedOracleBox>,
     creation_height: u32,
     my_public_key: &EcPoint,
 ) -> Result<Vec<ErgoBoxCandidate>, RefreshActionError> {
@@ -299,8 +320,8 @@ mod tests {
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
-    use crate::box_kind::OracleBoxWrapper;
     use crate::box_kind::OracleBoxWrapperInputs;
+    use crate::box_kind::PostedOracleBox;
     use crate::box_kind::RefreshBoxWrapper;
     use crate::box_kind::RefreshBoxWrapperInputs;
     use crate::contracts::oracle::OracleContractParameters;
@@ -316,6 +337,7 @@ mod tests {
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
     };
+    use crate::spec_token::TokenIdKind;
 
     use super::*;
 
@@ -332,13 +354,13 @@ mod tests {
 
     #[derive(Clone)]
     struct DatapointStageMock {
-        datapoints: Vec<OracleBoxWrapper>,
+        datapoints: Vec<PostedOracleBox>,
     }
 
     impl DatapointBoxesSource for DatapointStageMock {
         fn get_oracle_datapoint_boxes(
             &self,
-        ) -> std::result::Result<Vec<OracleBoxWrapper>, StageError> {
+        ) -> std::result::Result<Vec<PostedOracleBox>, StageError> {
             Ok(self.datapoints.clone())
         }
     }
@@ -349,7 +371,7 @@ mod tests {
         creation_height: u32,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
-            inputs.refresh_nft_token_id.clone(),
+            inputs.refresh_nft_token_id.token_id(),
             1u64.try_into().unwrap(),
         ))]
         .try_into()
@@ -381,7 +403,7 @@ mod tests {
         creation_height: u32,
         oracle_contract_parameters: &OracleContractParameters,
         token_ids: &TokenIds,
-    ) -> Vec<OracleBoxWrapper> {
+    ) -> Vec<PostedOracleBox> {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), token_ids))
                 .unwrap();
@@ -389,7 +411,7 @@ mod tests {
             .into_iter()
             .zip(pub_keys)
             .map(|(datapoint, pub_key)| {
-                OracleBoxWrapper::new(
+                PostedOracleBox::new(
                     make_datapoint_box(
                         pub_key.clone(),
                         datapoint,
@@ -426,10 +448,11 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
+        let pool_box_epoch_id = 1;
         let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
         let in_pool_box = make_pool_box(
             200,
-            1,
+            pool_box_epoch_id,
             *BASE_FEE,
             height - 32, // from previous epoch
             &pool_contract_parameters,
@@ -449,14 +472,19 @@ mod tests {
         ];
 
         let in_oracle_boxes = make_datapoint_boxes(
-            oracle_pub_keys,
-            vec![194, 70, 196, 197, 198, 200],
-            1,
+            oracle_pub_keys.clone(),
+            vec![199, 70, 196, 197, 198, 200],
+            pool_box_epoch_id,
             BASE_FEE.checked_mul_u32(100).unwrap(),
             height - 9,
             &oracle_contract_parameters,
             &token_ids,
         );
+        let mut in_oracle_boxes_raw: Vec<ErgoBox> = in_oracle_boxes
+            .clone()
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         let pool_box_mock = PoolBoxMock {
             pool_box: in_pool_box,
@@ -469,10 +497,6 @@ mod tests {
             AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
-        let datapoint_stage_mock = DatapointStageMock {
-            datapoints: in_oracle_boxes.clone(),
-        };
-
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
             BASE_FEE.checked_mul_u32(10000).unwrap(),
@@ -484,12 +508,14 @@ mod tests {
         let action = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
-            &datapoint_stage_mock,
+            &(DatapointStageMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
             5,
             4,
             &wallet_mock,
             height,
-            change_address,
+            change_address.clone(),
             &oracle_pub_key,
         )
         .unwrap();
@@ -502,8 +528,6 @@ mod tests {
                 .get_box()
                 .clone(),
         ];
-        let mut in_oracle_boxes_raw: Vec<ErgoBox> =
-            in_oracle_boxes.into_iter().map(Into::into).collect();
         possible_input_boxes.append(&mut in_oracle_boxes_raw);
         possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
@@ -515,28 +539,54 @@ mod tests {
         .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+
+        assert!(
+            build_refresh_action(
+                &pool_box_mock,
+                &refresh_box_mock,
+                &(DatapointStageMock {
+                    datapoints: make_datapoint_boxes(
+                        oracle_pub_keys,
+                        vec![199, 70, 196, 197, 198, 200],
+                        pool_box_epoch_id + 1,
+                        BASE_FEE.checked_mul_u32(100).unwrap(),
+                        height - 9,
+                        &oracle_contract_parameters,
+                        &token_ids,
+                    ),
+                }),
+                5,
+                4,
+                &wallet_mock,
+                height,
+                change_address,
+                &oracle_pub_key,
+            )
+            .is_err(),
+            "oracle boxes with epoch id different from pool box epoch id should not be accepted"
+        );
     }
 
     #[test]
     fn test_oracle_deviation_check() {
         assert_eq!(
-            filtered_oracle_boxes(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![95, 96, 97, 98, 99, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![70, 95, 96, 97, 98, 99, 200], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![70, 95, 96, 97, 98, 99, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![70, 95, 96, 97, 98, 99], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![70, 95, 96, 97, 98, 99], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![70, 70, 95, 96, 97, 98, 99], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![70, 70, 95, 96, 97, 98, 99], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
         assert_eq!(
-            filtered_oracle_boxes(vec![95, 96, 97, 98, 99, 200, 200], 5).unwrap(),
+            filtered_oracle_boxes_by_rate(vec![95, 96, 97, 98, 99, 200, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
     }

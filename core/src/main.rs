@@ -31,6 +31,7 @@ mod oracle_state;
 mod pool_commands;
 mod scans;
 mod serde;
+mod spec_token;
 mod state;
 mod templates;
 #[cfg(test)]
@@ -40,8 +41,10 @@ mod wallet;
 use actions::execute_action;
 use actions::PoolAction;
 use anyhow::anyhow;
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
+use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -64,6 +67,7 @@ use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use state::process;
 use state::PoolState;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::thread;
 use std::time::Duration;
@@ -131,13 +135,13 @@ enum Command {
         enable_rest_api: bool,
     },
 
-    /// Extract reward tokens to a chosen address
+    /// Send reward tokens accumulated in the oracle box to a chosen address
     ExtractRewardTokens {
         /// Base58 encoded address to send reward tokens to
         rewards_address: String,
     },
 
-    /// Print the number of reward tokens earned by the oracle.
+    /// Print the number of reward tokens earned by the oracle (in the last posted/collected oracle box)
     PrintRewardTokens,
 
     /// Transfer an oracle token to a chosen address.
@@ -148,13 +152,13 @@ enum Command {
 
     /// Vote to update the oracle pool
     VoteUpdatePool {
-        /// The Blake2 hash of the address for the new pool box.
+        /// The base16-encoded blake2b hash of the serialized pool box contract for the new pool box.
         new_pool_box_address_hash_str: String,
-        /// The base-16 representation of the TokenId of the new reward tokens to be used.
+        /// The base16-encoded reward token id of the new pool box (use existing if unchanged)
         reward_token_id_str: String,
-        /// The reward token amount.
+        /// The reward token amount in the pool box at the time of update transaction is committed.
         reward_token_amount: u32,
-        /// The creation height of the update box.
+        /// The creation height of the existing update box.
         update_box_creation_height: u32,
     },
     /// Initiate the Update Pool transaction.
@@ -169,8 +173,9 @@ enum Command {
         reward_token_amount: Option<u64>,
     },
     /// Prepare updating oracle pool with new contracts/parameters.
+    /// Creates new refresh box and pool box if needed (e.g. if new reward tokens are minted)
     PrepareUpdate {
-        /// Name of update parameters file (.yaml)
+        /// Name of the parameters file (.yaml) with new contract parameters
         update_file: String,
     },
 
@@ -189,7 +194,7 @@ fn main() {
         .unwrap();
 
     let cmdline_log_level = if args.verbose {
-        Some(LevelFilter::Trace)
+        Some(LevelFilter::Debug)
     } else {
         None
     };
@@ -245,8 +250,7 @@ fn handle_oracle_command(command: Command) {
             }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
-                    error!("Fatal error: {:?}", e);
-                    std::process::exit(exitcode::SOFTWARE);
+                    error!("error: {:?}", e);
                 }
                 // Delay loop restart
                 thread::sleep(Duration::new(30, 0));
@@ -316,7 +320,7 @@ fn handle_oracle_command(command: Command) {
                 reward_token_id
                     .zip(reward_token_amount)
                     .map(|(token_id, amount)| Token {
-                        token_id: TokenId::from_base64(&token_id).unwrap(),
+                        token_id: TokenId::from(Digest32::try_from(token_id).unwrap()),
                         amount: amount.try_into().unwrap(),
                     });
             if let Err(e) =
@@ -337,7 +341,7 @@ fn handle_oracle_command(command: Command) {
 }
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
-    let height = current_block_height()? as u32;
+    let height = current_block_height().context("Failed to get the current height")? as u32;
     let wallet = WalletData::new();
     let network_change_address = get_change_address_from_node()?;
     let pool_state = match op.get_live_epoch_state() {
@@ -352,7 +356,8 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .contract_inputs
         .contract_parameters()
         .epoch_length() as u32;
-    if let Some(cmd) = process(pool_state, epoch_length, height)? {
+    if let Some(cmd) = process(pool_state, epoch_length, height) {
+        log::info!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_res = build_action(
             cmd,
             op,
@@ -361,7 +366,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             network_change_address.address(),
         );
         if let Some(action) =
-            continue_if_non_fatal(network_change_address.network(), build_action_res)?
+            log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
                 execute_action(action)?;
@@ -371,7 +376,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     Ok(())
 }
 
-fn continue_if_non_fatal(
+fn log_and_continue_if_non_fatal(
     network_prefix: NetworkPrefix,
     res: Result<PoolAction, PoolCommandError>,
 ) -> Result<Option<PoolAction>, PoolCommandError> {
@@ -410,5 +415,6 @@ fn log_on_launch() {
     log::info!("{}", APP_VERSION);
     if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
         log::info!("Token ids: {:?}", config.token_ids);
+        log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
 }

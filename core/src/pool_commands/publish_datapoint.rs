@@ -5,10 +5,7 @@ use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
-        chain::{
-            address::Address,
-            token::{Token, TokenAmount},
-        },
+        chain::{address::Address, token::TokenAmount},
         sigma_protocol::sigma_boolean::ProveDlog,
     },
     wallet::{
@@ -16,7 +13,6 @@ use ergo_lib::{
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
-use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
 use crate::{
@@ -26,7 +22,8 @@ use crate::{
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
     oracle_state::StageError,
-    wallet::WalletDataSource,
+    spec_token::{OracleTokenId, RewardTokenId, SpecToken},
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 #[derive(Debug, Error, From)]
@@ -39,8 +36,8 @@ pub enum PublishDatapointActionError {
     TxBuilder(TxBuilderError),
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
-    #[error("node error: {0}")]
-    Node(NodeError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
     #[error("box selector error: {0}")]
     BoxSelector(BoxSelectorError),
     #[error("datapoint source error: {0}")]
@@ -56,6 +53,7 @@ pub fn build_subsequent_publish_datapoint_action(
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: u32,
+    _pool_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
     let in_oracle_box = local_datapoint_box;
@@ -66,7 +64,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
         in_oracle_box.public_key(),
-        compute_new_datapoint(new_datapoint, in_oracle_box.rate() as i64),
+        new_datapoint,
         new_epoch_counter,
         in_oracle_box.oracle_token(),
         in_oracle_box.reward_token(),
@@ -114,11 +112,11 @@ pub fn build_publish_first_datapoint_action(
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
-    let oracle_token = Token {
+    let oracle_token: SpecToken<OracleTokenId> = SpecToken {
         token_id: inputs.oracle_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
-    let reward_token = Token {
+    let reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: inputs.reward_token_id.clone(),
         amount: TokenAmount::try_from(1).unwrap(),
     };
@@ -130,7 +128,7 @@ pub fn build_publish_first_datapoint_action(
     let wallet_boxes_selection = box_selector.select(
         unspent_boxes.clone(),
         target_balance,
-        &[oracle_token.clone(), reward_token.clone()],
+        &[oracle_token.clone().into(), reward_token.clone().into()],
     )?;
 
     let output_candidate = make_oracle_box_candidate(
@@ -162,43 +160,12 @@ pub fn build_publish_first_datapoint_action(
     Ok(PublishDataPointAction { tx })
 }
 
-fn compute_new_datapoint(datapoint: i64, old_datapoint: i64) -> i64 {
-    // Difference calc
-    let difference = datapoint as f64 / old_datapoint as f64;
-
-    // If the new datapoint is twice as high, post the new datapoint
-    #[allow(clippy::if_same_then_else)]
-    if difference > 2.00 {
-        datapoint
-    }
-    // If the new datapoint is half, post the new datapoint
-    else if difference < 0.50 {
-        datapoint
-    }
-    // TODO: remove 0.5% cap, kushti asked on TG:
-    // >Lets run 2.0 with no delay in data update in the default data provider
-    // >No, data provider currently cap oracle price change at 0.5 percent per epoch
-    //
-    // If the new datapoint is 0.49% to 50% lower, post 0.49% lower than old
-    else if difference < 0.9951 {
-        (old_datapoint as f64 * 0.9951) as i64
-    }
-    // If the new datapoint is 0.49% to 100% higher, post 0.49% higher than old
-    else if difference > 1.0049 {
-        (old_datapoint as f64 * 1.0049) as i64
-    }
-    // Else if the difference is within 0.49% either way, post the new datapoint
-    else {
-        datapoint
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::box_kind::{OracleBoxWrapper, PoolBox};
+    use crate::box_kind::PoolBox;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::oracle_state::PoolBoxSource;
@@ -206,6 +173,7 @@ mod tests {
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
     };
+    use crate::spec_token::TokenIdKind;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
@@ -220,11 +188,13 @@ mod tests {
     use sigma_test_util::force_any_val;
 
     #[derive(Debug)]
-    struct MockDatapointSource {}
+    struct MockDatapointSource {
+        datapoint: i64,
+    }
 
     impl DataPointSource for MockDatapointSource {
         fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
-            Ok(201)
+            Ok(self.datapoint)
         }
     }
 
@@ -236,10 +206,11 @@ mod tests {
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = OracleContractParameters::default();
         let pool_contract_parameters = PoolContractParameters::default();
+        let pool_box_epoch_id = 1;
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
-            1,
+            pool_box_epoch_id,
             *BASE_FEE,
             height - 32, // from previous epoch
             &pool_contract_parameters,
@@ -259,7 +230,7 @@ mod tests {
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
-                1,
+                pool_box_epoch_id - 1,
                 &token_ids,
                 oracle_box_wrapper_inputs
                     .contract_inputs
@@ -285,14 +256,15 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
         };
 
-        let datapoint_source = MockDatapointSource {};
+        let datapoint_source = MockDatapointSource { datapoint: 201 };
         let action = build_subsequent_publish_datapoint_action(
             &oracle_box,
             &wallet_mock,
             height,
             change_address.clone(),
             &datapoint_source,
-            2,
+            pool_box_epoch_id as u32,
+            datapoint_source.datapoint - 1,
         )
         .unwrap();
 
@@ -311,25 +283,25 @@ mod tests {
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
 
-        // epoch id is not incremented
-        let action_republish = build_subsequent_publish_datapoint_action(
-            &oracle_box,
-            &wallet_mock,
-            height,
-            change_address,
-            &datapoint_source,
-            1,
-        )
-        .unwrap();
-        let tx_context_republish = TransactionContext::new(
-            action_republish.tx.clone(),
-            find_input_boxes(action_republish.tx, possible_input_boxes),
-            Vec::new(),
-        )
-        .unwrap();
-        let _signed_tx_republish = wallet
-            .sign_transaction(tx_context_republish, &ctx, None)
-            .unwrap();
+        // let action_republish = build_subsequent_publish_datapoint_action(
+        //     &oracle_box,
+        //     &wallet_mock,
+        //     height,
+        //     change_address,
+        //     &datapoint_source,
+        //     pool_box_epoch_id as u32,
+        //     datapoint_source.datapoint - 1,
+        // )
+        // .unwrap();
+        // let tx_context_republish = TransactionContext::new(
+        //     action_republish.tx.clone(),
+        //     find_input_boxes(action_republish.tx, possible_input_boxes),
+        //     Vec::new(),
+        // )
+        // .unwrap();
+        // let _signed_tx_republish = wallet
+        //     .sign_transaction(tx_context_republish, &ctx, None)
+        //     .unwrap();
     }
 
     #[test]
@@ -339,11 +311,14 @@ mod tests {
 
         let token_ids = generate_token_ids();
         let tokens = BoxTokens::from_vec(vec![
-            Token::from((
-                token_ids.reward_token_id.clone(),
-                100u64.try_into().unwrap(),
-            )),
-            Token::from((token_ids.oracle_token_id.clone(), 1u64.try_into().unwrap())),
+            Token {
+                token_id: token_ids.reward_token_id.token_id(),
+                amount: 100u64.try_into().unwrap(),
+            },
+            Token {
+                token_id: token_ids.oracle_token_id.token_id(),
+                amount: 1u64.try_into().unwrap(),
+            },
         ])
         .unwrap();
 
@@ -395,7 +370,7 @@ mod tests {
             change_address,
             secret.public_image(),
             oracle_box_wrapper_inputs,
-            &MockDatapointSource {},
+            &MockDatapointSource { datapoint: 201 },
         )
         .unwrap();
 

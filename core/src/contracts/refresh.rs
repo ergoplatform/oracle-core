@@ -9,6 +9,10 @@ use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
+use crate::spec_token::OracleTokenId;
+use crate::spec_token::PoolTokenId;
+use crate::spec_token::TokenIdKind;
+
 #[derive(Clone)]
 pub struct RefreshContract {
     ergo_tree: ErgoTree,
@@ -28,11 +32,17 @@ pub enum RefreshContractError {
     #[error(
         "refresh contract: unexpected `pool NFT` token id. Expected {expected:?}, got {actual:?}"
     )]
-    PoolNftTokenIdDiffers { expected: TokenId, actual: TokenId },
+    PoolNftTokenIdDiffers {
+        expected: PoolTokenId,
+        actual: TokenId,
+    },
     #[error(
         "refresh contract: unexpected `oracle` token id. Expected {expected:?}, got {actual:?}"
     )]
-    OracleTokenIdDiffers { expected: TokenId, actual: TokenId },
+    OracleTokenIdDiffers {
+        expected: OracleTokenId,
+        actual: TokenId,
+    },
     #[error("refresh contract: sigma parsing error {0}")]
     SigmaParsing(#[from] SigmaParsingError),
     #[error("refresh contract: ergo tree constant error {0:?}")]
@@ -74,7 +84,7 @@ impl RefreshContract {
                 RefreshContractParametersError::NoPoolNftId,
             ))?
             .try_extract_into::<TokenId>()?;
-        if pool_nft_token_id != inputs.pool_nft_token_id {
+        if pool_nft_token_id != inputs.pool_nft_token_id.token_id() {
             return Err(RefreshContractError::PoolNftTokenIdDiffers {
                 expected: inputs.pool_nft_token_id.clone(),
                 actual: pool_nft_token_id,
@@ -90,7 +100,7 @@ impl RefreshContract {
                 RefreshContractParametersError::NoOracleTokenId,
             ))?
             .try_extract_into::<TokenId>()?;
-        if oracle_token_id != inputs.oracle_token_id {
+        if oracle_token_id != inputs.oracle_token_id.token_id() {
             return Err(RefreshContractError::OracleTokenIdDiffers {
                 expected: inputs.oracle_token_id.clone(),
                 actual: oracle_token_id,
@@ -187,12 +197,12 @@ impl RefreshContract {
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
                 .with_constant(
                     inputs.contract_parameters.pool_nft_index,
-                    inputs.pool_nft_token_id.clone().into(),
+                    inputs.pool_nft_token_id.clone().token_id().into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
                     inputs.contract_parameters.oracle_token_id_index,
-                    inputs.oracle_token_id.clone().into(),
+                    inputs.oracle_token_id.clone().token_id().into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
@@ -304,15 +314,15 @@ impl RefreshContract {
 #[derive(Clone, Debug)]
 pub struct RefreshContractInputs {
     contract_parameters: RefreshContractParameters,
-    pub oracle_token_id: TokenId,
-    pub pool_nft_token_id: TokenId,
+    pub oracle_token_id: OracleTokenId,
+    pub pool_nft_token_id: PoolTokenId,
 }
 
 impl RefreshContractInputs {
     pub fn build_with(
         contract_parameters: RefreshContractParameters,
-        oracle_token_id: TokenId,
-        pool_nft_token_id: TokenId,
+        oracle_token_id: OracleTokenId,
+        pool_nft_token_id: PoolTokenId,
     ) -> Result<Self, RefreshContractError> {
         let refresh_contract = RefreshContract::build_with(&RefreshContractInputs {
             contract_parameters,
@@ -329,8 +339,8 @@ impl RefreshContractInputs {
 
     pub fn checked_load(
         contract_parameters: RefreshContractParameters,
-        oracle_token_id: TokenId,
-        pool_nft_token_id: TokenId,
+        oracle_token_id: OracleTokenId,
+        pool_nft_token_id: PoolTokenId,
     ) -> Result<Self, RefreshContractError> {
         let contract_inputs = RefreshContractInputs {
             contract_parameters,
@@ -604,8 +614,11 @@ mod tests {
             pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
         };
         let c = RefreshContract::build_with(&inputs).unwrap();
-        assert_eq!(c.pool_nft_token_id(), token_ids.pool_nft_token_id,);
-        assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id,);
+        assert_eq!(
+            c.pool_nft_token_id(),
+            token_ids.pool_nft_token_id.token_id(),
+        );
+        assert_eq!(c.oracle_token_id(), token_ids.oracle_token_id.token_id(),);
         assert_eq!(c.min_data_points(), parameters.min_data_points);
         assert_eq!(c.buffer(), parameters.buffer_length);
         assert_eq!(c.max_deviation_percent(), parameters.max_deviation_percent);
@@ -636,8 +649,12 @@ mod tests {
             RefreshContractParameters::build_with(new_contract_parameter_inputs).unwrap();
         let inputs = RefreshContractInputs {
             contract_parameters: new_contract_parameters,
-            oracle_token_id: force_any_val::<Digest32>().into(),
-            pool_nft_token_id: force_any_val::<Digest32>().into(),
+            oracle_token_id: OracleTokenId::from_token_id_unchecked(
+                force_any_val::<Digest32>().into(),
+            ),
+            pool_nft_token_id: PoolTokenId::from_token_id_unchecked(
+                force_any_val::<Digest32>().into(),
+            ),
         };
         let new_contract = RefreshContract::build_with(&inputs).unwrap();
         assert_eq!(new_contract.min_data_points(), expected_min_data_points);
@@ -647,7 +664,13 @@ mod tests {
             expected_max_deviation_percent
         );
         assert_eq!(new_contract.epoch_length(), expected_epoch_length);
-        assert_eq!(new_contract.oracle_token_id(), inputs.oracle_token_id);
-        assert_eq!(new_contract.pool_nft_token_id(), inputs.pool_nft_token_id);
+        assert_eq!(
+            new_contract.oracle_token_id(),
+            inputs.oracle_token_id.token_id()
+        );
+        assert_eq!(
+            new_contract.pool_nft_token_id(),
+            inputs.pool_nft_token_id.token_id()
+        );
     }
 }

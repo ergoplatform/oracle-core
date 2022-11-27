@@ -21,6 +21,7 @@ pub mod refresh;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
+#[derive(Debug)]
 pub enum PoolCommand {
     Refresh,
     PublishFirstDataPoint,
@@ -31,7 +32,7 @@ pub enum PoolCommand {
 pub enum PoolCommandError {
     #[error("stage error: {0}")]
     StageError(StageError),
-    #[error("box builder error: {0}")]
+    #[error("unexpected error: {0}")]
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
     RefreshActionError(RefreshActionError),
@@ -54,7 +55,8 @@ pub fn build_action(
 ) -> Result<PoolAction, PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
-    let current_epoch_counter = op.get_pool_box_source().get_pool_box()?.epoch_counter();
+    let pool_box = op.get_pool_box_source().get_pool_box()?;
+    let current_epoch_counter = pool_box.epoch_counter();
     let oracle_public_key =
         if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
             public_key
@@ -73,16 +75,12 @@ pub fn build_action(
         )
         .map_err(Into::into)
         .map(Into::into),
-        PoolCommand::PublishSubsequentDataPoint { republish } => {
+        PoolCommand::PublishSubsequentDataPoint { republish: _ } => {
             if let Some(local_datapoint_box) = op
                 .get_local_datapoint_box_source()
                 .get_local_oracle_datapoint_box()?
             {
-                let new_epoch_counter = if republish {
-                    current_epoch_counter
-                } else {
-                    current_epoch_counter + 1
-                };
+                let new_epoch_counter = current_epoch_counter;
                 build_subsequent_publish_datapoint_action(
                     &local_datapoint_box,
                     wallet,
@@ -90,6 +88,7 @@ pub fn build_action(
                     change_address,
                     &*op.data_point_source,
                     new_epoch_counter,
+                    pool_box.rate(),
                 )
                 .map_err(Into::into)
                 .map(Into::into)

@@ -3,6 +3,7 @@ use crate::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
     oracle_config::CastBallotBoxVoteParameters,
+    spec_token::{BallotTokenId, SpecToken, TokenIdKind, UpdateTokenId},
 };
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -50,7 +51,7 @@ pub enum BallotBoxError {
 
 pub trait BallotBox {
     fn contract(&self) -> &BallotContract;
-    fn ballot_token(&self) -> Token;
+    fn ballot_token(&self) -> SpecToken<BallotTokenId>;
     fn min_storage_rent(&self) -> BoxValue;
     fn ballot_token_owner(&self) -> ProveDlog;
     fn get_box(&self) -> &ErgoBox;
@@ -75,7 +76,7 @@ impl BallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id.token_id() {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -97,14 +98,14 @@ impl BallotBoxWrapper {
 pub struct BallotBoxWrapperInputs {
     pub contract_inputs: BallotContractInputs,
     /// Ballot token is expected to reside in `tokens(0)` of the ballot box.
-    pub ballot_token_id: TokenId,
+    pub ballot_token_id: BallotTokenId,
 }
 
 impl BallotBoxWrapperInputs {
     pub fn build_with(
         ballot_contract_parameters: BallotContractParameters,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, BallotContractError> {
         let contract_inputs =
             BallotContractInputs::build_with(ballot_contract_parameters, update_nft_token_id)?;
@@ -116,8 +117,8 @@ impl BallotBoxWrapperInputs {
 
     pub fn checked_load(
         ballot_contract_parameters: BallotContractParameters,
-        ballot_token_id: TokenId,
-        update_nft_token_id: TokenId,
+        ballot_token_id: BallotTokenId,
+        update_nft_token_id: UpdateTokenId,
     ) -> Result<Self, BallotContractError> {
         let contract_inputs =
             BallotContractInputs::checked_load(ballot_contract_parameters, update_nft_token_id)?;
@@ -145,7 +146,7 @@ impl VoteBallotBoxWrapper {
             .get(0)
             .ok_or(BallotBoxError::NoBallotToken)?
             .token_id;
-        if *ballot_token_id != inputs.ballot_token_id {
+        if *ballot_token_id != inputs.ballot_token_id.token_id() {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
 
@@ -201,14 +202,13 @@ impl BallotBox for BallotBoxWrapper {
         &self.contract
     }
 
-    fn ballot_token(&self) -> Token {
-        self.ergo_box
-            .tokens
-            .as_ref()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .clone()
+    fn ballot_token(&self) -> SpecToken<BallotTokenId> {
+        let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
+        SpecToken {
+            // Safe to do this here since BallotBoxWrapper::new() already checks token id
+            token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+            amount: ballot_token.amount,
+        }
     }
 
     fn min_storage_rent(&self) -> BoxValue {
@@ -234,14 +234,13 @@ impl BallotBox for VoteBallotBoxWrapper {
         &self.contract
     }
 
-    fn ballot_token(&self) -> Token {
-        self.ergo_box
-            .tokens
-            .as_ref()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .clone()
+    fn ballot_token(&self) -> SpecToken<BallotTokenId> {
+        let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
+        SpecToken {
+            // Safe to do this here since BallotBoxWrapper::new() already checks token id
+            token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+            amount: ballot_token.amount,
+        }
     }
 
     fn min_storage_rent(&self) -> BoxValue {
@@ -267,7 +266,7 @@ pub fn make_local_ballot_box_candidate(
     contract: &BallotContract,
     ballot_token_owner: ProveDlog,
     update_box_creation_height: u32,
-    ballot_token: Token,
+    ballot_token: SpecToken<BallotTokenId>,
     pool_box_address_hash: Digest32,
     reward_tokens: Token,
     value: BoxValue,
@@ -283,14 +282,11 @@ pub fn make_local_ballot_box_candidate(
         (update_box_creation_height as i32).into(),
     );
     builder.set_register_value(NonMandatoryRegisterId::R6, pool_box_address_hash.into());
-    builder.set_register_value(
-        NonMandatoryRegisterId::R7,
-        reward_tokens.token_id.clone().into(),
-    );
+    builder.set_register_value(NonMandatoryRegisterId::R7, reward_tokens.token_id.into());
     builder.set_register_value(
         NonMandatoryRegisterId::R8,
         (*reward_tokens.amount.as_u64() as i64).into(),
     );
-    builder.add_token(ballot_token);
+    builder.add_token(ballot_token.into());
     builder.build()
 }

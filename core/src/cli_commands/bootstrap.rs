@@ -47,7 +47,11 @@ use crate::{
     oracle_config::{OracleConfig, TokenIds},
     oracle_config::{OracleConfigError, BASE_FEE},
     serde::BootstrapConfigSerde,
-    wallet::WalletDataSource,
+    spec_token::{
+        BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,
+        TokenIdKind, UpdateTokenId,
+    },
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
@@ -72,13 +76,14 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     debug!("Change address: {}", change_address_str);
 
     let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
+    let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
         config,
         wallet: &node as &dyn WalletDataSource,
         tx_signer: &node as &dyn SignTransaction,
         submit_tx: &node as &dyn SubmitTransaction,
         tx_fee: *BASE_FEE,
-        erg_value_per_box: *BASE_FEE,
+        erg_value_per_box,
         change_address,
         height: node.current_block_height()? as u32,
     };
@@ -296,8 +301,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let update_contract = UpdateContract::checked_load(&UpdateContractInputs::build_with(
         config.update_contract_parameters.clone(),
-        pool_nft_token.token_id.clone(),
-        ballot_token.token_id.clone(),
+        PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id.clone()),
+        BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
     )?)?;
 
     info!("Creating and signing minting update NFT tx");
@@ -357,19 +362,24 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // Create pool box -----------------------------------------------------------------------------
     info!("Create and sign pool box tx");
 
+    // we don't have a working ORACLE_CONFIG during bootstrap so token ids are created without any checks
     let token_ids = TokenIds {
-        pool_nft_token_id: pool_nft_token.token_id.clone(),
-        refresh_nft_token_id: refresh_nft_token.token_id.clone(),
-        update_nft_token_id: update_nft_token.token_id.clone(),
-        oracle_token_id: oracle_token.token_id.clone(),
-        reward_token_id: reward_token.token_id.clone(),
-        ballot_token_id: ballot_token.token_id.clone(),
+        pool_nft_token_id: PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id.clone()),
+        refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(
+            refresh_nft_token.token_id.clone(),
+        ),
+        update_nft_token_id: UpdateTokenId::from_token_id_unchecked(
+            update_nft_token.token_id.clone(),
+        ),
+        oracle_token_id: OracleTokenId::from_token_id_unchecked(oracle_token.token_id.clone()),
+        reward_token_id: RewardTokenId::from_token_id_unchecked(reward_token.token_id.clone()),
+        ballot_token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
     };
 
     let pool_contract = PoolContract::build_with(&PoolContractInputs::build_with(
         config.pool_contract_parameters.clone(),
-        refresh_nft_token.token_id.clone(),
-        update_nft_token.token_id.clone(),
+        token_ids.refresh_nft_token_id.clone(),
+        token_ids.update_nft_token_id.clone(),
     )?)
     .unwrap();
 
@@ -386,8 +396,14 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during bootstrap.
         0,
         1,
-        pool_nft_token.clone(),
-        reward_tokens_for_pool_box.clone(),
+        SpecToken {
+            token_id: token_ids.pool_nft_token_id.clone(),
+            amount: pool_nft_token.amount,
+        },
+        SpecToken {
+            token_id: token_ids.reward_token_id.clone(),
+            amount: reward_tokens_for_pool_box.amount,
+        },
         erg_value_per_box,
         height,
     )?;
@@ -444,8 +460,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let refresh_contract_inputs = RefreshContractInputs::build_with(
         config.refresh_contract_parameters.clone(),
-        token_ids.oracle_token_id,
-        token_ids.pool_nft_token_id,
+        token_ids.oracle_token_id.clone(),
+        token_ids.pool_nft_token_id.clone(),
     )?;
     let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
 
@@ -512,14 +528,6 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
     info!("Created initial refresh box TxId: {}", tx_id);
 
-    let token_ids = TokenIds {
-        pool_nft_token_id: pool_nft_token.token_id,
-        refresh_nft_token_id: refresh_nft_token.token_id,
-        update_nft_token_id: update_nft_token.token_id,
-        oracle_token_id: oracle_token.token_id,
-        reward_token_id: reward_token.token_id,
-        ballot_token_id: ballot_token.token_id,
-    };
     info!("Minted tokens: {:?}", token_ids);
 
     Ok(OracleConfig::create(config, token_ids, height)?)
@@ -657,6 +665,8 @@ pub enum BootstrapError {
     OracleConfigError(OracleConfigError),
     #[error("Pool contract error: {0}")]
     PoolContractError(PoolContractError),
+    #[error("WalletData error: {0}")]
+    WalletData(WalletDataError),
 }
 
 #[cfg(test)]
@@ -757,7 +767,7 @@ pub(crate) mod tests {
                     .clone()
                     .into_iter()
                     .flatten()
-                    .any(|token| token.token_id == token_ids.update_nft_token_id)
+                    .any(|token| token.token_id == token_ids.update_nft_token_id.token_id())
             })
             .unwrap();
         // Check that Update NFT is guarded by UpdateContract, and parameters are correct
@@ -776,16 +786,16 @@ pub(crate) mod tests {
         assert!(
             update_contract.min_votes() == bootstrap_config.update_contract_parameters.min_votes()
         );
-        assert!(update_contract.pool_nft_token_id() == token_ids.pool_nft_token_id);
-        assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id);
+        assert!(update_contract.pool_nft_token_id() == token_ids.pool_nft_token_id.token_id());
+        assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id.token_id());
         let s = serde_yaml::to_string(&oracle_config).unwrap();
         println!("{}", s);
 
         // Quickly check an encoding
-        let bytes: Vec<u8> = token_ids.ballot_token_id.clone().into();
+        let bytes: Vec<u8> = token_ids.ballot_token_id.token_id().into();
         let encoded = base64::encode(bytes);
         let ballot_id = TokenId::from_base64(&encoded).unwrap();
-        assert_eq!(token_ids.ballot_token_id, ballot_id);
+        assert_eq!(token_ids.ballot_token_id.token_id(), ballot_id);
 
         // Check that refresh contract is updated
         assert_ne!(
