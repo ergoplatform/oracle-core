@@ -50,7 +50,7 @@ Where:
 - <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 - <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
 
-are printed in the output of the `prepare-update` command. 
+and are printed in the output of the `prepare-update` command. 
 
 Keep in mind the REWARD_TOKEN_AMOUNT depends on when(in which epoch) the final `update-pool` command will be run.
 

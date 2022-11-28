@@ -101,7 +101,9 @@ Changes to the contract(parameters)/tokens can be done in three steps:
 Each of the step is described below. See also a detailed instruction on [Updating the epoch length](docs/update_epoch_length.md)
 
 ### Create a new refresh box with `prepare-update` command 
-Create a YAML file describing what contract parameters should be updated and run
+Create a YAML file describing what contract parameters should be updated.
+See also an example of such YAML file at [Updating the epoch length](docs/update_epoch_length.md)
+Run:
 ```console
 oracle-core prepare-update <YAML file>
 ```
@@ -119,6 +121,10 @@ Where:
 - <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 - <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
 
+and are printed in the output of the `prepare-update` command. 
+
+Keep in mind the REWARD_TOKEN_AMOUNT depends on when(in which epoch) the final `update-pool` command will be run.
+
 ### Update the pool box contract with `update-pool` command
 Make sure the `oracle_config_updated.yaml` config file generated during the `prepare-update` command is in the same folder as the oracle-core binary.
 Run
@@ -135,7 +141,8 @@ Where:
   <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
   <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 
-This will submit an update tx. After the update tx is confirmed, use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle)
+This will submit an update tx. 
+After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle). Distribute the new oracle config file (with zeroed credentials - node_api_key, node_ip, oracle_address, etc) to all the oracles and keep in mind that they have to set their own requisites in the received config. Be sure they delete `scanIds.json` before restart.
 
 ## How to run as systemd daemon
 To run oracle-core as a systemd unit, the unit file in [systemd/oracle-core.service](systemd/oracle-core.service) should be installed.
