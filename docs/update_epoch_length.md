@@ -68,4 +68,4 @@ Where:
 were printed at the end of the `prepare-update` command.
 
 This will submit an update tx. 
-After the update tx is confirmed, use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle)
+After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle). Distribute the new oracle config file (with zeroed credentials - node_api_key, node_ip, oracle_address, etc) to all the oracles and keep in mind that they have to set their own requisites in the received config. Be sure they delete `scanIds.json` before restart.
