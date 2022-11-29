@@ -248,7 +248,7 @@ fn build_update_pool_box_tx(
         old_pool_box.pool_nft_token(),
         reward_tokens.clone(),
         old_pool_box.get_box().value,
-        old_pool_box.get_box().creation_height, // creation info must be preserved
+        height,
     )?;
     let mut update_box_candidate =
         ErgoBoxCandidateBuilder::new(update_box.get_box().value, update_box.ergo_tree(), height);

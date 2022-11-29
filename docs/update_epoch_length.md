@@ -39,7 +39,7 @@ oracle-core prepare-update prepare_update_conf.yaml
 and check that `oracle_config_updated.yaml` with new refresh contract, pool contract and refresh NFT is generated.
 The new pool contract hash is printed along with current reward token amount and guesstimated reward token amounts for the upcoming epochs.
 
-### Vote for the change.
+### Vote for the change with `vote-update-pool` command.
 Run
 ```console
 oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> <UPDATE_BOX_CREATION_HEIGHT>
@@ -50,6 +50,22 @@ Where:
 - <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 - <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
 
-are printed in the output of the `prepare-update` command. 
+and are printed in the output of the `prepare-update` command. 
 
 Keep in mind the REWARD_TOKEN_AMOUNT depends on when(in which epoch) the final `update-pool` command will be run.
+
+### Commit the update to the pool box contract with `update-pool` command.
+Make sure the `oracle_config_updated.yaml` config file generated during the `prepare-update` command is in the same folder as the oracle-core binary.
+Run
+```console
+oracle-core update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> 
+```
+Where:
+  <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
+  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
+  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
+
+were printed at the end of the `prepare-update` command.
+
+This will submit an update tx. 
+After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle). Distribute the new oracle config file (with zeroed credentials - node_api_key, node_ip, oracle_address, etc) to all the oracles and keep in mind that they have to set their own requisites in the received config. Be sure they delete `scanIds.json` before restart.

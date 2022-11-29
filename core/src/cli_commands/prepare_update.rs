@@ -36,7 +36,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    box_kind::{PoolBox, PoolBoxWrapperInputs, RefreshBoxWrapperInputs, UpdateBoxWrapperInputs},
+    box_kind::{
+        make_refresh_box_candidate, PoolBox, PoolBoxWrapperInputs, RefreshBoxWrapperInputs,
+        UpdateBoxWrapperInputs,
+    },
     contracts::{
         pool::{PoolContractError, PoolContractParameters},
         refresh::{
@@ -203,7 +206,7 @@ fn perform_update_chained_transaction(
     let mut num_transactions_left = 1;
 
     if config.refresh_contract_parameters.is_some() {
-        num_transactions_left += 1;
+        num_transactions_left += 2; // refresh NFT mint tx + new refresh box tx
     }
     if config.update_contract_parameters.is_some() {
         num_transactions_left += 1;
@@ -341,34 +344,84 @@ fn perform_update_chained_transaction(
         transactions.push(tx);
     }
     if let Some(ref contract_parameters) = config.refresh_contract_parameters {
-        info!("Creating new refresh NFT");
+        info!("Creating new refresh NFT and refresh box");
+        let refresh_nft_details = config
+            .tokens_to_mint
+            .refresh_nft
+            .ok_or(PrepareUpdateError::NoMintDetails)?;
+        let (refresh_nft_token, mint_refresh_nft_tx) = mint_token(
+            inputs.into(),
+            &mut num_transactions_left,
+            refresh_nft_details.name.clone(),
+            refresh_nft_details.description.clone(),
+            1.try_into().unwrap(),
+            None,
+        )?;
+        new_oracle_config.token_ids.refresh_nft_token_id =
+            RefreshTokenId::from_token_id_unchecked(refresh_nft_token.token_id.clone());
+        inputs = filter_tx_outputs(mint_refresh_nft_tx.outputs.clone())
+            .try_into()
+            .unwrap();
+        info!("Refresh NFT minting tx id: {:?}", mint_refresh_nft_tx.id());
+        transactions.push(mint_refresh_nft_tx);
+
+        // Create refresh box --------------------------------------------------------------------------
+        info!("Create and sign refresh box tx");
+
         let refresh_contract_inputs = RefreshContractInputs::build_with(
             contract_parameters.clone(),
             new_oracle_config.token_ids.oracle_token_id.clone(),
             old_config.token_ids.pool_nft_token_id,
         )?;
         let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
-        let refresh_nft_details = config
-            .tokens_to_mint
-            .refresh_nft
-            .ok_or(PrepareUpdateError::NoMintDetails)?;
-        let (token, tx) = mint_token(
-            inputs.into(),
-            &mut num_transactions_left,
-            refresh_nft_details.name.clone(),
-            refresh_nft_details.description.clone(),
-            1.try_into().unwrap(),
-            Some(refresh_contract.ergo_tree()),
-        )?;
-        new_oracle_config.token_ids.refresh_nft_token_id =
-            RefreshTokenId::from_token_id_unchecked(token.token_id.clone());
         new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
             contract_inputs: refresh_contract_inputs,
             refresh_nft_token_id: new_oracle_config.token_ids.refresh_nft_token_id.clone(),
         };
-        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
-        info!("Refresh contract tx id: {:?}", tx.id());
-        transactions.push(tx);
+
+        let refresh_box_candidate = make_refresh_box_candidate(
+            &refresh_contract,
+            refresh_nft_token.clone(),
+            erg_value_per_box,
+            height,
+        )?;
+
+        let target_balance = calc_target_balance(num_transactions_left)?;
+
+        let box_selection = SimpleBoxSelector::new().select(
+            inputs.as_vec().clone(),
+            target_balance,
+            &[refresh_nft_token.clone()],
+        )?;
+
+        let mut output_candidates = vec![refresh_box_candidate];
+        let remaining_funds = ErgoBoxCandidateBuilder::new(
+            calc_target_balance(num_transactions_left - 1)?,
+            wallet_pk_ergo_tree.clone(),
+            height,
+        )
+        .build()?;
+        output_candidates.push(remaining_funds.clone());
+
+        let tx_builder = TxBuilder::new(
+            box_selection.clone(),
+            output_candidates,
+            height,
+            tx_fee,
+            change_address.clone(),
+        );
+        let refresh_box_tx = tx_builder.build()?;
+        let signed_refresh_box_tx = wallet_sign.sign_transaction_with_inputs(
+            &refresh_box_tx,
+            box_selection.boxes.clone(),
+            None,
+        )?;
+        inputs = filter_tx_outputs(signed_refresh_box_tx.outputs.clone())
+            .try_into()
+            .unwrap();
+        info!("Refresh box tx id: {:?}", signed_refresh_box_tx.id());
+        transactions.push(signed_refresh_box_tx);
+        num_transactions_left -= 1;
     }
     if let Some(ref contract_parameters) = config.update_contract_parameters {
         info!("Creating new update NFT");
