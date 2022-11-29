@@ -3,10 +3,12 @@
 use std::convert::{TryFrom, TryInto};
 
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::{
-    address::{AddressEncoder, AddressEncoderError},
-    ergo_box::box_value::BoxValueError,
-    token::TokenId,
+use ergo_lib::{
+    ergo_chain_types::Digest32,
+    ergotree_ir::chain::{
+        address::{AddressEncoder, AddressEncoderError},
+        ergo_box::box_value::BoxValueError,
+    },
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -33,6 +35,7 @@ use crate::{
     },
     datapoint_source::PredefinedDataPointSource,
     oracle_config::{OracleConfig, OracleConfigError, TokenIds},
+    spec_token::TokenIdKind,
 };
 
 /// Used to (de)serialize `OracleConfig` instance.
@@ -535,20 +538,17 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
     }
 }
 
-pub(crate) fn token_id_as_base64_string<S, T: crate::spec_token::TokenIdKind>(
+pub(crate) fn token_id_as_base16_string<S, T: TokenIdKind>(
     value: &T,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    let bytes: Vec<u8> = value.token_id().into();
-    serializer.serialize_str(&base64::encode(bytes))
+    serializer.serialize_str(&String::from(value.token_id()))
 }
 
-pub(crate) fn token_id_from_base64<'de, D, T: crate::spec_token::TokenIdKind>(
-    deserializer: D,
-) -> Result<T, D::Error>
+pub(crate) fn token_id_from_base16<'de, D, T: TokenIdKind>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
@@ -557,6 +557,8 @@ where
     //   "invalid type: string ..., expected a borrowed string"
     let s: String = serde::de::Deserialize::deserialize(deserializer)?;
     Ok(T::from_token_id_unchecked(
-        TokenId::from_base64(&s).map_err(serde::de::Error::custom)?,
+        Digest32::try_from(s)
+            .map_err(serde::de::Error::custom)?
+            .into(),
     ))
 }

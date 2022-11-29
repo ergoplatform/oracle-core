@@ -66,33 +66,33 @@ pub struct CastBallotBoxVoteParameters {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TokenIds {
     #[serde(
-        serialize_with = "crate::serde::token_id_as_base64_string",
-        deserialize_with = "crate::serde::token_id_from_base64"
+        serialize_with = "crate::serde::token_id_as_base16_string",
+        deserialize_with = "crate::serde::token_id_from_base16"
     )]
     pub pool_nft_token_id: PoolTokenId,
     #[serde(
-        serialize_with = "crate::serde::token_id_as_base64_string",
-        deserialize_with = "crate::serde::token_id_from_base64"
+        serialize_with = "crate::serde::token_id_as_base16_string",
+        deserialize_with = "crate::serde::token_id_from_base16"
     )]
     pub refresh_nft_token_id: RefreshTokenId,
     #[serde(
-        serialize_with = "crate::serde::token_id_as_base64_string",
-        deserialize_with = "crate::serde::token_id_from_base64"
+        serialize_with = "crate::serde::token_id_as_base16_string",
+        deserialize_with = "crate::serde::token_id_from_base16"
     )]
     pub update_nft_token_id: UpdateTokenId,
     #[serde(
-        serialize_with = "crate::serde::token_id_as_base64_string",
-        deserialize_with = "crate::serde::token_id_from_base64"
+        serialize_with = "crate::serde::token_id_as_base16_string",
+        deserialize_with = "crate::serde::token_id_from_base16"
     )]
     pub oracle_token_id: OracleTokenId,
     #[serde(
-        serialize_with = "crate::serde::token_id_as_base64_string",
-        deserialize_with = "crate::serde::token_id_from_base64"
+        serialize_with = "crate::serde::token_id_as_base16_string",
+        deserialize_with = "crate::serde::token_id_from_base16"
     )]
     pub reward_token_id: RewardTokenId,
     #[serde(
-        serialize_with = "crate::serde::token_id_as_base64_string",
-        deserialize_with = "crate::serde::token_id_from_base64"
+        serialize_with = "crate::serde::token_id_as_base16_string",
+        deserialize_with = "crate::serde::token_id_from_base16"
     )]
     pub ballot_token_id: BallotTokenId,
 }
