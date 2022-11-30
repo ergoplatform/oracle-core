@@ -138,7 +138,7 @@ impl OracleConfig {
             node_port: bootstrap.node_port,
             node_api_key: bootstrap.node_api_key,
             base_fee: bootstrap.base_fee,
-            log_level: None,
+            log_level: Some(LevelFilter::Info),
             core_api_port: bootstrap.core_api_port,
             oracle_address: bootstrap.oracle_address,
             data_point_source: bootstrap.data_point_source,

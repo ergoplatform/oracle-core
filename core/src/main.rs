@@ -104,7 +104,7 @@ const APP_VERSION: &str = concat!(
 struct Args {
     #[clap(subcommand)]
     command: Command,
-    /// Increase the verbosity of the output to trace log level overriding the log level in the config file.
+    /// Increase the logging verbosity
     #[clap(short, long)]
     verbose: bool,
     /// Set path of configuration file to use. Default is ./oracle_config.yaml
