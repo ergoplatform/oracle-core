@@ -80,4 +80,6 @@ Where:
 were printed at the end of the `prepare-update` command.
 
 This will submit an update tx.
-After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle). Distribute the new oracle config file (with zeroed credentials - node_api_key, node_ip, oracle_address, etc) to all the oracles and keep in mind that they have to set their own requisites in the received config. Be sure they delete `scanIds.json` before restart.
+After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle).
+Distribute the new oracle config file to all the oracles. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
+Be sure they delete `scanIds.json` before restart.

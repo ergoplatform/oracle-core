@@ -75,7 +75,7 @@ Bootstrap parameters available to edit:
 ## Invite new oracle to the running pool
 
 To invite a new oracle the person that bootstrapped the pool need to send one oracle token and one reward token. On bootstrap X oracle and reward tokens are sent to the `oracle_address`, where X is the total oracle token quantity minted on bootstrap.
-Besides the tokens the `oracle_config.yaml` config file that you are running now should be sent as well. Be carefull to cleanup the `node_api_key` and `oracle_address` fields before you send it and instruct the invited oracle to set them to their liking.
+Besides the tokens the config file that you are running now should be sent as well. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
 
 ## Joining a running pool
 
@@ -118,7 +118,7 @@ oracle-core transfer-oracle-token <ADDRESS>
 ```
 
 Ensure the new address has enough coins for tx fees to run in a pool.
-As with inviting a new oracle, the `oracle_config.yaml` config file you are running now should also be sent. Again, clean up the `node_api_key` and `oracle_address` fields before you send it and instruct the invited oracle to set them to their liking.
+As with inviting a new oracle, the config file that you are running now should be sent as well. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
 
 ## Updating the contracts/tokens
 
@@ -183,7 +183,9 @@ Where:
   <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 
 This will submit an update tx.
-After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle). Distribute the new oracle config file (with zeroed credentials - node_api_key, node_ip, oracle_address, etc) to all the oracles and keep in mind that they have to set their own requisites in the received config. Be sure they delete `scanIds.json` before restart.
+After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle).
+Distribute the new oracle config file to all the oracles. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
+Be sure they delete `scanIds.json` before restart.
 
 ## How to run as systemd daemon
 
