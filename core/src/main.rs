@@ -181,6 +181,10 @@ enum Command {
 
     /// Print base 64 encodings of the blake2b hash of ergo-tree bytes of each contract
     PrintContractHashes,
+
+    /// Print the current config file with zeroed sensitive/private fields.
+    /// Intended to be shared with pool operators.
+    PrintSafeConfig,
 }
 
 fn main() {
@@ -199,8 +203,6 @@ fn main() {
         None
     };
     logging::setup_log(cmdline_log_level);
-
-    log_on_launch();
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
@@ -225,12 +227,14 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
+        Command::PrintSafeConfig => cli_commands::print_conf::print_safe_config(&ORACLE_CONFIG),
         oracle_command => handle_oracle_command(oracle_command),
     }
 }
 
 /// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
 fn handle_oracle_command(command: Command) {
+    log_on_launch();
     assert_wallet_unlocked(&new_node_interface());
     register_and_save_scans().unwrap();
     let op = OraclePool::new().unwrap();
@@ -337,6 +341,7 @@ fn handle_oracle_command(command: Command) {
             }
         }
         Command::Bootstrap { .. } | Command::PrintContractHashes => unreachable!(),
+        Command::PrintSafeConfig => unreachable!(),
     }
 }
 
