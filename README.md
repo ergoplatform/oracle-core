@@ -64,17 +64,18 @@ Bootstrap parameters available to edit:
 - `[token]:name`, `description` - token names and descriptions that will be used to mint tokens;
 - `[token]:quantity` - number of tokens to mint;
 - `data_point_source` - can be one of the following: NanoErgUsd, NanoErgXau, NanoErgAda;
-- `data_point_source_custom_script` - path to script that will be called to fetch a new datapoint;
+- `data_point_source_custom_script` - path to script that will be called to fetch a new datapoint (if set `data_point_source` is ignored);
 - `min_data_points` - minimal number of posted datapoint boxes needed to update the pool box (consensus);
 - `max_deviation_percent` - a cut off for the lowest and highest posted datapoints(i.e. datapoints deviated more than this will be filtered out and not take part in the refresh of the pool box);
 - `epoch_length` - minimal number of blocks between refresh(pool box) actions;
-- `min_votes` - minimal number of posted ballot boxes voting for a change to the refresh/pool box contracts;
+- `min_votes` - minimal number of posted ballot boxes voting for a change to the pool box contracts;
 - `min_storage_rent` - box value in nanoERG used in oracle and ballot boxes;
 - `base_fee` - a tx fee in nanoERG to use in transactions;
 
 ## Invite new oracle to the running pool
 
 To invite a new oracle the person that bootstrapped the pool need to send one oracle token and one reward token. On bootstrap X oracle and reward tokens are sent to the `oracle_address`, where X is the total oracle token quantity minted on bootstrap.
+Use [scripts/send_new_oracle.sh](scripts/send_new_oracle.sh) to send one oracle, reward and ballot token.
 Besides the tokens the config file that you are running now should be sent as well. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
 
 ## Joining a running pool
