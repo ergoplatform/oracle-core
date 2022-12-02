@@ -51,7 +51,6 @@ pub struct OracleConfig {
     pub update_box_wrapper_inputs: UpdateBoxWrapperInputs,
     pub ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
     pub token_ids: TokenIds,
-    pub rescan_height: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -101,7 +100,6 @@ impl OracleConfig {
     pub fn create(
         bootstrap: BootstrapConfig,
         token_ids: TokenIds,
-        rescan_height: u32,
     ) -> Result<Self, OracleConfigError> {
         let oracle_box_wrapper_inputs = OracleBoxWrapperInputs::build_with(
             bootstrap.oracle_contract_parameters.clone(),
@@ -149,7 +147,6 @@ impl OracleConfig {
             ballot_box_wrapper_inputs,
             update_box_wrapper_inputs,
             token_ids,
-            rescan_height,
         })
     }
 

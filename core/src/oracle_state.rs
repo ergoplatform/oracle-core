@@ -534,6 +534,6 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
     log::info!("Registering UTXO-Set Scans");
     save_scan_ids_locally(scans)?;
     log::info!("Triggering wallet rescan");
-    rescan_from_height(ORACLE_CONFIG.rescan_height)?;
+    rescan_from_height(0)?;
     Ok(())
 }

@@ -56,7 +56,6 @@ pub(crate) struct OracleConfigSerde {
     update_contract_parameters: UpdateContractParametersSerde,
     ballot_contract_parameters: BallotContractParametersSerde,
     token_ids: TokenIds,
-    rescan_height: u32,
 }
 
 #[derive(Debug, Error, From)]
@@ -130,7 +129,6 @@ impl From<OracleConfig> for OracleConfigSerde {
             ballot_contract_parameters,
             update_contract_parameters,
             token_ids: c.token_ids,
-            rescan_height: c.rescan_height,
         }
     }
 }
@@ -244,7 +242,6 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             update_box_wrapper_inputs,
             ballot_box_wrapper_inputs,
             token_ids: c.token_ids,
-            rescan_height: c.rescan_height,
         })
     }
 }
