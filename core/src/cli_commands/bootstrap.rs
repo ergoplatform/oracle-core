@@ -530,7 +530,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     info!("Minted tokens: {:?}", token_ids);
 
-    Ok(OracleConfig::create(config, token_ids, height)?)
+    Ok(OracleConfig::create(config, token_ids)?)
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
