@@ -1,4 +1,4 @@
-# How I Bootsrapped an ERG/XAU Pool on testnet
+# How I bootsrapped an ERG/XAU pool on testnet
 
 ## Before you start
 
