@@ -46,13 +46,13 @@ I started my oracle with the following:
 
 ```console
 oracle-core run
-``` 
+```
 
 And it posted the first data point.
 
 ## Step 6. Send oracle config to the operators
 
-I made an oracle_config.yaml template with 
+I made an `oracle_config.yaml` template with
 
 ```console
 oracle-core print-safe-config > template.yaml
