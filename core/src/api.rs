@@ -1,15 +1,17 @@
+use std::convert::From;
 use std::net::SocketAddr;
 
-use crate::box_kind::OracleBox;
 use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_ip, get_node_port, ORACLE_CONFIG};
-use crate::oracle_state::{OraclePool, StageDataSource};
-use crate::state::PoolState;
-use axum::response::IntoResponse;
+use crate::oracle_state::LocalDatapointState::{Collected, Posted};
+use crate::oracle_state::{OraclePool, StageError};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use crossbeam::channel::Receiver;
 use serde_json::json;
+use tokio::task;
 use tower_http::cors::CorsLayer;
 
 /// Basic welcome endpoint
@@ -25,51 +27,47 @@ async fn oracle_info() -> impl IntoResponse {
 }
 
 /// Status of the oracle
-async fn oracle_status() -> impl IntoResponse {
+async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
     let op = OraclePool::new().unwrap();
-
-    // Get latest datapoint the local oracle produced/submit
-    let latest_oracle_box = op
-        .get_local_datapoint_box_source()
-        .get_local_oracle_datapoint_box();
-    // let self_datapoint = match latest_oracle_box {
-    //     Ok(Some(ref d)) => d.rate().unwrap_or(0),
-    //     Ok(None) | Err(_) => 0,
-    // };
-    // // Get latest datapoint submit epoch
-    // let datapoint_epoch = match latest_oracle_box {
-    //     Ok(Some(ref d)) => d.epoch_counter().unwrap_or(0),
-    //     Ok(None) | Err(_) => 0,
-    // };
-    // Get latest datapoint submit epoch
-    let datapoint_creation = match latest_oracle_box {
-        Ok(Some(ref d)) => d.get_box().creation_height,
-        Ok(None) | Err(_) => 0,
-    };
-
-    Json(json! ({
-        // "latest_datapoint": self_datapoint,
-        // "latest_datapoint_epoch": datapoint_epoch,
-        "latest_datapoint_creation_height": datapoint_creation,
-    }))
+    let live_epoch = task::spawn_blocking(move || op.get_live_epoch_state())
+        .await
+        .unwrap()?;
+    if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
+        let json = match local_datapoint_box_state {
+            Collected { height } => json!( {
+                "status": "collected",
+                "height": height,
+            }),
+            Posted { epoch_id, height } => json!( {
+                "status": "posted",
+                "epoch_id": epoch_id,
+                "height": height,
+            }),
+        };
+        Ok(Json(json!({
+                "local_datapoint_box_state": json,
+        })))
+    } else {
+        Ok(Json(json!({
+                "local_datapoint_box_state": "No local datapoint box",
+        })))
+    }
 }
 
 // Basic information about the oracle pool
 async fn pool_info() -> impl IntoResponse {
-    let parameters = &ORACLE_CONFIG;
-    let op = OraclePool::new().unwrap();
-    let datapoint_stage = op.datapoint_stage;
-    let num_of_oracles = datapoint_stage.stage.number_of_boxes().unwrap_or(10);
-
+    let conf = &ORACLE_CONFIG;
     Json(json!({
-        "number_of_oracles": num_of_oracles,
-        "datapoint_address": datapoint_stage.stage.contract_address,
-        "live_epoch_length": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().epoch_length(),
-        "deviation_range": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().max_deviation_percent(),
-        "consensus_num": parameters.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().min_data_points(),
-        "oracle_pool_nft_id": parameters.token_ids.pool_nft_token_id,
-        "oracle_pool_participant_token_id": parameters.token_ids.oracle_token_id,
-
+        "pool_nft_id": conf.token_ids.pool_nft_token_id,
+        "oracle_token_id": conf.token_ids.oracle_token_id,
+        "reward_token_id": conf.token_ids.reward_token_id,
+        "refresh_token_id": conf.token_ids.refresh_nft_token_id,
+        "ballot_token_id": conf.token_ids.ballot_token_id,
+        "update_token_id": conf.token_ids.update_nft_token_id,
+        "epoch_length": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().epoch_length(),
+        "max_deviation_percent": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().max_deviation_percent(),
+        "min_data_points": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().min_data_points(),
+        "min_votes": conf.update_box_wrapper_inputs.contract_inputs.contract_parameters().min_votes(),
     }))
 }
 
@@ -81,32 +79,25 @@ async fn node_info() -> impl IntoResponse {
 }
 
 /// Status of the oracle pool
-async fn pool_status() -> impl IntoResponse {
+async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
     let op = OraclePool::new().unwrap();
-
-    // Current stage of the oracle pool box
-    let current_stage = match op.check_oracle_pool_stage() {
-        PoolState::LiveEpoch(_) => "Live Epoch",
-        PoolState::NeedsBootstrap => "Needs bootstrap",
-    };
-
-    let mut latest_datapoint = 0;
-    let mut current_epoch_id = "".to_string();
-    if let Ok(l) = op.get_live_epoch_state() {
-        latest_datapoint = l.latest_pool_datapoint;
-        current_epoch_id = l.pool_box_epoch_id.to_string();
-    }
-    Json(json!({
-            "current_pool_stage": current_stage,
-            "latest_datapoint": latest_datapoint,
-            "current_epoch_id" : current_epoch_id,
-    }))
+    let live_epoch = task::spawn_blocking(move || op.get_live_epoch_state())
+        .await
+        .unwrap()?;
+    Ok(Json(json!({
+            "latest_pool_datapoint": live_epoch.latest_pool_datapoint,
+            "latest_pool_box_height": live_epoch.latest_pool_box_height,
+            "pool_box_epoch_id" : live_epoch.pool_box_epoch_id,
+    })))
 }
 
 /// Block height of the Ergo blockchain
 async fn block_height() -> impl IntoResponse {
-    let current_height =
-        current_block_height().expect("Please ensure that the Ergo node is running.");
+    let current_height = task::spawn_blocking(move || {
+        current_block_height().expect("Please ensure that the Ergo node is running.")
+    })
+    .await
+    .unwrap();
     format!("{}", current_height)
 }
 
@@ -142,4 +133,18 @@ pub async fn start_rest_server(repost_receiver: Receiver<bool>) {
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+struct ApiError(String);
+
+impl From<StageError> for ApiError {
+    fn from(err: StageError) -> Self {
+        ApiError(format!("StageError: {}", err))
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.0).into_response()
+    }
 }

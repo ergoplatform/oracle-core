@@ -204,6 +204,8 @@ fn main() {
     };
     logging::setup_log(cmdline_log_level);
 
+    let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::Bootstrap {
@@ -228,12 +230,12 @@ fn main() {
             print_contract_hashes();
         }
         Command::PrintSafeConfig => cli_commands::print_conf::print_safe_config(&ORACLE_CONFIG),
-        oracle_command => handle_oracle_command(oracle_command),
+        oracle_command => handle_oracle_command(oracle_command, &mut tokio_runtime),
     }
 }
 
 /// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
-fn handle_oracle_command(command: Command) {
+fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
     log_on_launch();
     assert_wallet_unlocked(&new_node_interface());
     register_and_save_scans().unwrap();
@@ -249,8 +251,7 @@ fn handle_oracle_command(command: Command) {
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(start_rest_server(repost_receiver));
+                tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only) {
