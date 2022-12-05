@@ -72,7 +72,7 @@ Bootstrap parameters available to edit:
 - `min_storage_rent` - box value in nanoERG used in oracle and ballot boxes;
 - `base_fee` - a tx fee in nanoERG to use in transactions;
 
-Check out [How I bootstrapped an ERG/XAU pool on testnet](docs/how_to_bootsrap.md) report for an example.
+Check out [How I bootstrapped an ERG/XAU pool on testnet](docs/how_to_bootstrap.md) report for an example.
 
 ## Invite new oracle to the running pool
 
