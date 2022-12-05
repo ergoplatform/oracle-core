@@ -72,6 +72,8 @@ Bootstrap parameters available to edit:
 - `min_storage_rent` - box value in nanoERG used in oracle and ballot boxes;
 - `base_fee` - a tx fee in nanoERG to use in transactions;
 
+Check out [How I bootstrapped an ERG/XAU pool on testnet](docs/how_to_bootsrap.md) report for an example.
+
 ## Invite new oracle to the running pool
 
 To invite a new oracle the person that bootstrapped the pool need to send one oracle token and one reward token. On bootstrap X oracle and reward tokens are sent to the `oracle_address`, where X is the total oracle token quantity minted on bootstrap.
