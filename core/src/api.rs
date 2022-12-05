@@ -10,6 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use crossbeam::channel::Receiver;
+use ergo_node_interface::scanning::NodeError;
 use serde_json::json;
 use tokio::task;
 use tower_http::cors::CorsLayer;
@@ -92,13 +93,9 @@ async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
 }
 
 /// Block height of the Ergo blockchain
-async fn block_height() -> impl IntoResponse {
-    let current_height = task::spawn_blocking(move || {
-        current_block_height().expect("Please ensure that the Ergo node is running.")
-    })
-    .await
-    .unwrap();
-    format!("{}", current_height)
+async fn block_height() -> Result<impl IntoResponse, ApiError> {
+    let current_height = task::spawn_blocking(current_block_height).await.unwrap()?;
+    Ok(format!("{}", current_height))
 }
 
 /// Whether the Core requires the Connector to repost a new Datapoint
@@ -140,6 +137,12 @@ struct ApiError(String);
 impl From<StageError> for ApiError {
     fn from(err: StageError) -> Self {
         ApiError(format!("StageError: {}", err))
+    }
+}
+
+impl From<NodeError> for ApiError {
+    fn from(err: NodeError) -> Self {
+        ApiError(format!("NodeError: {}", err))
     }
 }
 
