@@ -65,3 +65,5 @@ I asked the operators to set `node_ip`, `node_port`, `node_api_key`, `oracle_add
 ```console
 oracle-core run
 ```
+
+After they start their oracles keep an eye on your oracle log file and wait for refresh tx generated. It means your pool is running and the pool box was updated.
