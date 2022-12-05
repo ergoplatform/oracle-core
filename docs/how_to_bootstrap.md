@@ -4,7 +4,7 @@
 
 ### Plan pool parameters
 
-Let's say we have 5 operators. We'd like to keep consensus above 1/2 so it means we can start a pool of 9 oracles (`oracle_tokens:quantity: 9`, `ballot_tokens:quantity: 9`), with 5 oracles threshold for minimum data points (`min_data_points: 5`) and voting (`min_votes: 5`). This way, we'll have 3 vacant oracles places in case someone wants to join later.
+Let's say we have 5 operators. We want to keep consensus above 1/2, so it means we can start a pool of 9 oracles (`oracle_tokens:quantity: 9`, `ballot_tokens:quantity: 9`), with 5 oracles threshold for minimum data points (`min_data_points: 5`) and voting (`min_votes: 5`). This way, we'll have 3 vacant oracles places in case someone wants to join later.
 
 ## Step 1. Generate a bootstrap config template
 
@@ -16,7 +16,7 @@ oracle-core bootstrap --generate-config-template bootstrap.yaml
 
 ## Step 2. Edit your bootstrap config template
 
-I did the following changes:
+I made the following changes:
 
 - Set the parameters described in [Plan pool parameters](#plan-pool-parameters)
 - Name the tokens in `tokens_to_mint` section.
@@ -24,7 +24,7 @@ I did the following changes:
 - Set data point source `data_point_source: NanoErgXau`
 - Set `oracle_address` to my node's wallet address (make sure you have coins).
 
-So in the end it looked like - <https://gist.github.com/greenhat/2c6135462fba48773196ad45dd6c7404>
+So in the end, it looked like - <https://gist.github.com/greenhat/2c6135462fba48773196ad45dd6c7404>
 
 ## Step 3. Run `bootstrap` command
 
@@ -38,17 +38,17 @@ It submitted the txs to mint the tokens and make pool, refresh, update boxes. Be
 
 ## Step 4. Invite other operators
 
-To invite other operators I'm sending one oracle, reward, and ballot tokens to the operator's oracle addresses. I'm using <https://github.com/ergoplatform/oracle-core/blob/develop/scripts/send_new_oracle.sh> for this task
+To invite other operators, I'm sending one oracle, reward, and ballot tokens to the operator's oracle addresses. I'm using <https://github.com/ergoplatform/oracle-core/blob/develop/scripts/send_new_oracle.sh> for this task.
 
 ## Step 5. Start your oracle
 
-I started my oracle with:
+I started my oracle with the following:
 
 ```console
 oracle-core run
 ``` 
 
-and it posted the first data point.
+And it posted the first data point.
 
 ## Step 6. Send oracle config to the operators
 
