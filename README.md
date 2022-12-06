@@ -8,11 +8,10 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 
 ### In progress
 
-- v2.0-alpha. The first run of the oracle pool, testing how all the components work together. See [the remaining tasks](https://github.com/ergoplatform/oracle-core/milestone/1)
+- v2.0-beta. Run a public oracle pool on testnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/5)
 
 ### Next
 
-- v2.0-beta. Run a public oracle pool on testnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/5)
 - v2.0-RC. Launch on the mainnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/4)
 
 ## Getting started
