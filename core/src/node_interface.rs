@@ -38,6 +38,10 @@ pub trait SignTransaction {
 
 impl SubmitTransaction for NodeInterface {
     fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<String> {
+        log::trace!(
+            "Submitting signed transaction: {}",
+            serde_json::to_string_pretty(&tx).unwrap()
+        );
         self.submit_transaction(tx)
     }
 }
