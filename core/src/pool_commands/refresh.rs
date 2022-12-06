@@ -132,6 +132,10 @@ pub fn build_refresh_action(
         .map(|ob| ob.get_box().clone())
         .collect();
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
+    log::info!(
+        "Refresh: Found {} valid oracle boxes, next pool rate is {rate}",
+        valid_in_oracle_raw_boxes.len()
+    );
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
