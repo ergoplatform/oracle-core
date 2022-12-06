@@ -363,7 +363,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .contract_parameters()
         .epoch_length() as u32;
     if let Some(cmd) = process(pool_state, epoch_length, height) {
-        log::info!("Height {height}. Building action for command: {:?}", cmd);
+        log::debug!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_res = build_action(
             cmd,
             op,
