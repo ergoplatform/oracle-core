@@ -11,9 +11,9 @@ use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::node_interface::{current_block_height, get_wallet_status, rescan_from_height};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::scans::{
-    register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
-    register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
-    register_update_box_scan, save_scan_ids_locally, Scan, ScanError,
+    load_scan_ids, register_ballot_box_scan, register_datapoint_scan,
+    register_local_ballot_box_scan, register_local_oracle_datapoint_scan, register_pool_box_scan,
+    register_refresh_box_scan, register_update_box_scan, save_scan_ids, Scan, ScanError,
 };
 use crate::state::PoolState;
 use anyhow::Error;
@@ -24,7 +24,6 @@ use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
-use std::path::Path;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, StageError>;
@@ -186,11 +185,7 @@ impl<'a> OraclePool<'a> {
             OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
                 .ergo_tree();
 
-        // Read scanIDs.json for scan ids
-        let scan_json = json::parse(
-            &std::fs::read_to_string("scanIDs.json").expect("Unable to read scanIDs.json"),
-        )
-        .expect("Failed to parse scanIDs.json");
+        let scan_json = load_scan_ids()?;
 
         // Create all `Scan` structs for protocol
         let datapoint_scan = Scan::new(
@@ -443,7 +438,7 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
 /// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
 pub fn register_and_save_scans() -> std::result::Result<(), Error> {
     let config = &ORACLE_CONFIG;
-    if !Path::new("scanIDs.json").exists() {
+    if load_scan_ids().is_err() {
         register_and_save_scans_inner()?;
     } else {
         // If the UpdatePool command was issued values relating to the pool box in `scanIDs.json` will be out
@@ -532,7 +527,7 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
     ];
 
     log::info!("Registering UTXO-Set Scans");
-    save_scan_ids_locally(scans)?;
+    save_scan_ids(scans)?;
     log::info!("Triggering wallet rescan");
     rescan_from_height(0)?;
     Ok(())

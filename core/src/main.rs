@@ -69,6 +69,8 @@ use state::process;
 use state::PoolState;
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::env;
+use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
@@ -110,6 +112,9 @@ struct Args {
     /// Set path of configuration file to use. Default is ./oracle_config.yaml
     #[clap(short, long)]
     config_file: Option<String>,
+    /// Set folder path for the data files (scanIDs.json, logs). Default is the current folder.
+    #[clap(short, long)]
+    data_dir: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -202,7 +207,14 @@ fn main() {
     } else {
         None
     };
-    logging::setup_log(cmdline_log_level);
+
+    let data_dir_path = if let Some(data_dir) = args.data_dir {
+        Path::new(&data_dir).to_path_buf()
+    } else {
+        env::current_dir().unwrap()
+    };
+    logging::setup_log(cmdline_log_level, &data_dir_path);
+    scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
     let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
 
@@ -247,7 +259,6 @@ fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::R
         } => {
             assert_wallet_unlocked(&new_node_interface());
             let (_, repost_receiver) = bounded::<bool>(1);
-            let op = OraclePool::new().unwrap();
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
