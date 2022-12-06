@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::address_util::{address_to_raw_for_register, AddressUtilError};
 use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::{PoolContract, PoolContractError};
@@ -13,14 +15,14 @@ use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_node_interface::node_interface::NodeError;
+use json::JsonValue;
 use log::info;
+use once_cell::sync;
 use serde_json::json;
 use thiserror::Error;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;
-
-pub type Result<T> = std::result::Result<T, ScanError>;
 
 #[derive(Debug, From, Error)]
 pub enum ScanError {
@@ -57,7 +59,10 @@ impl Scan {
     }
 
     /// Registers a scan in the node and returns a `Scan` as a result
-    pub fn register(name: &'static str, tracking_rule: serde_json::Value) -> Result<Scan> {
+    pub fn register(
+        name: &'static str,
+        tracking_rule: serde_json::Value,
+    ) -> std::result::Result<Scan, ScanError> {
         let scan_json = json!({
             "scanName": name,
             "trackingRule": tracking_rule,
@@ -75,19 +80,25 @@ impl Scan {
     }
 
     /// Returns all boxes found by the scan
-    pub fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
+    pub fn get_boxes(&self) -> std::result::Result<Vec<ErgoBox>, ScanError> {
         let boxes = get_scan_boxes(&self.id)?;
         Ok(boxes)
     }
 
     /// Returns the first box found by the scan
-    pub fn get_box(&self) -> Result<Option<ErgoBox>> {
+    pub fn get_box(&self) -> std::result::Result<Option<ErgoBox>, ScanError> {
         Ok(self.get_boxes()?.first().cloned())
     }
 }
 
+pub static SCANS_DIR_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
+
+pub fn get_scans_file_path() -> PathBuf {
+    SCANS_DIR_PATH.get().unwrap().join("scanIDs.json")
+}
+
 /// Saves UTXO-set scans (specifically id) to scanIDs.json
-pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<()> {
+pub fn save_scan_ids(scans: Vec<Scan>) -> std::result::Result<(), ScanError> {
     let mut id_json = json!({});
     for scan in scans {
         if &scan.id == "null" {
@@ -95,15 +106,22 @@ pub fn save_scan_ids_locally(scans: Vec<Scan>) -> Result<()> {
         }
         id_json[scan.name] = scan.id.into();
     }
-    std::fs::write(
-        "scanIDs.json",
-        serde_json::to_string_pretty(&id_json).unwrap(),
-    )?;
+    let path = get_scans_file_path();
+    log::debug!("Saving scan IDs to {}", path.display());
+    std::fs::write(path, serde_json::to_string_pretty(&id_json).unwrap())?;
     Ok(())
 }
 
+pub fn load_scan_ids() -> Result<JsonValue, anyhow::Error> {
+    let path = get_scans_file_path();
+    log::debug!("Loading scan IDs from {}", path.display());
+    Ok(json::parse(&std::fs::read_to_string(path)?)?)
+}
+
 /// This function registers scanning for the pool box
-pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
+pub fn register_pool_box_scan(
+    inputs: PoolBoxWrapperInputs,
+) -> std::result::Result<Scan, ScanError> {
     // ErgoTree bytes of the P2S address/script
     let pool_box_tree_bytes = PoolContract::checked_load(&inputs.contract_inputs)?
         .ergo_tree()
@@ -131,7 +149,7 @@ pub fn register_pool_box_scan(inputs: PoolBoxWrapperInputs) -> Result<Scan> {
 pub fn register_refresh_box_scan(
     scan_name: &'static str,
     inputs: RefreshBoxWrapperInputs,
-) -> Result<Scan> {
+) -> std::result::Result<Scan, ScanError> {
     // ErgoTree bytes of the P2S address/script
     let tree_bytes = RefreshContract::checked_load(&inputs.contract_inputs)?
         .ergo_tree()
@@ -160,7 +178,7 @@ pub fn register_local_oracle_datapoint_scan(
     oracle_pool_participant_token: &OracleTokenId,
     datapoint_address: &ErgoTree,
     oracle_address: &NetworkAddress,
-) -> Result<Scan> {
+) -> std::result::Result<Scan, ScanError> {
     // Raw EC bytes + type identifier
     let oracle_add_bytes = address_to_raw_for_register(&oracle_address.to_base58())?;
     let datapoint_bytes = datapoint_address.to_scan_bytes();
@@ -192,7 +210,7 @@ pub fn register_local_oracle_datapoint_scan(
 pub fn register_datapoint_scan(
     oracle_pool_participant_token: &OracleTokenId,
     datapoint_address: &ErgoTree,
-) -> Result<Scan> {
+) -> std::result::Result<Scan, ScanError> {
     let datapoint_bytes = datapoint_address.to_scan_bytes();
     // Scan for pool participant token id + datapoint contract address + oracle_address in R4
     let scan_json = json! ( {
@@ -217,7 +235,7 @@ pub fn register_local_ballot_box_scan(
     ballot_contract_address: &ErgoTree,
     ballot_token_id: &BallotTokenId,
     ballot_token_owner_address: &NetworkAddress,
-) -> Result<Scan> {
+) -> std::result::Result<Scan, ScanError> {
     // Raw EC bytes + type identifier
     let ballot_add_bytes = address_to_raw_for_register(&ballot_token_owner_address.to_base58())?;
     let ballot_contract_bytes = ballot_contract_address.to_scan_bytes();
@@ -248,7 +266,7 @@ pub fn register_local_ballot_box_scan(
 pub fn register_ballot_box_scan(
     ballot_contract_address: &ErgoTree,
     ballot_token_id: &BallotTokenId,
-) -> Result<Scan> {
+) -> std::result::Result<Scan, ScanError> {
     let scan_json = json! ( {
         "predicate": "and",
         "args": [
@@ -264,7 +282,9 @@ pub fn register_ballot_box_scan(
     Scan::register("Ballot Box Scan", scan_json)
 }
 
-pub fn register_update_box_scan(update_nft_token_id: &UpdateTokenId) -> Result<Scan> {
+pub fn register_update_box_scan(
+    update_nft_token_id: &UpdateTokenId,
+) -> std::result::Result<Scan, ScanError> {
     let scan_json = json! ( {
         "predicate": "and",
         "args": [
