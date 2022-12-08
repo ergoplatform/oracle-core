@@ -327,6 +327,7 @@ fn perform_update_chained_transaction(
         new_oracle_config.token_ids.ballot_token_id =
             BallotTokenId::from_token_id_unchecked(token.token_id);
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+        transactions.push(tx);
     }
     if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
         info!("Minting reward tokens");
