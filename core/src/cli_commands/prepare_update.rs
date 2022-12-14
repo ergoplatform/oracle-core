@@ -20,7 +20,7 @@ use ergo_lib::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
             },
-            token::Token,
+            token::{Token, TokenAmount},
         },
         ergo_tree::ErgoTree,
         serialization::SigmaParsingError,
@@ -93,7 +93,6 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     )?;
     let config = UpdateBootstrapConfig::try_from(config_serde)?;
     let update_bootstrap_input = PrepareUpdateInput {
-        config: config.clone(),
         wallet: &node_interface,
         tx_signer: &node_interface,
         submit_tx: &node_interface,
@@ -105,10 +104,11 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
             .unwrap()
             .try_into()
             .unwrap(),
-        old_config: ORACLE_CONFIG.clone(),
     };
 
-    let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
+    let prepare = PrepareUpdate::new(update_bootstrap_input, &ORACLE_CONFIG)?;
+    let new_config = prepare.execute(config)?;
+    // let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
     let blake2b_pool_ergo_tree: String = blake2b256_hash(
         new_config
             .pool_box_wrapper_inputs
@@ -178,7 +178,6 @@ fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
 }
 
 struct PrepareUpdateInput<'a> {
-    pub config: UpdateBootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
     pub tx_signer: &'a dyn SignTransaction,
     pub submit_tx: &'a dyn SubmitTransaction,
@@ -186,83 +185,46 @@ struct PrepareUpdateInput<'a> {
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
     pub height: u32,
-    pub old_config: OracleConfig,
 }
 
-// TODO: extract token minting into a separate function
-// TODO: extract box creation into a separate functions
-fn perform_update_chained_transaction(
-    input: PrepareUpdateInput,
-) -> Result<OracleConfig, PrepareUpdateError> {
-    let PrepareUpdateInput {
-        config,
-        wallet,
-        tx_signer: wallet_sign,
-        submit_tx,
-        tx_fee,
-        erg_value_per_box,
-        change_address,
-        height,
-        old_config,
-        ..
-    } = input;
+struct PrepareUpdate<'a> {
+    input: PrepareUpdateInput<'a>,
+    config: &'a OracleConfig,
+    wallet_pk_ergo_tree: ErgoTree,
+}
 
-    // TODO: how many txs do we need?
-    // TODO: do we really need to know the exact number of txs? Why not ask for say 20 and return the change in the last tx?
-    let mut num_transactions_left = 1;
-
-    if config.refresh_contract_parameters.is_some() {
-        num_transactions_left += 2; // refresh NFT mint tx + new refresh box tx
-    }
-    if config.update_contract_parameters.is_some() {
-        num_transactions_left += 1;
-    }
-    if config.tokens_to_mint.oracle_tokens.is_some() {
-        num_transactions_left += 1;
-    }
-    if config.tokens_to_mint.ballot_tokens.is_some() {
-        num_transactions_left += 1;
-    }
-    if config.tokens_to_mint.reward_tokens.is_some() {
-        num_transactions_left += 1;
+impl<'a> PrepareUpdate<'a> {
+    fn new(
+        input: PrepareUpdateInput<'a>,
+        config: &'a OracleConfig,
+    ) -> Result<Self, PrepareUpdateError> {
+        let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
+        Ok(Self {
+            input,
+            wallet_pk_ergo_tree,
+            config,
+        })
     }
 
-    // let mut update_refresh_contract = false;
-    // let mut is_new_ballot_token_minted = false;
-    let mut need_pool_contract_update = false;
-    let mut need_ballot_contract_update = false;
-
-    let wallet_pk_ergo_tree = old_config.oracle_address.address().script()?;
-    let guard = wallet_pk_ergo_tree.clone();
-
-    // Since we're building a chain of transactions, we need to filter the output boxes of each
-    // constituent transaction to be only those that are guarded by our wallet's key.
-    let filter_tx_outputs = move |outputs: Vec<ErgoBox>| -> Vec<ErgoBox> {
-        outputs
-            .clone()
-            .into_iter()
-            .filter(|b| b.ergo_tree == guard)
-            .collect()
-    };
-
-    // This closure computes `E_{num_transactions_left}`.
-    let calc_target_balance = |num_transactions_left| {
-        let b = erg_value_per_box.checked_mul_u32(num_transactions_left)?;
-        let fees = tx_fee.checked_mul_u32(num_transactions_left)?;
+    fn calc_target_balance(&self, num_transactions_left: u32) -> Result<BoxValue, BoxValueError> {
+        let b = self
+            .input
+            .erg_value_per_box
+            .checked_mul_u32(num_transactions_left)?;
+        let fees = self.input.tx_fee.checked_mul_u32(num_transactions_left)?;
         b.checked_add(&fees)
-    };
+    }
 
-    // Effect a single transaction that mints a token with given details, as described in comments
-    // at the beginning. By default it uses `wallet_pk_ergo_tree` as the guard for the token box,
-    // but this can be overriden with `different_token_box_guard`.
-    let mint_token = |input_boxes: Vec<ErgoBox>,
-                      num_transactions_left: &mut u32,
-                      token_name,
-                      token_desc,
-                      token_amount,
-                      different_token_box_guard: Option<ErgoTree>|
-     -> Result<(Token, Transaction), PrepareUpdateError> {
-        let target_balance = calc_target_balance(*num_transactions_left)?;
+    fn mint_token(
+        &self,
+        input_boxes: Vec<ErgoBox>,
+        num_transactions_left: &mut u32,
+        token_name: String,
+        token_desc: String,
+        token_amount: TokenAmount,
+        different_token_box_guard: Option<ErgoTree>,
+    ) -> Result<(Token, Transaction), PrepareUpdateError> {
+        let target_balance = self.calc_target_balance(*num_transactions_left)?;
         let box_selector = SimpleBoxSelector::new();
         let box_selection = box_selector.select(input_boxes, target_balance, &[])?;
         let token = Token {
@@ -270,15 +232,19 @@ fn perform_update_chained_transaction(
             amount: token_amount,
         };
         let token_box_guard =
-            different_token_box_guard.unwrap_or_else(|| wallet_pk_ergo_tree.clone());
-        let mut builder = ErgoBoxCandidateBuilder::new(erg_value_per_box, token_box_guard, height);
+            different_token_box_guard.unwrap_or_else(|| self.wallet_pk_ergo_tree.clone());
+        let mut builder = ErgoBoxCandidateBuilder::new(
+            self.input.erg_value_per_box,
+            token_box_guard,
+            self.input.height,
+        );
         builder.mint_token(token.clone(), token_name, token_desc, 1);
         let mut output_candidates = vec![builder.build()?];
 
         let remaining_funds = ErgoBoxCandidateBuilder::new(
-            calc_target_balance(*num_transactions_left - 1)?,
-            wallet_pk_ergo_tree.clone(),
-            height,
+            self.calc_target_balance(*num_transactions_left - 1)?,
+            self.wallet_pk_ergo_tree.clone(),
+            self.input.height,
         )
         .build()?;
         output_candidates.push(remaining_funds.clone());
@@ -287,243 +253,585 @@ fn perform_update_chained_transaction(
         let tx_builder = TxBuilder::new(
             box_selection,
             output_candidates,
-            height,
-            tx_fee,
-            change_address.clone(),
+            self.input.height,
+            self.input.tx_fee,
+            self.input.change_address.clone(),
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
-        let signed_tx = wallet_sign.sign_transaction_with_inputs(&mint_token_tx, inputs, None)?;
+        let signed_tx =
+            self.input
+                .tx_signer
+                .sign_transaction_with_inputs(&mint_token_tx, inputs, None)?;
         *num_transactions_left -= 1;
         Ok((token, signed_tx))
-    };
-
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    debug!("unspent boxes: {:?}", unspent_boxes);
-    let target_balance = calc_target_balance(num_transactions_left)?;
-    debug!("target_balance: {:?}", target_balance);
-    let box_selector = SimpleBoxSelector::new();
-    let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
-    debug!("box selection: {:?}", box_selection);
-
-    let mut new_oracle_config = old_config.clone();
-    let mut transactions = vec![];
-    let mut inputs = box_selection.boxes.clone(); // Inputs for each transaction in chained tx, updated after each mint step
-
-    if let Some(ref token_mint_details) = config.tokens_to_mint.oracle_tokens {
-        info!("Minting oracle tokens");
-        let (token, tx) = mint_token(
-            inputs.into(),
-            &mut num_transactions_left,
-            token_mint_details.name.clone(),
-            token_mint_details.description.clone(),
-            token_mint_details.quantity.try_into().unwrap(),
-            None,
-        )?;
-        new_oracle_config.token_ids.oracle_token_id =
-            OracleTokenId::from_token_id_unchecked(token.token_id);
-        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
-        transactions.push(tx);
     }
-    if let Some(ref token_mint_details) = config.tokens_to_mint.ballot_tokens {
-        info!("Minting ballot tokens");
-        let (token, tx) = mint_token(
-            inputs.into(),
-            &mut num_transactions_left,
-            token_mint_details.name.clone(),
-            token_mint_details.description.clone(),
-            token_mint_details.quantity.try_into().unwrap(),
-            None,
-        )?;
-        new_oracle_config.token_ids.ballot_token_id =
-            BallotTokenId::from_token_id_unchecked(token.token_id);
-        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
-        transactions.push(tx);
-    }
-    if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
-        info!("Minting reward tokens");
-        let (token, tx) = mint_token(
-            inputs.into(),
-            &mut num_transactions_left,
-            token_mint_details.name.clone(),
-            token_mint_details.description.clone(),
-            token_mint_details.quantity.try_into().unwrap(),
-            None,
-        )?;
-        new_oracle_config.token_ids.reward_token_id =
-            RewardTokenId::from_token_id_unchecked(token.token_id);
-        inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
-        transactions.push(tx);
-    }
-    if config.refresh_contract_parameters.is_some() || config.tokens_to_mint.oracle_tokens.is_some()
-    {
-        let contract_parameters = config.refresh_contract_parameters.unwrap_or_else(|| {
-            new_oracle_config
-                .refresh_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
+
+    // TODO: extract box(tx) creation into a separate functions
+    fn execute(self, config: UpdateBootstrapConfig) -> Result<OracleConfig, PrepareUpdateError> {
+        // TODO: how many txs do we need?
+        // TODO: do we really need to know the exact number of txs? Why not ask for say 20 and return the change in the last tx?
+        let mut num_transactions_left = 1;
+
+        if config.refresh_contract_parameters.is_some() {
+            num_transactions_left += 2; // refresh NFT mint tx + new refresh box tx
+        }
+        if config.update_contract_parameters.is_some() {
+            num_transactions_left += 1;
+        }
+        if config.tokens_to_mint.oracle_tokens.is_some() {
+            num_transactions_left += 1;
+        }
+        if config.tokens_to_mint.ballot_tokens.is_some() {
+            num_transactions_left += 1;
+        }
+        if config.tokens_to_mint.reward_tokens.is_some() {
+            num_transactions_left += 1;
+        }
+
+        // let mut update_refresh_contract = false;
+        // let mut is_new_ballot_token_minted = false;
+        let mut need_pool_contract_update = false;
+        let mut need_ballot_contract_update = false;
+
+        let wallet_pk_ergo_tree = self.config.oracle_address.address().script()?;
+        let guard = wallet_pk_ergo_tree.clone();
+
+        // Since we're building a chain of transactions, we need to filter the output boxes of each
+        // constituent transaction to be only those that are guarded by our wallet's key.
+        let filter_tx_outputs = move |outputs: Vec<ErgoBox>| -> Vec<ErgoBox> {
+            outputs
                 .clone()
-        });
-
-        info!("Creating new refresh NFT and refresh box");
-        let refresh_nft_details = config
-            .tokens_to_mint
-            .refresh_nft
-            .ok_or(PrepareUpdateError::NoMintDetails)?;
-        let (refresh_nft_token, mint_refresh_nft_tx) = mint_token(
-            inputs.into(),
-            &mut num_transactions_left,
-            refresh_nft_details.name.clone(),
-            refresh_nft_details.description.clone(),
-            1.try_into().unwrap(),
-            None,
-        )?;
-        new_oracle_config.token_ids.refresh_nft_token_id =
-            RefreshTokenId::from_token_id_unchecked(refresh_nft_token.token_id.clone());
-        inputs = filter_tx_outputs(mint_refresh_nft_tx.outputs.clone())
-            .try_into()
-            .unwrap();
-        info!("Refresh NFT minting tx id: {:?}", mint_refresh_nft_tx.id());
-        transactions.push(mint_refresh_nft_tx);
-
-        // Create refresh box --------------------------------------------------------------------------
-        info!("Create and sign refresh box tx");
-
-        let refresh_contract_inputs = RefreshContractInputs::build_with(
-            contract_parameters.clone(),
-            new_oracle_config.token_ids.oracle_token_id.clone(),
-            old_config.token_ids.pool_nft_token_id,
-        )?;
-        let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
-        new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
-            contract_inputs: refresh_contract_inputs,
-            refresh_nft_token_id: new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+                .into_iter()
+                .filter(|b| b.ergo_tree == guard)
+                .collect()
         };
 
-        let refresh_box_candidate = make_refresh_box_candidate(
-            &refresh_contract,
-            refresh_nft_token.clone(),
-            erg_value_per_box,
-            height,
-        )?;
+        let unspent_boxes = self.input.wallet.get_unspent_wallet_boxes()?;
+        debug!("unspent boxes: {:?}", unspent_boxes);
+        let target_balance = self.calc_target_balance(num_transactions_left)?;
+        debug!("target_balance: {:?}", target_balance);
+        let box_selector = SimpleBoxSelector::new();
+        let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
+        debug!("box selection: {:?}", box_selection);
 
-        let target_balance = calc_target_balance(num_transactions_left)?;
+        let mut new_oracle_config = self.config.clone();
+        let mut transactions = vec![];
+        let mut inputs = box_selection.boxes.clone(); // Inputs for each transaction in chained tx, updated after each mint step
 
-        let box_selection = SimpleBoxSelector::new().select(
-            inputs.as_vec().clone(),
-            target_balance,
-            &[refresh_nft_token.clone()],
-        )?;
+        if let Some(ref token_mint_details) = config.tokens_to_mint.oracle_tokens {
+            info!("Minting oracle tokens");
+            let (token, tx) = self.mint_token(
+                inputs.into(),
+                &mut num_transactions_left,
+                token_mint_details.name.clone(),
+                token_mint_details.description.clone(),
+                token_mint_details.quantity.try_into().unwrap(),
+                None,
+            )?;
+            new_oracle_config.token_ids.oracle_token_id =
+                OracleTokenId::from_token_id_unchecked(token.token_id);
+            inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+            transactions.push(tx);
+        }
+        if let Some(ref token_mint_details) = config.tokens_to_mint.ballot_tokens {
+            info!("Minting ballot tokens");
+            let (token, tx) = self.mint_token(
+                inputs.into(),
+                &mut num_transactions_left,
+                token_mint_details.name.clone(),
+                token_mint_details.description.clone(),
+                token_mint_details.quantity.try_into().unwrap(),
+                None,
+            )?;
+            new_oracle_config.token_ids.ballot_token_id =
+                BallotTokenId::from_token_id_unchecked(token.token_id);
+            inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+            transactions.push(tx);
+        }
+        if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
+            info!("Minting reward tokens");
+            let (token, tx) = self.mint_token(
+                inputs.into(),
+                &mut num_transactions_left,
+                token_mint_details.name.clone(),
+                token_mint_details.description.clone(),
+                token_mint_details.quantity.try_into().unwrap(),
+                None,
+            )?;
+            new_oracle_config.token_ids.reward_token_id =
+                RewardTokenId::from_token_id_unchecked(token.token_id);
+            inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+            transactions.push(tx);
+        }
+        if config.refresh_contract_parameters.is_some()
+            || config.tokens_to_mint.oracle_tokens.is_some()
+        {
+            let contract_parameters = config.refresh_contract_parameters.unwrap_or_else(|| {
+                new_oracle_config
+                    .refresh_box_wrapper_inputs
+                    .contract_inputs
+                    .contract_parameters()
+                    .clone()
+            });
 
-        let mut output_candidates = vec![refresh_box_candidate];
-        let remaining_funds = ErgoBoxCandidateBuilder::new(
-            calc_target_balance(num_transactions_left - 1)?,
-            wallet_pk_ergo_tree.clone(),
-            height,
-        )
-        .build()?;
-        output_candidates.push(remaining_funds.clone());
+            info!("Creating new refresh NFT and refresh box");
+            let refresh_nft_details = config
+                .tokens_to_mint
+                .refresh_nft
+                .ok_or(PrepareUpdateError::NoMintDetails)?;
+            let (refresh_nft_token, mint_refresh_nft_tx) = self.mint_token(
+                inputs.into(),
+                &mut num_transactions_left,
+                refresh_nft_details.name.clone(),
+                refresh_nft_details.description.clone(),
+                1.try_into().unwrap(),
+                None,
+            )?;
+            new_oracle_config.token_ids.refresh_nft_token_id =
+                RefreshTokenId::from_token_id_unchecked(refresh_nft_token.token_id.clone());
+            inputs = filter_tx_outputs(mint_refresh_nft_tx.outputs.clone())
+                .try_into()
+                .unwrap();
+            info!("Refresh NFT minting tx id: {:?}", mint_refresh_nft_tx.id());
+            transactions.push(mint_refresh_nft_tx);
 
-        let tx_builder = TxBuilder::new(
-            box_selection.clone(),
-            output_candidates,
-            height,
-            tx_fee,
-            change_address.clone(),
-        );
-        let refresh_box_tx = tx_builder.build()?;
-        let signed_refresh_box_tx = wallet_sign.sign_transaction_with_inputs(
-            &refresh_box_tx,
-            box_selection.boxes.clone(),
-            None,
-        )?;
-        inputs = filter_tx_outputs(signed_refresh_box_tx.outputs.clone())
-            .try_into()
-            .unwrap();
-        info!("Refresh box tx id: {:?}", signed_refresh_box_tx.id());
-        transactions.push(signed_refresh_box_tx);
-        num_transactions_left -= 1;
-        // pool contract needs to be updated with new refresh NFT
-        need_pool_contract_update = true;
+            // Create refresh box --------------------------------------------------------------------------
+            info!("Create and sign refresh box tx");
+
+            let refresh_contract_inputs = RefreshContractInputs::build_with(
+                contract_parameters.clone(),
+                new_oracle_config.token_ids.oracle_token_id.clone(),
+                self.config.token_ids.pool_nft_token_id.clone(),
+            )?;
+            let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
+            new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
+                contract_inputs: refresh_contract_inputs,
+                refresh_nft_token_id: new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+            };
+
+            let refresh_box_candidate = make_refresh_box_candidate(
+                &refresh_contract,
+                refresh_nft_token.clone(),
+                self.input.erg_value_per_box,
+                self.input.height,
+            )?;
+
+            let target_balance = self.calc_target_balance(num_transactions_left)?;
+
+            let box_selection = SimpleBoxSelector::new().select(
+                inputs.as_vec().clone(),
+                target_balance,
+                &[refresh_nft_token.clone()],
+            )?;
+
+            let mut output_candidates = vec![refresh_box_candidate];
+            let remaining_funds = ErgoBoxCandidateBuilder::new(
+                self.calc_target_balance(num_transactions_left - 1)?,
+                wallet_pk_ergo_tree.clone(),
+                self.input.height,
+            )
+            .build()?;
+            output_candidates.push(remaining_funds.clone());
+
+            let tx_builder = TxBuilder::new(
+                box_selection.clone(),
+                output_candidates,
+                self.input.height,
+                self.input.tx_fee,
+                self.input.change_address.clone(),
+            );
+            let refresh_box_tx = tx_builder.build()?;
+            let signed_refresh_box_tx = self.input.tx_signer.sign_transaction_with_inputs(
+                &refresh_box_tx,
+                box_selection.boxes.clone(),
+                None,
+            )?;
+            inputs = filter_tx_outputs(signed_refresh_box_tx.outputs.clone())
+                .try_into()
+                .unwrap();
+            info!("Refresh box tx id: {:?}", signed_refresh_box_tx.id());
+            transactions.push(signed_refresh_box_tx);
+            num_transactions_left -= 1;
+            // pool contract needs to be updated with new refresh NFT
+            need_pool_contract_update = true;
+        }
+
+        if config.update_contract_parameters.is_some()
+            || config.tokens_to_mint.ballot_tokens.is_some()
+        {
+            let update_contract_parameters =
+                config.update_contract_parameters.unwrap_or_else(|| {
+                    new_oracle_config
+                        .update_box_wrapper_inputs
+                        .contract_inputs
+                        .contract_parameters()
+                        .clone()
+                });
+            info!("Creating new update NFT");
+            let update_contract_inputs = UpdateContractInputs::build_with(
+                update_contract_parameters.clone(),
+                new_oracle_config.token_ids.pool_nft_token_id.clone(),
+                new_oracle_config.token_ids.ballot_token_id.clone(),
+            )?;
+            let update_contract = UpdateContract::checked_load(&update_contract_inputs)?;
+            let update_nft_details = config
+                .tokens_to_mint
+                .update_nft
+                .ok_or(PrepareUpdateError::NoMintDetails)?;
+            let (token, tx) = self.mint_token(
+                inputs.into(),
+                &mut num_transactions_left,
+                update_nft_details.name.clone(),
+                update_nft_details.description.clone(),
+                1.try_into().unwrap(),
+                Some(update_contract.ergo_tree()),
+            )?;
+            new_oracle_config.token_ids.update_nft_token_id =
+                UpdateTokenId::from_token_id_unchecked(token.token_id.clone());
+            new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
+                contract_inputs: update_contract_inputs,
+                update_nft_token_id: new_oracle_config.token_ids.update_nft_token_id.clone(),
+            };
+            info!("Update contract tx id: {:?}", tx.id());
+            transactions.push(tx);
+            // update ballot and pool contract with new update NFT
+            need_ballot_contract_update = true;
+            need_pool_contract_update = true;
+        }
+
+        if need_ballot_contract_update {
+            new_oracle_config.ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
+                new_oracle_config
+                    .ballot_box_wrapper_inputs
+                    .contract_inputs
+                    .contract_parameters()
+                    .clone(),
+                new_oracle_config.token_ids.ballot_token_id.clone(),
+                new_oracle_config.token_ids.update_nft_token_id.clone(),
+            )?;
+        }
+
+        if config.pool_contract_parameters.is_some() || need_pool_contract_update {
+            let new_pool_contract_parameters =
+                config.pool_contract_parameters.unwrap_or_else(|| {
+                    new_oracle_config
+                        .pool_box_wrapper_inputs
+                        .contract_inputs
+                        .contract_parameters()
+                        .clone()
+                });
+            let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
+                new_pool_contract_parameters,
+                new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+                new_oracle_config.token_ids.update_nft_token_id.clone(),
+                new_oracle_config.token_ids.pool_nft_token_id.clone(),
+                new_oracle_config.token_ids.reward_token_id.clone(),
+            )?;
+            new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
+        }
+
+        for tx in transactions {
+            let tx_id = self.input.submit_tx.submit_transaction(&tx)?;
+            info!("Tx submitted {}", tx_id);
+        }
+        Ok(new_oracle_config)
     }
-
-    if config.update_contract_parameters.is_some() || config.tokens_to_mint.ballot_tokens.is_some()
-    {
-        let update_contract_parameters = config.update_contract_parameters.unwrap_or_else(|| {
-            new_oracle_config
-                .update_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .clone()
-        });
-        info!("Creating new update NFT");
-        let update_contract_inputs = UpdateContractInputs::build_with(
-            update_contract_parameters.clone(),
-            new_oracle_config.token_ids.pool_nft_token_id.clone(),
-            new_oracle_config.token_ids.ballot_token_id.clone(),
-        )?;
-        let update_contract = UpdateContract::checked_load(&update_contract_inputs)?;
-        let update_nft_details = config
-            .tokens_to_mint
-            .update_nft
-            .ok_or(PrepareUpdateError::NoMintDetails)?;
-        let (token, tx) = mint_token(
-            inputs.into(),
-            &mut num_transactions_left,
-            update_nft_details.name.clone(),
-            update_nft_details.description.clone(),
-            1.try_into().unwrap(),
-            Some(update_contract.ergo_tree()),
-        )?;
-        new_oracle_config.token_ids.update_nft_token_id =
-            UpdateTokenId::from_token_id_unchecked(token.token_id.clone());
-        new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
-            contract_inputs: update_contract_inputs,
-            update_nft_token_id: new_oracle_config.token_ids.update_nft_token_id.clone(),
-        };
-        info!("Update contract tx id: {:?}", tx.id());
-        transactions.push(tx);
-        // update ballot and pool contract with new update NFT
-        need_ballot_contract_update = true;
-        need_pool_contract_update = true;
-    }
-
-    if need_ballot_contract_update {
-        new_oracle_config.ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
-            new_oracle_config
-                .ballot_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .clone(),
-            new_oracle_config.token_ids.ballot_token_id.clone(),
-            new_oracle_config.token_ids.update_nft_token_id.clone(),
-        )?;
-    }
-
-    if config.pool_contract_parameters.is_some() || need_pool_contract_update {
-        let new_pool_contract_parameters = config.pool_contract_parameters.unwrap_or_else(|| {
-            new_oracle_config
-                .pool_box_wrapper_inputs
-                .contract_inputs
-                .contract_parameters()
-                .clone()
-        });
-        let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
-            new_pool_contract_parameters,
-            new_oracle_config.token_ids.refresh_nft_token_id.clone(),
-            new_oracle_config.token_ids.update_nft_token_id.clone(),
-            new_oracle_config.token_ids.pool_nft_token_id.clone(),
-            new_oracle_config.token_ids.reward_token_id.clone(),
-        )?;
-        new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
-    }
-
-    for tx in transactions {
-        let tx_id = submit_tx.submit_transaction(&tx)?;
-        info!("Tx submitted {}", tx_id);
-    }
-    Ok(new_oracle_config)
 }
+
+// fn perform_update_chained_transaction(
+//     input: PrepareUpdateInput,
+// ) -> Result<OracleConfig, PrepareUpdateError> {
+//     let PrepareUpdateInput {
+//         config,
+//         wallet,
+//         tx_signer: wallet_sign,
+//         submit_tx,
+//         tx_fee,
+//         erg_value_per_box,
+//         change_address,
+//         height,
+//         old_config,
+//         ..
+//     } = input;
+
+//     // TODO: how many txs do we need?
+//     // TODO: do we really need to know the exact number of txs? Why not ask for say 20 and return the change in the last tx?
+//     let mut num_transactions_left = 1;
+
+//     if config.refresh_contract_parameters.is_some() {
+//         num_transactions_left += 2; // refresh NFT mint tx + new refresh box tx
+//     }
+//     if config.update_contract_parameters.is_some() {
+//         num_transactions_left += 1;
+//     }
+//     if config.tokens_to_mint.oracle_tokens.is_some() {
+//         num_transactions_left += 1;
+//     }
+//     if config.tokens_to_mint.ballot_tokens.is_some() {
+//         num_transactions_left += 1;
+//     }
+//     if config.tokens_to_mint.reward_tokens.is_some() {
+//         num_transactions_left += 1;
+//     }
+
+//     // let mut update_refresh_contract = false;
+//     // let mut is_new_ballot_token_minted = false;
+//     let mut need_pool_contract_update = false;
+//     let mut need_ballot_contract_update = false;
+
+//     let wallet_pk_ergo_tree = old_config.oracle_address.address().script()?;
+//     let guard = wallet_pk_ergo_tree.clone();
+
+//     // Since we're building a chain of transactions, we need to filter the output boxes of each
+//     // constituent transaction to be only those that are guarded by our wallet's key.
+//     let filter_tx_outputs = move |outputs: Vec<ErgoBox>| -> Vec<ErgoBox> {
+//         outputs
+//             .clone()
+//             .into_iter()
+//             .filter(|b| b.ergo_tree == guard)
+//             .collect()
+//     };
+
+//     // Effect a single transaction that mints a token with given details, as described in comments
+//     // at the beginning. By default it uses `wallet_pk_ergo_tree` as the guard for the token box,
+//     // but this can be overriden with `different_token_box_guard`.
+//     // let mint_token = fun_name(
+//     //     calc_target_balance,
+//     //     &wallet_pk_ergo_tree,
+//     //     erg_value_per_box,
+//     //     height,
+//     //     tx_fee,
+//     //     &change_address,
+//     //     wallet_sign,
+//     // )?;
+
+//     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+//     debug!("unspent boxes: {:?}", unspent_boxes);
+//     let target_balance = calc_target_balance(erg_value_per_box, tx_fee, num_transactions_left)?;
+//     debug!("target_balance: {:?}", target_balance);
+//     let box_selector = SimpleBoxSelector::new();
+//     let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
+//     debug!("box selection: {:?}", box_selection);
+
+//     let mut new_oracle_config = old_config.clone();
+//     let mut transactions = vec![];
+//     let mut inputs = box_selection.boxes.clone(); // Inputs for each transaction in chained tx, updated after each mint step
+
+//     if let Some(ref token_mint_details) = config.tokens_to_mint.oracle_tokens {
+//         info!("Minting oracle tokens");
+//         let (token, tx) = mint_token(
+//             inputs.into(),
+//             &mut num_transactions_left,
+//             token_mint_details.name.clone(),
+//             token_mint_details.description.clone(),
+//             token_mint_details.quantity.try_into().unwrap(),
+//             None,
+//         )?;
+//         new_oracle_config.token_ids.oracle_token_id =
+//             OracleTokenId::from_token_id_unchecked(token.token_id);
+//         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+//         transactions.push(tx);
+//     }
+//     if let Some(ref token_mint_details) = config.tokens_to_mint.ballot_tokens {
+//         info!("Minting ballot tokens");
+//         let (token, tx) = mint_token(
+//             inputs.into(),
+//             &mut num_transactions_left,
+//             token_mint_details.name.clone(),
+//             token_mint_details.description.clone(),
+//             token_mint_details.quantity.try_into().unwrap(),
+//             None,
+//         )?;
+//         new_oracle_config.token_ids.ballot_token_id =
+//             BallotTokenId::from_token_id_unchecked(token.token_id);
+//         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+//         transactions.push(tx);
+//     }
+//     if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
+//         info!("Minting reward tokens");
+//         let (token, tx) = mint_token(
+//             inputs.into(),
+//             &mut num_transactions_left,
+//             token_mint_details.name.clone(),
+//             token_mint_details.description.clone(),
+//             token_mint_details.quantity.try_into().unwrap(),
+//             None,
+//         )?;
+//         new_oracle_config.token_ids.reward_token_id =
+//             RewardTokenId::from_token_id_unchecked(token.token_id);
+//         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
+//         transactions.push(tx);
+//     }
+//     if config.refresh_contract_parameters.is_some() || config.tokens_to_mint.oracle_tokens.is_some()
+//     {
+//         let contract_parameters = config.refresh_contract_parameters.unwrap_or_else(|| {
+//             new_oracle_config
+//                 .refresh_box_wrapper_inputs
+//                 .contract_inputs
+//                 .contract_parameters()
+//                 .clone()
+//         });
+
+//         info!("Creating new refresh NFT and refresh box");
+//         let refresh_nft_details = config
+//             .tokens_to_mint
+//             .refresh_nft
+//             .ok_or(PrepareUpdateError::NoMintDetails)?;
+//         let (refresh_nft_token, mint_refresh_nft_tx) = mint_token(
+//             inputs.into(),
+//             &mut num_transactions_left,
+//             refresh_nft_details.name.clone(),
+//             refresh_nft_details.description.clone(),
+//             1.try_into().unwrap(),
+//             None,
+//         )?;
+//         new_oracle_config.token_ids.refresh_nft_token_id =
+//             RefreshTokenId::from_token_id_unchecked(refresh_nft_token.token_id.clone());
+//         inputs = filter_tx_outputs(mint_refresh_nft_tx.outputs.clone())
+//             .try_into()
+//             .unwrap();
+//         info!("Refresh NFT minting tx id: {:?}", mint_refresh_nft_tx.id());
+//         transactions.push(mint_refresh_nft_tx);
+
+//         // Create refresh box --------------------------------------------------------------------------
+//         info!("Create and sign refresh box tx");
+
+//         let refresh_contract_inputs = RefreshContractInputs::build_with(
+//             contract_parameters.clone(),
+//             new_oracle_config.token_ids.oracle_token_id.clone(),
+//             old_config.token_ids.pool_nft_token_id,
+//         )?;
+//         let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
+//         new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
+//             contract_inputs: refresh_contract_inputs,
+//             refresh_nft_token_id: new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+//         };
+
+//         let refresh_box_candidate = make_refresh_box_candidate(
+//             &refresh_contract,
+//             refresh_nft_token.clone(),
+//             erg_value_per_box,
+//             height,
+//         )?;
+
+//         let target_balance = calc_target_balance(erg_value_per_box, tx_fee, num_transactions_left)?;
+
+//         let box_selection = SimpleBoxSelector::new().select(
+//             inputs.as_vec().clone(),
+//             target_balance,
+//             &[refresh_nft_token.clone()],
+//         )?;
+
+//         let mut output_candidates = vec![refresh_box_candidate];
+//         let remaining_funds = ErgoBoxCandidateBuilder::new(
+//             calc_target_balance(erg_value_per_box, tx_fee, num_transactions_left - 1)?,
+//             wallet_pk_ergo_tree.clone(),
+//             height,
+//         )
+//         .build()?;
+//         output_candidates.push(remaining_funds.clone());
+
+//         let tx_builder = TxBuilder::new(
+//             box_selection.clone(),
+//             output_candidates,
+//             height,
+//             tx_fee,
+//             change_address.clone(),
+//         );
+//         let refresh_box_tx = tx_builder.build()?;
+//         let signed_refresh_box_tx = wallet_sign.sign_transaction_with_inputs(
+//             &refresh_box_tx,
+//             box_selection.boxes.clone(),
+//             None,
+//         )?;
+//         inputs = filter_tx_outputs(signed_refresh_box_tx.outputs.clone())
+//             .try_into()
+//             .unwrap();
+//         info!("Refresh box tx id: {:?}", signed_refresh_box_tx.id());
+//         transactions.push(signed_refresh_box_tx);
+//         num_transactions_left -= 1;
+//         // pool contract needs to be updated with new refresh NFT
+//         need_pool_contract_update = true;
+//     }
+
+//     if config.update_contract_parameters.is_some() || config.tokens_to_mint.ballot_tokens.is_some()
+//     {
+//         let update_contract_parameters = config.update_contract_parameters.unwrap_or_else(|| {
+//             new_oracle_config
+//                 .update_box_wrapper_inputs
+//                 .contract_inputs
+//                 .contract_parameters()
+//                 .clone()
+//         });
+//         info!("Creating new update NFT");
+//         let update_contract_inputs = UpdateContractInputs::build_with(
+//             update_contract_parameters.clone(),
+//             new_oracle_config.token_ids.pool_nft_token_id.clone(),
+//             new_oracle_config.token_ids.ballot_token_id.clone(),
+//         )?;
+//         let update_contract = UpdateContract::checked_load(&update_contract_inputs)?;
+//         let update_nft_details = config
+//             .tokens_to_mint
+//             .update_nft
+//             .ok_or(PrepareUpdateError::NoMintDetails)?;
+//         let (token, tx) = mint_token(
+//             inputs.into(),
+//             &mut num_transactions_left,
+//             update_nft_details.name.clone(),
+//             update_nft_details.description.clone(),
+//             1.try_into().unwrap(),
+//             Some(update_contract.ergo_tree()),
+//         )?;
+//         new_oracle_config.token_ids.update_nft_token_id =
+//             UpdateTokenId::from_token_id_unchecked(token.token_id.clone());
+//         new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
+//             contract_inputs: update_contract_inputs,
+//             update_nft_token_id: new_oracle_config.token_ids.update_nft_token_id.clone(),
+//         };
+//         info!("Update contract tx id: {:?}", tx.id());
+//         transactions.push(tx);
+//         // update ballot and pool contract with new update NFT
+//         need_ballot_contract_update = true;
+//         need_pool_contract_update = true;
+//     }
+
+//     if need_ballot_contract_update {
+//         new_oracle_config.ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
+//             new_oracle_config
+//                 .ballot_box_wrapper_inputs
+//                 .contract_inputs
+//                 .contract_parameters()
+//                 .clone(),
+//             new_oracle_config.token_ids.ballot_token_id.clone(),
+//             new_oracle_config.token_ids.update_nft_token_id.clone(),
+//         )?;
+//     }
+
+//     if config.pool_contract_parameters.is_some() || need_pool_contract_update {
+//         let new_pool_contract_parameters = config.pool_contract_parameters.unwrap_or_else(|| {
+//             new_oracle_config
+//                 .pool_box_wrapper_inputs
+//                 .contract_inputs
+//                 .contract_parameters()
+//                 .clone()
+//         });
+//         let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
+//             new_pool_contract_parameters,
+//             new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+//             new_oracle_config.token_ids.update_nft_token_id.clone(),
+//             new_oracle_config.token_ids.pool_nft_token_id.clone(),
+//             new_oracle_config.token_ids.reward_token_id.clone(),
+//         )?;
+//         new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
+//     }
+
+//     for tx in transactions {
+//         let tx_id = submit_tx.submit_transaction(&tx)?;
+//         info!("Tx submitted {}", tx_id);
+//     }
+//     Ok(new_oracle_config)
+// }
 
 #[derive(Debug, Error, From)]
 pub enum PrepareUpdateError {
@@ -705,8 +1013,7 @@ rescan_height: 141887
 
         let height = ctx.pre_header.height;
         let submit_tx = SubmitTxMock::default();
-        let oracle_config = perform_update_chained_transaction(PrepareUpdateInput {
-            config: state.clone(),
+        let prepare_update_input = PrepareUpdateInput {
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
             },
@@ -719,10 +1026,10 @@ rescan_height: 141887
             erg_value_per_box: *BASE_FEE,
             change_address,
             height,
-            old_config: old_config.clone(),
-        })
-        .unwrap();
+        };
 
-        assert!(oracle_config.token_ids != old_config.token_ids);
+        let prepare = PrepareUpdate::new(prepare_update_input, &old_config).unwrap();
+        let new_config = prepare.execute(state).unwrap();
+        assert!(new_config.token_ids != old_config.token_ids);
     }
 }
