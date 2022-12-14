@@ -37,16 +37,18 @@ use thiserror::Error;
 
 use crate::{
     box_kind::{
-        make_refresh_box_candidate, PoolBox, PoolBoxWrapperInputs, RefreshBoxWrapperInputs,
-        UpdateBoxWrapperInputs,
+        make_refresh_box_candidate, BallotBoxWrapperInputs, PoolBox, PoolBoxWrapperInputs,
+        RefreshBoxWrapperInputs, UpdateBoxWrapperInputs,
     },
     contracts::{
+        ballot::BallotContractError,
         pool::{PoolContractError, PoolContractParameters},
         refresh::{
             RefreshContract, RefreshContractError, RefreshContractInputs, RefreshContractParameters,
         },
         update::{
-            UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
+            self, UpdateContract, UpdateContractError, UpdateContractInputs,
+            UpdateContractParameters,
         },
     },
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
@@ -187,6 +189,8 @@ struct PrepareUpdateInput<'a> {
     pub old_config: OracleConfig,
 }
 
+// TODO: extract token minting into a separate function
+// TODO: extract box creation into a separate functions
 fn perform_update_chained_transaction(
     input: PrepareUpdateInput,
 ) -> Result<OracleConfig, PrepareUpdateError> {
@@ -203,6 +207,8 @@ fn perform_update_chained_transaction(
         ..
     } = input;
 
+    // TODO: how many txs do we need?
+    // TODO: do we really need to know the exact number of txs? Why not ask for say 20 and return the change in the last tx?
     let mut num_transactions_left = 1;
 
     if config.refresh_contract_parameters.is_some() {
@@ -220,6 +226,11 @@ fn perform_update_chained_transaction(
     if config.tokens_to_mint.reward_tokens.is_some() {
         num_transactions_left += 1;
     }
+
+    // let mut update_refresh_contract = false;
+    // let mut is_new_ballot_token_minted = false;
+    let mut need_pool_contract_update = false;
+    let mut need_ballot_contract_update = false;
 
     let wallet_pk_ergo_tree = old_config.oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
@@ -344,7 +355,16 @@ fn perform_update_chained_transaction(
         inputs = filter_tx_outputs(tx.outputs.clone()).try_into().unwrap();
         transactions.push(tx);
     }
-    if let Some(ref contract_parameters) = config.refresh_contract_parameters {
+    if config.refresh_contract_parameters.is_some() || config.tokens_to_mint.oracle_tokens.is_some()
+    {
+        let contract_parameters = config.refresh_contract_parameters.unwrap_or_else(|| {
+            new_oracle_config
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone()
+        });
+
         info!("Creating new refresh NFT and refresh box");
         let refresh_nft_details = config
             .tokens_to_mint
@@ -423,11 +443,22 @@ fn perform_update_chained_transaction(
         info!("Refresh box tx id: {:?}", signed_refresh_box_tx.id());
         transactions.push(signed_refresh_box_tx);
         num_transactions_left -= 1;
+        // pool contract needs to be updated with new refresh NFT
+        need_pool_contract_update = true;
     }
-    if let Some(ref contract_parameters) = config.update_contract_parameters {
+
+    if config.update_contract_parameters.is_some() || config.tokens_to_mint.ballot_tokens.is_some()
+    {
+        let update_contract_parameters = config.update_contract_parameters.unwrap_or_else(|| {
+            new_oracle_config
+                .update_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone()
+        });
         info!("Creating new update NFT");
         let update_contract_inputs = UpdateContractInputs::build_with(
-            contract_parameters.clone(),
+            update_contract_parameters.clone(),
             new_oracle_config.token_ids.pool_nft_token_id.clone(),
             new_oracle_config.token_ids.ballot_token_id.clone(),
         )?;
@@ -452,9 +483,31 @@ fn perform_update_chained_transaction(
         };
         info!("Update contract tx id: {:?}", tx.id());
         transactions.push(tx);
+        // update ballot and pool contract with new update NFT
+        need_ballot_contract_update = true;
+        need_pool_contract_update = true;
     }
 
-    if let Some(new_pool_contract_parameters) = config.pool_contract_parameters {
+    if need_ballot_contract_update {
+        new_oracle_config.ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
+            new_oracle_config
+                .ballot_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone(),
+            new_oracle_config.token_ids.ballot_token_id.clone(),
+            new_oracle_config.token_ids.update_nft_token_id.clone(),
+        )?;
+    }
+
+    if config.pool_contract_parameters.is_some() || need_pool_contract_update {
+        let new_pool_contract_parameters = config.pool_contract_parameters.unwrap_or_else(|| {
+            new_oracle_config
+                .pool_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .clone()
+        });
         let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
             new_pool_contract_parameters,
             new_oracle_config.token_ids.refresh_nft_token_id.clone(),
@@ -463,12 +516,6 @@ fn perform_update_chained_transaction(
             new_oracle_config.token_ids.reward_token_id.clone(),
         )?;
         new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
-    } else if new_oracle_config.token_ids.refresh_nft_token_id
-        != old_config.token_ids.refresh_nft_token_id
-        || new_oracle_config.token_ids.update_nft_token_id
-            != old_config.token_ids.update_nft_token_id
-    {
-        return Err(PrepareUpdateError::PoolContractParametersNotProvided);
     }
 
     for tx in transactions {
@@ -518,8 +565,8 @@ pub enum PrepareUpdateError {
     SerdeConversion(SerdeConversionError),
     #[error("WalletData error: {0}")]
     WalletData(WalletDataError),
-    #[error("new tokens minted, pool contract has to be updated as well, please provide pool_contract_parameters")]
-    PoolContractParametersNotProvided,
+    #[error("Ballot contract error: {0}")]
+    BallotContract(BallotContractError),
 }
 
 #[cfg(test)]
