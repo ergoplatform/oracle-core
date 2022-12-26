@@ -334,7 +334,7 @@ pub fn make_oracle_box_candidate(
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
-    builder.set_register_value(NonMandatoryRegisterId::R6, (datapoint as i64).into());
+    builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
     builder.add_token(oracle_token.into());
     builder.add_token(reward_token.into());
     builder.build()

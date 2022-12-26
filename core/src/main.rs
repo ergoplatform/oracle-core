@@ -375,13 +375,8 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .epoch_length() as u32;
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
-        let build_action_res = build_action(
-            cmd,
-            op,
-            &wallet,
-            height as u32,
-            network_change_address.address(),
-        );
+        let build_action_res =
+            build_action(cmd, op, &wallet, height, network_change_address.address());
         if let Some(action) =
             log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {

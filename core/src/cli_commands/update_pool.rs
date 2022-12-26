@@ -243,7 +243,7 @@ fn build_update_pool_box_tx(
 
     let pool_box_candidate = make_pool_box_candidate_unchecked(
         &new_pool_contract,
-        old_pool_box.rate() as i64,
+        old_pool_box.rate(),
         old_pool_box.epoch_counter() as i32,
         old_pool_box.pool_nft_token(),
         reward_tokens.clone(),

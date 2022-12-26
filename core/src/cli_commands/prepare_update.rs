@@ -146,7 +146,7 @@ fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
     let min_oracle_box_height = current_height - epoch_length;
     let active_oracle_count = oracle_boxes
         .into_iter()
-        .filter(|b| b.creation_height as u32 >= min_oracle_box_height)
+        .filter(|b| b.creation_height >= min_oracle_box_height)
         .count() as u32;
     let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
     let pool_box_height = pool_box.get_box().creation_height;

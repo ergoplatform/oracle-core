@@ -148,7 +148,7 @@ pub fn build_refresh_action(
     let mut b = TxBuilder::new(
         box_selection,
         output_candidates,
-        height as u32,
+        height,
         tx_fee,
         change_address,
     );
