@@ -279,7 +279,7 @@ mod tests {
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, WalletDataMock,
         },
-        spec_token::SpecToken,
+        spec_token::{SpecToken, TokenIdKind},
         wallet::WalletDataSource,
     };
 

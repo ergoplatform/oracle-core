@@ -10,6 +10,7 @@ use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::node_interface::{current_block_height, get_wallet_status, rescan_from_height};
 use crate::oracle_config::ORACLE_CONFIG;
+use crate::pool_config::POOL_CONFIG;
 use crate::scans::{
     load_scan_ids, register_ballot_box_scan, register_datapoint_scan,
     register_local_ballot_box_scan, register_local_oracle_datapoint_scan, register_pool_box_scan,
@@ -175,14 +176,15 @@ pub enum LocalDatapointState {
 impl<'a> OraclePool<'a> {
     /// Create a new `OraclePool` struct
     pub fn new() -> std::result::Result<OraclePool<'static>, Error> {
-        let config = &ORACLE_CONFIG;
+        let pool_config = &POOL_CONFIG;
+        let oracle_config = &ORACLE_CONFIG;
 
-        let data_point_source = config.data_point_source()?;
+        let data_point_source = oracle_config.data_point_source()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
         let datapoint_contract =
-            OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
+            OracleContract::checked_load(&pool_config.oracle_box_wrapper_inputs.contract_inputs)?
                 .ergo_tree();
 
         let scan_json = load_scan_ids()?;
@@ -198,24 +200,24 @@ impl<'a> OraclePool<'a> {
                 "Local Oracle Datapoint Scan",
                 &scan_json[local_scan_str].to_string(),
             ),
-            oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
+            oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
         };
 
         let local_scan_str = "Local Ballot Box Scan";
         let local_ballot_box_scan = LocalBallotBoxScan {
             scan: Scan::new(local_scan_str, &scan_json[local_scan_str].to_string()),
-            ballot_box_wrapper_inputs: &config.ballot_box_wrapper_inputs,
-            ballot_token_owner_address: config.oracle_address.address(),
+            ballot_box_wrapper_inputs: &pool_config.ballot_box_wrapper_inputs,
+            ballot_token_owner_address: oracle_config.oracle_address.address(),
         };
 
         let ballot_boxes_scan = BallotBoxesScan {
             scan: Scan::new("Ballot Box Scan", &scan_json["Ballot Box Scan"].to_string()),
-            ballot_box_wrapper_inputs: &config.ballot_box_wrapper_inputs,
+            ballot_box_wrapper_inputs: &pool_config.ballot_box_wrapper_inputs,
         };
 
         let pool_box_scan = PoolBoxScan {
             scan: Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
-            pool_box_wrapper_inputs: &config.pool_box_wrapper_inputs,
+            pool_box_wrapper_inputs: &pool_config.pool_box_wrapper_inputs,
         };
 
         let refresh_box_scan = RefreshBoxScan {
@@ -223,12 +225,12 @@ impl<'a> OraclePool<'a> {
                 refresh_box_scan_name,
                 &scan_json[refresh_box_scan_name].to_string(),
             ),
-            refresh_box_wrapper_inputs: &config.refresh_box_wrapper_inputs,
+            refresh_box_wrapper_inputs: &pool_config.refresh_box_wrapper_inputs,
         };
 
         let update_box_scan = UpdateBoxScan {
             scan: Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string()),
-            update_box_wrapper_inputs: &config.update_box_wrapper_inputs,
+            update_box_wrapper_inputs: &pool_config.update_box_wrapper_inputs,
         };
 
         log::debug!("Scans loaded");
@@ -241,7 +243,7 @@ impl<'a> OraclePool<'a> {
                     contract_address: datapoint_contract.to_base16_bytes()?,
                     scan: datapoint_scan,
                 },
-                oracle_box_wrapper_inputs: &config.oracle_box_wrapper_inputs,
+                oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
             },
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
@@ -437,7 +439,7 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
 
 /// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
 pub fn register_and_save_scans() -> std::result::Result<(), Error> {
-    let config = &ORACLE_CONFIG;
+    let config = &POOL_CONFIG;
     if load_scan_ids().is_err() {
         register_and_save_scans_inner()?;
     } else {
@@ -487,19 +489,20 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
 ///
 /// WARNING: will overwrite existing `scanIDs.json`!
 fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
-    let config = &ORACLE_CONFIG;
-    let local_oracle_address = config.oracle_address.clone();
+    let pool_config = &POOL_CONFIG;
+    let oracle_config = &ORACLE_CONFIG;
+    let local_oracle_address = oracle_config.oracle_address.clone();
 
-    let oracle_pool_participant_token_id = config.token_ids.oracle_token_id.clone();
+    let oracle_pool_participant_token_id = pool_config.token_ids.oracle_token_id.clone();
 
     let refresh_box_scan_name = "Refresh Box Scan";
 
     let datapoint_contract_address =
-        OracleContract::checked_load(&config.oracle_box_wrapper_inputs.contract_inputs)?
+        OracleContract::checked_load(&pool_config.oracle_box_wrapper_inputs.contract_inputs)?
             .ergo_tree();
 
     let ballot_contract_address =
-        BallotContract::checked_load(&config.ballot_box_wrapper_inputs.contract_inputs)?
+        BallotContract::checked_load(&pool_config.ballot_box_wrapper_inputs.contract_inputs)?
             .ergo_tree();
 
     let scans = vec![
@@ -507,11 +510,11 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
             &oracle_pool_participant_token_id,
             &datapoint_contract_address,
         )?,
-        register_update_box_scan(&config.token_ids.update_nft_token_id)?,
-        register_pool_box_scan(config.pool_box_wrapper_inputs.clone())?,
+        register_update_box_scan(&pool_config.token_ids.update_nft_token_id)?,
+        register_pool_box_scan(pool_config.pool_box_wrapper_inputs.clone())?,
         register_refresh_box_scan(
             refresh_box_scan_name,
-            config.refresh_box_wrapper_inputs.clone(),
+            pool_config.refresh_box_wrapper_inputs.clone(),
         )?,
         register_local_oracle_datapoint_scan(
             &oracle_pool_participant_token_id,
@@ -520,10 +523,13 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
         )?,
         register_local_ballot_box_scan(
             &ballot_contract_address,
-            &config.token_ids.ballot_token_id,
-            &config.oracle_address,
+            &pool_config.token_ids.ballot_token_id,
+            &oracle_config.oracle_address,
         )?,
-        register_ballot_box_scan(&ballot_contract_address, &config.token_ids.ballot_token_id)?,
+        register_ballot_box_scan(
+            &ballot_contract_address,
+            &pool_config.token_ids.ballot_token_id,
+        )?,
     ];
 
     log::info!("Registering UTXO-Set Scans");
