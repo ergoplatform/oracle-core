@@ -54,7 +54,8 @@ use crate::{
     node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, StageDataSource},
-    serde::{OracleConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
+    pool_config::{PoolConfig, POOL_CONFIG},
+    serde::{PoolConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     spec_token::{
         BallotTokenId, OracleTokenId, RefreshTokenId, RewardTokenId, TokenIdKind, UpdateTokenId,
     },
@@ -106,7 +107,7 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
             .unwrap(),
     };
 
-    let prepare = PrepareUpdate::new(update_bootstrap_input, &ORACLE_CONFIG)?;
+    let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG)?;
     let new_config = prepare.execute(config)?;
     // let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
     let blake2b_pool_ergo_tree: String = blake2b256_hash(
@@ -120,12 +121,12 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     .into();
 
     info!("Update chain-transaction complete");
-    info!("Writing new config file to oracle_config_updated.yaml");
-    let config = OracleConfigSerde::from(new_config);
+    info!("Writing new config file to pool_config_updated.yaml");
+    let config = PoolConfigSerde::from(new_config);
     let s = serde_yaml::to_string(&config)?;
-    let mut file = std::fs::File::create("oracle_config_updated.yaml")?;
+    let mut file = std::fs::File::create("pool_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
-    info!("Updated oracle configuration file oracle_config_updated.yaml");
+    info!("Updated oracle configuration file pool_config_updated.yaml");
     info!(
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
@@ -135,7 +136,7 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
 }
 
 fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
-    let epoch_length = ORACLE_CONFIG
+    let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
@@ -189,7 +190,7 @@ struct PrepareUpdateInput<'a> {
 
 struct PrepareUpdate<'a> {
     input: PrepareUpdateInput<'a>,
-    config: &'a OracleConfig,
+    config: &'a PoolConfig,
     wallet_pk_ergo_tree: ErgoTree,
     num_transactions_left: u32,
     inputs_for_next_tx: Vec<ErgoBox>,
@@ -199,7 +200,7 @@ struct PrepareUpdate<'a> {
 impl<'a> PrepareUpdate<'a> {
     fn new(
         input: PrepareUpdateInput<'a>,
-        config: &'a OracleConfig,
+        config: &'a PoolConfig,
     ) -> Result<Self, PrepareUpdateError> {
         let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
         Ok(Self {
@@ -328,10 +329,7 @@ impl<'a> PrepareUpdate<'a> {
             .collect()
     }
 
-    fn execute(
-        mut self,
-        config: UpdateBootstrapConfig,
-    ) -> Result<OracleConfig, PrepareUpdateError> {
+    fn execute(mut self, config: UpdateBootstrapConfig) -> Result<PoolConfig, PrepareUpdateError> {
         self.num_transactions_left = 7; // 5 for the tokens, 1 for the refresh box, 1 for the change
 
         let mut need_pool_contract_update = false;
@@ -345,7 +343,7 @@ impl<'a> PrepareUpdate<'a> {
         let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
         debug!("box selection: {:?}", box_selection);
 
-        let mut new_oracle_config = self.config.clone();
+        let mut new_pool_config = self.config.clone();
         // Inputs for each transaction in chained tx, updated after each mint step
         self.inputs_for_next_tx = box_selection.boxes.as_vec().clone();
 
@@ -357,7 +355,7 @@ impl<'a> PrepareUpdate<'a> {
                 token_mint_details.quantity.try_into().unwrap(),
                 None,
             )?;
-            new_oracle_config.token_ids.oracle_token_id =
+            new_pool_config.token_ids.oracle_token_id =
                 OracleTokenId::from_token_id_unchecked(token.token_id);
         }
         if let Some(ref token_mint_details) = config.tokens_to_mint.ballot_tokens {
@@ -368,7 +366,7 @@ impl<'a> PrepareUpdate<'a> {
                 token_mint_details.quantity.try_into().unwrap(),
                 None,
             )?;
-            new_oracle_config.token_ids.ballot_token_id =
+            new_pool_config.token_ids.ballot_token_id =
                 BallotTokenId::from_token_id_unchecked(token.token_id);
         }
         if let Some(ref token_mint_details) = config.tokens_to_mint.reward_tokens {
@@ -379,14 +377,14 @@ impl<'a> PrepareUpdate<'a> {
                 token_mint_details.quantity.try_into().unwrap(),
                 None,
             )?;
-            new_oracle_config.token_ids.reward_token_id =
+            new_pool_config.token_ids.reward_token_id =
                 RewardTokenId::from_token_id_unchecked(token.token_id);
         }
         if config.refresh_contract_parameters.is_some()
             || config.tokens_to_mint.oracle_tokens.is_some()
         {
             let contract_parameters = config.refresh_contract_parameters.unwrap_or_else(|| {
-                new_oracle_config
+                new_pool_config
                     .refresh_box_wrapper_inputs
                     .contract_inputs
                     .contract_parameters()
@@ -403,20 +401,20 @@ impl<'a> PrepareUpdate<'a> {
                 1.try_into().unwrap(),
                 None,
             )?;
-            new_oracle_config.token_ids.refresh_nft_token_id =
+            new_pool_config.token_ids.refresh_nft_token_id =
                 RefreshTokenId::from_token_id_unchecked(token.token_id.clone());
 
             // Create refresh box --------------------------------------------------------------------------
             info!("Create and sign refresh box tx");
             let refresh_contract_inputs = RefreshContractInputs::build_with(
                 contract_parameters.clone(),
-                new_oracle_config.token_ids.oracle_token_id.clone(),
+                new_pool_config.token_ids.oracle_token_id.clone(),
                 self.config.token_ids.pool_nft_token_id.clone(),
             )?;
             let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
-            new_oracle_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
+            new_pool_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
                 contract_inputs: refresh_contract_inputs,
-                refresh_nft_token_id: new_oracle_config.token_ids.refresh_nft_token_id.clone(),
+                refresh_nft_token_id: new_pool_config.token_ids.refresh_nft_token_id.clone(),
             };
             let signed_refresh_box_tx = self.build_refresh_box(&refresh_contract, token)?;
             info!("Refresh box tx id: {:?}", signed_refresh_box_tx.id());
@@ -429,7 +427,7 @@ impl<'a> PrepareUpdate<'a> {
         {
             let update_contract_parameters =
                 config.update_contract_parameters.unwrap_or_else(|| {
-                    new_oracle_config
+                    new_pool_config
                         .update_box_wrapper_inputs
                         .contract_inputs
                         .contract_parameters()
@@ -438,8 +436,8 @@ impl<'a> PrepareUpdate<'a> {
             info!("Creating new update NFT and update box");
             let update_contract_inputs = UpdateContractInputs::build_with(
                 update_contract_parameters.clone(),
-                new_oracle_config.token_ids.pool_nft_token_id.clone(),
-                new_oracle_config.token_ids.ballot_token_id.clone(),
+                new_pool_config.token_ids.pool_nft_token_id.clone(),
+                new_pool_config.token_ids.ballot_token_id.clone(),
             )?;
             let update_contract = UpdateContract::checked_load(&update_contract_inputs)?;
             let update_nft_details = config
@@ -452,11 +450,11 @@ impl<'a> PrepareUpdate<'a> {
                 1.try_into().unwrap(),
                 Some(update_contract.ergo_tree()),
             )?;
-            new_oracle_config.token_ids.update_nft_token_id =
+            new_pool_config.token_ids.update_nft_token_id =
                 UpdateTokenId::from_token_id_unchecked(token.token_id.clone());
-            new_oracle_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
+            new_pool_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
                 contract_inputs: update_contract_inputs,
-                update_nft_token_id: new_oracle_config.token_ids.update_nft_token_id.clone(),
+                update_nft_token_id: new_pool_config.token_ids.update_nft_token_id.clone(),
             };
             // update ballot and pool contract with new update NFT
             need_ballot_contract_update = true;
@@ -464,21 +462,21 @@ impl<'a> PrepareUpdate<'a> {
         }
 
         if need_ballot_contract_update {
-            new_oracle_config.ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
-                new_oracle_config
+            new_pool_config.ballot_box_wrapper_inputs = BallotBoxWrapperInputs::build_with(
+                new_pool_config
                     .ballot_box_wrapper_inputs
                     .contract_inputs
                     .contract_parameters()
                     .clone(),
-                new_oracle_config.token_ids.ballot_token_id.clone(),
-                new_oracle_config.token_ids.update_nft_token_id.clone(),
+                new_pool_config.token_ids.ballot_token_id.clone(),
+                new_pool_config.token_ids.update_nft_token_id.clone(),
             )?;
         }
 
         if config.pool_contract_parameters.is_some() || need_pool_contract_update {
             let new_pool_contract_parameters =
                 config.pool_contract_parameters.unwrap_or_else(|| {
-                    new_oracle_config
+                    new_pool_config
                         .pool_box_wrapper_inputs
                         .contract_inputs
                         .contract_parameters()
@@ -486,19 +484,19 @@ impl<'a> PrepareUpdate<'a> {
                 });
             let new_pool_box_wrapper_inputs = PoolBoxWrapperInputs::build_with(
                 new_pool_contract_parameters,
-                new_oracle_config.token_ids.refresh_nft_token_id.clone(),
-                new_oracle_config.token_ids.update_nft_token_id.clone(),
-                new_oracle_config.token_ids.pool_nft_token_id.clone(),
-                new_oracle_config.token_ids.reward_token_id.clone(),
+                new_pool_config.token_ids.refresh_nft_token_id.clone(),
+                new_pool_config.token_ids.update_nft_token_id.clone(),
+                new_pool_config.token_ids.pool_nft_token_id.clone(),
+                new_pool_config.token_ids.reward_token_id.clone(),
             )?;
-            new_oracle_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
+            new_pool_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
         }
 
         for tx in self.built_txs {
             let tx_id = self.input.submit_tx.submit_transaction(&tx)?;
             info!("Tx submitted {}", tx_id);
         }
-        Ok(new_oracle_config)
+        Ok(new_pool_config)
     }
 }
 
@@ -626,7 +624,7 @@ rescan_height: 141887
             NetworkPrefix::Testnet,
             &Address::P2Pk(secret.public_image()),
         );
-        let old_config = OracleConfig {
+        let old_config = PoolConfig {
             oracle_address: network_address.clone(),
             ..old_config
         };

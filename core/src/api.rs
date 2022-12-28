@@ -5,6 +5,7 @@ use crate::node_interface::current_block_height;
 use crate::oracle_config::{get_core_api_port, get_node_ip, get_node_port, ORACLE_CONFIG};
 use crate::oracle_state::LocalDatapointState::{Collected, Posted};
 use crate::oracle_state::{OraclePool, StageError};
+use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -57,7 +58,7 @@ async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
 
 // Basic information about the oracle pool
 async fn pool_info() -> impl IntoResponse {
-    let conf = &ORACLE_CONFIG;
+    let conf = &POOL_CONFIG;
     Json(json!({
         "pool_nft_id": conf.token_ids.pool_nft_token_id,
         "oracle_token_id": conf.token_ids.oracle_token_id,

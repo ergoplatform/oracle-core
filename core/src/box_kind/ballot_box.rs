@@ -2,7 +2,7 @@ use crate::{
     contracts::ballot::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
-    oracle_config::CastBallotBoxVoteParameters,
+    pool_config::CastBallotBoxVoteParameters,
     spec_token::{BallotTokenId, SpecToken, TokenIdKind, UpdateTokenId},
 };
 use ergo_lib::{

@@ -9,7 +9,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkAddress},
+            address::{Address, AddressEncoder, AddressEncoderError},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -21,7 +21,7 @@ use ergo_lib::{
     },
     wallet::{
         box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
-        tx_builder::{self, TxBuilder, TxBuilderError},
+        tx_builder::{TxBuilder, TxBuilderError},
     },
 };
 use ergo_node_interface::{node_interface::NodeError, NodeInterface};
@@ -42,10 +42,9 @@ use crate::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
     },
-    datapoint_source::PredefinedDataPointSource,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::{OracleConfig, TokenIds},
-    oracle_config::{OracleConfigError, BASE_FEE},
+    oracle_config::BASE_FEE,
+    pool_config::{PoolConfig, PoolConfigError, TokenIds},
     serde::BootstrapConfigSerde,
     spec_token::{
         BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,
@@ -129,7 +128,7 @@ pub struct BootstrapInput<'a> {
 /// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
 pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
-) -> Result<OracleConfig, BootstrapError> {
+) -> Result<PoolConfig, BootstrapError> {
     let BootstrapInput {
         config,
         wallet,
@@ -530,7 +529,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     info!("Minted tokens: {:?}", token_ids);
 
-    Ok(OracleConfig::create(config, token_ids)?)
+    Ok(PoolConfig::create(config, token_ids)?)
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
@@ -543,22 +542,10 @@ pub struct BootstrapConfig {
     pub update_contract_parameters: UpdateContractParameters,
     pub ballot_contract_parameters: BallotContractParameters,
     pub tokens_to_mint: TokensToMint,
-    pub node_ip: String,
-    pub node_port: u16,
-    pub node_api_key: String,
-    pub core_api_port: u16,
-    pub data_point_source: Option<PredefinedDataPointSource>,
-    pub data_point_source_custom_script: Option<String>,
-    pub oracle_address: NetworkAddress,
-    pub base_fee: u64,
 }
 
 impl Default for BootstrapConfig {
     fn default() -> Self {
-        let address = AddressEncoder::unchecked_parse_network_address_from_str(
-            "9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw",
-        )
-        .unwrap();
         BootstrapConfig {
             tokens_to_mint: TokensToMint {
                 pool_nft: NftMintDetails {
@@ -589,19 +576,11 @@ impl Default for BootstrapConfig {
                     quantity: 100_000_000,
                 },
             },
-            oracle_address: address,
-            node_ip: "127.0.0.1".into(),
-            node_port: 9053,
-            node_api_key: "hello".into(),
             refresh_contract_parameters: RefreshContractParameters::default(),
             pool_contract_parameters: PoolContractParameters::default(),
             update_contract_parameters: UpdateContractParameters::default(),
             ballot_contract_parameters: BallotContractParameters::default(),
             oracle_contract_parameters: OracleContractParameters::default(),
-            core_api_port: 9010,
-            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
-            data_point_source_custom_script: None,
-            base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
         }
     }
 }
@@ -661,8 +640,8 @@ pub enum BootstrapError {
     ConfigFilenameAlreadyExists,
     #[error("Ballot contract error: {0}")]
     BallotContractError(BallotContractError),
-    #[error("Oracle config error: {0}")]
-    OracleConfigError(OracleConfigError),
+    #[error("Pool config error: {0}")]
+    PoolConfigError(PoolConfigError),
     #[error("Pool contract error: {0}")]
     PoolContractError(PoolContractError),
     #[error("WalletData error: {0}")]

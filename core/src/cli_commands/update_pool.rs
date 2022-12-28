@@ -29,8 +29,9 @@ use crate::{
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::{CastBallotBoxVoteParameters, OracleConfig, BASE_FEE, ORACLE_CONFIG},
+    oracle_config::BASE_FEE,
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
+    pool_config::{CastBallotBoxVoteParameters, PoolConfig, POOL_CONFIG},
     spec_token::TokenIdKind,
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -76,9 +77,9 @@ pub fn update_pool(
     new_pool_box_hash_str: Option<String>,
     new_reward_tokens: Option<Token>,
 ) -> Result<(), UpdatePoolError> {
-    info!("Opening oracle_config_updated.yaml");
-    let s = std::fs::read_to_string("oracle_config_updated.yaml")?;
-    let new_oracle_config: OracleConfig = serde_yaml::from_str(&s)?;
+    info!("Opening pool_config_updated.yaml");
+    let s = std::fs::read_to_string("pool_config_updated.yaml")?;
+    let new_pool_config: PoolConfig = serde_yaml::from_str(&s)?;
     let wallet = crate::wallet::WalletData {};
     let change_address_str = get_wallet_status()?
         .change_address
@@ -90,7 +91,7 @@ pub fn update_pool(
     };
 
     let new_pool_contract =
-        PoolContract::checked_load(&new_oracle_config.pool_box_wrapper_inputs.contract_inputs)?;
+        PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)?;
     let new_pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -99,8 +100,8 @@ pub fn update_pool(
     );
 
     display_update_diff(
-        &ORACLE_CONFIG,
-        &new_oracle_config,
+        &POOL_CONFIG,
+        &new_pool_config,
         op.get_pool_box_source().get_pool_box()?,
         new_reward_tokens.clone(),
     );
@@ -133,14 +134,14 @@ pub fn update_pool(
 }
 
 fn display_update_diff(
-    old_oracle_config: &OracleConfig,
-    new_oracle_config: &OracleConfig,
+    old_pool_config: &PoolConfig,
+    new_pool_config: &PoolConfig,
     old_pool_box: PoolBoxWrapper,
     new_reward_tokens: Option<Token>,
 ) {
     let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token().into());
     let new_pool_contract =
-        PoolContract::checked_load(&new_oracle_config.pool_box_wrapper_inputs.contract_inputs)
+        PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)
             .unwrap();
     println!("Pool Parameters: ");
     let pool_box_hash = blake2b256_hash(
@@ -152,11 +153,11 @@ fn display_update_diff(
     println!("Pool Box Hash (new): {}", String::from(pool_box_hash));
     println!(
         "Reward Token ID (old): {}",
-        String::from(old_oracle_config.token_ids.reward_token_id.token_id())
+        String::from(old_pool_config.token_ids.reward_token_id.token_id())
     );
     println!(
         "Reward Token ID (new): {}",
-        String::from(new_oracle_config.token_ids.reward_token_id.token_id())
+        String::from(new_pool_config.token_ids.reward_token_id.token_id())
     );
     println!(
         "Reward Token Amount (old): {}",

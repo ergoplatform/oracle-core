@@ -29,6 +29,7 @@ mod node_interface;
 mod oracle_config;
 mod oracle_state;
 mod pool_commands;
+mod pool_config;
 mod scans;
 mod serde;
 mod spec_token;
@@ -65,6 +66,7 @@ use pool_commands::build_action;
 use pool_commands::publish_datapoint::PublishDatapointActionError::DataPointSource;
 use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
+use pool_config::POOL_CONFIG;
 use state::process;
 use state::PoolState;
 use std::convert::TryFrom;
@@ -368,7 +370,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             PoolState::NeedsBootstrap
         }
     };
-    let epoch_length = ORACLE_CONFIG
+    let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
@@ -426,7 +428,7 @@ fn get_change_address_from_node() -> Result<NetworkAddress, anyhow::Error> {
 fn log_on_launch() {
     log::info!("{}", APP_VERSION);
     if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
-        log::info!("Token ids: {:?}", config.token_ids);
+        // log::info!("Token ids: {:?}", config.token_ids);
         log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
 }
