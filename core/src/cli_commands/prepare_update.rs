@@ -107,7 +107,7 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
             .unwrap(),
     };
 
-    let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG)?;
+    let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG, &ORACLE_CONFIG)?;
     let new_config = prepare.execute(config)?;
     // let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
     let blake2b_pool_ergo_tree: String = blake2b256_hash(
@@ -190,7 +190,8 @@ struct PrepareUpdateInput<'a> {
 
 struct PrepareUpdate<'a> {
     input: PrepareUpdateInput<'a>,
-    config: &'a PoolConfig,
+    pool_config: &'a PoolConfig,
+    oracle_config: &'a OracleConfig,
     wallet_pk_ergo_tree: ErgoTree,
     num_transactions_left: u32,
     inputs_for_next_tx: Vec<ErgoBox>,
@@ -200,13 +201,15 @@ struct PrepareUpdate<'a> {
 impl<'a> PrepareUpdate<'a> {
     fn new(
         input: PrepareUpdateInput<'a>,
-        config: &'a PoolConfig,
+        pool_config: &'a PoolConfig,
+        oracle_config: &'a OracleConfig,
     ) -> Result<Self, PrepareUpdateError> {
-        let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
+        let wallet_pk_ergo_tree = oracle_config.oracle_address.address().script()?;
         Ok(Self {
             input,
             wallet_pk_ergo_tree,
-            config,
+            pool_config,
+            oracle_config,
             num_transactions_left: 0,
             inputs_for_next_tx: vec![],
             built_txs: vec![],
@@ -343,7 +346,7 @@ impl<'a> PrepareUpdate<'a> {
         let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
         debug!("box selection: {:?}", box_selection);
 
-        let mut new_pool_config = self.config.clone();
+        let mut new_pool_config = self.pool_config.clone();
         // Inputs for each transaction in chained tx, updated after each mint step
         self.inputs_for_next_tx = box_selection.boxes.as_vec().clone();
 
@@ -409,7 +412,7 @@ impl<'a> PrepareUpdate<'a> {
             let refresh_contract_inputs = RefreshContractInputs::build_with(
                 contract_parameters.clone(),
                 new_pool_config.token_ids.oracle_token_id.clone(),
-                self.config.token_ids.pool_nft_token_id.clone(),
+                self.pool_config.token_ids.pool_nft_token_id.clone(),
             )?;
             let refresh_contract = RefreshContract::checked_load(&refresh_contract_inputs)?;
             new_pool_config.refresh_box_wrapper_inputs = RefreshBoxWrapperInputs {
