@@ -25,7 +25,7 @@ use crate::spec_token::RefreshTokenId;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::UpdateTokenId;
 
-pub static CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
+pub static POOL_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
 lazy_static! {
     pub static ref POOL_CONFIG: PoolConfig = PoolConfig::load().unwrap();
 }
@@ -147,7 +147,7 @@ impl PoolConfig {
     }
 
     fn load() -> Result<Self, anyhow::Error> {
-        let config_file_path = CONFIG_FILE_PATH
+        let config_file_path = POOL_CONFIG_FILE_PATH
             .get()
             .ok_or_else(|| anyhow!("Pool config file not loaded"))?;
         Self::load_from_str(&std::fs::read_to_string(config_file_path)?)

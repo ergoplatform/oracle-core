@@ -197,10 +197,10 @@ enum Command {
 fn main() {
     let args = Args::parse();
     debug!("Args: {:?}", args);
-    oracle_config::CONFIG_FILE_PATH
+    oracle_config::ORACLE_CONFIG_FILE_PATH
         .set(
             args.config_file
-                .unwrap_or_else(|| oracle_config::DEFAULT_CONFIG_FILE_NAME.to_string()),
+                .unwrap_or_else(|| oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
         )
         .unwrap();
 

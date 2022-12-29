@@ -11,7 +11,7 @@ use log::LevelFilter;
 use once_cell::sync;
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
+pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OracleConfig {
@@ -28,7 +28,7 @@ pub struct OracleConfig {
 
 impl OracleConfig {
     fn load() -> Result<Self, anyhow::Error> {
-        let config_file_path = CONFIG_FILE_PATH
+        let config_file_path = ORACLE_CONFIG_FILE_PATH
             .get()
             .ok_or_else(|| anyhow!("Oracle config file not loaded"))?;
         Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
@@ -77,7 +77,7 @@ impl Default for OracleConfig {
     }
 }
 
-pub static CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
+pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
