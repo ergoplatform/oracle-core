@@ -152,7 +152,7 @@ impl PoolConfig {
     fn load() -> Result<Self, anyhow::Error> {
         let config_file_path = POOL_CONFIG_FILE_PATH
             .get()
-            .ok_or_else(|| anyhow!("Pool config file not loaded"))?;
+            .ok_or_else(|| anyhow!("Pool config file path not set"))?;
         Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
     }
 

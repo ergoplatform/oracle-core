@@ -72,6 +72,7 @@ use state::PoolState;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::env;
+use std::io::Write;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -79,6 +80,8 @@ use wallet::WalletData;
 
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
+use crate::oracle_config::OracleConfig;
+use crate::oracle_config::OracleConfigFileError;
 use crate::oracle_config::MAYBE_ORACLE_CONFIG;
 use crate::pool_config::MAYBE_POOL_CONFIG;
 
@@ -215,12 +218,17 @@ fn main() {
         .unwrap();
 
     if MAYBE_POOL_CONFIG.is_err() {
-        // TODO: try to migrate old config file to new format
+        // TODO: in case of IO error try to migrate old config file to new format
     }
 
-    if MAYBE_ORACLE_CONFIG.is_err() {
-        // TODO: generate default config file
-        println!("Error: oracle_config.yaml not found. Default config file is generated. Please, set the required parameters and run");
+    if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {
+        let config = OracleConfig::default();
+
+        let s = serde_yaml::to_string(&config).unwrap();
+        let mut file = std::fs::File::create(&config_file_name).unwrap();
+        file.write_all(s.as_bytes()).unwrap();
+        println!("Error: oracle_config.yaml not found. Default config file is generated.");
+        println!("Please, set the required parameters and run again");
         return;
     }
 

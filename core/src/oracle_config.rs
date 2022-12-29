@@ -10,6 +10,7 @@ use ergo_lib::{
 use log::LevelFilter;
 use once_cell::sync;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
@@ -27,15 +28,12 @@ pub struct OracleConfig {
 }
 
 impl OracleConfig {
-    fn load() -> Result<Self, anyhow::Error> {
-        let config_file_path = ORACLE_CONFIG_FILE_PATH
-            .get()
-            .ok_or_else(|| anyhow!("Oracle config file not loaded"))?;
-        Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
-    }
-
-    fn load_from_str(config_str: &str) -> Result<OracleConfig, anyhow::Error> {
-        serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
+    fn load() -> Result<Self, OracleConfigFileError> {
+        let config_file_path = ORACLE_CONFIG_FILE_PATH.get().unwrap();
+        let config_str: &str = &std::fs::read_to_string(config_file_path)
+            .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
+        Ok(serde_yaml::from_str(config_str)
+            .map_err(|e| OracleConfigFileError::ParseError(e.to_string()))?)
     }
 
     pub fn data_point_source(
@@ -55,6 +53,14 @@ impl OracleConfig {
         };
         Ok(data_point_source)
     }
+}
+
+#[derive(Clone, Debug, Error)]
+pub enum OracleConfigFileError {
+    #[error("Error reading oracle config file: {0}")]
+    IoError(String),
+    #[error("Error parsing oracle config file: {0}")]
+    ParseError(String),
 }
 
 impl Default for OracleConfig {
@@ -80,8 +86,8 @@ impl Default for OracleConfig {
 pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
-    pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, String> =
-        OracleConfig::load().map_err(|e| e.to_string());
+    pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, OracleConfigFileError> =
+        OracleConfig::load();
     pub static ref BASE_FEE: BoxValue = MAYBE_ORACLE_CONFIG
         .as_ref()
         .map(|c| BoxValue::try_from(c.base_fee).unwrap())
