@@ -80,6 +80,7 @@ use wallet::WalletData;
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
 use crate::oracle_config::MAYBE_ORACLE_CONFIG;
+use crate::pool_config::MAYBE_POOL_CONFIG;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
@@ -111,9 +112,12 @@ struct Args {
     /// Increase the logging verbosity
     #[clap(short, long)]
     verbose: bool,
-    /// Set path of configuration file to use. Default is ./oracle_config.yaml
-    #[clap(short, long)]
-    config_file: Option<String>,
+    /// Set path of oracle configuration file to use. Default is ./oracle_config.yaml
+    #[clap(long)]
+    oracle_config_file: Option<String>,
+    /// Set path of pool configuration file to use. Default is ./pool_config.yaml
+    #[clap(long)]
+    pool_config_file: Option<String>,
     /// Set folder path for the data files (scanIDs.json, logs). Default is the current folder.
     #[clap(short, long)]
     data_dir: Option<String>,
@@ -199,10 +203,26 @@ fn main() {
     debug!("Args: {:?}", args);
     oracle_config::ORACLE_CONFIG_FILE_PATH
         .set(
-            args.config_file
+            args.oracle_config_file
                 .unwrap_or_else(|| oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
         )
         .unwrap();
+    pool_config::POOL_CONFIG_FILE_PATH
+        .set(
+            args.pool_config_file
+                .unwrap_or_else(|| pool_config::DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
+        )
+        .unwrap();
+
+    if MAYBE_POOL_CONFIG.is_err() {
+        // TODO: try to migrate old config file to new format
+    }
+
+    if MAYBE_ORACLE_CONFIG.is_err() {
+        // TODO: generate default config file
+        println!("Error: oracle_config.yaml not found. Default config file is generated. Please, set the required parameters and run");
+        return;
+    }
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Debug)

@@ -25,9 +25,12 @@ use crate::spec_token::RefreshTokenId;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::UpdateTokenId;
 
+pub const DEFAULT_POOL_CONFIG_FILE_NAME: &str = "pool_config.yaml";
 pub static POOL_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
 lazy_static! {
     pub static ref POOL_CONFIG: PoolConfig = PoolConfig::load().unwrap();
+    pub static ref MAYBE_POOL_CONFIG: Result<PoolConfig, String> =
+        PoolConfig::load().map_err(|e| e.to_string());
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
