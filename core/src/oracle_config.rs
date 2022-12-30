@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, io::Write};
 
 use crate::datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource};
 use anyhow::anyhow;
@@ -29,6 +29,14 @@ pub struct OracleConfig {
 }
 
 impl OracleConfig {
+    pub fn write_default_config_file() {
+        let config = OracleConfig::default();
+        let yaml_str = serde_yaml::to_string(&config).unwrap();
+        let file_path = ORACLE_CONFIG_FILE_PATH.get().unwrap();
+        let mut file = std::fs::File::create(file_path).unwrap();
+        file.write_all(yaml_str.as_bytes()).unwrap();
+    }
+
     fn load() -> Result<Self, OracleConfigFileError> {
         let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
             OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())

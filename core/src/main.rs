@@ -218,13 +218,8 @@ fn main() {
         // TOOD: remove pool paramters from oracle config file
     }
 
-    // TODO: extract into a function?
     if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {
-        let config = OracleConfig::default();
-        let yaml_str = serde_yaml::to_string(&config).unwrap();
-        let file_path = &&oracle_config::ORACLE_CONFIG_FILE_PATH.get().unwrap();
-        let mut file = std::fs::File::create(file_path).unwrap();
-        file.write_all(yaml_str.as_bytes()).unwrap();
+        OracleConfig::write_default_config_file();
         println!("Error: oracle_config.yaml not found. Default config file is generated.");
         println!("Please, set the required parameters and run again");
         return;
