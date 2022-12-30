@@ -71,7 +71,6 @@ use state::PoolState;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::env;
-use std::io::Write;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -81,8 +80,11 @@ use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
 use crate::oracle_config::OracleConfig;
 use crate::oracle_config::OracleConfigFileError;
+use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::MAYBE_ORACLE_CONFIG;
+use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
 use crate::pool_config::MAYBE_POOL_CONFIG;
+use crate::pool_config::POOL_CONFIG_FILE_PATH;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
 pub type P2PKAddress = String;
@@ -199,14 +201,13 @@ enum Command {
 fn main() {
     let args = Args::parse();
     debug!("Args: {:?}", args);
-    // TODO: extract into a function?
-    oracle_config::ORACLE_CONFIG_FILE_PATH
+    ORACLE_CONFIG_FILE_PATH
         .set(
             args.oracle_config_file
-                .unwrap_or_else(|| oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
+                .unwrap_or_else(|| DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
         )
         .unwrap();
-    pool_config::POOL_CONFIG_FILE_PATH
+    POOL_CONFIG_FILE_PATH
         .set(
             args.pool_config_file
                 .unwrap_or_else(|| pool_config::DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
@@ -215,7 +216,7 @@ fn main() {
 
     if MAYBE_POOL_CONFIG.is_err() {
         // TODO: in case of IO error try to migrate old config file to new format
-        // TOOD: remove pool paramters from oracle config file
+        // TODO: remove pool paramters from oracle config file
     }
 
     if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {

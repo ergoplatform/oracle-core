@@ -29,12 +29,14 @@ use crate::{
         },
         update::{UpdateContractParameters, UpdateContractParametersError},
     },
+    datapoint_source::PredefinedDataPointSource,
     pool_config::{PoolConfig, PoolConfigError, TokenIds},
     spec_token::TokenIdKind,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct PoolConfigSerde {
+    data_point_source: Option<PredefinedDataPointSource>,
     oracle_contract_parameters: OracleContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
@@ -105,6 +107,7 @@ impl From<PoolConfig> for PoolConfigSerde {
             ballot_contract_parameters,
             update_contract_parameters,
             token_ids: c.token_ids,
+            data_point_source: c.data_point_source,
         }
     }
 }
@@ -200,6 +203,7 @@ impl TryFrom<PoolConfigSerde> for PoolConfig {
         .map_err(PoolConfigError::from)?;
 
         Ok(PoolConfig {
+            data_point_source: c.data_point_source,
             oracle_box_wrapper_inputs,
             pool_box_wrapper_inputs,
             refresh_box_wrapper_inputs,
@@ -213,6 +217,7 @@ impl TryFrom<PoolConfigSerde> for PoolConfig {
 /// Used to (de)serialize `BootstrapConfig` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootstrapConfigSerde {
+    pub data_point_source: Option<PredefinedDataPointSource>,
     oracle_contract_parameters: OracleContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
@@ -236,6 +241,7 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
                 c.ballot_contract_parameters,
             ),
             tokens_to_mint: c.tokens_to_mint,
+            data_point_source: c.data_point_source,
         }
     }
 }
@@ -294,6 +300,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             update_contract_parameters,
             ballot_contract_parameters,
             tokens_to_mint: c.tokens_to_mint,
+            data_point_source: c.data_point_source,
         })
     }
 }

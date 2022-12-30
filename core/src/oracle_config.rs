@@ -1,7 +1,6 @@
 use std::{convert::TryFrom, io::Write};
 
-use crate::datapoint_source::{DataPointSource, ExternalScript, PredefinedDataPointSource};
-use anyhow::anyhow;
+use crate::datapoint_source::{DataPointSource, ExternalScript};
 use ergo_lib::{
     ergotree_ir::chain::address::NetworkAddress,
     ergotree_ir::chain::{address::AddressEncoder, ergo_box::box_value::BoxValue},
@@ -23,8 +22,6 @@ pub struct OracleConfig {
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: NetworkAddress,
-    // TODO: move to PoolConfig (leave custom here as an override)
-    pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
 }
 
@@ -47,22 +44,12 @@ impl OracleConfig {
             .map_err(|e| OracleConfigFileError::ParseError(e.to_string()))
     }
 
-    pub fn data_point_source(
-        &self,
-    ) -> Result<Box<dyn DataPointSource + Send + Sync>, anyhow::Error> {
-        let data_point_source: Box<dyn DataPointSource + Send + Sync> = if let Some(
-            external_script_name,
-        ) =
-            self.data_point_source_custom_script.clone()
-        {
-            Box::new(ExternalScript::new(external_script_name.clone()))
+    pub fn custom_data_point_source(&self) -> Option<Box<dyn DataPointSource + Send + Sync>> {
+        if let Some(external_script_name) = self.data_point_source_custom_script.clone() {
+            Some(Box::new(ExternalScript::new(external_script_name.clone())))
         } else {
-            match self.data_point_source {
-                Some(datasource) => Box::new(datasource),
-                _ => return Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
-            }
-        };
-        Ok(data_point_source)
+            None
+        }
     }
 }
 
@@ -85,7 +72,6 @@ impl Default for OracleConfig {
             node_ip: "127.0.0.1".into(),
             node_port: 9053,
             node_api_key: "hello".into(),
-            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
             core_api_port: 9010,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),

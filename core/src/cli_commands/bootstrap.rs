@@ -42,6 +42,7 @@ use crate::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
     },
+    datapoint_source::PredefinedDataPointSource,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
     pool_config::{PoolConfig, PoolConfigError, TokenIds},
@@ -368,12 +369,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // we don't have a working ORACLE_CONFIG during bootstrap so token ids are created without any checks
     let token_ids = TokenIds {
         pool_nft_token_id: PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id),
-        refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(
-            refresh_nft_token.token_id,
-        ),
-        update_nft_token_id: UpdateTokenId::from_token_id_unchecked(
-            update_nft_token.token_id,
-        ),
+        refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(refresh_nft_token.token_id),
+        update_nft_token_id: UpdateTokenId::from_token_id_unchecked(update_nft_token.token_id),
         oracle_token_id: OracleTokenId::from_token_id_unchecked(oracle_token.token_id),
         reward_token_id: RewardTokenId::from_token_id_unchecked(reward_token.token_id),
         ballot_token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
@@ -540,6 +537,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 #[derive(Debug, Clone, Deserialize)]
 #[serde(try_from = "crate::serde::BootstrapConfigSerde")]
 pub struct BootstrapConfig {
+    pub data_point_source: Option<PredefinedDataPointSource>,
     pub oracle_contract_parameters: OracleContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
@@ -585,6 +583,7 @@ impl Default for BootstrapConfig {
             update_contract_parameters: UpdateContractParameters::default(),
             ballot_contract_parameters: BallotContractParameters::default(),
             oracle_contract_parameters: OracleContractParameters::default(),
+            data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
         }
     }
 }

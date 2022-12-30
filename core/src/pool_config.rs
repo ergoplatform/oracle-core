@@ -18,6 +18,8 @@ use crate::contracts::oracle::OracleContractError;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::update::UpdateContractError;
+use crate::datapoint_source::DataPointSource;
+use crate::datapoint_source::PredefinedDataPointSource;
 use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
@@ -39,6 +41,7 @@ lazy_static! {
     into = "crate::serde::PoolConfigSerde"
 )]
 pub struct PoolConfig {
+    pub data_point_source: Option<PredefinedDataPointSource>,
     pub oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
     pub pool_box_wrapper_inputs: PoolBoxWrapperInputs,
     pub refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
@@ -140,6 +143,7 @@ impl PoolConfig {
             token_ids.update_nft_token_id.clone(),
         )?;
         Ok(PoolConfig {
+            data_point_source: bootstrap.data_point_source,
             oracle_box_wrapper_inputs,
             pool_box_wrapper_inputs,
             refresh_box_wrapper_inputs,
@@ -158,6 +162,15 @@ impl PoolConfig {
 
     fn load_from_str(config_str: &str) -> Result<PoolConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
+    }
+
+    pub fn data_point_source(
+        &self,
+    ) -> Result<Box<dyn DataPointSource + Send + Sync>, anyhow::Error> {
+        match self.data_point_source {
+            Some(datasource) => Ok(Box::new(datasource)),
+            _ => Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
+        }
     }
 }
 

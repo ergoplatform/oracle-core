@@ -179,7 +179,12 @@ impl<'a> OraclePool<'a> {
         let pool_config = &POOL_CONFIG;
         let oracle_config = &ORACLE_CONFIG;
 
-        let data_point_source = oracle_config.data_point_source()?;
+        let data_point_source =
+            if let Some(custom_data_point_source) = oracle_config.custom_data_point_source() {
+                custom_data_point_source
+            } else {
+                pool_config.data_point_source()?
+            };
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
