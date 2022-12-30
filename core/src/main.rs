@@ -83,7 +83,7 @@ use crate::oracle_config::OracleConfigFileError;
 use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::MAYBE_ORACLE_CONFIG;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
-use crate::pool_config::MAYBE_POOL_CONFIG;
+use crate::pool_config::PoolConfig;
 use crate::pool_config::POOL_CONFIG_FILE_PATH;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
@@ -214,9 +214,29 @@ fn main() {
         )
         .unwrap();
 
-    if MAYBE_POOL_CONFIG.is_err() {
-        // TODO: in case of IO error try to migrate old config file to new format
-        // TODO: remove pool paramters from oracle config file
+    if !Path::new(&POOL_CONFIG_FILE_PATH.get().unwrap()).exists()
+        && Path::new(&ORACLE_CONFIG_FILE_PATH.get().unwrap()).exists()
+    {
+        // TODO: extract to a function
+        log::info!("pool_config.yaml not found, using oracle_config.yaml for migration");
+        #[allow(unused_must_use)] // fail silently if migration failed.
+        {
+            let oracle_file_path = &ORACLE_CONFIG_FILE_PATH.get().unwrap();
+            std::fs::read_to_string(oracle_file_path).map(|oracle_config_str| {
+                PoolConfig::load_from_str(&oracle_config_str).map(|pool_config| {
+                    OracleConfig::load().map(|oracle_config| {
+                        pool_config.save().map(|_| {
+                            log::info!(
+                                "saved pool config to {}",
+                                POOL_CONFIG_FILE_PATH.get().unwrap()
+                            );
+                            oracle_config.save().unwrap();
+                            log::info!("saved new oracle config to {}", oracle_file_path);
+                        })
+                    })
+                })
+            });
+        }
     }
 
     if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {

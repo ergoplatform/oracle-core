@@ -34,7 +34,7 @@ impl OracleConfig {
         file.write_all(yaml_str.as_bytes()).unwrap();
     }
 
-    fn load() -> Result<Self, OracleConfigFileError> {
+    pub fn load() -> Result<Self, OracleConfigFileError> {
         let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
             OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())
         })?;
@@ -42,6 +42,16 @@ impl OracleConfig {
             .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
         serde_yaml::from_str(config_str)
             .map_err(|e| OracleConfigFileError::ParseError(e.to_string()))
+    }
+
+    pub fn save(&self) -> Result<(), OracleConfigFileError> {
+        let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
+            OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())
+        })?;
+        let yaml_str = serde_yaml::to_string(self).unwrap();
+        let mut file = std::fs::File::create(config_file_path).unwrap();
+        file.write_all(yaml_str.as_bytes()).unwrap();
+        Ok(())
     }
 
     pub fn custom_data_point_source(&self) -> Option<Box<dyn DataPointSource + Send + Sync>> {

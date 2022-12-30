@@ -160,7 +160,16 @@ impl PoolConfig {
         Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
     }
 
-    fn load_from_str(config_str: &str) -> Result<PoolConfig, anyhow::Error> {
+    pub fn save(&self) -> Result<(), anyhow::Error> {
+        let config_file_path = POOL_CONFIG_FILE_PATH
+            .get()
+            .ok_or_else(|| anyhow!("Pool config file path not set"))?;
+        let yaml_str = serde_yaml::to_string(self).unwrap();
+        std::fs::write(config_file_path, yaml_str)?;
+        Ok(())
+    }
+
+    pub fn load_from_str(config_str: &str) -> Result<PoolConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
     }
 
