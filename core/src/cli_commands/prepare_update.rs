@@ -405,7 +405,7 @@ impl<'a> PrepareUpdate<'a> {
                 None,
             )?;
             new_pool_config.token_ids.refresh_nft_token_id =
-                RefreshTokenId::from_token_id_unchecked(token.token_id.clone());
+                RefreshTokenId::from_token_id_unchecked(token.token_id);
 
             // Create refresh box --------------------------------------------------------------------------
             info!("Create and sign refresh box tx");
@@ -454,7 +454,7 @@ impl<'a> PrepareUpdate<'a> {
                 Some(update_contract.ergo_tree()),
             )?;
             new_pool_config.token_ids.update_nft_token_id =
-                UpdateTokenId::from_token_id_unchecked(token.token_id.clone());
+                UpdateTokenId::from_token_id_unchecked(token.token_id);
             new_pool_config.update_box_wrapper_inputs = UpdateBoxWrapperInputs {
                 contract_inputs: update_contract_inputs,
                 update_nft_token_id: new_pool_config.token_ids.update_nft_token_id.clone(),

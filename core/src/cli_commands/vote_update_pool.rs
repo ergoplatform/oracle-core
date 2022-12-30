@@ -86,8 +86,8 @@ pub fn vote_update_pool(
         build_tx_with_existing_ballot_box(
             local_ballot_box,
             wallet,
-            new_pool_box_address_hash.clone(),
-            reward_token_id.clone(),
+            new_pool_box_address_hash,
+            reward_token_id,
             reward_token_amount,
             update_box_creation_height,
             height,
@@ -97,8 +97,8 @@ pub fn vote_update_pool(
         // Ballot token is assumed to be in some unspent box of the node's wallet.
         build_tx_for_first_ballot_box(
             wallet,
-            new_pool_box_address_hash.clone(),
-            reward_token_id.clone(),
+            new_pool_box_address_hash,
+            reward_token_id,
             reward_token_amount,
             update_box_creation_height,
             ORACLE_CONFIG.oracle_address.address(),
@@ -378,7 +378,7 @@ mod tests {
                 secret.public_image(),
                 height - 2,
                 ballot_token,
-                new_pool_box_address_hash.clone(),
+                new_pool_box_address_hash,
                 Token {
                     token_id: token_ids.reward_token_id.token_id(),
                     amount: 100_000.try_into().unwrap(),

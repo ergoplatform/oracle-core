@@ -81,8 +81,7 @@ impl OracleBoxWrapper {
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
             .first()
-            .token_id
-            .clone();
+            .token_id;
 
         if oracle_token_id != inputs.oracle_token_id.token_id() {
             return Err(OracleBoxError::UnknownOracleTokenId);
@@ -94,8 +93,7 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoTokens)?
             .get(1)
             .ok_or(OracleBoxError::NoRewardToken)?
-            .token_id
-            .clone();
+            .token_id;
 
         if reward_token_id != inputs.reward_token_id.token_id() {
             return Err(OracleBoxError::UnknownRewardTokenId);

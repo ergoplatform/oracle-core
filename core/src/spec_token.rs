@@ -41,7 +41,7 @@ pub struct PoolTokenId(TokenId);
 
 impl TokenIdKind for PoolTokenId {
     fn token_id(&self) -> TokenId {
-        self.0.clone()
+        self.0
     }
     fn from_token_id_unchecked(token: TokenId) -> Self {
         Self(token)
@@ -54,7 +54,7 @@ pub struct UpdateTokenId(TokenId);
 
 impl TokenIdKind for UpdateTokenId {
     fn token_id(&self) -> TokenId {
-        self.0.clone()
+        self.0
     }
     fn from_token_id_unchecked(token: TokenId) -> Self {
         Self(token)
@@ -67,7 +67,7 @@ pub struct RefreshTokenId(TokenId);
 
 impl TokenIdKind for RefreshTokenId {
     fn token_id(&self) -> TokenId {
-        self.0.clone()
+        self.0
     }
     fn from_token_id_unchecked(token: TokenId) -> Self {
         Self(token)
@@ -79,7 +79,7 @@ impl TokenIdKind for RefreshTokenId {
 pub struct RewardTokenId(TokenId);
 impl TokenIdKind for RewardTokenId {
     fn token_id(&self) -> TokenId {
-        self.0.clone()
+        self.0
     }
     fn from_token_id_unchecked(token: TokenId) -> Self {
         Self(token)
@@ -92,7 +92,7 @@ pub struct OracleTokenId(TokenId);
 
 impl TokenIdKind for OracleTokenId {
     fn token_id(&self) -> TokenId {
-        self.0.clone()
+        self.0
     }
     fn from_token_id_unchecked(token: TokenId) -> Self {
         Self(token)
@@ -104,7 +104,7 @@ impl TokenIdKind for OracleTokenId {
 pub struct BallotTokenId(TokenId);
 impl TokenIdKind for BallotTokenId {
     fn token_id(&self) -> TokenId {
-        self.0.clone()
+        self.0
     }
     fn from_token_id_unchecked(token: TokenId) -> Self {
         Self(token)

@@ -166,19 +166,19 @@ fn display_update_diff(
     println!("Reward Token Amount (new): {}", new_tokens.amount.as_u64());
     println!(
         "Update NFT ID (old): {}",
-        String::from(old_pool_box.contract().update_nft_token_id().clone())
+        String::from(old_pool_box.contract().update_nft_token_id())
     );
     println!(
         "Update NFT ID (new): {}",
-        String::from(new_pool_contract.update_nft_token_id().clone())
+        String::from(new_pool_contract.update_nft_token_id())
     );
     println!(
         "Refresh NFT ID (old): {}",
-        String::from(old_pool_box.contract().refresh_nft_token_id().clone())
+        String::from(old_pool_box.contract().refresh_nft_token_id())
     );
     println!(
         "Refresh NFT ID (new): {}",
-        String::from(new_pool_contract.refresh_nft_token_id().clone())
+        String::from(new_pool_contract.refresh_nft_token_id())
     );
 }
 
@@ -205,7 +205,7 @@ fn build_update_pool_box_tx(
     let reward_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token().into());
     let vote_parameters = CastBallotBoxVoteParameters {
         pool_box_address_hash: pool_box_hash,
-        reward_token_id: reward_tokens.token_id.clone(),
+        reward_token_id: reward_tokens.token_id,
         reward_token_quantity: *reward_tokens.amount.as_u64(),
         update_box_creation_height: update_box.get_box().creation_height as i32,
     };
@@ -496,7 +496,7 @@ mod tests {
                     token_id: token_ids.ballot_token_id.clone(),
                     amount: 1.try_into().unwrap(),
                 },
-                pool_box_hash.clone(),
+                pool_box_hash,
                 new_reward_tokens.clone(),
                 ballot_contract.min_storage_rent(),
                 height,

@@ -23,6 +23,7 @@ pub struct OracleConfig {
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: NetworkAddress,
+    // TODO: move to PoolConfig (leave custom here as an override)
     pub data_point_source: Option<PredefinedDataPointSource>,
     pub data_point_source_custom_script: Option<String>,
 }
@@ -32,8 +33,8 @@ impl OracleConfig {
         let config_file_path = ORACLE_CONFIG_FILE_PATH.get().unwrap();
         let config_str: &str = &std::fs::read_to_string(config_file_path)
             .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
-        Ok(serde_yaml::from_str(config_str)
-            .map_err(|e| OracleConfigFileError::ParseError(e.to_string()))?)
+        serde_yaml::from_str(config_str)
+            .map_err(|e| OracleConfigFileError::ParseError(e.to_string()))
     }
 
     pub fn data_point_source(

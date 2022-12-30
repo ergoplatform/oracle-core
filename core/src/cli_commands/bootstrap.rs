@@ -304,8 +304,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let update_contract = UpdateContract::checked_load(&UpdateContractInputs::build_with(
         config.update_contract_parameters.clone(),
-        PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id.clone()),
-        BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+        PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id),
+        BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
     )?)?;
 
     info!("Creating and signing minting update NFT tx");
@@ -367,16 +367,16 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // we don't have a working ORACLE_CONFIG during bootstrap so token ids are created without any checks
     let token_ids = TokenIds {
-        pool_nft_token_id: PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id.clone()),
+        pool_nft_token_id: PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id),
         refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(
-            refresh_nft_token.token_id.clone(),
+            refresh_nft_token.token_id,
         ),
         update_nft_token_id: UpdateTokenId::from_token_id_unchecked(
-            update_nft_token.token_id.clone(),
+            update_nft_token.token_id,
         ),
-        oracle_token_id: OracleTokenId::from_token_id_unchecked(oracle_token.token_id.clone()),
-        reward_token_id: RewardTokenId::from_token_id_unchecked(reward_token.token_id.clone()),
-        ballot_token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+        oracle_token_id: OracleTokenId::from_token_id_unchecked(oracle_token.token_id),
+        reward_token_id: RewardTokenId::from_token_id_unchecked(reward_token.token_id),
+        ballot_token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
     };
 
     let pool_contract = PoolContract::build_with(&PoolContractInputs::build_with(
@@ -387,7 +387,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     .unwrap();
 
     let reward_tokens_for_pool_box = Token {
-        token_id: reward_token.token_id.clone(),
+        token_id: reward_token.token_id,
         amount: reward_token
             .amount
             // we must leave one reward token per oracle for their first datapoint box
