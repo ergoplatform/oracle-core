@@ -9,7 +9,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError},
+            address::{Address, AddressEncoder, AddressEncoderError, NetworkAddress},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -43,7 +43,7 @@ use crate::{
         },
     },
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::BASE_FEE,
+    oracle_config::{BASE_FEE, ORACLE_CONFIG},
     pool_config::{PoolConfig, PoolConfigError, TokenIds},
     serde::BootstrapConfigSerde,
     spec_token::{
@@ -57,15 +57,16 @@ use crate::{
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
 pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
+    let oracle_config = &ORACLE_CONFIG;
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(
-        &config.node_api_key,
-        &config.node_ip,
-        &config.node_port.to_string(),
+        &oracle_config.node_api_key,
+        &oracle_config.node_ip,
+        &oracle_config.node_port.to_string(),
     );
     assert_wallet_unlocked(&node);
     let change_address_str = node
@@ -77,6 +78,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
+        oracle_address: oracle_config.oracle_address,
         config,
         wallet: &node as &dyn WalletDataSource,
         tx_signer: &node as &dyn SignTransaction,
@@ -113,6 +115,7 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
 }
 
 pub struct BootstrapInput<'a> {
+    pub oracle_address: NetworkAddress,
     pub config: BootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
     pub tx_signer: &'a dyn SignTransaction,
@@ -130,6 +133,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
 ) -> Result<PoolConfig, BootstrapError> {
     let BootstrapInput {
+        oracle_address,
         config,
         wallet,
         tx_signer: wallet_sign,
@@ -171,7 +175,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // This variable represents the index `i` described above.
     let mut num_transactions_left = 8;
 
-    let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
+    let wallet_pk_ergo_tree = oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -321,7 +325,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     info!("Creating and signing minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     debug!("inputs for oracle tokens mint: {:?}", inputs);
-    let oracle_tokens_pk_ergo_tree = config.oracle_address.address().script()?;
+    let oracle_tokens_pk_ergo_tree = oracle_address.address().script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -654,7 +658,7 @@ pub(crate) mod tests {
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::{AddressEncoder, NetworkPrefix},
+            address::{AddressEncoder, NetworkAddress, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
             token::TokenId,
         },
@@ -709,15 +713,12 @@ pub(crate) mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
-        let default_bootstrap_config = BootstrapConfig::default();
-        let bootstrap_config = BootstrapConfig {
-            oracle_address: address,
-            ..default_bootstrap_config
-        };
+        let bootstrap_config = BootstrapConfig::default();
 
         let height = ctx.pre_header.height;
         let submit_tx = SubmitTxMock::default();
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
+            oracle_address: address,
             config: bootstrap_config.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

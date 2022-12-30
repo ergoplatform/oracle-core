@@ -566,18 +566,9 @@ mod test {
 
     #[test]
     fn test_prepare_update_transaction() {
-        let old_config: OracleConfig = serde_yaml::from_str(
+        let old_pool_config: PoolConfig = serde_yaml::from_str(
             r#"
 ---
-node_ip: 10.94.77.47
-node_port: 9052
-node_api_key: hello
-base_fee: 1100000
-log_level: ~
-core_api_port: 9010
-oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW
-data_point_source: NanoErgXau
-data_point_source_custom_script: ~
 oracle_contract_parameters:
   ergo_tree_bytes: 100a040004000580dac409040004000e20193ad1f35c7dc8ac7e27dee7c2bc15e11fa9df24b2984c31e7a3a423e25c17e80402040204020402d804d601b2a5e4e3000400d602db63087201d603db6308a7d604e4c6a70407ea02d1ededed93b27202730000b2720373010093c27201c2a7e6c67201040792c172017302eb02cd7204d1ededededed938cb2db6308b2a4730300730400017305938cb27202730600018cb2720373070001918cb27202730800028cb272037309000293e4c672010407720492c17201c1a7efe6c672010561
   pool_nft_index: 5
@@ -620,6 +611,21 @@ token_ids:
 rescan_height: 141887
 "#).unwrap();
 
+        let old_oracle_config: OracleConfig = serde_yaml::from_str(
+            r#"
+node_ip: 10.94.77.47
+node_port: 9052
+node_api_key: hello
+base_fee: 1100000
+log_level: ~
+core_api_port: 9010
+oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW
+data_point_source: NanoErgXau
+data_point_source_custom_script: ~
+        "#,
+        )
+        .unwrap();
+
         let ctx = force_any_val::<ErgoStateContext>();
         let height = ctx.pre_header.height;
         let secret = force_any_val::<DlogProverInput>();
@@ -627,9 +633,9 @@ rescan_height: 141887
             NetworkPrefix::Testnet,
             &Address::P2Pk(secret.public_image()),
         );
-        let old_config = PoolConfig {
+        let old_oracle_config = OracleConfig {
             oracle_address: network_address.clone(),
-            ..old_config
+            ..old_oracle_config
         };
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = network_address.address().script().unwrap();
@@ -698,8 +704,9 @@ rescan_height: 141887
             height,
         };
 
-        let prepare = PrepareUpdate::new(prepare_update_input, &old_config).unwrap();
-        let new_config = prepare.execute(state).unwrap();
-        assert!(new_config.token_ids != old_config.token_ids);
+        let prepare =
+            PrepareUpdate::new(prepare_update_input, &old_pool_config, &old_oracle_config).unwrap();
+        let new_pool_config = prepare.execute(state).unwrap();
+        assert!(new_pool_config.token_ids != old_pool_config.token_ids);
     }
 }

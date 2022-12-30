@@ -59,7 +59,6 @@ use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use node_interface::new_node_interface;
-use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
@@ -195,15 +194,12 @@ enum Command {
 
     /// Print base 64 encodings of the blake2b hash of ergo-tree bytes of each contract
     PrintContractHashes,
-
-    /// Print the current config file with zeroed sensitive/private fields.
-    /// Intended to be shared with pool operators.
-    PrintSafeConfig,
 }
 
 fn main() {
     let args = Args::parse();
     debug!("Args: {:?}", args);
+    // TODO: extract into a function?
     oracle_config::ORACLE_CONFIG_FILE_PATH
         .set(
             args.oracle_config_file
@@ -219,14 +215,16 @@ fn main() {
 
     if MAYBE_POOL_CONFIG.is_err() {
         // TODO: in case of IO error try to migrate old config file to new format
+        // TOOD: remove pool paramters from oracle config file
     }
 
+    // TODO: extract into a function?
     if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {
         let config = OracleConfig::default();
-
-        let s = serde_yaml::to_string(&config).unwrap();
-        let mut file = std::fs::File::create(&config_file_name).unwrap();
-        file.write_all(s.as_bytes()).unwrap();
+        let yaml_str = serde_yaml::to_string(&config).unwrap();
+        let file_path = &&oracle_config::ORACLE_CONFIG_FILE_PATH.get().unwrap();
+        let mut file = std::fs::File::create(file_path).unwrap();
+        file.write_all(yaml_str.as_bytes()).unwrap();
         println!("Error: oracle_config.yaml not found. Default config file is generated.");
         println!("Please, set the required parameters and run again");
         return;
@@ -271,7 +269,6 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
-        Command::PrintSafeConfig => cli_commands::print_conf::print_safe_config(&ORACLE_CONFIG),
         oracle_command => handle_oracle_command(oracle_command, &mut tokio_runtime),
     }
 }
@@ -383,7 +380,6 @@ fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::R
             }
         }
         Command::Bootstrap { .. } | Command::PrintContractHashes => unreachable!(),
-        Command::PrintSafeConfig => unreachable!(),
     }
 }
 
