@@ -30,7 +30,9 @@ pub struct OracleConfig {
 
 impl OracleConfig {
     fn load() -> Result<Self, OracleConfigFileError> {
-        let config_file_path = ORACLE_CONFIG_FILE_PATH.get().unwrap();
+        let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
+            OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())
+        })?;
         let config_str: &str = &std::fs::read_to_string(config_file_path)
             .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
         serde_yaml::from_str(config_str)
