@@ -78,7 +78,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
-        oracle_address: oracle_config.oracle_address,
+        oracle_address: oracle_config.oracle_address.clone(),
         config,
         wallet: &node as &dyn WalletDataSource,
         tx_signer: &node as &dyn SignTransaction,
