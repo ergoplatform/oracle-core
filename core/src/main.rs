@@ -217,26 +217,10 @@ fn main() {
     if !Path::new(&POOL_CONFIG_FILE_PATH.get().unwrap()).exists()
         && Path::new(&ORACLE_CONFIG_FILE_PATH.get().unwrap()).exists()
     {
-        // TODO: extract to a function
-        log::info!("pool_config.yaml not found, using oracle_config.yaml for migration");
-        #[allow(unused_must_use)] // fail silently if migration failed.
-        {
-            let oracle_file_path = &ORACLE_CONFIG_FILE_PATH.get().unwrap();
-            std::fs::read_to_string(oracle_file_path).map(|oracle_config_str| {
-                PoolConfig::load_from_str(&oracle_config_str).map(|pool_config| {
-                    OracleConfig::load().map(|oracle_config| {
-                        pool_config.save().map(|_| {
-                            log::info!(
-                                "saved pool config to {}",
-                                POOL_CONFIG_FILE_PATH.get().unwrap()
-                            );
-                            oracle_config.save().unwrap();
-                            log::info!("saved new oracle config to {}", oracle_file_path);
-                        })
-                    })
-                })
-            });
-        }
+        log::info!(
+            "pool_config.yaml not found, using oracle_config.yaml for migration to split config"
+        );
+        migrate_to_split_config();
     }
 
     if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {
@@ -471,4 +455,23 @@ fn log_on_launch() {
         // log::info!("Token ids: {:?}", config.token_ids);
         log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
+}
+
+#[allow(unused_must_use)]
+fn migrate_to_split_config() {
+    let oracle_file_path = &ORACLE_CONFIG_FILE_PATH.get().unwrap();
+    std::fs::read_to_string(oracle_file_path).map(|oracle_config_str| {
+        PoolConfig::load_from_str(&oracle_config_str).map(|pool_config| {
+            OracleConfig::load().map(|oracle_config| {
+                pool_config.save().map(|_| {
+                    log::info!(
+                        "saved new pool config to {}",
+                        POOL_CONFIG_FILE_PATH.get().unwrap()
+                    );
+                    oracle_config.save().unwrap();
+                    log::info!("saved new oracle config to {}", oracle_file_path);
+                })
+            })
+        })
+    });
 }
