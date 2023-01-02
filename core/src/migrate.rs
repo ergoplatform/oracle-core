@@ -13,35 +13,32 @@ pub fn migrate_to_split_config() -> Result<(), anyhow::Error> {
             e
         )
     })?;
-    let pool_config = PoolConfig::load_from_str(&oracle_config_str).map_err(|e| {
-        anyhow!(
-            "Failed to parse pool config file at path {:?}: {}",
-            oracle_file_path,
-            e
-        )
-    })?;
+    // if the pool config cannot be loaded it means
+    // we might have a new oracle config without a bootstrapped pool
+    // in this case we exit silently and skip the migration
+    if let Ok(pool_config) = PoolConfig::load_from_str(&oracle_config_str) {
+        let oracle_config = OracleConfig::load().map_err(|e| {
+            anyhow!(
+                "Failed to parse oracle config file at path {:?}: {}",
+                oracle_file_path,
+                e
+            )
+        })?;
+        pool_config.save().map_err(|e| {
+            anyhow!(
+                "Failed to save pool config file at path {:?}: {}",
+                POOL_CONFIG_FILE_PATH,
+                e
+            )
+        })?;
 
-    let oracle_config = OracleConfig::load().map_err(|e| {
-        anyhow!(
-            "Failed to parse oracle config file at path {:?}: {}",
-            oracle_file_path,
-            e
-        )
-    })?;
-    pool_config.save().map_err(|e| {
-        anyhow!(
-            "Failed to save pool config file at path {:?}: {}",
-            POOL_CONFIG_FILE_PATH,
-            e
-        )
-    })?;
-
-    oracle_config.save().map_err(|e| {
-        anyhow!(
-            "Failed to save(overwrite) oracle config file at path {:?}: {}",
-            oracle_file_path,
-            e
-        )
-    })?;
+        oracle_config.save().map_err(|e| {
+            anyhow!(
+                "Failed to save(overwrite) oracle config file at path {:?}: {}",
+                oracle_file_path,
+                e
+            )
+        })?;
+    };
     Ok(())
 }
