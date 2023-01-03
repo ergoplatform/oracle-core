@@ -86,19 +86,6 @@ use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
 use crate::oracle_config::ORACLE_CONFIG_OPT;
 use crate::pool_config::POOL_CONFIG_FILE_PATH;
 
-/// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
-pub type P2PKAddress = String;
-/// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
-pub type P2SAddress = String;
-/// The smallest unit of the Erg currency.
-pub type NanoErg = u64;
-/// A block height of the chain.
-pub type BlockHeight = u64;
-/// Duration in number of blocks.
-pub type BlockDuration = u64;
-/// The epoch counter
-pub type EpochID = u32;
-
 const APP_VERSION: &str = concat!(
     "v",
     env!("CARGO_PKG_VERSION"),
