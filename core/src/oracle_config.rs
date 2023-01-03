@@ -93,9 +93,9 @@ impl Default for OracleConfig {
 pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
-    pub static ref MAYBE_ORACLE_CONFIG: Result<OracleConfig, OracleConfigFileError> =
+    pub static ref ORACLE_CONFIG_OPT: Result<OracleConfig, OracleConfigFileError> =
         OracleConfig::load();
-    pub static ref BASE_FEE: BoxValue = MAYBE_ORACLE_CONFIG
+    pub static ref BASE_FEE: BoxValue = ORACLE_CONFIG_OPT
         .as_ref()
         .map(|c| BoxValue::try_from(c.base_fee).unwrap())
         .unwrap_or_else(|_| SUGGESTED_TX_FEE());

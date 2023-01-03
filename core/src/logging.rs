@@ -11,10 +11,10 @@ use log4rs::config::Logger;
 use log4rs::config::Root;
 use log4rs::Config;
 
-use crate::oracle_config::MAYBE_ORACLE_CONFIG;
+use crate::oracle_config::ORACLE_CONFIG_OPT;
 
 fn load_log_level() -> Option<LevelFilter> {
-    MAYBE_ORACLE_CONFIG.clone().ok()?.log_level
+    ORACLE_CONFIG_OPT.clone().ok()?.log_level
 }
 
 fn get_level_filter() -> LevelFilter {

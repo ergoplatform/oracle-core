@@ -83,8 +83,8 @@ use crate::migrate::migrate_to_split_config;
 use crate::oracle_config::OracleConfig;
 use crate::oracle_config::OracleConfigFileError;
 use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
-use crate::oracle_config::MAYBE_ORACLE_CONFIG;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
+use crate::oracle_config::ORACLE_CONFIG_OPT;
 use crate::pool_config::POOL_CONFIG_FILE_PATH;
 
 /// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
@@ -226,7 +226,7 @@ fn main() {
         }
     }
 
-    if let Err(OracleConfigFileError::IoError(_)) = MAYBE_ORACLE_CONFIG.clone() {
+    if let Err(OracleConfigFileError::IoError(_)) = ORACLE_CONFIG_OPT.clone() {
         OracleConfig::write_default_config_file();
         println!("Error: oracle_config.yaml not found. Default config file is generated.");
         println!("Please, set the required parameters and run again");
@@ -454,7 +454,7 @@ fn get_change_address_from_node() -> Result<NetworkAddress, anyhow::Error> {
 
 fn log_on_launch() {
     log::info!("{}", APP_VERSION);
-    if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
+    if let Ok(config) = ORACLE_CONFIG_OPT.clone() {
         // log::info!("Token ids: {:?}", config.token_ids);
         log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
