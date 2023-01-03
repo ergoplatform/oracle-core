@@ -4,7 +4,7 @@ use crate::oracle_config::OracleConfig;
 use crate::pool_config::PoolConfig;
 use anyhow::anyhow;
 
-pub fn migrate_to_split_config(
+pub fn try_migrate_to_split_config(
     oracle_config_path: &Path,
     pool_config_path: &Path,
 ) -> Result<(), anyhow::Error> {
@@ -19,6 +19,9 @@ pub fn migrate_to_split_config(
     // we might have a new oracle config without a bootstrapped pool
     // in this case we exit silently and skip the migration
     if let Ok(pool_config) = PoolConfig::load_from_str(&oracle_config_str) {
+        println!(
+            "pool_config.yaml not found, using oracle_config.yaml for migration to split config"
+        );
         let oracle_config = OracleConfig::load_from_str(&oracle_config_str).map_err(|e| {
             anyhow!(
                 "Failed to parse oracle config file at path {:?}: {}",

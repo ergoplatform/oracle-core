@@ -79,7 +79,7 @@ use wallet::WalletData;
 
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
-use crate::migrate::migrate_to_split_config;
+use crate::migrate::try_migrate_to_split_config;
 use crate::oracle_config::OracleConfig;
 use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
@@ -205,10 +205,7 @@ fn main() {
     let oracle_config_path = Path::new(ORACLE_CONFIG_FILE_PATH.get().unwrap());
 
     if !pool_config_path.exists() && oracle_config_path.exists() {
-        println!(
-            "pool_config.yaml not found, using oracle_config.yaml for migration to split config"
-        );
-        if let Err(e) = migrate_to_split_config(oracle_config_path, pool_config_path) {
+        if let Err(e) = try_migrate_to_split_config(oracle_config_path, pool_config_path) {
             eprintln!("Failed to migrate to split config: {}", e);
         }
     }
