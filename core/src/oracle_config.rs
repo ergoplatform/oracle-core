@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, io::Write};
+use std::{convert::TryFrom, io::Write, path::Path};
 
 use crate::datapoint_source::{DataPointSource, ExternalScript};
 use ergo_lib::{
@@ -26,30 +26,30 @@ pub struct OracleConfig {
 }
 
 impl OracleConfig {
-    pub fn write_default_config_file() {
+    pub fn write_default_config_file(path: &Path) {
         let config = OracleConfig::default();
         let yaml_str = serde_yaml::to_string(&config).unwrap();
-        let file_path = ORACLE_CONFIG_FILE_PATH.get().unwrap();
-        let mut file = std::fs::File::create(file_path).unwrap();
+        let mut file = std::fs::File::create(path).unwrap();
         file.write_all(yaml_str.as_bytes()).unwrap();
     }
 
-    pub fn load() -> Result<Self, OracleConfigFileError> {
+    fn load() -> Result<Self, OracleConfigFileError> {
         let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
             OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())
         })?;
         let config_str: &str = &std::fs::read_to_string(config_file_path)
             .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
+        Self::load_from_str(config_str)
+    }
+
+    pub fn load_from_str(config_str: &str) -> Result<Self, OracleConfigFileError> {
         serde_yaml::from_str(config_str)
             .map_err(|e| OracleConfigFileError::ParseError(e.to_string()))
     }
 
-    pub fn save(&self) -> Result<(), OracleConfigFileError> {
-        let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
-            OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())
-        })?;
+    pub fn save(&self, path: &Path) -> Result<(), OracleConfigFileError> {
         let yaml_str = serde_yaml::to_string(self).unwrap();
-        let mut file = std::fs::File::create(config_file_path).unwrap();
+        let mut file = std::fs::File::create(path).unwrap();
         file.write_all(yaml_str.as_bytes()).unwrap();
         Ok(())
     }

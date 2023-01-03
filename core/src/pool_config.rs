@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::anyhow;
 use derive_more::From;
 use ergo_lib::ergo_chain_types::Digest32;
@@ -160,12 +162,9 @@ impl PoolConfig {
         Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
     }
 
-    pub fn save(&self) -> Result<(), anyhow::Error> {
-        let config_file_path = POOL_CONFIG_FILE_PATH
-            .get()
-            .ok_or_else(|| anyhow!("Pool config file path not set"))?;
+    pub fn save(&self, path: &Path) -> Result<(), anyhow::Error> {
         let yaml_str = serde_yaml::to_string(self).unwrap();
-        std::fs::write(config_file_path, yaml_str)?;
+        std::fs::write(path, yaml_str)?;
         Ok(())
     }
 

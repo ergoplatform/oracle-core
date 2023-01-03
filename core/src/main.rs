@@ -65,6 +65,7 @@ use pool_commands::build_action;
 use pool_commands::publish_datapoint::PublishDatapointActionError::DataPointSource;
 use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
+use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
 use state::process;
 use state::PoolState;
@@ -80,7 +81,6 @@ use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
 use crate::migrate::migrate_to_split_config;
 use crate::oracle_config::OracleConfig;
-use crate::oracle_config::OracleConfigFileError;
 use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
 use crate::oracle_config::ORACLE_CONFIG_OPT;
@@ -210,23 +210,24 @@ fn main() {
     POOL_CONFIG_FILE_PATH
         .set(
             args.pool_config_file
-                .unwrap_or_else(|| pool_config::DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
+                .unwrap_or_else(|| DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
         )
         .unwrap();
 
-    if !Path::new(&POOL_CONFIG_FILE_PATH.get().unwrap()).exists()
-        && Path::new(&ORACLE_CONFIG_FILE_PATH.get().unwrap()).exists()
-    {
+    let pool_config_path = Path::new(POOL_CONFIG_FILE_PATH.get().unwrap());
+    let oracle_config_path = Path::new(ORACLE_CONFIG_FILE_PATH.get().unwrap());
+
+    if !pool_config_path.exists() && oracle_config_path.exists() {
         println!(
             "pool_config.yaml not found, using oracle_config.yaml for migration to split config"
         );
-        if let Err(e) = migrate_to_split_config() {
+        if let Err(e) = migrate_to_split_config(oracle_config_path, pool_config_path) {
             eprintln!("Failed to migrate to split config: {}", e);
         }
     }
 
-    if let Err(OracleConfigFileError::IoError(_)) = ORACLE_CONFIG_OPT.clone() {
-        OracleConfig::write_default_config_file();
+    if !oracle_config_path.exists() {
+        OracleConfig::write_default_config_file(oracle_config_path);
         println!("Error: oracle_config.yaml not found. Default config file is generated.");
         println!("Please, set the required parameters and run again");
         return;
