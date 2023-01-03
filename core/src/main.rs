@@ -53,7 +53,6 @@ use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
-use log::debug;
 use log::error;
 use log::LevelFilter;
 use node_interface::assert_wallet_unlocked;
@@ -201,7 +200,7 @@ enum Command {
 
 fn main() {
     let args = Args::parse();
-    debug!("Args: {:?}", args);
+
     ORACLE_CONFIG_FILE_PATH
         .set(
             args.oracle_config_file
@@ -218,11 +217,11 @@ fn main() {
     if !Path::new(&POOL_CONFIG_FILE_PATH.get().unwrap()).exists()
         && Path::new(&ORACLE_CONFIG_FILE_PATH.get().unwrap()).exists()
     {
-        log::info!(
+        println!(
             "pool_config.yaml not found, using oracle_config.yaml for migration to split config"
         );
         if let Err(e) = migrate_to_split_config() {
-            log::error!("Failed to migrate to split config: {}", e);
+            eprintln!("Failed to migrate to split config: {}", e);
         }
     }
 
@@ -238,13 +237,19 @@ fn main() {
     } else {
         None
     };
-
-    let data_dir_path = if let Some(data_dir) = args.data_dir {
+    let data_dir_path = if let Some(ref data_dir) = args.data_dir {
         Path::new(&data_dir).to_path_buf()
     } else {
         env::current_dir().unwrap()
     };
-    logging::setup_log(cmdline_log_level, &data_dir_path);
+
+    let config_log_level = ORACLE_CONFIG_OPT
+        .clone()
+        .map(|c| c.log_level)
+        .ok()
+        .flatten();
+    logging::setup_log(cmdline_log_level, config_log_level, &data_dir_path);
+
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
     let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
