@@ -4,7 +4,7 @@ use crate::oracle_config::OracleConfig;
 use crate::pool_config::PoolConfig;
 use anyhow::anyhow;
 
-pub fn try_migrate_to_split_config(
+pub fn check_migration_to_split_config(
     oracle_config_path: &Path,
     pool_config_path: &Path,
 ) -> Result<(), anyhow::Error> {

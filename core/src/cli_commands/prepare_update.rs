@@ -126,7 +126,7 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
     let s = serde_yaml::to_string(&config)?;
     let mut file = std::fs::File::create("pool_config_updated.yaml")?;
     file.write_all(s.as_bytes())?;
-    info!("Updated oracle configuration file pool_config_updated.yaml");
+    info!("Updated pool configuration file pool_config_updated.yaml");
     info!(
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree

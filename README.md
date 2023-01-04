@@ -28,6 +28,19 @@ cargo install --path core
 If you want to run it as systemd daemon check out [this](https://github.com/ergoplatform/oracle-core#how-to-run-as-systemd-daemon) section.
 Run it with `oracle-core --help` or `oracle-core <SUBCOMMAND> --help` to see the available commands and their options.
 
+## Setup
+
+Generate an oracle config file from the default template with:
+
+```console
+oracle-core generate-oracle-config
+```
+
+and set the required parameters:
+
+- `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
+- `node_ip`, `node_port`, `node_api_key` - node connection parameters;
+
 ## Bootstrapping a new oracle pool
 
 To bootstrap a new oracle pool:
@@ -48,28 +61,24 @@ to generate an example of the bootstrap config file.
 oracle-core bootstrap bootstrap.yaml
 ```
 
-to mint tokens and create pool, refresh, update boxes. The `oracle_config.yaml` file will be generated. It contains the configuration needed to run this pool;
+to mint tokens and create pool, refresh, update boxes. The `pool_config.yaml` file will be generated. It contains the configuration needed to run this pool;
 
 - Run an oracle with
 
 ``` console
-oracle-core -c oracle_config.yaml run
+oracle-core run
 ```
 
 Bootstrap parameters available to edit:
 
-- `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
-- `node_ip`, `node_port`, `node_api_key` - node connection parameters;
 - `[token]:name`, `description` - token names and descriptions that will be used to mint tokens;
 - `[token]:quantity` - number of tokens to mint;
 - `data_point_source` - can be one of the following: NanoErgUsd, NanoErgXau, NanoErgAda;
-- `data_point_source_custom_script` - path to script that will be called to fetch a new datapoint (if set `data_point_source` is ignored);
 - `min_data_points` - minimal number of posted datapoint boxes needed to update the pool box (consensus);
 - `max_deviation_percent` - a cut off for the lowest and highest posted datapoints(i.e. datapoints deviated more than this will be filtered out and not take part in the refresh of the pool box);
 - `epoch_length` - minimal number of blocks between refresh(pool box) actions;
 - `min_votes` - minimal number of posted ballot boxes voting for a change to the pool box contracts;
 - `min_storage_rent` - box value in nanoERG used in oracle and ballot boxes;
-- `base_fee` - a tx fee in nanoERG to use in transactions;
 
 Check out [How I bootstrapped an ERG/XAU pool on testnet](docs/how_to_bootstrap.md) report for an example.
 
@@ -77,15 +86,11 @@ Check out [How I bootstrapped an ERG/XAU pool on testnet](docs/how_to_bootstrap.
 
 To invite a new oracle the person that bootstrapped the pool need to send one oracle token and one reward token. On bootstrap X oracle and reward tokens are sent to the `oracle_address`, where X is the total oracle token quantity minted on bootstrap.
 Use [scripts/send_new_oracle.sh](scripts/send_new_oracle.sh) to send one oracle, reward and ballot token.
-Besides the tokens the config file that you are running now should be sent as well. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
+Besides the tokens the pool config file that you are running now should be sent as well. Send `pool_config.yaml` to the new oracle.
 
 ## Joining a running pool
 
-To join the existing pool one oracle and one reward token must be received to the address which will be used as `oracle_address` in the config file of the oracle. The received `oracle_config.yaml` config file must have the following fields updated to your setup:
-
-- `oracle_address`;
-- `node_api_key`;
-- `node_ip`, `node_port` are set appropriately for your node;
+To join the existing pool one oracle and one reward token must be received to the address which will be used as `oracle_address` in the config file of the oracle. The received `pool_config.yaml` config file must placed accordingly.
 
 To run the oracle:
 
@@ -93,7 +98,7 @@ To run the oracle:
 - Run an oracle with
 
 ``` console
-oracle-core -c oracle_config.yaml run
+oracle-core run
 ```
 
 ## Extract reward tokens
@@ -120,7 +125,7 @@ oracle-core transfer-oracle-token <ADDRESS>
 ```
 
 Ensure the new address has enough coins for tx fees to run in a pool.
-As with inviting a new oracle, the config file that you are running now should be sent as well. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
+As with inviting a new oracle, the pool config file that you are running now should be sent as well. Send `pool_config.yaml` to the new operator.
 
 ## Updating the contracts/tokens
 
@@ -141,7 +146,7 @@ Run:
 oracle-core prepare-update <YAML file>
 ```
 
-This will generate `oracle_config_updated.yaml` config file which should be used in `update-pool` command.
+This will generate `pool_config_updated.yaml` config file which should be used in `update-pool` command.
 The output shows the new pool box contract hash and reward tokens amounts for the subsequent dozen epochs. To be used in the `vote-update-pool` command run by the oracles on the next step.
 
 ### Vote for contract update with `vote-update-pool` command
@@ -165,7 +170,7 @@ Keep in mind the REWARD_TOKEN_AMOUNT depends on when(in which epoch) the final `
 
 ### Update the pool box contract with `update-pool` command
 
-Make sure the `oracle_config_updated.yaml` config file generated during the `prepare-update` command is in the same folder as the oracle-core binary.
+Make sure the `pool_config_updated.yaml` config file generated during the `prepare-update` command is in the same folder as the oracle-core binary.
 Run
 
 ```console
@@ -185,9 +190,8 @@ Where:
   <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 
 This will submit an update tx.
-After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle).
-Distribute the new oracle config file to all the oracles. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
-Be sure they delete `scanIds.json` before restart.
+After the update tx is confirmed, remove `scanIds.json` and use `pool_config_updated.yaml` to run the oracle (i.e., rename it to `pool_config.yaml` and restart the oracle).
+Distribute the `pool_config.yaml` file to all the oracles. Be sure they delete `scanIds.json` before restart.
 
 ## How to run as systemd daemon
 

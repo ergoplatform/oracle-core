@@ -79,7 +79,7 @@ use wallet::WalletData;
 
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
-use crate::migrate::try_migrate_to_split_config;
+use crate::migrate::check_migration_to_split_config;
 use crate::oracle_config::OracleConfig;
 use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
@@ -116,6 +116,8 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Generate oracle_config.yaml with default settings.
+    GenerateOracleConfig,
     /// Bootstrap a new oracle-pool or generate a bootstrap config template file using default
     /// contract scripts and parameters.
     Bootstrap {
@@ -205,15 +207,20 @@ fn main() {
     let oracle_config_path = Path::new(ORACLE_CONFIG_FILE_PATH.get().unwrap());
 
     if !pool_config_path.exists() && oracle_config_path.exists() {
-        if let Err(e) = try_migrate_to_split_config(oracle_config_path, pool_config_path) {
+        if let Err(e) = check_migration_to_split_config(oracle_config_path, pool_config_path) {
             eprintln!("Failed to migrate to split config: {}", e);
         }
     }
 
     if !oracle_config_path.exists() {
         OracleConfig::write_default_config_file(oracle_config_path);
-        println!("Error: oracle_config.yaml not found. Default config file is generated.");
-        println!("Please, set the required parameters and run again");
+        println!(
+            "{} not found. Default config file is generated.",
+            oracle_config_path.display()
+        );
+        println!(
+            "Please, set the required parameters(node credentials, oracle_address) and run again"
+        );
         return;
     }
 
@@ -241,6 +248,15 @@ fn main() {
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
+        Command::GenerateOracleConfig => {
+            if !oracle_config_path.exists() {
+                OracleConfig::write_default_config_file(oracle_config_path);
+                println!("Default oracle_config.yaml file is generated.");
+                println!("Please, set the required parameters (node credentials, oracle_address)");
+            } else {
+                println!("oracle_config.yaml file already exists. Please, remove it and run again");
+            }
+        }
         Command::Bootstrap {
             yaml_config_name,
             generate_config_template,
@@ -266,7 +282,7 @@ fn main() {
     }
 }
 
-/// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
+/// Handle all non-bootstrap commands
 fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
     log_on_launch();
     assert_wallet_unlocked(&new_node_interface());
@@ -372,7 +388,9 @@ fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::R
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
-        Command::Bootstrap { .. } | Command::PrintContractHashes => unreachable!(),
+        Command::Bootstrap { .. }
+        | Command::PrintContractHashes
+        | Command::GenerateOracleConfig => unreachable!(),
     }
 }
 
