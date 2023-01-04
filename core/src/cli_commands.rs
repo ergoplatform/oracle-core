@@ -3,7 +3,6 @@ use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 pub mod bootstrap;
 pub mod extract_reward_tokens;
 pub mod prepare_update;
-pub mod print_conf;
 pub mod print_reward_tokens;
 pub mod transfer_oracle_token;
 pub mod update_pool;

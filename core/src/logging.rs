@@ -11,17 +11,11 @@ use log4rs::config::Logger;
 use log4rs::config::Root;
 use log4rs::Config;
 
-use crate::oracle_config::MAYBE_ORACLE_CONFIG;
-
-fn load_log_level() -> Option<LevelFilter> {
-    MAYBE_ORACLE_CONFIG.clone().ok()?.log_level
-}
-
-fn get_level_filter() -> LevelFilter {
-    load_log_level().unwrap_or(LevelFilter::Info)
-}
-
-pub fn setup_log(cmdline_log_level: Option<LevelFilter>, data_dir: &Path) {
+pub fn setup_log(
+    cmdline_log_level: Option<LevelFilter>,
+    config_log_level: Option<LevelFilter>,
+    data_dir: &Path,
+) {
     let stdout = ConsoleAppender::builder().build();
 
     // via https://stackoverflow.com/questions/56345288/how-do-i-use-log4rs-rollingfileappender-to-incorporate-rolling-logging#
@@ -36,14 +30,15 @@ pub fn setup_log(cmdline_log_level: Option<LevelFilter>, data_dir: &Path) {
     let compound_policy =
         CompoundPolicy::new(Box::new(size_trigger), Box::new(fixed_window_roller));
 
+    let config_log_level = config_log_level.unwrap_or(LevelFilter::Info);
     let log_level = if let Some(cmdline_log_level) = cmdline_log_level {
-        if cmdline_log_level > get_level_filter() {
+        if cmdline_log_level > config_log_level {
             cmdline_log_level
         } else {
-            get_level_filter()
+            config_log_level
         }
     } else {
-        get_level_filter()
+        config_log_level
     };
 
     // cmdline_log_level.unwrap_or_else(get_level_filter);

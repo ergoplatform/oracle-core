@@ -333,7 +333,6 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractInputs;
     use crate::contracts::refresh::RefreshContractParameters;
-    use crate::oracle_config::TokenIds;
     use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::StageError;
     use crate::pool_commands::test_utils::generate_token_ids;
@@ -341,6 +340,7 @@ mod tests {
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
     };
+    use crate::pool_config::TokenIds;
     use crate::spec_token::TokenIdKind;
 
     use super::*;

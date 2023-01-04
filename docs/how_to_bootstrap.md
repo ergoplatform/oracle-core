@@ -8,6 +8,17 @@ Let's say we have 5 operators. We want to keep consensus above 1/2, so it means 
 
 ## Step 1. Generate a bootstrap config template
 
+Generate an oracle config file from the default template with:
+
+```console
+oracle-core generate-oracle-config
+```
+
+and set the required parameters:
+
+- `oracle_address` to my node's wallet address (make sure you have coins).
+- `node_ip`, `node_port`, `node_api_key` - node connection parameters;
+
 Run
 
 ```console
@@ -20,11 +31,9 @@ I made the following changes:
 
 - Set the parameters described in [Plan pool parameters](#plan-pool-parameters)
 - Name the tokens in `tokens_to_mint` section.
-- Set your node credentials in `node_*` parameters.
 - Set data point source `data_point_source: NanoErgXau`
-- Set `oracle_address` to my node's wallet address (make sure you have coins).
 
-So in the end, it looked like - <https://gist.github.com/greenhat/2c6135462fba48773196ad45dd6c7404>
+So in the end, it looked like - <https://gist.github.com/greenhat/2c6135462fba48773196ad45dd6c7404> (old version, before oracle/pool split configs)
 
 ## Step 3. Run `bootstrap` command
 
@@ -34,7 +43,7 @@ Run
 oracle-core bootstrap bootstrap.yaml
 ```
 
-It submitted the txs to mint the tokens and make pool, refresh, update boxes. Besides that, it created `oracle_config.yaml` config file to run an oracle.
+It submitted the txs to mint the tokens and make pool, refresh, update boxes. Besides that, it created `pool_config.yaml` config file to run an oracle.
 
 ## Step 4. Invite other operators
 
@@ -50,17 +59,9 @@ oracle-core run
 
 And it posted the first data point.
 
-## Step 6. Send oracle config to the operators
+## Step 6. Send pool config to the operators
 
-I made an `oracle_config.yaml` template with
-
-```console
-oracle-core print-safe-config > template.yaml
-```
-
-and uploaded it to <https://gist.github.com/greenhat/9a0012de5daceac7fa8f6e16c8d11d0f>
-
-I asked the operators to set `node_ip`, `node_port`, `node_api_key`, `oracle_address` to their values and put the file as `oracle_config.yaml` in the same folder and start the oracle with
+Besides the tokens the pool config file that you are running now should be sent as well. Send `pool_config.yaml` to the operators and ask them to start the oracle with
 
 ```console
 oracle-core run

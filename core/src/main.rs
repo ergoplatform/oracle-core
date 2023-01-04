@@ -25,10 +25,12 @@ mod contracts;
 mod datapoint_source;
 mod default_parameters;
 mod logging;
+mod migrate;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
 mod pool_commands;
+mod pool_config;
 mod scans;
 mod serde;
 mod spec_token;
@@ -51,20 +53,20 @@ use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
-use log::debug;
 use log::error;
 use log::LevelFilter;
 use node_interface::assert_wallet_unlocked;
 use node_interface::current_block_height;
 use node_interface::get_wallet_status;
 use node_interface::new_node_interface;
-use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
 use pool_commands::publish_datapoint::PublishDatapointActionError::DataPointSource;
 use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
+use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
+use pool_config::POOL_CONFIG;
 use state::process;
 use state::PoolState;
 use std::convert::TryFrom;
@@ -77,20 +79,12 @@ use wallet::WalletData;
 
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
-use crate::oracle_config::MAYBE_ORACLE_CONFIG;
-
-/// A Base58 encoded String of a Ergo P2PK address. Using this type def until sigma-rust matures further with the actual Address type.
-pub type P2PKAddress = String;
-/// A Base58 encoded String of a Ergo P2S address. Using this type def until sigma-rust matures further with the actual Address type.
-pub type P2SAddress = String;
-/// The smallest unit of the Erg currency.
-pub type NanoErg = u64;
-/// A block height of the chain.
-pub type BlockHeight = u64;
-/// Duration in number of blocks.
-pub type BlockDuration = u64;
-/// The epoch counter
-pub type EpochID = u32;
+use crate::migrate::check_migration_to_split_config;
+use crate::oracle_config::OracleConfig;
+use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
+use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
+use crate::oracle_config::ORACLE_CONFIG_OPT;
+use crate::pool_config::POOL_CONFIG_FILE_PATH;
 
 const APP_VERSION: &str = concat!(
     "v",
@@ -109,9 +103,12 @@ struct Args {
     /// Increase the logging verbosity
     #[clap(short, long)]
     verbose: bool,
-    /// Set path of configuration file to use. Default is ./oracle_config.yaml
-    #[clap(short, long)]
-    config_file: Option<String>,
+    /// Set path of oracle configuration file to use. Default is ./oracle_config.yaml
+    #[clap(long)]
+    oracle_config_file: Option<String>,
+    /// Set path of pool configuration file to use. Default is ./pool_config.yaml
+    #[clap(long)]
+    pool_config_file: Option<String>,
     /// Set folder path for the data files (scanIDs.json, logs). Default is the current folder.
     #[clap(short, long)]
     data_dir: Option<String>,
@@ -119,6 +116,8 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Generate oracle_config.yaml with default settings.
+    GenerateOracleConfig,
     /// Bootstrap a new oracle-pool or generate a bootstrap config template file using default
     /// contract scripts and parameters.
     Bootstrap {
@@ -186,40 +185,78 @@ enum Command {
 
     /// Print base 64 encodings of the blake2b hash of ergo-tree bytes of each contract
     PrintContractHashes,
-
-    /// Print the current config file with zeroed sensitive/private fields.
-    /// Intended to be shared with pool operators.
-    PrintSafeConfig,
 }
 
 fn main() {
     let args = Args::parse();
-    debug!("Args: {:?}", args);
-    oracle_config::CONFIG_FILE_PATH
+
+    ORACLE_CONFIG_FILE_PATH
         .set(
-            args.config_file
-                .unwrap_or_else(|| oracle_config::DEFAULT_CONFIG_FILE_NAME.to_string()),
+            args.oracle_config_file
+                .unwrap_or_else(|| DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
         )
         .unwrap();
+    POOL_CONFIG_FILE_PATH
+        .set(
+            args.pool_config_file
+                .unwrap_or_else(|| DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
+        )
+        .unwrap();
+
+    let pool_config_path = Path::new(POOL_CONFIG_FILE_PATH.get().unwrap());
+    let oracle_config_path = Path::new(ORACLE_CONFIG_FILE_PATH.get().unwrap());
+
+    if !pool_config_path.exists() && oracle_config_path.exists() {
+        if let Err(e) = check_migration_to_split_config(oracle_config_path, pool_config_path) {
+            eprintln!("Failed to migrate to split config: {}", e);
+        }
+    }
+
+    if !oracle_config_path.exists() {
+        OracleConfig::write_default_config_file(oracle_config_path);
+        println!(
+            "{} not found. Default config file is generated.",
+            oracle_config_path.display()
+        );
+        println!(
+            "Please, set the required parameters(node credentials, oracle_address) and run again"
+        );
+        return;
+    }
 
     let cmdline_log_level = if args.verbose {
         Some(LevelFilter::Debug)
     } else {
         None
     };
-
-    let data_dir_path = if let Some(data_dir) = args.data_dir {
+    let data_dir_path = if let Some(ref data_dir) = args.data_dir {
         Path::new(&data_dir).to_path_buf()
     } else {
         env::current_dir().unwrap()
     };
-    logging::setup_log(cmdline_log_level, &data_dir_path);
+
+    let config_log_level = ORACLE_CONFIG_OPT
+        .clone()
+        .map(|c| c.log_level)
+        .ok()
+        .flatten();
+    logging::setup_log(cmdline_log_level, config_log_level, &data_dir_path);
+
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
     let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
+        Command::GenerateOracleConfig => {
+            if !oracle_config_path.exists() {
+                OracleConfig::write_default_config_file(oracle_config_path);
+                println!("Default oracle_config.yaml file is generated.");
+                println!("Please, set the required parameters (node credentials, oracle_address)");
+            } else {
+                println!("oracle_config.yaml file already exists. Please, remove it and run again");
+            }
+        }
         Command::Bootstrap {
             yaml_config_name,
             generate_config_template,
@@ -241,12 +278,11 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
-        Command::PrintSafeConfig => cli_commands::print_conf::print_safe_config(&ORACLE_CONFIG),
         oracle_command => handle_oracle_command(oracle_command, &mut tokio_runtime),
     }
 }
 
-/// Handle all non-bootstrap commands that require ORACLE_CONFIG/OraclePool
+/// Handle all non-bootstrap commands
 fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
     log_on_launch();
     assert_wallet_unlocked(&new_node_interface());
@@ -352,8 +388,9 @@ fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::R
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
-        Command::Bootstrap { .. } | Command::PrintContractHashes => unreachable!(),
-        Command::PrintSafeConfig => unreachable!(),
+        Command::Bootstrap { .. }
+        | Command::PrintContractHashes
+        | Command::GenerateOracleConfig => unreachable!(),
     }
 }
 
@@ -368,7 +405,7 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
             PoolState::NeedsBootstrap
         }
     };
-    let epoch_length = ORACLE_CONFIG
+    let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
@@ -425,8 +462,8 @@ fn get_change_address_from_node() -> Result<NetworkAddress, anyhow::Error> {
 
 fn log_on_launch() {
     log::info!("{}", APP_VERSION);
-    if let Ok(config) = MAYBE_ORACLE_CONFIG.clone() {
-        log::info!("Token ids: {:?}", config.token_ids);
+    if let Ok(config) = ORACLE_CONFIG_OPT.clone() {
+        // log::info!("Token ids: {:?}", config.token_ids);
         log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
 }

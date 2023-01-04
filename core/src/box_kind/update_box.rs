@@ -37,8 +37,7 @@ impl UpdateBoxWrapper {
             .ok_or(UpdateBoxError::NoTokens)?
             .get(0)
             .ok_or(UpdateBoxError::NoTokens)?
-            .token_id
-            .clone();
+            .token_id;
         if update_token_id != inputs.update_nft_token_id.token_id() {
             return Err(UpdateBoxError::IncorrectUpdateTokenId(update_token_id));
         }
@@ -63,7 +62,7 @@ impl UpdateBoxWrapper {
             .clone()
     }
     pub fn ballot_token_id(&self) -> TokenId {
-        self.contract.ballot_token_id().clone()
+        self.contract.ballot_token_id()
     }
     pub fn get_box(&self) -> &ErgoBox {
         &self.ergo_box
