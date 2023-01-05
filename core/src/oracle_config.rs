@@ -1,4 +1,8 @@
-use std::{convert::TryFrom, io::Write, path::Path};
+use std::{
+    convert::TryFrom,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use crate::datapoint_source::{DataPointSource, ExternalScript};
 use ergo_lib::{
@@ -90,7 +94,7 @@ impl Default for OracleConfig {
     }
 }
 
-pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
+pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref ORACLE_CONFIG_OPT: Result<OracleConfig, OracleConfigFileError> =

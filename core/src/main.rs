@@ -73,6 +73,8 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::env;
 use std::path::Path;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 use wallet::WalletData;
@@ -185,6 +187,11 @@ enum Command {
 
     /// Print base 64 encodings of the blake2b hash of ergo-tree bytes of each contract
     PrintContractHashes,
+
+    ImportPoolUpdate {
+        /// Name of the pool config file (.yaml) with new contract parameters
+        pool_config_file: String,
+    },
 }
 
 fn main() {
@@ -192,19 +199,27 @@ fn main() {
 
     ORACLE_CONFIG_FILE_PATH
         .set(
-            args.oracle_config_file
-                .unwrap_or_else(|| DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
+            PathBuf::from_str(
+                &args
+                    .oracle_config_file
+                    .unwrap_or_else(|| DEFAULT_ORACLE_CONFIG_FILE_NAME.to_string()),
+            )
+            .unwrap(),
         )
         .unwrap();
     POOL_CONFIG_FILE_PATH
         .set(
-            args.pool_config_file
-                .unwrap_or_else(|| DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
+            PathBuf::from_str(
+                &args
+                    .pool_config_file
+                    .unwrap_or_else(|| DEFAULT_POOL_CONFIG_FILE_NAME.to_string()),
+            )
+            .unwrap(),
         )
         .unwrap();
 
-    let pool_config_path = Path::new(POOL_CONFIG_FILE_PATH.get().unwrap());
-    let oracle_config_path = Path::new(ORACLE_CONFIG_FILE_PATH.get().unwrap());
+    let pool_config_path = POOL_CONFIG_FILE_PATH.get().unwrap();
+    let oracle_config_path = ORACLE_CONFIG_FILE_PATH.get().unwrap();
 
     if !pool_config_path.exists() && oracle_config_path.exists() {
         if let Err(e) = check_migration_to_split_config(oracle_config_path, pool_config_path) {
@@ -278,12 +293,12 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
-        oracle_command => handle_oracle_command(oracle_command, &mut tokio_runtime),
+        oracle_command => handle_pool_command(oracle_command, &mut tokio_runtime),
     }
 }
 
 /// Handle all non-bootstrap commands
-fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
+fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
     log_on_launch();
     assert_wallet_unlocked(&new_node_interface());
     register_and_save_scans().unwrap();
@@ -386,6 +401,21 @@ fn handle_oracle_command(command: Command, tokio_runtime: &mut tokio::runtime::R
             if let Err(e) = cli_commands::prepare_update::prepare_update(update_file) {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
+            }
+        }
+        Command::ImportPoolUpdate { pool_config_file } => {
+            if let Err(e) = cli_commands::import_pool_update::import_pool_update(
+                pool_config_file,
+                &POOL_CONFIG.token_ids.oracle_token_id,
+                POOL_CONFIG_FILE_PATH.get().unwrap(),
+                op.get_local_datapoint_box_source(),
+                scans::SCANS_DIR_PATH.get().unwrap(),
+            ) {
+                error!("Fatal import pool update error : {}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            } else {
+                log::info!("pool config update imported successfully. Please, restart the oracle");
+                std::process::exit(exitcode::OK);
             }
         }
         Command::Bootstrap { .. }
