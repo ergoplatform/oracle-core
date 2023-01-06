@@ -27,7 +27,7 @@ use crate::{
         make_collected_oracle_box_candidate, make_oracle_box_candidate, OracleBox, OracleBoxWrapper,
     },
     cli_commands::ergo_explorer_transaction_link,
-    node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
+    node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
     spec_token::SpecToken,
@@ -66,25 +66,24 @@ pub enum ExtractRewardTokensActionError {
 
 pub fn extract_reward_tokens(
     wallet: &dyn WalletDataSource,
+    tx_signer: &dyn SignTransaction,
+    tx_submit: &dyn SubmitTransaction,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
+    height: u32,
 ) -> Result<(), ExtractRewardTokensActionError> {
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
     let network_prefix = rewards_destination.network();
-
-    let change_address_str = get_wallet_status()?
-        .change_address
-        .ok_or(ExtractRewardTokensActionError::NoChangeAddressSetInNode)?;
-
-    let change_address =
-        AddressEncoder::new(network_prefix).parse_address_from_str(&change_address_str)?;
+    let change_address = wallet
+        .get_change_address()
+        .map_err(ExtractRewardTokensActionError::WalletData)?;
     let (unsigned_tx, num_reward_tokens) = build_extract_reward_tokens_tx(
         local_datapoint_box_source,
         wallet,
         rewards_destination.address(),
-        current_block_height()? as u32,
-        change_address,
+        height,
+        change_address.address(),
     )?;
 
     println!(
@@ -94,7 +93,8 @@ pub fn extract_reward_tokens(
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim() == "YES" {
-        let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
+        let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
+        let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
         println!(
             "Transaction made. Check status here: {}",
             ergo_explorer_transaction_link(tx_id_str, network_prefix)

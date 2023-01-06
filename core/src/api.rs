@@ -1,8 +1,8 @@
 use std::convert::From;
 use std::net::SocketAddr;
 
-use crate::node_interface::current_block_height;
-use crate::oracle_config::{get_core_api_port, get_node_ip, get_node_port, ORACLE_CONFIG};
+use crate::node_interface::node_api::NodeApi;
+use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
 use crate::oracle_state::LocalDatapointState::{Collected, Posted};
 use crate::oracle_state::{OraclePool, StageError};
 use crate::pool_config::POOL_CONFIG;
@@ -73,13 +73,6 @@ async fn pool_info() -> impl IntoResponse {
     }))
 }
 
-/// Basic information about node the oracle core is using
-async fn node_info() -> impl IntoResponse {
-    Json(json!({
-        "node_url": "http://".to_string() + &get_node_ip() + ":" + &get_node_port(),
-    }))
-}
-
 /// Status of the oracle pool
 async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
     let op = OraclePool::new().unwrap();
@@ -95,7 +88,12 @@ async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
 
 /// Block height of the Ergo blockchain
 async fn block_height() -> Result<impl IntoResponse, ApiError> {
-    let current_height = task::spawn_blocking(current_block_height).await.unwrap()?;
+    let current_height = task::spawn_blocking(move || {
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), ORACLE_CONFIG.node_url());
+        node_api.node.current_block_height()
+    })
+    .await
+    .unwrap()?;
     Ok(format!("{}", current_height))
 }
 
@@ -114,7 +112,6 @@ pub async fn start_rest_server(repost_receiver: Receiver<bool>) {
         .route("/oracleInfo", get(oracle_info))
         .route("/oracleStatus", get(oracle_status))
         .route("/poolInfo", get(pool_info))
-        .route("/nodeInfo", get(node_info))
         .route("/poolStatus", get(pool_status))
         .route("/blockHeight", get(block_height))
         .route(

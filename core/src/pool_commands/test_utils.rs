@@ -8,6 +8,7 @@ use ergo_lib::chain::transaction::TxId;
 use ergo_lib::chain::transaction::TxIoVec;
 use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergo_chain_types::EcPoint;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -37,7 +38,7 @@ use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
-use crate::node_interface::SignTransaction;
+use crate::node_interface::SignTransactionWithInputs;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::VoteBallotBoxesSource;
@@ -102,11 +103,16 @@ impl VoteBallotBoxesSource for BallotBoxesMock {
 #[derive(Clone)]
 pub(crate) struct WalletDataMock {
     pub unspent_boxes: Vec<ErgoBox>,
+    pub change_address: NetworkAddress,
 }
 
 impl WalletDataSource for WalletDataMock {
     fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, WalletDataError> {
         Ok(self.unspent_boxes.clone())
+    }
+
+    fn get_change_address(&self) -> Result<NetworkAddress, WalletDataError> {
+        Ok(self.change_address.clone())
     }
 }
 
@@ -264,7 +270,7 @@ pub struct LocalTxSigner<'a> {
     pub wallet: &'a Wallet,
 }
 
-impl<'a> SignTransaction for LocalTxSigner<'a> {
+impl<'a> SignTransactionWithInputs for LocalTxSigner<'a> {
     fn sign_transaction_with_inputs(
         &self,
         unsigned_tx: &UnsignedTransaction,

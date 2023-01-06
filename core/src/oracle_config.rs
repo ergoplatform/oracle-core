@@ -12,6 +12,7 @@ use ergo_lib::{
 };
 use log::LevelFilter;
 use once_cell::sync;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -65,6 +66,10 @@ impl OracleConfig {
             None
         }
     }
+
+    pub fn node_url(&self) -> &Url {
+        todo!()
+    }
 }
 
 #[derive(Clone, Debug, Error)]
@@ -108,14 +113,6 @@ lazy_static! {
 /// Returns "core_api_port" from the config file
 pub fn get_core_api_port() -> String {
     ORACLE_CONFIG.core_api_port.to_string()
-}
-
-pub fn get_node_ip() -> String {
-    ORACLE_CONFIG.node_ip.clone()
-}
-
-pub fn get_node_port() -> String {
-    ORACLE_CONFIG.node_port.to_string()
 }
 
 /// Returns the `node_api_key`
