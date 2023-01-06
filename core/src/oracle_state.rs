@@ -10,6 +10,7 @@ use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::node_interface::{current_block_height, get_wallet_status, rescan_from_height};
 use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_types::BlockHeight;
 use crate::scans::{
     register_ballot_box_scan, register_datapoint_scan, register_local_ballot_box_scan,
     register_local_oracle_datapoint_scan, register_pool_box_scan, register_refresh_box_scan,
@@ -163,14 +164,14 @@ pub struct LiveEpochState {
     pub pool_box_epoch_id: u32,
     pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
-    pub latest_pool_box_height: u32,
+    pub latest_pool_box_height: BlockHeight,
 }
 
 /// Last posted datapoint box info by the local oracle
 #[derive(Debug, Clone)]
 pub enum LocalDatapointState {
-    Collected { height: u32 },
-    Posted { epoch_id: u32, height: u32 },
+    Collected { height: BlockHeight },
+    Posted { epoch_id: u32, height: BlockHeight },
 }
 
 impl<'a> OraclePool<'a> {
@@ -277,10 +278,10 @@ impl<'a> OraclePool<'a> {
             .map(|local_data_point_box| match local_data_point_box {
                 OracleBoxWrapper::Posted(ref posted_box) => LocalDatapointState::Posted {
                     epoch_id: posted_box.epoch_counter(),
-                    height: local_data_point_box.get_box().creation_height,
+                    height: BlockHeight(local_data_point_box.get_box().creation_height),
                 },
                 OracleBoxWrapper::Collected(_) => LocalDatapointState::Collected {
-                    height: local_data_point_box.get_box().creation_height,
+                    height: BlockHeight(local_data_point_box.get_box().creation_height),
                 },
             });
 
@@ -289,7 +290,7 @@ impl<'a> OraclePool<'a> {
         let epoch_state = LiveEpochState {
             pool_box_epoch_id: epoch_id,
             latest_pool_datapoint,
-            latest_pool_box_height: pool_box.get_box().creation_height,
+            latest_pool_box_height: BlockHeight(pool_box.get_box().creation_height),
             local_datapoint_box_state,
         };
 
@@ -477,9 +478,9 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
     }
 
     loop {
-        let wallet_height = get_wallet_status()?.height;
+        let wallet_height = get_wallet_status()?.height as u32;
         let block_height = current_block_height()?;
-        if wallet_height == block_height {
+        if wallet_height == block_height.0 {
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -534,6 +535,6 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
     log::info!("Registering UTXO-Set Scans");
     save_scan_ids_locally(scans)?;
     log::info!("Triggering wallet rescan");
-    rescan_from_height(ORACLE_CONFIG.rescan_height)?;
+    rescan_from_height(ORACLE_CONFIG.rescan_height.0)?;
     Ok(())
 }

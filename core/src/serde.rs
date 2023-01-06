@@ -33,6 +33,7 @@ use crate::{
     },
     datapoint_source::PredefinedDataPointSource,
     oracle_config::{OracleConfig, OracleConfigError, TokenIds},
+    oracle_types::{BlockHeight, EpochLength},
 };
 
 /// Used to (de)serialize `OracleConfig` instance.
@@ -53,7 +54,7 @@ pub(crate) struct OracleConfigSerde {
     update_contract_parameters: UpdateContractParametersSerde,
     ballot_contract_parameters: BallotContractParametersSerde,
     token_ids: TokenIds,
-    rescan_height: u32,
+    rescan_height: BlockHeight,
 }
 
 #[derive(Debug, Error, From)]
@@ -408,7 +409,7 @@ struct RefreshContractParametersSerde {
     max_deviation_percent_index: usize,
     max_deviation_percent: i32,
     epoch_length_index: usize,
-    epoch_length: i32,
+    epoch_length: EpochLength,
 }
 
 impl From<RefreshContractParameters> for RefreshContractParametersSerde {

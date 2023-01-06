@@ -30,6 +30,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
+    oracle_types::BlockHeight,
     spec_token::SpecToken,
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -83,7 +84,7 @@ pub fn extract_reward_tokens(
         local_datapoint_box_source,
         wallet,
         rewards_destination.address(),
-        current_block_height()? as u32,
+        current_block_height()?,
         change_address,
     )?;
 
@@ -109,7 +110,7 @@ fn build_extract_reward_tokens_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     rewards_destination: Address,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<(UnsignedTransaction, u64), ExtractRewardTokensActionError> {
     let in_oracle_box = local_datapoint_box_source
@@ -153,7 +154,7 @@ fn build_extract_reward_tokens_tx(
 
         // Build box to hold extracted tokens
         let mut builder =
-            ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height);
+            ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height.0);
 
         let extracted_reward_tokens = Token {
             token_id: in_oracle_box.reward_token().token_id(),
@@ -179,7 +180,7 @@ fn build_extract_reward_tokens_tx(
         let mut tx_builder = TxBuilder::new(
             box_selection,
             vec![oracle_box_candidate, reward_box_candidate],
-            height,
+            height.0,
             *BASE_FEE,
             change_address,
         );
@@ -217,7 +218,7 @@ mod tests {
     #[test]
     fn test_extract_reward_tokens() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -235,7 +236,7 @@ mod tests {
                 1,
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
-                height - 9,
+                BlockHeight(height.0 - 9),
             ),
             &oracle_box_wrapper_inputs,
         )

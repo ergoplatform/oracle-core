@@ -3,6 +3,7 @@ use crate::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
     oracle_config::CastBallotBoxVoteParameters,
+    oracle_types::BlockHeight,
     spec_token::{BallotTokenId, SpecToken, TokenIdKind, UpdateTokenId},
 };
 use ergo_lib::{
@@ -265,21 +266,21 @@ impl BallotBox for VoteBallotBoxWrapper {
 pub fn make_local_ballot_box_candidate(
     contract: &BallotContract,
     ballot_token_owner: ProveDlog,
-    update_box_creation_height: u32,
+    update_box_creation_height: BlockHeight,
     ballot_token: SpecToken<BallotTokenId>,
     pool_box_address_hash: Digest32,
     reward_tokens: Token,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(
         NonMandatoryRegisterId::R4,
         (*ballot_token_owner.h).clone().into(),
     );
     builder.set_register_value(
         NonMandatoryRegisterId::R5,
-        (update_box_creation_height as i32).into(),
+        (update_box_creation_height.0 as i32).into(),
     );
     builder.set_register_value(NonMandatoryRegisterId::R6, pool_box_address_hash.into());
     builder.set_register_value(NonMandatoryRegisterId::R7, reward_tokens.token_id.into());

@@ -19,6 +19,7 @@ use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
 use crate::oracle_config::OracleConfig;
 use crate::oracle_config::BASE_FEE;
+use crate::oracle_types::BlockHeight;
 use crate::pool_commands::test_utils::init_log_tests;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
@@ -48,7 +49,7 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> Oracle
         ..BootstrapConfig::default()
     };
 
-    let height = ctx.pre_header.height;
+    let height = BlockHeight(ctx.pre_header.height);
     let mut submit_tx_mock = ChainSubmitTx {
         chain: chain.into(),
     };

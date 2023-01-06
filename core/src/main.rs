@@ -28,6 +28,7 @@ mod logging;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
+mod oracle_types;
 mod pool_commands;
 mod scans;
 mod serde;
@@ -61,6 +62,7 @@ use node_interface::new_node_interface;
 use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
+use oracle_types::BlockHeight;
 use pool_commands::build_action;
 use pool_commands::publish_datapoint::PublishDatapointActionError::DataPointSource;
 use pool_commands::refresh::RefreshActionError;
@@ -83,8 +85,6 @@ pub type P2PKAddress = String;
 pub type P2SAddress = String;
 /// The smallest unit of the Erg currency.
 pub type NanoErg = u64;
-/// A block height of the chain.
-pub type BlockHeight = u64;
 /// Duration in number of blocks.
 pub type BlockDuration = u64;
 /// The epoch counter
@@ -305,7 +305,7 @@ fn handle_oracle_command(command: Command) {
                 new_pool_box_address_hash_str,
                 reward_token_id_str,
                 reward_token_amount,
-                update_box_creation_height,
+                BlockHeight(update_box_creation_height),
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -341,7 +341,7 @@ fn handle_oracle_command(command: Command) {
 }
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
-    let height = current_block_height().context("Failed to get the current height")? as u32;
+    let height = current_block_height().context("Failed to get the current height")?;
     let wallet = WalletData::new();
     let network_change_address = get_change_address_from_node()?;
     let pool_state = match op.get_live_epoch_state() {
@@ -355,16 +355,11 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
-        .epoch_length() as u32;
+        .epoch_length();
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::info!("Height {height}. Building action for command: {:?}", cmd);
-        let build_action_res = build_action(
-            cmd,
-            op,
-            &wallet,
-            height as u32,
-            network_change_address.address(),
-        );
+        let build_action_res =
+            build_action(cmd, op, &wallet, height, network_change_address.address());
         if let Some(action) =
             log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {

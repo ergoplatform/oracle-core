@@ -134,7 +134,8 @@ fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
-        .epoch_length() as u32;
+        .epoch_length()
+        .0 as u32;
     let current_height: u32 = new_node_interface().current_block_height()? as u32;
     let op = OraclePool::new().unwrap();
     let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();

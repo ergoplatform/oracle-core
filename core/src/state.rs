@@ -1,6 +1,8 @@
 use crate::oracle_state::LiveEpochState;
 use crate::oracle_state::LocalDatapointState::Collected;
 use crate::oracle_state::LocalDatapointState::Posted;
+use crate::oracle_types::BlockHeight;
+use crate::oracle_types::EpochLength;
 use crate::pool_commands::PoolCommand;
 
 pub struct EpochState {
@@ -16,8 +18,8 @@ pub enum PoolState {
 
 pub fn process(
     pool_state: PoolState,
-    epoch_length: u32,
-    current_height: u32,
+    epoch_length: EpochLength,
+    current_height: BlockHeight,
 ) -> Option<PoolCommand> {
     let min_start_height = current_height - epoch_length;
     match pool_state {
@@ -35,7 +37,9 @@ pub fn process(
                         // publish datapoint after some blocks have passed after the pool box published
                         // to avoid some oracle box become stale on the next refresh
                         // (datapoint posted on the first block of the epoch go out of the epoch window too fast)
-                        if current_height > live_epoch.latest_pool_box_height + epoch_length / 2 {
+                        if current_height.0
+                            > live_epoch.latest_pool_box_height.0 + (epoch_length.0 as u32) / 2
+                        {
                             Some(PoolCommand::PublishSubsequentDataPoint { republish: false })
                         } else {
                             None

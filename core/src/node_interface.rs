@@ -1,15 +1,13 @@
 use crate::{
     oracle_config::{get_node_api_key, get_node_ip, get_node_port},
+    oracle_types::BlockHeight,
     wallet::{WalletDataError, WalletDataSource},
 };
 use ergo_lib::{
     chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
     ergotree_ir::chain::ergo_box::ErgoBox,
 };
-use ergo_node_interface::{
-    node_interface::{NodeError, NodeInterface, WalletStatus},
-    BlockHeight,
-};
+use ergo_node_interface::node_interface::{NodeError, NodeInterface, WalletStatus};
 use log::debug;
 use log::error;
 
@@ -109,7 +107,9 @@ pub fn rescan_from_height(height: u32) -> Result<()> {
 
 /// Get the current block height of the chain
 pub fn current_block_height() -> Result<BlockHeight> {
-    new_node_interface().current_block_height()
+    new_node_interface()
+        .current_block_height()
+        .map(|height| BlockHeight(height as u32))
 }
 
 pub fn get_wallet_status() -> Result<WalletStatus> {

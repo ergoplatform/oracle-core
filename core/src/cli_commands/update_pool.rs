@@ -31,6 +31,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::{CastBallotBoxVoteParameters, OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
+    oracle_types::BlockHeight,
     spec_token::TokenIdKind,
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -120,7 +121,7 @@ pub fn update_pool(
         op.get_update_box_source(),
         new_pool_contract,
         new_reward_tokens,
-        current_block_height()? as u32,
+        current_block_height()?,
         change_address,
     )?;
 
@@ -189,7 +190,7 @@ fn build_update_pool_box_tx(
     update_box: &dyn UpdateBoxSource,
     new_pool_contract: PoolContract,
     new_reward_tokens: Option<Token>,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
     let update_box = update_box.get_update_box()?;
@@ -251,7 +252,7 @@ fn build_update_pool_box_tx(
         old_pool_box.get_box().creation_height, // creation info must be preserved
     )?;
     let mut update_box_candidate =
-        ErgoBoxCandidateBuilder::new(update_box.get_box().value, update_box.ergo_tree(), height);
+        ErgoBoxCandidateBuilder::new(update_box.get_box().value, update_box.ergo_tree(), height.0);
     update_box_candidate.add_token(update_box.update_nft());
     let update_box_candidate = update_box_candidate.build()?;
 
@@ -302,7 +303,7 @@ fn build_update_pool_box_tx(
         let mut ballot_box_candidate = ErgoBoxCandidateBuilder::new(
             ballot_box.get_box().value, // value must be preserved or increased
             ballot_box.contract().ergo_tree(),
-            height,
+            height.0,
         );
         ballot_box_candidate.add_token(ballot_box.ballot_token().into());
         ballot_box_candidate.set_register_value(
@@ -315,7 +316,7 @@ fn build_update_pool_box_tx(
     let mut tx_builder = TxBuilder::new(
         box_selection.clone(),
         outputs.clone(),
-        height,
+        height.0,
         *BASE_FEE,
         change_address,
     );
@@ -373,6 +374,7 @@ mod tests {
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
         oracle_config::BASE_FEE,
+        oracle_types::BlockHeight,
         pool_commands::test_utils::{
             generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
             UpdateBoxMock, WalletDataMock,
@@ -395,7 +397,7 @@ mod tests {
     #[test]
     fn test_update_pool_box() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
 
         let token_ids = generate_token_ids();
         dbg!(&token_ids);
@@ -426,7 +428,7 @@ mod tests {
         .unwrap();
         let update_contract = UpdateContract::checked_load(&update_contract_inputs).unwrap();
         let mut update_box_candidate =
-            ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height);
+            ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height.0);
         update_box_candidate.add_token(Token {
             token_id: token_ids.update_nft_token_id.token_id(),
             amount: 1.try_into().unwrap(),
@@ -490,7 +492,7 @@ mod tests {
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,
                 secret.public_image(),
-                update_box.creation_height,
+                BlockHeight(update_box.creation_height),
                 SpecToken {
                     token_id: token_ids.ballot_token_id.clone(),
                     amount: 1.try_into().unwrap(),
@@ -562,7 +564,7 @@ mod tests {
             &update_mock,
             new_pool_contract,
             Some(new_reward_tokens),
-            height + 1,
+            BlockHeight(height.0 + 1),
             change_address,
         )
         .unwrap();

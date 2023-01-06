@@ -27,6 +27,7 @@ use crate::{
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
+    oracle_types::BlockHeight,
     wallet::{WalletDataError, WalletDataSource},
 };
 
@@ -80,7 +81,7 @@ pub fn transfer_oracle_token(
         local_datapoint_box_source,
         wallet,
         rewards_destination.address(),
-        current_block_height()? as u32,
+        current_block_height()?,
         change_address,
     )?;
 
@@ -105,7 +106,7 @@ fn build_transfer_oracle_token_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     oracle_token_destination: Address,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<UnsignedTransaction, TransferOracleTokenActionError> {
     let in_oracle_box = local_datapoint_box_source
@@ -158,7 +159,7 @@ fn build_transfer_oracle_token_tx(
         let mut tx_builder = TxBuilder::new(
             box_selection,
             vec![oracle_box_candidate],
-            height,
+            height.0,
             target_balance,
             change_address,
         );
@@ -196,7 +197,7 @@ mod tests {
     #[test]
     fn test_transfer_oracle_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -212,7 +213,7 @@ mod tests {
                 1,
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
-                height - 9,
+                BlockHeight(height.0 - 9),
             ),
             &oracle_box_wrapper_inputs,
         )

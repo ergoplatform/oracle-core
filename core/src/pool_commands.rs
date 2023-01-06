@@ -7,6 +7,7 @@ use crate::actions::PoolAction;
 use crate::box_kind::PoolBox;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{OraclePool, StageError};
+use crate::oracle_types::BlockHeight;
 use crate::wallet::WalletDataSource;
 
 use self::publish_datapoint::build_publish_first_datapoint_action;
@@ -50,7 +51,7 @@ pub fn build_action(
     cmd: PoolCommand,
     op: &OraclePool,
     wallet: &dyn WalletDataSource,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<PoolAction, PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();

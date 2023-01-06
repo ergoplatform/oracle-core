@@ -14,6 +14,7 @@ use crate::contracts::oracle::OracleContract;
 use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
+use crate::oracle_types::BlockHeight;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RewardTokenId;
@@ -329,9 +330,9 @@ pub fn make_oracle_box_candidate(
     oracle_token: SpecToken<OracleTokenId>,
     reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
     builder.set_register_value(NonMandatoryRegisterId::R6, (datapoint as i64).into());
@@ -348,9 +349,9 @@ pub fn make_collected_oracle_box_candidate(
     oracle_token: SpecToken<OracleTokenId>,
     reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.add_token(oracle_token.into());
     builder.add_token(reward_token.into());

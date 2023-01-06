@@ -12,6 +12,7 @@ use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
+use crate::oracle_types::BlockHeight;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
@@ -67,20 +68,21 @@ pub fn build_refresh_action(
     max_deviation_percent: u32,
     min_data_points: u32,
     wallet: &dyn WalletDataSource,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
     my_oracle_pk: &EcPoint,
 ) -> Result<RefreshAction, RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
-    let min_start_height = height - in_refresh_box.contract().epoch_length() as u32;
+    // TODO
+    let min_start_height = height - in_refresh_box.contract().epoch_length();
     let in_pool_box_epoch_id = in_pool_box.epoch_counter();
     let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src
         .get_oracle_datapoint_boxes()?
         .into_iter()
         .filter(|b| {
-            b.get_box().creation_height > min_start_height
+            b.get_box().creation_height > min_start_height.0
                 && b.epoch_counter() == in_pool_box_epoch_id
         })
         .collect();
@@ -144,7 +146,7 @@ pub fn build_refresh_action(
     let mut b = TxBuilder::new(
         box_selection,
         output_candidates,
-        height as u32,
+        height.0,
         tx_fee,
         change_address,
     );
@@ -230,7 +232,7 @@ fn calc_pool_rate(oracle_boxes_rates: Vec<u64>) -> u64 {
 
 fn build_out_pool_box(
     in_pool_box: &PoolBoxWrapper,
-    creation_height: u32,
+    creation_height: BlockHeight,
     rate: u64,
     reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
@@ -258,7 +260,7 @@ fn build_out_pool_box(
 
 fn build_out_refresh_box(
     in_refresh_box: &RefreshBoxWrapper,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
     make_refresh_box_candidate(
         in_refresh_box.contract(),
@@ -271,7 +273,7 @@ fn build_out_refresh_box(
 
 fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<PostedOracleBox>,
-    creation_height: u32,
+    creation_height: BlockHeight,
     my_public_key: &EcPoint,
 ) -> Result<Vec<ErgoBoxCandidate>, RefreshActionError> {
     valid_oracle_boxes
@@ -332,6 +334,7 @@ mod tests {
     use crate::oracle_config::TokenIds;
     use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::StageError;
+    use crate::oracle_types::EpochLength;
     use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
@@ -368,7 +371,7 @@ mod tests {
     fn make_refresh_box(
         value: BoxValue,
         inputs: &RefreshBoxWrapperInputs,
-        creation_height: u32,
+        creation_height: BlockHeight,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
             inputs.refresh_nft_token_id.token_id(),
@@ -384,7 +387,7 @@ mod tests {
                     .ergo_tree(),
                 Some(tokens),
                 NonMandatoryRegisters::empty(),
-                creation_height,
+                creation_height.0,
                 force_any_val::<TxId>(),
                 0,
             )
@@ -400,7 +403,7 @@ mod tests {
         datapoints: Vec<i64>,
         epoch_counter: i32,
         value: BoxValue,
-        creation_height: u32,
+        creation_height: BlockHeight,
         oracle_contract_parameters: &OracleContractParameters,
         token_ids: &TokenIds,
     ) -> Vec<PostedOracleBox> {
@@ -430,7 +433,7 @@ mod tests {
     #[test]
     fn test_refresh_pool() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let pool_contract_parameters = PoolContractParameters::default();
         let oracle_contract_parameters = OracleContractParameters::default();
         let refresh_contract_parameters = RefreshContractParameters::default();
@@ -449,12 +452,12 @@ mod tests {
             contract_inputs: refresh_contract_inputs,
         };
         let pool_box_epoch_id = 1;
-        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
+        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - EpochLength(32));
         let in_pool_box = make_pool_box(
             200,
             pool_box_epoch_id,
             *BASE_FEE,
-            height - 32, // from previous epoch
+            height - EpochLength(32), // from previous epoch
             &pool_contract_parameters,
             &token_ids,
         );
@@ -476,7 +479,7 @@ mod tests {
             vec![199, 70, 196, 197, 198, 200],
             pool_box_epoch_id,
             BASE_FEE.checked_mul_u32(100).unwrap(),
-            height - 9,
+            height - EpochLength(9),
             &oracle_contract_parameters,
             &token_ids,
         );
@@ -550,7 +553,7 @@ mod tests {
                         vec![199, 70, 196, 197, 198, 200],
                         pool_box_epoch_id + 1,
                         BASE_FEE.checked_mul_u32(100).unwrap(),
-                        height - 9,
+                        height - EpochLength(9),
                         &oracle_contract_parameters,
                         &token_ids,
                     ),

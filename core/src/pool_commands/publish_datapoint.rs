@@ -22,6 +22,7 @@ use crate::{
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
     oracle_state::StageError,
+    oracle_types::BlockHeight,
     spec_token::{OracleTokenId, RewardTokenId, SpecToken},
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -49,7 +50,7 @@ pub enum PublishDatapointActionError {
 pub fn build_subsequent_publish_datapoint_action(
     local_datapoint_box: &OracleBoxWrapper,
     wallet: &dyn WalletDataSource,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: u32,
@@ -85,7 +86,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let mut tx_builder = TxBuilder::new(
         box_selection,
         vec![output_candidate],
-        height,
+        height.into(),
         tx_fee,
         change_address,
     );
@@ -102,7 +103,7 @@ pub fn build_subsequent_publish_datapoint_action(
 #[allow(clippy::too_many_arguments)]
 pub fn build_publish_first_datapoint_action(
     wallet: &dyn WalletDataSource,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
     public_key: ProveDlog,
     inputs: OracleBoxWrapperInputs,
@@ -146,7 +147,7 @@ pub fn build_publish_first_datapoint_action(
     let mut tx_builder = TxBuilder::new(
         wallet_boxes_selection,
         vec![output_candidate],
-        height,
+        height.into(),
         tx_fee,
         change_address,
     );
@@ -169,6 +170,7 @@ mod tests {
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::oracle_state::PoolBoxSource;
+    use crate::oracle_types::EpochLength;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
@@ -201,7 +203,7 @@ mod tests {
     #[test]
     fn test_subsequent_publish_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = OracleContractParameters::default();
@@ -212,7 +214,7 @@ mod tests {
             200,
             pool_box_epoch_id,
             *BASE_FEE,
-            height - 32, // from previous epoch
+            height - EpochLength(32), // from previous epoch
             &pool_contract_parameters,
             &token_ids,
         );
@@ -236,7 +238,7 @@ mod tests {
                     .contract_inputs
                     .contract_parameters()
                     .min_storage_rent,
-                height - 99,
+                height - EpochLength(99),
             ),
             &oracle_box_wrapper_inputs,
         )
@@ -307,7 +309,7 @@ mod tests {
     #[test]
     fn test_first_publish_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
 
         let token_ids = generate_token_ids();
         let tokens = BoxTokens::from_vec(vec![
@@ -334,7 +336,7 @@ mod tests {
             ergo_tree.clone(),
             Some(tokens),
             NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),
-            height - 30,
+            height.0 - 30,
             force_any_val::<TxId>(),
             0,
         )
@@ -346,7 +348,7 @@ mod tests {
                 ergo_tree.clone(),
                 None,
                 NonMandatoryRegisters::new(vec![].into_iter().collect()).unwrap(),
-                height - 9,
+                height.0 - 9,
                 force_any_val::<TxId>(),
                 0,
             )

@@ -124,7 +124,7 @@ pub(crate) fn make_pool_box(
     datapoint: i64,
     epoch_counter: i32,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
     pool_contract_parameters: &PoolContractParameters,
     token_ids: &TokenIds,
 ) -> PoolBoxWrapper {
@@ -167,7 +167,7 @@ pub(crate) fn make_pool_box(
                 .collect(),
             )
             .unwrap(),
-            creation_height,
+            creation_height.0,
             force_any_val::<TxId>(),
             0,
         )
@@ -184,7 +184,7 @@ pub(crate) fn make_datapoint_box(
     epoch_counter: i32,
     token_ids: &TokenIds,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> ErgoBox {
     let tokens = vec![
         Token::from((
@@ -217,7 +217,7 @@ pub(crate) fn make_datapoint_box(
             .collect(),
         )
         .unwrap(),
-        creation_height,
+        creation_height.0,
         force_any_val::<TxId>(),
         0,
     )

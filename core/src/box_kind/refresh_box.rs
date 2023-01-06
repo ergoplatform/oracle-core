@@ -11,6 +11,7 @@ use crate::contracts::refresh::RefreshContract;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::refresh::RefreshContractInputs;
 use crate::contracts::refresh::RefreshContractParameters;
+use crate::oracle_types::BlockHeight;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
@@ -132,9 +133,9 @@ pub fn make_refresh_box_candidate(
     contract: &RefreshContract,
     refresh_nft: Token,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.add_token(refresh_nft.clone());
     builder.build()
 }
