@@ -17,7 +17,7 @@ oracle-core generate-oracle-config
 and set the required parameters:
 
 - `oracle_address` to my node's wallet address (make sure you have coins).
-- `node_ip`, `node_port`, `node_api_key` - node connection parameters;
+- `node_url`, `node_api_key` - node connection parameters;
 
 Run
 
