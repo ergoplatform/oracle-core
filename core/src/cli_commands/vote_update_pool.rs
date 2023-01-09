@@ -8,7 +8,7 @@ use ergo_lib::{
     ergo_chain_types::{Digest32, DigestNError},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
-        address::{Address, AddressEncoder, AddressEncoderError},
+        address::Address,
         token::{Token, TokenAmount, TokenId},
     },
     wallet::{
@@ -24,7 +24,7 @@ use crate::{
     contracts::ballot::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
-    node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
+    node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
     pool_config::{TokenIds, POOL_CONFIG},
@@ -48,8 +48,6 @@ pub enum VoteUpdatePoolError {
     TxBuilder(TxBuilderError),
     #[error("Vote update pool: Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
-    #[error("Vote update pool: AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
     #[error("Vote update pool: Ballot token owner address not P2PK")]
     IncorrectBallotTokenOwnerAddress,
     #[error("Vote update pool: IO error {0}")]
@@ -62,22 +60,20 @@ pub enum VoteUpdatePoolError {
     WalletData(WalletDataError),
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn vote_update_pool(
     wallet: &dyn WalletDataSource,
+    tx_signer: &dyn SignTransaction,
+    tx_submit: &dyn SubmitTransaction,
     local_ballot_box_source: &dyn LocalBallotBoxSource,
     new_pool_box_address_hash_str: String,
     reward_token_id_str: String,
     reward_token_amount: u32,
     update_box_creation_height: u32,
+    height: u32,
 ) -> Result<(), VoteUpdatePoolError> {
-    let change_address_str = get_wallet_status()?
-        .change_address
-        .ok_or(VoteUpdatePoolError::NoChangeAddressSetInNode)?;
-
-    let change_network_address =
-        AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
+    let change_network_address = wallet.get_change_address()?;
     let network_prefix = change_network_address.network();
-    let height = current_block_height()? as u32;
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let reward_token_id: TokenId = Digest32::try_from(reward_token_id_str)?.into();
     let unsigned_tx = if let Some(local_ballot_box) = local_ballot_box_source.get_ballot_box()? {
@@ -125,7 +121,8 @@ pub fn vote_update_pool(
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim_end() == "YES" {
-        let tx_id_str = sign_and_submit_transaction(&unsigned_tx)?;
+        let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
+        let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
         println!(
             "Transaction made. Check status here: {}",
             ergo_explorer_transaction_link(tx_id_str, network_prefix)
@@ -293,10 +290,10 @@ mod tests {
         let secret = force_any_val::<DlogProverInput>();
         let new_pool_box_address_hash = force_any_val::<Digest32>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let network_prefix = ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet;
-        let change_address = AddressEncoder::new(network_prefix)
-            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-            .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let token_ids = generate_token_ids();
         let ballot_contract_inputs = BallotContractInputs::build_with(
@@ -316,6 +313,7 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
 
         let new_reward_token_id = force_any_val::<TokenId>();
@@ -325,13 +323,11 @@ mod tests {
             new_reward_token_id,
             100_000,
             height - 3,
-            AddressEncoder::new(network_prefix)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap(),
+            change_address.address(),
             ballot_contract_inputs.contract_parameters(),
             &token_ids,
             height,
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 
@@ -353,10 +349,10 @@ mod tests {
         let secret = force_any_val::<DlogProverInput>();
         let new_pool_box_address_hash = force_any_val::<Digest32>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let network_prefix = ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet;
-        let change_address = AddressEncoder::new(network_prefix)
-            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-            .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let ballot_contract_parameters = BallotContractParameters::default();
         let token_ids = generate_token_ids();
@@ -404,6 +400,7 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
         let unsigned_tx = build_tx_with_existing_ballot_box(
             ballot_box,
@@ -413,7 +410,7 @@ mod tests {
             100_000,
             height - 3,
             height,
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 

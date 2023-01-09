@@ -12,6 +12,7 @@ use ergo_lib::{
 };
 use log::LevelFilter;
 use once_cell::sync;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -19,8 +20,7 @@ pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OracleConfig {
-    pub node_ip: String,
-    pub node_port: u16,
+    pub node_url: Url,
     pub node_api_key: String,
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
@@ -83,13 +83,12 @@ impl Default for OracleConfig {
         .unwrap();
         Self {
             oracle_address: address,
-            node_ip: "127.0.0.1".into(),
-            node_port: 9053,
             node_api_key: "hello".into(),
             core_api_port: 9010,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
+            node_url: Url::parse("http://127.0.0.1:9053").unwrap(),
         }
     }
 }
@@ -108,17 +107,4 @@ lazy_static! {
 /// Returns "core_api_port" from the config file
 pub fn get_core_api_port() -> String {
     ORACLE_CONFIG.core_api_port.to_string()
-}
-
-pub fn get_node_ip() -> String {
-    ORACLE_CONFIG.node_ip.clone()
-}
-
-pub fn get_node_port() -> String {
-    ORACLE_CONFIG.node_port.to_string()
-}
-
-/// Returns the `node_api_key`
-pub fn get_node_api_key() -> String {
-    ORACLE_CONFIG.node_api_key.clone()
 }

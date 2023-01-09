@@ -9,7 +9,7 @@ use ergo_lib::{
     },
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoder, AddressEncoderError, NetworkAddress},
+            address::{Address, AddressEncoderError, NetworkAddress},
             ergo_box::{
                 box_value::{BoxValue, BoxValueError},
                 ErgoBox,
@@ -24,7 +24,7 @@ use ergo_lib::{
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
-use ergo_node_interface::{node_interface::NodeError, NodeInterface};
+use ergo_node_interface::node_interface::NodeError;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -43,7 +43,11 @@ use crate::{
         },
     },
     datapoint_source::PredefinedDataPointSource,
-    node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
+    node_interface::{
+        assert_wallet_unlocked,
+        node_api::{NodeApi, NodeApiError},
+        SignTransactionWithInputs, SubmitTransaction,
+    },
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
     pool_config::{PoolConfig, PoolConfigError, TokenIds},
     serde::BootstrapConfigSerde,
@@ -62,32 +66,21 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
-    // We can't call any functions from the `crate::node_interface` module because we don't have an
-    // `oracle_config.yaml` file to work from here.
-    let node = NodeInterface::new(
-        &oracle_config.node_api_key,
-        &oracle_config.node_ip,
-        &oracle_config.node_port.to_string(),
-    );
-    assert_wallet_unlocked(&node);
-    let change_address_str = node
-        .wallet_status()?
-        .change_address
-        .ok_or(BootstrapError::NoChangeAddressSetInNode)?;
-    debug!("Change address: {}", change_address_str);
-
-    let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
+    let node_api = NodeApi::new(oracle_config.node_api_key.clone(), &oracle_config.node_url);
+    assert_wallet_unlocked(&node_api.node);
+    let change_address = node_api.get_change_address()?;
+    debug!("Change address: {:?}", change_address);
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
         oracle_address: oracle_config.oracle_address.clone(),
         config,
-        wallet: &node as &dyn WalletDataSource,
-        tx_signer: &node as &dyn SignTransaction,
-        submit_tx: &node as &dyn SubmitTransaction,
+        wallet: &node_api as &dyn WalletDataSource,
+        tx_signer: &node_api.node as &dyn SignTransactionWithInputs,
+        submit_tx: &node_api.node as &dyn SubmitTransaction,
         tx_fee: *BASE_FEE,
         erg_value_per_box,
-        change_address,
-        height: node.current_block_height()? as u32,
+        change_address: change_address.address(),
+        height: node_api.node.current_block_height()? as u32,
     };
     let oracle_config = perform_bootstrap_chained_transaction(input)?;
     info!("Bootstrap chain-transaction complete");
@@ -119,7 +112,7 @@ pub struct BootstrapInput<'a> {
     pub oracle_address: NetworkAddress,
     pub config: BootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
-    pub tx_signer: &'a dyn SignTransaction,
+    pub tx_signer: &'a dyn SignTransactionWithInputs,
     pub submit_tx: &'a dyn SubmitTransaction,
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
@@ -619,6 +612,8 @@ pub enum BootstrapError {
     ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
     #[error("node error: {0}")]
     Node(NodeError),
+    #[error("node api error: {0}")]
+    NodeApiError(NodeApiError),
     #[error("box selector error: {0}")]
     BoxSelector(BoxSelectorError),
     #[error("box value error: {0}")]
@@ -707,10 +702,10 @@ pub(crate) mod tests {
             0,
         )
         .unwrap()];
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let bootstrap_config = BootstrapConfig::default();
 
@@ -721,6 +716,7 @@ pub(crate) mod tests {
             config: bootstrap_config.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
+                change_address: change_address.clone(),
             },
             tx_signer: &mut LocalTxSigner {
                 ctx: &ctx,
@@ -729,7 +725,7 @@ pub(crate) mod tests {
             submit_tx: &submit_tx,
             tx_fee: *BASE_FEE,
             erg_value_per_box: *BASE_FEE,
-            change_address,
+            change_address: change_address.address(),
             height,
         })
         .unwrap();

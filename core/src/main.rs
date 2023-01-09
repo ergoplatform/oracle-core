@@ -42,13 +42,11 @@ mod wallet;
 
 use actions::execute_action;
 use actions::PoolAction;
-use anyhow::anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::Token;
@@ -56,9 +54,8 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::error;
 use log::LevelFilter;
 use node_interface::assert_wallet_unlocked;
-use node_interface::current_block_height;
-use node_interface::get_wallet_status;
-use node_interface::new_node_interface;
+use node_interface::node_api::NodeApi;
+use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use pool_commands::build_action;
@@ -77,7 +74,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
-use wallet::WalletData;
 
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
@@ -299,16 +295,17 @@ fn main() {
 
 /// Handle all non-bootstrap commands
 fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let height = node_api.node.current_block_height().unwrap() as u32;
     log_on_launch();
-    assert_wallet_unlocked(&new_node_interface());
-    register_and_save_scans().unwrap();
+    assert_wallet_unlocked(&node_api.node);
+    register_and_save_scans(&node_api).unwrap();
     let op = OraclePool::new().unwrap();
     match command {
         Command::Run {
             read_only,
             enable_rest_api,
         } => {
-            assert_wallet_unlocked(&new_node_interface());
             let (_, repost_receiver) = bounded::<bool>(1);
 
             // Start Oracle Core GET API Server
@@ -325,11 +322,14 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
         }
 
         Command::ExtractRewardTokens { rewards_address } => {
-            let wallet = WalletData {};
             if let Err(e) = cli_commands::extract_reward_tokens::extract_reward_tokens(
-                &wallet,
+                // TODO: pass the NodeApi instance instead of these three
+                &node_api,
+                &node_api.node,
+                &node_api.node,
                 op.get_local_datapoint_box_source(),
                 rewards_address,
+                height,
             ) {
                 error!("Fatal extract-rewards-token error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -348,11 +348,13 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
         Command::TransferOracleToken {
             oracle_token_address,
         } => {
-            let wallet = WalletData {};
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
-                &wallet,
+                &node_api,
+                &node_api.node,
+                &node_api.node,
                 op.get_local_datapoint_box_source(),
                 oracle_token_address,
+                height,
             ) {
                 error!("Fatal transfer-oracle-token error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -365,14 +367,16 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
             reward_token_amount,
             update_box_creation_height,
         } => {
-            let wallet = WalletData {};
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
-                &wallet,
+                &node_api,
+                &node_api.node,
+                &node_api.node,
                 op.get_local_ballot_box_source(),
                 new_pool_box_address_hash_str,
                 reward_token_id_str,
                 reward_token_amount,
                 update_box_creation_height,
+                height,
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -390,15 +394,23 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
                         token_id: TokenId::from(Digest32::try_from(token_id).unwrap()),
                         amount: amount.try_into().unwrap(),
                     });
-            if let Err(e) =
-                cli_commands::update_pool::update_pool(&op, new_pool_box_hash, new_reward_tokens)
-            {
+            if let Err(e) = cli_commands::update_pool::update_pool(
+                &op,
+                &node_api,
+                &node_api.node,
+                &node_api.node,
+                new_pool_box_hash,
+                new_reward_tokens,
+                height,
+            ) {
                 error!("Fatal update-pool error: {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
         Command::PrepareUpdate { update_file } => {
-            if let Err(e) = cli_commands::prepare_update::prepare_update(update_file) {
+            if let Err(e) =
+                cli_commands::prepare_update::prepare_update(update_file, &node_api, height)
+            {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
@@ -425,9 +437,12 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
 }
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
-    let height = current_block_height().context("Failed to get the current height")? as u32;
-    let wallet = WalletData::new();
-    let network_change_address = get_change_address_from_node()?;
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let height = node_api
+        .node
+        .current_block_height()
+        .context("Failed to get the current height")? as u32;
+    let network_change_address = node_api.get_change_address()?;
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
@@ -443,12 +458,12 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_res =
-            build_action(cmd, op, &wallet, height, network_change_address.address());
+            build_action(cmd, op, &node_api, height, network_change_address.address());
         if let Some(action) =
             log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
-                execute_action(action)?;
+                execute_action(action, &node_api)?;
             }
         };
     }
@@ -480,14 +495,6 @@ fn log_and_continue_if_non_fatal(
         }
         Err(e) => Err(e),
     }
-}
-
-fn get_change_address_from_node() -> Result<NetworkAddress, anyhow::Error> {
-    let change_address_str = get_wallet_status()?
-        .change_address
-        .ok_or_else(|| anyhow!("failed to get wallet's change address (locked wallet?)"))?;
-    let addr = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
-    Ok(addr)
 }
 
 fn log_on_launch() {

@@ -51,7 +51,7 @@ use crate::{
             UpdateContractParameters,
         },
     },
-    node_interface::{new_node_interface, SignTransaction, SubmitTransaction},
+    node_interface::{node_api::NodeApi, SignTransactionWithInputs, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, StageDataSource},
     pool_config::{PoolConfig, POOL_CONFIG},
@@ -81,30 +81,30 @@ pub struct UpdateBootstrapConfig {
     pub tokens_to_mint: UpdateTokensToMint,
 }
 
-pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError> {
+pub fn prepare_update(
+    config_file_name: String,
+    node_api: &NodeApi,
+    height: u32,
+) -> Result<(), PrepareUpdateError> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
-    let node_interface = new_node_interface();
     let change_address = AddressEncoder::unchecked_parse_address_from_str(
-        &node_interface
+        &node_api
+            .node
             .wallet_status()?
             .change_address
             .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
     )?;
     let config = UpdateBootstrapConfig::try_from(config_serde)?;
     let update_bootstrap_input = PrepareUpdateInput {
-        wallet: &node_interface,
-        tx_signer: &node_interface,
-        submit_tx: &node_interface,
+        wallet: node_api,
+        tx_signer: &node_api.node,
+        submit_tx: &node_api.node,
         tx_fee: *BASE_FEE,
         erg_value_per_box: *BASE_FEE,
         change_address,
-        height: node_interface
-            .current_block_height()
-            .unwrap()
-            .try_into()
-            .unwrap(),
+        height,
     };
 
     let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG, &ORACLE_CONFIG)?;
@@ -131,27 +131,26 @@ pub fn prepare_update(config_file_name: String) -> Result<(), PrepareUpdateError
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
     );
-    print_hints_for_voting()?;
+    print_hints_for_voting(height)?;
     Ok(())
 }
 
-fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
+fn print_hints_for_voting(height: u32) -> Result<(), PrepareUpdateError> {
     let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
         .epoch_length() as u32;
-    let current_height: u32 = new_node_interface().current_block_height()? as u32;
     let op = OraclePool::new().unwrap();
     let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
-    let min_oracle_box_height = current_height - epoch_length;
+    let min_oracle_box_height = height - epoch_length;
     let active_oracle_count = oracle_boxes
         .into_iter()
         .filter(|b| b.creation_height >= min_oracle_box_height)
         .count() as u32;
     let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
     let pool_box_height = pool_box.get_box().creation_height;
-    let next_epoch_height = max(pool_box_height + epoch_length, current_height);
+    let next_epoch_height = max(pool_box_height + epoch_length, height);
     let reward_tokens_left = *pool_box.reward_token().amount.as_u64();
     let update_box = op.get_update_box_source().get_update_box().unwrap();
     let update_box_height = update_box.get_box().creation_height;
@@ -162,7 +161,7 @@ fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
     );
     info!(
         "Current height is {}, pool box height (epoch start) {}, epoch length is {}",
-        current_height, pool_box_height, epoch_length
+        height, pool_box_height, epoch_length
     );
     info!(
         "Estimated active oracle count is {}, reward tokens in the pool box {}",
@@ -180,7 +179,7 @@ fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
 
 struct PrepareUpdateInput<'a> {
     pub wallet: &'a dyn WalletDataSource,
-    pub tx_signer: &'a dyn SignTransaction,
+    pub tx_signer: &'a dyn SignTransactionWithInputs,
     pub submit_tx: &'a dyn SubmitTransaction,
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
@@ -613,8 +612,7 @@ rescan_height: 141887
 
         let old_oracle_config: OracleConfig = serde_yaml::from_str(
             r#"
-node_ip: 10.94.77.47
-node_port: 9052
+node_url: http://10.94.77.47:9052
 node_api_key: hello
 base_fee: 1100000
 log_level: ~
@@ -651,10 +649,10 @@ data_point_source_custom_script: ~
             0,
         )
         .unwrap()];
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let state = UpdateBootstrapConfig {
             tokens_to_mint: UpdateTokensToMint {
@@ -692,6 +690,7 @@ data_point_source_custom_script: ~
         let prepare_update_input = PrepareUpdateInput {
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
+                change_address: change_address.clone(),
             },
             tx_signer: &mut LocalTxSigner {
                 ctx: &ctx,
@@ -700,7 +699,7 @@ data_point_source_custom_script: ~
             submit_tx: &submit_tx,
             tx_fee: *BASE_FEE,
             erg_value_per_box: *BASE_FEE,
-            change_address,
+            change_address: change_address.address(),
             height,
         };
 
