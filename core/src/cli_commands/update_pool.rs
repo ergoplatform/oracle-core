@@ -523,8 +523,13 @@ mod tests {
             BASE_FEE.checked_mul_u32(4_000_000_000).unwrap(),
             Some(vec![new_reward_tokens.clone()].try_into().unwrap()),
         );
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let update_mock = UpdateBoxMock {
@@ -549,11 +554,6 @@ mod tests {
             .unwrap(),
         };
 
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
-
         let update_tx = build_update_pool_box_tx(
             &pool_mock,
             &ballot_boxes_mock,
@@ -562,7 +562,7 @@ mod tests {
             new_pool_contract,
             Some(new_reward_tokens),
             height + 1,
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 

@@ -60,6 +60,7 @@ pub enum VoteUpdatePoolError {
     WalletData(WalletDataError),
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn vote_update_pool(
     wallet: &dyn WalletDataSource,
     tx_signer: &dyn SignTransaction,
@@ -289,10 +290,10 @@ mod tests {
         let secret = force_any_val::<DlogProverInput>();
         let new_pool_box_address_hash = force_any_val::<Digest32>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let network_prefix = ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet;
-        let change_address = AddressEncoder::new(network_prefix)
-            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-            .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let token_ids = generate_token_ids();
         let ballot_contract_inputs = BallotContractInputs::build_with(
@@ -312,6 +313,7 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
 
         let new_reward_token_id = force_any_val::<TokenId>();
@@ -321,13 +323,11 @@ mod tests {
             new_reward_token_id,
             100_000,
             height - 3,
-            AddressEncoder::new(network_prefix)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap(),
+            change_address.address(),
             ballot_contract_inputs.contract_parameters(),
             &token_ids,
             height,
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 
@@ -349,10 +349,10 @@ mod tests {
         let secret = force_any_val::<DlogProverInput>();
         let new_pool_box_address_hash = force_any_val::<Digest32>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-        let network_prefix = ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet;
-        let change_address = AddressEncoder::new(network_prefix)
-            .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-            .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let ballot_contract_parameters = BallotContractParameters::default();
         let token_ids = generate_token_ids();
@@ -400,6 +400,7 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
         let unsigned_tx = build_tx_with_existing_ballot_box(
             ballot_box,
@@ -409,7 +410,7 @@ mod tests {
             100_000,
             height - 3,
             height,
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 

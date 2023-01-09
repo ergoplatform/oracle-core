@@ -242,10 +242,10 @@ mod tests {
         .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
@@ -254,13 +254,14 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
         let (tx, num_reward_tokens) = build_extract_reward_tokens_tx(
             &local_datapoint_box_source,
             &wallet_mock,
-            change_address.clone(),
+            change_address.address(),
             height,
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 

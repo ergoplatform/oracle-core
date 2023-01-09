@@ -15,7 +15,7 @@ pub enum WalletDataError {
     AddressEncoder(AddressEncoderError),
 }
 
-// TODO: remove and pass unspent boxes and change address directly
+// TODO: remove and pass unspent boxes and change address directly?
 pub trait WalletDataSource {
     fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, WalletDataError>;
     fn get_change_address(&self) -> Result<NetworkAddress, WalletDataError>;

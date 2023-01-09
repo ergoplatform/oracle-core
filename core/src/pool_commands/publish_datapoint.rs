@@ -242,10 +242,10 @@ mod tests {
         )
         .unwrap();
 
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
@@ -254,6 +254,7 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
 
         let datapoint_source = MockDatapointSource { datapoint: 201 };
@@ -261,7 +262,7 @@ mod tests {
             &oracle_box,
             &wallet_mock,
             height,
-            change_address.clone(),
+            change_address.address(),
             &datapoint_source,
             pool_box_epoch_id as u32,
             datapoint_source.datapoint - 1,
@@ -353,10 +354,10 @@ mod tests {
             .unwrap(),
         ];
 
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let oracle_contract_parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
@@ -365,9 +366,10 @@ mod tests {
         let action = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
+                change_address: change_address.clone(),
             },
             height,
-            change_address,
+            change_address.address(),
             secret.public_image(),
             oracle_box_wrapper_inputs,
             &MockDatapointSource { datapoint: 201 },

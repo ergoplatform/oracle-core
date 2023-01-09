@@ -66,7 +66,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
-    let node_api = NodeApi::new(oracle_config.node_api_key.clone(), oracle_config.node_url());
+    let node_api = NodeApi::new(oracle_config.node_api_key.clone(), &oracle_config.node_url);
     assert_wallet_unlocked(&node_api.node);
     let change_address = node_api.get_change_address()?;
     debug!("Change address: {:?}", change_address);
@@ -702,10 +702,10 @@ pub(crate) mod tests {
             0,
         )
         .unwrap()];
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let bootstrap_config = BootstrapConfig::default();
 
@@ -716,6 +716,7 @@ pub(crate) mod tests {
             config: bootstrap_config.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
+                change_address: change_address.clone(),
             },
             tx_signer: &mut LocalTxSigner {
                 ctx: &ctx,
@@ -724,7 +725,7 @@ pub(crate) mod tests {
             submit_tx: &submit_tx,
             tx_fee: *BASE_FEE,
             erg_value_per_box: *BASE_FEE,
-            change_address,
+            change_address: change_address.address(),
             height,
         })
         .unwrap();

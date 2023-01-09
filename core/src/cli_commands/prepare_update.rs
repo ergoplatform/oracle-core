@@ -612,8 +612,7 @@ rescan_height: 141887
 
         let old_oracle_config: OracleConfig = serde_yaml::from_str(
             r#"
-node_ip: 10.94.77.47
-node_port: 9052
+node_url: http://10.94.77.47:9052
 node_api_key: hello
 base_fee: 1100000
 log_level: ~
@@ -650,10 +649,10 @@ data_point_source_custom_script: ~
             0,
         )
         .unwrap()];
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
 
         let state = UpdateBootstrapConfig {
             tokens_to_mint: UpdateTokensToMint {
@@ -691,6 +690,7 @@ data_point_source_custom_script: ~
         let prepare_update_input = PrepareUpdateInput {
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
+                change_address: change_address.clone(),
             },
             tx_signer: &mut LocalTxSigner {
                 ctx: &ctx,
@@ -699,7 +699,7 @@ data_point_source_custom_script: ~
             submit_tx: &submit_tx,
             tx_fee: *BASE_FEE,
             erg_value_per_box: *BASE_FEE,
-            change_address,
+            change_address: change_address.address(),
             height,
         };
 

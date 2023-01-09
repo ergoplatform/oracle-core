@@ -89,7 +89,7 @@ async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
 /// Block height of the Ergo blockchain
 async fn block_height() -> Result<impl IntoResponse, ApiError> {
     let current_height = task::spawn_blocking(move || {
-        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), ORACLE_CONFIG.node_url());
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
         node_api.node.current_block_height()
     })
     .await

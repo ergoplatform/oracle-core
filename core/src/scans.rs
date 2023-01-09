@@ -66,7 +66,7 @@ impl Scan {
         name: &'static str,
         tracking_rule: serde_json::Value,
     ) -> std::result::Result<Scan, ScanError> {
-        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), ORACLE_CONFIG.node_url());
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
         let scan_json = json!({
             "scanName": name,
             "trackingRule": tracking_rule,
@@ -85,7 +85,7 @@ impl Scan {
 
     /// Returns all boxes found by the scan
     pub fn get_boxes(&self) -> std::result::Result<Vec<ErgoBox>, ScanError> {
-        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), ORACLE_CONFIG.node_url());
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
         let boxes = node_api.node.scan_boxes(&self.id)?;
         Ok(boxes)
     }

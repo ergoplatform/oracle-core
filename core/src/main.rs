@@ -295,7 +295,7 @@ fn main() {
 
 /// Handle all non-bootstrap commands
 fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), ORACLE_CONFIG.node_url());
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let height = node_api.node.current_block_height().unwrap() as u32;
     log_on_launch();
     assert_wallet_unlocked(&node_api.node);
@@ -437,7 +437,7 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
 }
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), ORACLE_CONFIG.node_url());
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let height = node_api
         .node
         .current_block_height()
