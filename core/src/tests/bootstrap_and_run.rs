@@ -37,12 +37,10 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
     }
 }
 
-fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> PoolConfig {
+fn bootstrap(wallet: &Wallet, net_address: &NetworkAddress, chain: &mut ChainSim) -> PoolConfig {
     let ctx = force_any_val::<ErgoStateContext>();
 
-    let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
-    let change_address = address;
-    let network_address = NetworkAddress::new(NetworkPrefix::Mainnet, address);
+    let unspent_boxes = chain.get_unspent_boxes(&net_address.address().script().unwrap());
 
     let bootstrap_config = BootstrapConfig::default();
 
@@ -51,16 +49,17 @@ fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> PoolCo
         chain: chain.into(),
     };
     perform_bootstrap_chained_transaction(BootstrapInput {
-        oracle_address: network_address,
+        oracle_address: net_address.clone(),
         config: bootstrap_config,
         wallet: &WalletDataMock {
             unspent_boxes: unspent_boxes.clone(),
+            change_address: net_address.clone(),
         },
         tx_signer: &mut LocalTxSigner { ctx: &ctx, wallet },
         submit_tx: &mut submit_tx_mock,
         tx_fee: *BASE_FEE,
         erg_value_per_box: *BASE_FEE,
-        change_address: change_address.clone(),
+        change_address: net_address.address(),
         height,
     })
     .unwrap()
@@ -72,12 +71,15 @@ fn test_bootstrap_and_run() {
     let mut chain = ChainSim::new();
     let secret = force_any_val::<DlogProverInput>();
     let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
-    let address = Address::P2Pk(secret.public_image());
+    let net_address = NetworkAddress::new(
+        NetworkPrefix::Mainnet,
+        &Address::P2Pk(secret.public_image()),
+    );
     chain.generate_unspent_box(
-        address.script().unwrap(),
+        net_address.address().script().unwrap(),
         100_000_000_u64.try_into().unwrap(),
         None,
     );
-    let _oracle_config = bootstrap(&wallet, &address, &mut chain);
+    let _oracle_config = bootstrap(&wallet, &net_address, &mut chain);
     assert_eq!(chain.height, 8);
 }

@@ -39,7 +39,7 @@ oracle-core generate-oracle-config
 and set the required parameters:
 
 - `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
-- `node_ip`, `node_port`, `node_api_key` - node connection parameters;
+- `node_url`, `node_api_key` - node connection parameters;
 
 ## Bootstrapping a new oracle pool
 

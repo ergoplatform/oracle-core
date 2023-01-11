@@ -8,7 +8,7 @@ use crate::box_kind::{
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
-use crate::node_interface::{current_block_height, get_wallet_status, rescan_from_height};
+use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::BlockHeight;
 use crate::pool_config::POOL_CONFIG;
@@ -444,10 +444,10 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
 }
 
 /// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
-pub fn register_and_save_scans() -> std::result::Result<(), Error> {
+pub fn register_and_save_scans(node_api: &NodeApi) -> std::result::Result<(), Error> {
     let config = &POOL_CONFIG;
     if load_scan_ids().is_err() {
-        register_and_save_scans_inner()?;
+        register_and_save_scans_inner(node_api)?;
     } else {
         // If the UpdatePool command was issued values relating to the pool box in `scanIDs.json` will be out
         // of date. So we regenerate `scanIDs.json` and initiate a wallet rescan.
@@ -475,14 +475,14 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
         // The UpdatePool command will lead to either a change in the pool box script and/or a
         // change in the reward tokens.
         if pool_hash_changed || reward_tokens_changed {
-            register_and_save_scans_inner()?;
+            register_and_save_scans_inner(node_api)?;
         }
     }
 
     loop {
-        let wallet_height = get_wallet_status()?.height as u32;
-        let block_height = current_block_height()?;
-        if wallet_height == block_height.0 {
+        let wallet_height = node_api.node.wallet_status()?.height;
+        let block_height = node_api.node.current_block_height()?;
+        if wallet_height == block_height {
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -494,7 +494,7 @@ pub fn register_and_save_scans() -> std::result::Result<(), Error> {
 /// Registers and saves scans to `scanIDs.json` as well as performing wallet rescanning.
 ///
 /// WARNING: will overwrite existing `scanIDs.json`!
-fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
+fn register_and_save_scans_inner(node_api: &NodeApi) -> std::result::Result<(), Error> {
     let pool_config = &POOL_CONFIG;
     let oracle_config = &ORACLE_CONFIG;
     let local_oracle_address = oracle_config.oracle_address.clone();
@@ -541,6 +541,6 @@ fn register_and_save_scans_inner() -> std::result::Result<(), Error> {
     log::info!("Registering UTXO-Set Scans");
     save_scan_ids(scans)?;
     log::info!("Triggering wallet rescan");
-    rescan_from_height(0)?;
+    node_api.rescan_from_height(0)?;
     Ok(())
 }

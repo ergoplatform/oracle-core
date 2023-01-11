@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use derive_more::From;
@@ -30,7 +31,7 @@ use crate::spec_token::RewardTokenId;
 use crate::spec_token::UpdateTokenId;
 
 pub const DEFAULT_POOL_CONFIG_FILE_NAME: &str = "pool_config.yaml";
-pub static POOL_CONFIG_FILE_PATH: sync::OnceCell<String> = sync::OnceCell::new();
+pub static POOL_CONFIG_FILE_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
 lazy_static! {
     pub static ref POOL_CONFIG: PoolConfig = PoolConfig::load().unwrap();
     pub static ref POOL_CONFIG_OPT: Result<PoolConfig, String> =

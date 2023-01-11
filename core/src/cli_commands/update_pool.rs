@@ -7,7 +7,7 @@ use ergo_lib::{
     ergo_chain_types::blake2b256_hash,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{
-        address::{Address, AddressEncoder, AddressEncoderError},
+        address::Address,
         ergo_box::{ErgoBox, NonMandatoryRegisterId},
         token::Token,
     },
@@ -28,7 +28,7 @@ use crate::{
     },
     cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
-    node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
+    node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
     oracle_types::BlockHeight,
@@ -59,8 +59,6 @@ pub enum UpdatePoolError {
     Node(NodeError),
     #[error("No change address in node")]
     NoChangeAddressSetInNode,
-    #[error("Update pool: address encoder error {0}")]
-    AddressEncoderError(AddressEncoderError),
     #[error("Update pool: pool contract error {0}")]
     PoolContractError(crate::contracts::pool::PoolContractError),
     #[error("Update pool: io error {0}")]
@@ -75,20 +73,19 @@ pub enum UpdatePoolError {
 
 pub fn update_pool(
     op: &OraclePool,
+    wallet: &dyn WalletDataSource,
+    tx_signer: &dyn SignTransaction,
+    tx_submit: &dyn SubmitTransaction,
     new_pool_box_hash_str: Option<String>,
     new_reward_tokens: Option<Token>,
+    height: u32,
 ) -> Result<(), UpdatePoolError> {
     info!("Opening pool_config_updated.yaml");
     let s = std::fs::read_to_string("pool_config_updated.yaml")?;
     let new_pool_config: PoolConfig = serde_yaml::from_str(&s)?;
-    let wallet = crate::wallet::WalletData {};
-    let change_address_str = get_wallet_status()?
-        .change_address
-        .ok_or(UpdatePoolError::NoChangeAddressSetInNode)?;
-
     let (change_address, network_prefix) = {
-        let a = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
-        (a.address(), a.network())
+        let net_addr = wallet.get_change_address()?;
+        (net_addr.address(), net_addr.network())
     };
 
     let new_pool_contract =
@@ -118,15 +115,16 @@ pub fn update_pool(
     let tx = build_update_pool_box_tx(
         op.get_pool_box_source(),
         op.get_ballot_boxes_source(),
-        &wallet,
+        wallet,
         op.get_update_box_source(),
         new_pool_contract,
         new_reward_tokens,
-        current_block_height()?,
+        height,
         change_address,
     )?;
 
-    let tx_id_str = sign_and_submit_transaction(&tx.spending_tx)?;
+    let signed_tx = tx_signer.sign_transaction(&tx.spending_tx)?;
+    let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
     println!(
         "Update pool box transaction submitted: view here, {}",
         ergo_explorer_transaction_link(tx_id_str, network_prefix)
@@ -527,8 +525,13 @@ mod tests {
             BASE_FEE.checked_mul_u32(4_000_000_000).unwrap(),
             Some(vec![new_reward_tokens.clone()].try_into().unwrap()),
         );
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let update_mock = UpdateBoxMock {
@@ -553,11 +556,6 @@ mod tests {
             .unwrap(),
         };
 
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
-
         let update_tx = build_update_pool_box_tx(
             &pool_mock,
             &ballot_boxes_mock,
@@ -566,7 +564,7 @@ mod tests {
             new_pool_contract,
             Some(new_reward_tokens),
             BlockHeight(height.0 + 1),
-            change_address,
+            change_address.address(),
         )
         .unwrap();
 

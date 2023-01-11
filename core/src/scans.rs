@@ -4,8 +4,9 @@ use crate::address_util::{address_to_raw_for_register, AddressUtilError};
 use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::{PoolContract, PoolContractError};
 use crate::contracts::refresh::{RefreshContract, RefreshContractError};
+use crate::node_interface::node_api::{NodeApi, NodeApiError};
+use crate::oracle_config::ORACLE_CONFIG;
 /// This file holds logic related to UTXO-set scans
-use crate::node_interface::{get_scan_boxes, register_scan};
 use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
 
 use derive_more::From;
@@ -28,6 +29,8 @@ pub type ScanID = String;
 pub enum ScanError {
     #[error("node error: {0}")]
     NodeError(NodeError),
+    #[error("node api error: {0}")]
+    NodeApiError(NodeApiError),
     #[error("no boxes found")]
     NoBoxesFound,
     #[error("failed to register scan")]
@@ -63,6 +66,7 @@ impl Scan {
         name: &'static str,
         tracking_rule: serde_json::Value,
     ) -> std::result::Result<Scan, ScanError> {
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
         let scan_json = json!({
             "scanName": name,
             "trackingRule": tracking_rule,
@@ -73,7 +77,7 @@ impl Scan {
             serde_json::to_string_pretty(&scan_json).unwrap()
         );
 
-        let scan_id = register_scan(&scan_json)?;
+        let scan_id = node_api.register_scan(&scan_json)?;
         info!("Scan Successfully Set.\nID: {}", scan_id);
 
         Ok(Scan::new(name, &scan_id))
@@ -81,7 +85,8 @@ impl Scan {
 
     /// Returns all boxes found by the scan
     pub fn get_boxes(&self) -> std::result::Result<Vec<ErgoBox>, ScanError> {
-        let boxes = get_scan_boxes(&self.id)?;
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+        let boxes = node_api.node.scan_boxes(&self.id)?;
         Ok(boxes)
     }
 

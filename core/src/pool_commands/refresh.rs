@@ -500,10 +500,10 @@ mod tests {
             refresh_box: in_refresh_box,
         };
 
-        let change_address =
-            AddressEncoder::new(ergo_lib::ergotree_ir::chain::address::NetworkPrefix::Mainnet)
-                .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
-                .unwrap();
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
             BASE_FEE.checked_mul_u32(10000).unwrap(),
@@ -511,6 +511,7 @@ mod tests {
         );
         let wallet_mock = WalletDataMock {
             unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
         };
         let action = build_refresh_action(
             &pool_box_mock,
@@ -522,7 +523,7 @@ mod tests {
             4,
             &wallet_mock,
             height,
-            change_address.clone(),
+            change_address.address(),
             &oracle_pub_key,
         )
         .unwrap();
@@ -566,7 +567,7 @@ mod tests {
                 4,
                 &wallet_mock,
                 height,
-                change_address,
+                change_address.address(),
                 &oracle_pub_key,
             )
             .is_err(),
