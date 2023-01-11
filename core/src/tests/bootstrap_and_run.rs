@@ -62,6 +62,7 @@ fn bootstrap(wallet: &Wallet, net_address: &NetworkAddress, chain: &mut ChainSim
         height,
     })
     .unwrap()
+    .0
 }
 
 #[test]

@@ -5,7 +5,7 @@ use derive_more::From;
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
-        transaction::Transaction,
+        transaction::{Transaction, TxId},
     },
     ergotree_ir::{
         chain::{
@@ -43,6 +43,7 @@ use crate::{
         },
     },
     datapoint_source::PredefinedDataPointSource,
+    explorer_api::wait_for_txs_confirmation,
     node_interface::{
         assert_wallet_unlocked,
         node_api::{NodeApi, NodeApiError},
@@ -82,7 +83,8 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
         change_address: change_address.address(),
         height: node_api.node.current_block_height()? as u32,
     };
-    let oracle_config = perform_bootstrap_chained_transaction(input)?;
+    let (oracle_config, submitted_tx_ids) = perform_bootstrap_chained_transaction(input)?;
+    wait_for_txs_confirmation(submitted_tx_ids);
     info!("Bootstrap chain-transaction complete");
     let s = serde_yaml::to_string(&oracle_config)?;
     let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME)?;
@@ -125,7 +127,7 @@ pub struct BootstrapInput<'a> {
 /// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
 pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
-) -> Result<PoolConfig, BootstrapError> {
+) -> Result<(PoolConfig, Vec<TxId>), BootstrapError> {
     let BootstrapInput {
         oracle_address,
         config,
@@ -504,26 +506,35 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         wallet_sign.sign_transaction_with_inputs(&refresh_box_tx, inputs, None)?;
 
     // ---------------------------------------------------------------------------------------------
+    let mut submitted_tx_ids = vec![];
     let tx_id = submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
+    submitted_tx_ids.push(signed_mint_pool_nft_tx.id());
     info!("Minted pool NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
+    submitted_tx_ids.push(signed_mint_refresh_nft_tx.id());
     info!("Minted refresh NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
+    submitted_tx_ids.push(signed_mint_ballot_tokens_tx.id());
     info!("Minted ballot tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
+    submitted_tx_ids.push(signed_mint_update_nft_tx.id());
     info!("Minted update NFT TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
+    submitted_tx_ids.push(signed_mint_oracle_tokens_tx.id());
     info!("Minted oracle tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
+    submitted_tx_ids.push(signed_mint_reward_tokens_tx.id());
     info!("Minted reward tokens TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_pool_box_tx)?;
+    submitted_tx_ids.push(signed_pool_box_tx.id());
     info!("Created initial pool box TxId: {}", tx_id);
     let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
+    submitted_tx_ids.push(signed_refresh_box_tx.id());
     info!("Created initial refresh box TxId: {}", tx_id);
 
     info!("Minted tokens: {:?}", token_ids);
 
-    Ok(PoolConfig::create(config, token_ids)?)
+    Ok((PoolConfig::create(config, token_ids)?, submitted_tx_ids))
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
@@ -728,7 +739,8 @@ pub(crate) mod tests {
             change_address: change_address.address(),
             height,
         })
-        .unwrap();
+        .unwrap()
+        .0;
 
         let token_ids = &oracle_config.token_ids;
         // Find output box guarding the Update NFT
