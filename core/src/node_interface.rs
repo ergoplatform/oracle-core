@@ -43,7 +43,9 @@ impl SubmitTransaction for NodeInterface {
             "Submitting signed transaction: {}",
             serde_json::to_string_pretty(&tx).unwrap()
         );
-        self.submit_transaction(tx)
+        let tx_id = self.submit_transaction(tx)?;
+        assert_eq!(tx_id, String::from(tx.id()));
+        Ok(tx_id)
     }
 }
 

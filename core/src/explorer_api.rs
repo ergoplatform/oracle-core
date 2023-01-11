@@ -53,17 +53,28 @@ impl ExplorerApi {
 }
 
 pub fn wait_for_tx_confirmation(tx_id: TxId) {
+    wait_for_txs_confirmation(vec![tx_id]);
+}
+
+pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let timeout = Duration::from_secs(3600);
     let explorer_api = ExplorerApi::new("https://api.ergoplatform.com/api/v1/").unwrap();
     let start_time = std::time::Instant::now();
     println!("Waiting for block confirmation from ExplorerApi ...");
+    let mut remaining_txs = tx_ids.clone();
     loop {
-        if let Ok(tx) = explorer_api.get_transaction(tx_id) {
-            log::info!("Transaction found: {}", tx.id());
+        for tx_id in remaining_txs.clone() {
+            if let Ok(tx) = explorer_api.get_transaction(tx_id) {
+                assert_eq!(tx.id(), tx_id);
+                log::info!("Transaction found: {tx_id}");
+                remaining_txs.retain(|id| *id != tx_id);
+            }
+        }
+        if remaining_txs.is_empty() {
             break;
         }
         if start_time.elapsed() > timeout {
-            println!("Timeout waiting for transaction");
+            println!("Timeout waiting for transactions");
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(10));
