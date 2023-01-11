@@ -82,8 +82,7 @@ impl OracleBoxWrapper {
             .as_ref()
             .ok_or(OracleBoxError::NoTokens)?
             .first()
-            .token_id
-            .clone();
+            .token_id;
 
         if oracle_token_id != inputs.oracle_token_id.token_id() {
             return Err(OracleBoxError::UnknownOracleTokenId);
@@ -95,8 +94,7 @@ impl OracleBoxWrapper {
             .ok_or(OracleBoxError::NoTokens)?
             .get(1)
             .ok_or(OracleBoxError::NoRewardToken)?
-            .token_id
-            .clone();
+            .token_id;
 
         if reward_token_id != inputs.reward_token_id.token_id() {
             return Err(OracleBoxError::UnknownRewardTokenId);
@@ -335,7 +333,7 @@ pub fn make_oracle_box_candidate(
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
-    builder.set_register_value(NonMandatoryRegisterId::R6, (datapoint as i64).into());
+    builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
     builder.add_token(oracle_token.into());
     builder.add_token(reward_token.into());
     builder.build()

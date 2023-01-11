@@ -25,9 +25,10 @@ use crate::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
     node_interface::{current_block_height, get_wallet_status, sign_and_submit_transaction},
-    oracle_config::{TokenIds, BASE_FEE, ORACLE_CONFIG},
+    oracle_config::{BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
     oracle_types::BlockHeight,
+    pool_config::{TokenIds, POOL_CONFIG},
     spec_token::SpecToken,
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -86,8 +87,8 @@ pub fn vote_update_pool(
         build_tx_with_existing_ballot_box(
             local_ballot_box,
             wallet,
-            new_pool_box_address_hash.clone(),
-            reward_token_id.clone(),
+            new_pool_box_address_hash,
+            reward_token_id,
             reward_token_amount,
             update_box_creation_height,
             height,
@@ -97,16 +98,16 @@ pub fn vote_update_pool(
         // Ballot token is assumed to be in some unspent box of the node's wallet.
         build_tx_for_first_ballot_box(
             wallet,
-            new_pool_box_address_hash.clone(),
-            reward_token_id.clone(),
+            new_pool_box_address_hash,
+            reward_token_id,
             reward_token_amount,
             update_box_creation_height,
             ORACLE_CONFIG.oracle_address.address(),
-            ORACLE_CONFIG
+            POOL_CONFIG
                 .ballot_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters(),
-            &ORACLE_CONFIG.token_ids,
+            &POOL_CONFIG.token_ids,
             height,
             change_network_address.address(),
         )?
@@ -379,7 +380,7 @@ mod tests {
                 secret.public_image(),
                 height - EpochLength(2),
                 ballot_token,
-                new_pool_box_address_hash.clone(),
+                new_pool_box_address_hash,
                 Token {
                     token_id: token_ids.reward_token_id.token_id(),
                     amount: 100_000.try_into().unwrap(),

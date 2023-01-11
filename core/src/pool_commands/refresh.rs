@@ -134,6 +134,10 @@ pub fn build_refresh_action(
         .map(|ob| ob.get_box().clone())
         .collect();
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
+    log::info!(
+        "Refresh: Found {} valid oracle boxes, next pool rate is {rate}",
+        valid_in_oracle_boxes.len()
+    );
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
         boxes: input_boxes.try_into().unwrap(),
@@ -331,7 +335,6 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractInputs;
     use crate::contracts::refresh::RefreshContractParameters;
-    use crate::oracle_config::TokenIds;
     use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::StageError;
     use crate::oracle_types::EpochLength;
@@ -340,6 +343,7 @@ mod tests {
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
     };
+    use crate::pool_config::TokenIds;
     use crate::spec_token::TokenIdKind;
 
     use super::*;

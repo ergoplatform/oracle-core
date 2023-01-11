@@ -228,9 +228,9 @@ pub fn make_pool_box_candidate_unchecked(
     pool_nft_token: SpecToken<PoolTokenId>,
     reward_token: Token,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
     builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
     builder.add_token(pool_nft_token.into());

@@ -17,12 +17,12 @@ use crate::cli_commands::bootstrap::BootstrapConfig;
 use crate::cli_commands::bootstrap::BootstrapInput;
 use crate::node_interface;
 use crate::node_interface::SubmitTransaction;
-use crate::oracle_config::OracleConfig;
 use crate::oracle_config::BASE_FEE;
 use crate::oracle_types::BlockHeight;
 use crate::pool_commands::test_utils::init_log_tests;
 use crate::pool_commands::test_utils::LocalTxSigner;
 use crate::pool_commands::test_utils::WalletDataMock;
+use crate::pool_config::PoolConfig;
 
 struct ChainSubmitTx<'a> {
     chain: RefCell<&'a mut ChainSim>,
@@ -37,24 +37,22 @@ impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
     }
 }
 
-fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> OracleConfig {
+fn bootstrap(wallet: &Wallet, address: &Address, chain: &mut ChainSim) -> PoolConfig {
     let ctx = force_any_val::<ErgoStateContext>();
 
     let unspent_boxes = chain.get_unspent_boxes(&address.script().unwrap());
     let change_address = address;
     let network_address = NetworkAddress::new(NetworkPrefix::Mainnet, address);
 
-    let state = BootstrapConfig {
-        oracle_address: network_address,
-        ..BootstrapConfig::default()
-    };
+    let bootstrap_config = BootstrapConfig::default();
 
     let height = BlockHeight(ctx.pre_header.height);
     let mut submit_tx_mock = ChainSubmitTx {
         chain: chain.into(),
     };
     perform_bootstrap_chained_transaction(BootstrapInput {
-        config: state,
+        oracle_address: network_address,
+        config: bootstrap_config,
         wallet: &WalletDataMock {
             unspent_boxes: unspent_boxes.clone(),
         },

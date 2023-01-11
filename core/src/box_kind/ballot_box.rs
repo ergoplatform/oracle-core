@@ -2,8 +2,8 @@ use crate::{
     contracts::ballot::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
-    oracle_config::CastBallotBoxVoteParameters,
     oracle_types::BlockHeight,
+    pool_config::CastBallotBoxVoteParameters,
     spec_token::{BallotTokenId, SpecToken, TokenIdKind, UpdateTokenId},
 };
 use ergo_lib::{
@@ -207,7 +207,7 @@ impl BallotBox for BallotBoxWrapper {
         let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
         SpecToken {
             // Safe to do this here since BallotBoxWrapper::new() already checks token id
-            token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+            token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
             amount: ballot_token.amount,
         }
     }
@@ -239,7 +239,7 @@ impl BallotBox for VoteBallotBoxWrapper {
         let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
         SpecToken {
             // Safe to do this here since BallotBoxWrapper::new() already checks token id
-            token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+            token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
             amount: ballot_token.amount,
         }
     }

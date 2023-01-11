@@ -8,6 +8,7 @@ use crate::box_kind::PoolBox;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{OraclePool, StageError};
 use crate::oracle_types::BlockHeight;
+use crate::pool_config::POOL_CONFIG;
 use crate::wallet::WalletDataSource;
 
 use self::publish_datapoint::build_publish_first_datapoint_action;
@@ -71,7 +72,7 @@ pub fn build_action(
             height,
             change_address,
             oracle_public_key,
-            ORACLE_CONFIG.oracle_box_wrapper_inputs.clone(),
+            POOL_CONFIG.oracle_box_wrapper_inputs.clone(),
             &*op.data_point_source,
         )
         .map_err(Into::into)
@@ -103,12 +104,12 @@ pub fn build_action(
             op.get_pool_box_source(),
             refresh_box_source,
             datapoint_stage_src,
-            ORACLE_CONFIG
+            POOL_CONFIG
                 .refresh_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
                 .max_deviation_percent() as u32,
-            ORACLE_CONFIG
+            POOL_CONFIG
                 .refresh_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()

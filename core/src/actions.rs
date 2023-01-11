@@ -44,7 +44,7 @@ pub fn execute_action(action: PoolAction) -> Result<(), ActionExecError> {
             if msg.as_str() == "Double spending attempt"
                 || msg.contains("it is invalidated earlier or the pool is full") =>
         {
-            log::info!("Node rejected tx with error: {msg}");
+            log::debug!("Node rejected tx with error: {msg}");
             Ok(())
         }
         Err(e) => Err(e),

@@ -3,12 +3,10 @@
 use std::convert::{TryFrom, TryInto};
 
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::{
-    address::{AddressEncoder, AddressEncoderError},
-    ergo_box::box_value::BoxValueError,
-    token::TokenId,
+use ergo_lib::{
+    ergo_chain_types::Digest32,
+    ergotree_ir::chain::{address::AddressEncoderError, ergo_box::box_value::BoxValueError},
 };
-use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -32,37 +30,28 @@ use crate::{
         update::{UpdateContractParameters, UpdateContractParametersError},
     },
     datapoint_source::PredefinedDataPointSource,
-    oracle_config::{OracleConfig, OracleConfigError, TokenIds},
-    oracle_types::{BlockHeight, EpochLength},
+    oracle_types::EpochLength,
+    pool_config::{PoolConfig, PoolConfigError, TokenIds},
+    spec_token::TokenIdKind,
 };
 
-/// Used to (de)serialize `OracleConfig` instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct OracleConfigSerde {
-    node_ip: String,
-    node_port: u16,
-    node_api_key: String,
-    base_fee: u64,
-    log_level: Option<LevelFilter>,
-    core_api_port: u16,
-    oracle_address: String,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct PoolConfigSerde {
     data_point_source: Option<PredefinedDataPointSource>,
-    data_point_source_custom_script: Option<String>,
     oracle_contract_parameters: OracleContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
     update_contract_parameters: UpdateContractParametersSerde,
     ballot_contract_parameters: BallotContractParametersSerde,
     token_ids: TokenIds,
-    rescan_height: BlockHeight,
 }
 
 #[derive(Debug, Error, From)]
 pub enum SerdeConversionError {
     #[error("Serde conversion error: AddressEncoder {0}")]
     AddressEncoder(AddressEncoderError),
-    #[error("Oracle config error: {0}")]
-    OracleConfigError(OracleConfigError),
+    #[error("Pool config error: {0}")]
+    PoolConfigError(PoolConfigError),
     #[error("Base16 decode error: {0}")]
     DecodeError(base16::DecodeError),
     #[error("Ballot contract parameter error: {0}")]
@@ -79,8 +68,8 @@ pub enum SerdeConversionError {
     BoxValueError(BoxValueError),
 }
 
-impl From<OracleConfig> for OracleConfigSerde {
-    fn from(c: OracleConfig) -> Self {
+impl From<PoolConfig> for PoolConfigSerde {
+    fn from(c: PoolConfig) -> Self {
         let oracle_contract_parameters = OracleContractParametersSerde::from(
             c.oracle_box_wrapper_inputs
                 .contract_inputs
@@ -112,30 +101,21 @@ impl From<OracleConfig> for OracleConfigSerde {
                 .clone(),
         );
 
-        OracleConfigSerde {
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            base_fee: c.base_fee,
-            log_level: c.log_level,
-            core_api_port: c.core_api_port,
-            oracle_address: c.oracle_address.to_base58(),
-            data_point_source: c.data_point_source,
-            data_point_source_custom_script: c.data_point_source_custom_script,
+        PoolConfigSerde {
             oracle_contract_parameters,
             pool_contract_parameters,
             refresh_contract_parameters,
             ballot_contract_parameters,
             update_contract_parameters,
             token_ids: c.token_ids,
-            rescan_height: c.rescan_height,
+            data_point_source: c.data_point_source,
         }
     }
 }
 
-impl TryFrom<OracleConfigSerde> for OracleConfig {
+impl TryFrom<PoolConfigSerde> for PoolConfig {
     type Error = SerdeConversionError;
-    fn try_from(c: OracleConfigSerde) -> Result<Self, Self::Error> {
+    fn try_from(c: PoolConfigSerde) -> Result<Self, Self::Error> {
         let oracle_contract_parameters = OracleContractParameters::checked_load(
             base16::decode(c.oracle_contract_parameters.ergo_tree_bytes.as_str())?,
             c.oracle_contract_parameters.pool_nft_index,
@@ -149,7 +129,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             c.token_ids.oracle_token_id.clone(),
             c.token_ids.reward_token_id.clone(),
         )
-        .map_err(OracleConfigError::from)?;
+        .map_err(PoolConfigError::from)?;
 
         let pool_contract_parameters = PoolContractParameters::checked_load(
             base16::decode(c.pool_contract_parameters.ergo_tree_bytes.as_str())?,
@@ -191,16 +171,13 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             c.ballot_contract_parameters.update_nft_index,
         )?;
 
-        let oracle_address =
-            AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
-
         let refresh_box_wrapper_inputs = RefreshBoxWrapperInputs::checked_load(
             refresh_contract_parameters.clone(),
             c.token_ids.oracle_token_id.clone(),
             c.token_ids.pool_nft_token_id.clone(),
             c.token_ids.refresh_nft_token_id.clone(),
         )
-        .map_err(OracleConfigError::from)?;
+        .map_err(PoolConfigError::from)?;
 
         let pool_box_wrapper_inputs = PoolBoxWrapperInputs::checked_load(
             pool_contract_parameters.clone(),
@@ -209,7 +186,7 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             c.token_ids.pool_nft_token_id.clone(),
             c.token_ids.reward_token_id.clone(),
         )
-        .map_err(OracleConfigError::from)?;
+        .map_err(PoolConfigError::from)?;
 
         let update_box_wrapper_inputs = UpdateBoxWrapperInputs::checked_load(
             update_contract_parameters.clone(),
@@ -217,32 +194,23 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
             c.token_ids.ballot_token_id.clone(),
             c.token_ids.update_nft_token_id.clone(),
         )
-        .map_err(OracleConfigError::from)?;
+        .map_err(PoolConfigError::from)?;
 
         let ballot_box_wrapper_inputs = BallotBoxWrapperInputs::checked_load(
             ballot_contract_parameters.clone(),
             c.token_ids.ballot_token_id.clone(),
             c.token_ids.update_nft_token_id.clone(),
         )
-        .map_err(OracleConfigError::from)?;
+        .map_err(PoolConfigError::from)?;
 
-        Ok(OracleConfig {
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            base_fee: c.base_fee,
-            log_level: c.log_level,
-            core_api_port: c.core_api_port,
-            oracle_address,
+        Ok(PoolConfig {
             data_point_source: c.data_point_source,
-            data_point_source_custom_script: c.data_point_source_custom_script,
             oracle_box_wrapper_inputs,
             pool_box_wrapper_inputs,
             refresh_box_wrapper_inputs,
             update_box_wrapper_inputs,
             ballot_box_wrapper_inputs,
             token_ids: c.token_ids,
-            rescan_height: c.rescan_height,
         })
     }
 }
@@ -250,20 +218,13 @@ impl TryFrom<OracleConfigSerde> for OracleConfig {
 /// Used to (de)serialize `BootstrapConfig` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootstrapConfigSerde {
+    pub data_point_source: Option<PredefinedDataPointSource>,
     oracle_contract_parameters: OracleContractParametersSerde,
     refresh_contract_parameters: RefreshContractParametersSerde,
     pool_contract_parameters: PoolContractParametersSerde,
     update_contract_parameters: UpdateContractParametersSerde,
     ballot_contract_parameters: BallotContractParametersSerde,
     tokens_to_mint: TokensToMint,
-    node_ip: String,
-    node_port: u16,
-    node_api_key: String,
-    core_api_port: u16,
-    data_point_source: Option<PredefinedDataPointSource>,
-    data_point_source_custom_script: Option<String>,
-    oracle_address: String,
-    base_fee: u64,
 }
 
 impl From<BootstrapConfig> for BootstrapConfigSerde {
@@ -281,14 +242,7 @@ impl From<BootstrapConfig> for BootstrapConfigSerde {
                 c.ballot_contract_parameters,
             ),
             tokens_to_mint: c.tokens_to_mint,
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            oracle_address: c.oracle_address.to_base58(),
-            core_api_port: c.core_api_port,
             data_point_source: c.data_point_source,
-            data_point_source_custom_script: c.data_point_source_custom_script,
-            base_fee: c.base_fee,
         }
     }
 }
@@ -339,8 +293,6 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             c.oracle_contract_parameters.min_storage_rent_index,
             c.oracle_contract_parameters.min_storage_rent.try_into()?,
         )?;
-        let oracle_address =
-            AddressEncoder::unchecked_parse_network_address_from_str(&c.oracle_address)?;
 
         Ok(BootstrapConfig {
             oracle_contract_parameters,
@@ -349,14 +301,7 @@ impl TryFrom<BootstrapConfigSerde> for BootstrapConfig {
             update_contract_parameters,
             ballot_contract_parameters,
             tokens_to_mint: c.tokens_to_mint,
-            node_ip: c.node_ip,
-            node_port: c.node_port,
-            node_api_key: c.node_api_key,
-            oracle_address,
-            core_api_port: c.core_api_port,
             data_point_source: c.data_point_source,
-            data_point_source_custom_script: c.data_point_source_custom_script,
-            base_fee: c.base_fee,
         })
     }
 }
@@ -536,20 +481,17 @@ impl TryFrom<UpdateBootstrapConfigSerde> for UpdateBootstrapConfig {
     }
 }
 
-pub(crate) fn token_id_as_base64_string<S, T: crate::spec_token::TokenIdKind>(
+pub(crate) fn token_id_as_base16_string<S, T: TokenIdKind>(
     value: &T,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    let bytes: Vec<u8> = value.token_id().into();
-    serializer.serialize_str(&base64::encode(bytes))
+    serializer.serialize_str(&String::from(value.token_id()))
 }
 
-pub(crate) fn token_id_from_base64<'de, D, T: crate::spec_token::TokenIdKind>(
-    deserializer: D,
-) -> Result<T, D::Error>
+pub(crate) fn token_id_from_base16<'de, D, T: TokenIdKind>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
@@ -558,6 +500,8 @@ where
     //   "invalid type: string ..., expected a borrowed string"
     let s: String = serde::de::Deserialize::deserialize(deserializer)?;
     Ok(T::from_token_id_unchecked(
-        TokenId::from_base64(&s).map_err(serde::de::Error::custom)?,
+        Digest32::try_from(s)
+            .map_err(serde::de::Error::custom)?
+            .into(),
     ))
 }

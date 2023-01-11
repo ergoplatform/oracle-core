@@ -21,7 +21,7 @@ use ergo_lib::{
     },
     wallet::{
         box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
-        tx_builder::{self, TxBuilder, TxBuilderError},
+        tx_builder::{TxBuilder, TxBuilderError},
     },
 };
 use ergo_node_interface::{node_interface::NodeError, NodeInterface};
@@ -44,9 +44,9 @@ use crate::{
     },
     datapoint_source::PredefinedDataPointSource,
     node_interface::{assert_wallet_unlocked, SignTransaction, SubmitTransaction},
-    oracle_config::{OracleConfig, TokenIds},
-    oracle_config::{OracleConfigError, BASE_FEE},
     oracle_types::BlockHeight,
+    oracle_config::{BASE_FEE, ORACLE_CONFIG},
+    pool_config::{PoolConfig, PoolConfigError, TokenIds},
     serde::BootstrapConfigSerde,
     spec_token::{
         BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,
@@ -59,15 +59,16 @@ use crate::{
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
 pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
+    let oracle_config = &ORACLE_CONFIG;
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
     // We can't call any functions from the `crate::node_interface` module because we don't have an
     // `oracle_config.yaml` file to work from here.
     let node = NodeInterface::new(
-        &config.node_api_key,
-        &config.node_ip,
-        &config.node_port.to_string(),
+        &oracle_config.node_api_key,
+        &oracle_config.node_ip,
+        &oracle_config.node_port.to_string(),
     );
     assert_wallet_unlocked(&node);
     let change_address_str = node
@@ -79,6 +80,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     let change_address = AddressEncoder::unchecked_parse_address_from_str(&change_address_str)?;
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
+        oracle_address: oracle_config.oracle_address.clone(),
         config,
         wallet: &node as &dyn WalletDataSource,
         tx_signer: &node as &dyn SignTransaction,
@@ -91,11 +93,11 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     let oracle_config = perform_bootstrap_chained_transaction(input)?;
     info!("Bootstrap chain-transaction complete");
     let s = serde_yaml::to_string(&oracle_config)?;
-    let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_CONFIG_FILE_NAME)?;
+    let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME)?;
     file.write_all(s.as_bytes())?;
     info!(
         "Oracle configuration file created: {}",
-        crate::oracle_config::DEFAULT_CONFIG_FILE_NAME
+        crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME
     );
     Ok(())
 }
@@ -115,6 +117,7 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
 }
 
 pub struct BootstrapInput<'a> {
+    pub oracle_address: NetworkAddress,
     pub config: BootstrapConfig,
     pub wallet: &'a dyn WalletDataSource,
     pub tx_signer: &'a dyn SignTransaction,
@@ -130,8 +133,9 @@ pub struct BootstrapInput<'a> {
 /// https://github.com/ergoplatform/eips/blob/eip23/eip-0023.md#tokens
 pub(crate) fn perform_bootstrap_chained_transaction(
     input: BootstrapInput,
-) -> Result<OracleConfig, BootstrapError> {
+) -> Result<PoolConfig, BootstrapError> {
     let BootstrapInput {
+        oracle_address,
         config,
         wallet,
         tx_signer: wallet_sign,
@@ -173,7 +177,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     // This variable represents the index `i` described above.
     let mut num_transactions_left = 8;
 
-    let wallet_pk_ergo_tree = config.oracle_address.address().script()?;
+    let wallet_pk_ergo_tree = oracle_address.address().script()?;
     let guard = wallet_pk_ergo_tree.clone();
 
     // Since we're building a chain of transactions, we need to filter the output boxes of each
@@ -303,8 +307,8 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let update_contract = UpdateContract::checked_load(&UpdateContractInputs::build_with(
         config.update_contract_parameters.clone(),
-        PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id.clone()),
-        BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+        PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id),
+        BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
     )?)?;
 
     info!("Creating and signing minting update NFT tx");
@@ -324,7 +328,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     info!("Creating and signing minting oracle tokens tx");
     let inputs = filter_tx_outputs(signed_mint_update_nft_tx.outputs.clone());
     debug!("inputs for oracle tokens mint: {:?}", inputs);
-    let oracle_tokens_pk_ergo_tree = config.oracle_address.address().script()?;
+    let oracle_tokens_pk_ergo_tree = oracle_address.address().script()?;
     let (oracle_token, signed_mint_oracle_tokens_tx) = mint_token(
         inputs,
         &mut num_transactions_left,
@@ -366,16 +370,12 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     // we don't have a working ORACLE_CONFIG during bootstrap so token ids are created without any checks
     let token_ids = TokenIds {
-        pool_nft_token_id: PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id.clone()),
-        refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(
-            refresh_nft_token.token_id.clone(),
-        ),
-        update_nft_token_id: UpdateTokenId::from_token_id_unchecked(
-            update_nft_token.token_id.clone(),
-        ),
-        oracle_token_id: OracleTokenId::from_token_id_unchecked(oracle_token.token_id.clone()),
-        reward_token_id: RewardTokenId::from_token_id_unchecked(reward_token.token_id.clone()),
-        ballot_token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id.clone()),
+        pool_nft_token_id: PoolTokenId::from_token_id_unchecked(pool_nft_token.token_id),
+        refresh_nft_token_id: RefreshTokenId::from_token_id_unchecked(refresh_nft_token.token_id),
+        update_nft_token_id: UpdateTokenId::from_token_id_unchecked(update_nft_token.token_id),
+        oracle_token_id: OracleTokenId::from_token_id_unchecked(oracle_token.token_id),
+        reward_token_id: RewardTokenId::from_token_id_unchecked(reward_token.token_id),
+        ballot_token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
     };
 
     let pool_contract = PoolContract::build_with(&PoolContractInputs::build_with(
@@ -386,7 +386,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     .unwrap();
 
     let reward_tokens_for_pool_box = Token {
-        token_id: reward_token.token_id.clone(),
+        token_id: reward_token.token_id,
         amount: reward_token
             .amount
             // we must leave one reward token per oracle for their first datapoint box
@@ -532,35 +532,24 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     info!("Minted tokens: {:?}", token_ids);
 
-    Ok(OracleConfig::create(config, token_ids, height)?)
+    Ok(PoolConfig::create(config, token_ids)?)
 }
 
 /// An instance of this struct is created from an operator-provided YAML file.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(try_from = "crate::serde::BootstrapConfigSerde")]
 pub struct BootstrapConfig {
+    pub data_point_source: Option<PredefinedDataPointSource>,
     pub oracle_contract_parameters: OracleContractParameters,
     pub refresh_contract_parameters: RefreshContractParameters,
     pub pool_contract_parameters: PoolContractParameters,
     pub update_contract_parameters: UpdateContractParameters,
     pub ballot_contract_parameters: BallotContractParameters,
     pub tokens_to_mint: TokensToMint,
-    pub node_ip: String,
-    pub node_port: u16,
-    pub node_api_key: String,
-    pub core_api_port: u16,
-    pub data_point_source: Option<PredefinedDataPointSource>,
-    pub data_point_source_custom_script: Option<String>,
-    pub oracle_address: NetworkAddress,
-    pub base_fee: u64,
 }
 
 impl Default for BootstrapConfig {
     fn default() -> Self {
-        let address = AddressEncoder::unchecked_parse_network_address_from_str(
-            "9hEQHEMyY1K1vs79vJXFtNjr2dbQbtWXF99oVWGJ5c4xbcLdBsw",
-        )
-        .unwrap();
         BootstrapConfig {
             tokens_to_mint: TokensToMint {
                 pool_nft: NftMintDetails {
@@ -591,19 +580,12 @@ impl Default for BootstrapConfig {
                     quantity: 100_000_000,
                 },
             },
-            oracle_address: address,
-            node_ip: "127.0.0.1".into(),
-            node_port: 9053,
-            node_api_key: "hello".into(),
             refresh_contract_parameters: RefreshContractParameters::default(),
             pool_contract_parameters: PoolContractParameters::default(),
             update_contract_parameters: UpdateContractParameters::default(),
             ballot_contract_parameters: BallotContractParameters::default(),
             oracle_contract_parameters: OracleContractParameters::default(),
-            core_api_port: 9010,
             data_point_source: Some(PredefinedDataPointSource::NanoErgUsd),
-            data_point_source_custom_script: None,
-            base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
         }
     }
 }
@@ -663,8 +645,8 @@ pub enum BootstrapError {
     ConfigFilenameAlreadyExists,
     #[error("Ballot contract error: {0}")]
     BallotContractError(BallotContractError),
-    #[error("Oracle config error: {0}")]
-    OracleConfigError(OracleConfigError),
+    #[error("Pool config error: {0}")]
+    PoolConfigError(PoolConfigError),
     #[error("Pool contract error: {0}")]
     PoolContractError(PoolContractError),
     #[error("WalletData error: {0}")]
@@ -677,7 +659,7 @@ pub(crate) mod tests {
         chain::{ergo_state_context::ErgoStateContext, transaction::TxId},
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::{AddressEncoder, NetworkPrefix},
+            address::{AddressEncoder, NetworkAddress, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
             token::TokenId,
         },
@@ -732,15 +714,12 @@ pub(crate) mod tests {
                 .parse_address_from_str("9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r")
                 .unwrap();
 
-        let default_bootstrap_config = BootstrapConfig::default();
-        let bootstrap_config = BootstrapConfig {
-            oracle_address: address,
-            ..default_bootstrap_config
-        };
+        let bootstrap_config = BootstrapConfig::default();
 
         let height = BlockHeight(ctx.pre_header.height);
         let submit_tx = SubmitTxMock::default();
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
+            oracle_address: address,
             config: bootstrap_config.clone(),
             wallet: &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),

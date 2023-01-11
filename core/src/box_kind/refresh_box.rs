@@ -94,8 +94,7 @@ impl RefreshBoxWrapper {
             .ok_or(RefreshBoxError::NoTokens)?
             .get(0)
             .ok_or(RefreshBoxError::NoTokens)?
-            .token_id
-            .clone();
+            .token_id;
         if refresh_token_id != inputs.refresh_nft_token_id.token_id() {
             return Err(RefreshBoxError::IncorrectRefreshTokenId(refresh_token_id));
         }
