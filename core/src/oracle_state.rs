@@ -10,7 +10,7 @@ use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::{DataPointSource, DataPointSourceError};
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_types::BlockHeight;
+use crate::oracle_types::{BlockHeight, EpochCounter};
 use crate::pool_config::POOL_CONFIG;
 use crate::scans::{
     load_scan_ids, register_ballot_box_scan, register_datapoint_scan,
@@ -161,7 +161,7 @@ pub struct UpdateBoxScan<'a> {
 /// The state of the oracle pool when it is in the Live Epoch stage
 #[derive(Debug, Clone)]
 pub struct LiveEpochState {
-    pub pool_box_epoch_id: u32,
+    pub pool_box_epoch_id: EpochCounter,
     pub local_datapoint_box_state: Option<LocalDatapointState>,
     pub latest_pool_datapoint: u64,
     pub latest_pool_box_height: BlockHeight,
@@ -170,8 +170,13 @@ pub struct LiveEpochState {
 /// Last posted datapoint box info by the local oracle
 #[derive(Debug, Clone)]
 pub enum LocalDatapointState {
-    Collected { height: BlockHeight },
-    Posted { epoch_id: u32, height: BlockHeight },
+    Collected {
+        height: BlockHeight,
+    },
+    Posted {
+        epoch_id: EpochCounter,
+        height: BlockHeight,
+    },
 }
 
 impl<'a> OraclePool<'a> {
@@ -271,7 +276,7 @@ impl<'a> OraclePool<'a> {
     /// Get the state of the current oracle pool epoch
     pub fn get_live_epoch_state(&self) -> Result<LiveEpochState> {
         let pool_box = self.get_pool_box_source().get_pool_box()?;
-        let epoch_id: u32 = pool_box.epoch_counter();
+        let epoch_id = pool_box.epoch_counter();
 
         // Whether datapoint was commit in the current Live Epoch
         let local_datapoint_box_state = self

@@ -204,6 +204,7 @@ mod tests {
     use super::*;
     use crate::box_kind::{OracleBoxWrapper, OracleBoxWrapperInputs};
     use crate::contracts::oracle::OracleContractParameters;
+    use crate::oracle_types::EpochCounter;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
         OracleBoxMock, WalletDataMock,
@@ -233,7 +234,7 @@ mod tests {
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
-                1,
+                EpochCounter(1),
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
                 BlockHeight(height.0 - 9),

@@ -22,7 +22,7 @@ use crate::{
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
     oracle_state::StageError,
-    oracle_types::BlockHeight,
+    oracle_types::{BlockHeight, EpochCounter},
     spec_token::{OracleTokenId, RewardTokenId, SpecToken},
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -53,7 +53,7 @@ pub fn build_subsequent_publish_datapoint_action(
     height: BlockHeight,
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
-    new_epoch_counter: u32,
+    new_epoch_counter: EpochCounter,
     _pool_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
@@ -136,7 +136,7 @@ pub fn build_publish_first_datapoint_action(
         &contract,
         public_key,
         new_datapoint,
-        1,
+        EpochCounter(1),
         oracle_token,
         reward_token,
         min_storage_rent,
@@ -208,7 +208,7 @@ mod tests {
         let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = OracleContractParameters::default();
         let pool_contract_parameters = PoolContractParameters::default();
-        let pool_box_epoch_id = 1;
+        let pool_box_epoch_id = EpochCounter(1);
         dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
@@ -232,7 +232,7 @@ mod tests {
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
-                pool_box_epoch_id - 1,
+                EpochCounter(pool_box_epoch_id.0 - 1),
                 &token_ids,
                 oracle_box_wrapper_inputs
                     .contract_inputs
@@ -266,7 +266,7 @@ mod tests {
             height,
             change_address.address(),
             &datapoint_source,
-            pool_box_epoch_id as u32,
+            pool_box_epoch_id,
             datapoint_source.datapoint - 1,
         )
         .unwrap();

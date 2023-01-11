@@ -49,13 +49,14 @@ use crate::{
         SignTransactionWithInputs, SubmitTransaction,
     },
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
+    oracle_types::{BlockHeight, EpochCounter},
     pool_config::{PoolConfig, PoolConfigError, TokenIds},
     serde::BootstrapConfigSerde,
     spec_token::{
         BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,
         TokenIdKind, UpdateTokenId,
     },
-    wallet::{WalletDataError, WalletDataSource}, oracle_types::BlockHeight,
+    wallet::{WalletDataError, WalletDataSource},
 };
 
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
@@ -80,7 +81,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
         tx_fee: *BASE_FEE,
         erg_value_per_box,
         change_address: change_address.address(),
-        height: BlockHeight(node_api.current_block_height()? as u32),
+        height: BlockHeight(node_api.node.current_block_height()? as u32),
     };
     let oracle_config = perform_bootstrap_chained_transaction(input)?;
     info!("Bootstrap chain-transaction complete");
@@ -389,7 +390,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         &pool_contract,
         // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during bootstrap.
         0,
-        1,
+        EpochCounter(1),
         SpecToken {
             token_id: token_ids.pool_nft_token_id.clone(),
             amount: pool_nft_token.amount,

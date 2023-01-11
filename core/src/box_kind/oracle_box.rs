@@ -15,6 +15,7 @@ use crate::contracts::oracle::OracleContractError;
 use crate::contracts::oracle::OracleContractInputs;
 use crate::contracts::oracle::OracleContractParameters;
 use crate::oracle_types::BlockHeight;
+use crate::oracle_types::EpochCounter;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RewardTokenId;
@@ -249,12 +250,14 @@ impl PostedOracleBox {
         &self.ergo_box
     }
 
-    pub fn epoch_counter(&self) -> u32 {
-        self.ergo_box
-            .get_register(NonMandatoryRegisterId::R5.into())
-            .unwrap()
-            .try_extract_into::<i32>()
-            .unwrap() as u32
+    pub fn epoch_counter(&self) -> EpochCounter {
+        EpochCounter(
+            self.ergo_box
+                .get_register(NonMandatoryRegisterId::R5.into())
+                .unwrap()
+                .try_extract_into::<i32>()
+                .unwrap() as u32,
+        )
     }
 
     pub fn rate(&self) -> u64 {
@@ -324,7 +327,7 @@ pub fn make_oracle_box_candidate(
     contract: &OracleContract,
     public_key: ProveDlog,
     datapoint: i64,
-    epoch_counter: u32,
+    epoch_counter: EpochCounter,
     oracle_token: SpecToken<OracleTokenId>,
     reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
@@ -332,7 +335,7 @@ pub fn make_oracle_box_candidate(
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
-    builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter.0 as i32).into());
     builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
     builder.add_token(oracle_token.into());
     builder.add_token(reward_token.into());

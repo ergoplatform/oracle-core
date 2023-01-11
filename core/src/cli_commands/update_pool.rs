@@ -78,7 +78,7 @@ pub fn update_pool(
     tx_submit: &dyn SubmitTransaction,
     new_pool_box_hash_str: Option<String>,
     new_reward_tokens: Option<Token>,
-    height: u32,
+    height: BlockHeight,
 ) -> Result<(), UpdatePoolError> {
     info!("Opening pool_config_updated.yaml");
     let s = std::fs::read_to_string("pool_config_updated.yaml")?;
@@ -244,7 +244,7 @@ fn build_update_pool_box_tx(
     let pool_box_candidate = make_pool_box_candidate_unchecked(
         &new_pool_contract,
         old_pool_box.rate(),
-        old_pool_box.epoch_counter() as i32,
+        old_pool_box.epoch_counter(),
         old_pool_box.pool_nft_token(),
         reward_tokens.clone(),
         old_pool_box.get_box().value,
@@ -373,7 +373,7 @@ mod tests {
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
         oracle_config::BASE_FEE,
-        oracle_types::BlockHeight,
+        oracle_types::{BlockHeight, EpochCounter},
         pool_commands::test_utils::{
             generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
             UpdateBoxMock, WalletDataMock,
@@ -451,7 +451,7 @@ mod tests {
         let pool_box_candidate = make_pool_box_candidate(
             &pool_contract,
             0,
-            0,
+            EpochCounter(0),
             SpecToken {
                 token_id: token_ids.pool_nft_token_id.clone(),
                 amount: 1.try_into().unwrap(),

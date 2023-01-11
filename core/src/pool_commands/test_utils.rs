@@ -43,6 +43,7 @@ use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::VoteBallotBoxesSource;
 use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
+use crate::oracle_types::EpochCounter;
 use crate::pool_config::TokenIds;
 use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
@@ -128,7 +129,7 @@ impl UpdateBoxSource for UpdateBoxMock {
 
 pub(crate) fn make_pool_box(
     datapoint: i64,
-    epoch_counter: i32,
+    epoch_counter: EpochCounter,
     value: BoxValue,
     creation_height: BlockHeight,
     pool_contract_parameters: &PoolContractParameters,
@@ -167,7 +168,10 @@ pub(crate) fn make_pool_box(
             NonMandatoryRegisters::new(
                 vec![
                     (NonMandatoryRegisterId::R4, Constant::from(datapoint)),
-                    (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
+                    (
+                        NonMandatoryRegisterId::R5,
+                        Constant::from(epoch_counter.0 as i32),
+                    ),
                 ]
                 .into_iter()
                 .collect(),
@@ -187,7 +191,7 @@ pub(crate) fn make_pool_box(
 pub(crate) fn make_datapoint_box(
     pub_key: EcPoint,
     datapoint: i64,
-    epoch_counter: i32,
+    epoch_counter: EpochCounter,
     token_ids: &TokenIds,
     value: BoxValue,
     creation_height: BlockHeight,
@@ -216,7 +220,10 @@ pub(crate) fn make_datapoint_box(
         NonMandatoryRegisters::new(
             vec![
                 (NonMandatoryRegisterId::R4, Constant::from(pub_key)),
-                (NonMandatoryRegisterId::R5, Constant::from(epoch_counter)),
+                (
+                    NonMandatoryRegisterId::R5,
+                    Constant::from(epoch_counter.0 as i32),
+                ),
                 (NonMandatoryRegisterId::R6, Constant::from(datapoint)),
             ]
             .into_iter()

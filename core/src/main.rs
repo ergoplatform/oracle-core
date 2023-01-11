@@ -441,10 +441,12 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
 
 fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let height = node_api
-        .node
-        .current_block_height()
-        .context("Failed to get the current height")? as u32;
+    let height = BlockHeight(
+        node_api
+            .node
+            .current_block_height()
+            .context("Failed to get the current height")? as u32,
+    );
     let network_change_address = node_api.get_change_address()?;
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),

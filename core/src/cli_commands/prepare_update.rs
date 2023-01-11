@@ -141,7 +141,8 @@ fn print_hints_for_voting(height: u32) -> Result<(), PrepareUpdateError> {
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
-        .epoch_length().0;
+        .epoch_length()
+        .0 as u32;
     let op = OraclePool::new().unwrap();
     let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
     let min_oracle_box_height = height - epoch_length;
@@ -561,7 +562,10 @@ mod test {
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::{pool_commands::test_utils::{LocalTxSigner, WalletDataMock}, cli_commands::bootstrap::tests::SubmitTxMock};
+    use crate::{
+        cli_commands::bootstrap::tests::SubmitTxMock,
+        pool_commands::test_utils::{LocalTxSigner, WalletDataMock},
+    };
 
     #[test]
     fn test_prepare_update_transaction() {

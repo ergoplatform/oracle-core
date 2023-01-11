@@ -13,6 +13,7 @@ use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
 use crate::oracle_types::BlockHeight;
+use crate::oracle_types::EpochCounter;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
@@ -240,7 +241,7 @@ fn build_out_pool_box(
     rate: u64,
     reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
-    let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
+    let new_epoch_counter = EpochCounter(in_pool_box.epoch_counter().0 + 1);
     let reward_token = in_pool_box.reward_token();
     let new_reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: reward_token.token_id,
@@ -405,7 +406,7 @@ mod tests {
     fn make_datapoint_boxes(
         pub_keys: Vec<EcPoint>,
         datapoints: Vec<i64>,
-        epoch_counter: i32,
+        epoch_counter: EpochCounter,
         value: BoxValue,
         creation_height: BlockHeight,
         oracle_contract_parameters: &OracleContractParameters,
@@ -455,7 +456,7 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
-        let pool_box_epoch_id = 1;
+        let pool_box_epoch_id = EpochCounter(1);
         let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - EpochLength(32));
         let in_pool_box = make_pool_box(
             200,
@@ -556,7 +557,7 @@ mod tests {
                     datapoints: make_datapoint_boxes(
                         oracle_pub_keys,
                         vec![199, 70, 196, 197, 198, 200],
-                        pool_box_epoch_id + 1,
+                        EpochCounter(pool_box_epoch_id.0 + 1),
                         BASE_FEE.checked_mul_u32(100).unwrap(),
                         height - EpochLength(9),
                         &oracle_contract_parameters,
