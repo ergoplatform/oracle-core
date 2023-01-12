@@ -94,11 +94,11 @@ pub fn extract_reward_tokens(
     std::io::stdin().read_line(&mut input)?;
     if input.trim() == "YES" {
         let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
-        let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
+        let tx_id = tx_submit.submit_transaction(&signed_tx)?;
         crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
         println!(
             "Transaction made. Check status here: {}",
-            ergo_explorer_transaction_link(tx_id_str, network_prefix)
+            ergo_explorer_transaction_link(tx_id, network_prefix)
         );
     } else {
         println!("Aborting the transaction.")

@@ -1,12 +1,12 @@
 use derive_more::From;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+use ergo_lib::chain::transaction::TxId;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoderError;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::scanning::NodeError;
 use ergo_node_interface::NodeInterface;
-use ergo_node_interface::TxId;
 use reqwest::Url;
 use thiserror::Error;
 

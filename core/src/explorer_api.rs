@@ -3,11 +3,14 @@ use std::time::Duration;
 use derive_more::From;
 use ergo_lib::chain::transaction::Transaction;
 use ergo_lib::chain::transaction::TxId;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_TYPE;
 use thiserror::Error;
 use url::ParseError;
+
+use crate::oracle_config::ORACLE_CONFIG;
 
 #[derive(Debug, From, Error)]
 pub enum ExplorerApiError {
@@ -57,8 +60,14 @@ pub fn wait_for_tx_confirmation(tx_id: TxId) {
 }
 
 pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
-    let timeout = Duration::from_secs(3600);
-    let explorer_api = ExplorerApi::new("https://api.ergoplatform.com/api/v1/").unwrap();
+    let network = ORACLE_CONFIG.oracle_address.network();
+    let timeout = Duration::from_secs(600);
+    let explorer_api = match network {
+        NetworkPrefix::Mainnet => ExplorerApi::new("https://api.ergoplatform.com/api/v1/").unwrap(),
+        NetworkPrefix::Testnet => {
+            ExplorerApi::new("https://api-testnet.ergoplatform.com/api/v1/").unwrap()
+        }
+    };
     let start_time = std::time::Instant::now();
     println!("Waiting for block confirmation from ExplorerApi ...");
     let mut remaining_txs = tx_ids.clone();

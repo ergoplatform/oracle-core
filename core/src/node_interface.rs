@@ -1,5 +1,5 @@
 use ergo_lib::{
-    chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxIoVec},
+    chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxId, TxIoVec},
     ergotree_ir::chain::ergo_box::ErgoBox,
 };
 use ergo_node_interface::node_interface::{NodeError, NodeInterface};
@@ -11,7 +11,7 @@ pub mod node_api;
 pub type Result<T> = std::result::Result<T, NodeError>;
 
 pub trait SubmitTransaction {
-    fn submit_transaction(&self, tx: &Transaction) -> Result<String>;
+    fn submit_transaction(&self, tx: &Transaction) -> Result<TxId>;
 }
 
 pub trait SignTransactionWithInputs {
@@ -38,14 +38,12 @@ impl SignTransaction for NodeInterface {
 }
 
 impl SubmitTransaction for NodeInterface {
-    fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<String> {
+    fn submit_transaction(&self, tx: &Transaction) -> crate::node_interface::Result<TxId> {
         log::trace!(
             "Submitting signed transaction: {}",
             serde_json::to_string_pretty(&tx).unwrap()
         );
-        let tx_id = self.submit_transaction(tx)?;
-        assert_eq!(tx_id, String::from(tx.id()));
-        Ok(tx_id)
+        self.submit_transaction(tx)
     }
 }
 

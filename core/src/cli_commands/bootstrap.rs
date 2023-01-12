@@ -683,10 +683,9 @@ pub(crate) mod tests {
         fn submit_transaction(
             &self,
             tx: &ergo_lib::chain::transaction::Transaction,
-        ) -> crate::node_interface::Result<String> {
+        ) -> crate::node_interface::Result<TxId> {
             self.transactions.borrow_mut().push(tx.clone());
-            // Return empty string as TxId
-            Ok("".into())
+            Ok(tx.id())
         }
     }
 
