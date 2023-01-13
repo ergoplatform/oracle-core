@@ -77,7 +77,7 @@ pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
         }
     };
     let start_time = std::time::Instant::now();
-    println!("Waiting for block confirmation from ExplorerApi ...");
+    println!("Waiting for block confirmation from ExplorerApi for tx ids: {tx_ids:?} ...");
     let mut remaining_txs = tx_ids.clone();
     loop {
         for tx_id in remaining_txs.clone() {
