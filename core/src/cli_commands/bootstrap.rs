@@ -50,7 +50,7 @@ use crate::{
         SignTransactionWithInputs, SubmitTransaction,
     },
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
-    pool_config::{PoolConfig, PoolConfigError, TokenIds},
+    pool_config::{PoolConfig, PoolConfigError, TokenIds, DEFAULT_POOL_CONFIG_FILE_NAME},
     serde::BootstrapConfigSerde,
     spec_token::{
         BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,
@@ -87,11 +87,11 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
     wait_for_txs_confirmation(submitted_tx_ids);
     info!("Bootstrap chain-transaction complete");
     let s = serde_yaml::to_string(&oracle_config)?;
-    let mut file = std::fs::File::create(crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME)?;
+    let mut file = std::fs::File::create(DEFAULT_POOL_CONFIG_FILE_NAME)?;
     file.write_all(s.as_bytes())?;
     info!(
-        "Oracle configuration file created: {}",
-        crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME
+        "Pool configuration file created: {}",
+        DEFAULT_POOL_CONFIG_FILE_NAME
     );
     Ok(())
 }
