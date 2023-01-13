@@ -10,8 +10,7 @@ description = "Simulator of the Ergo blockchain"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "235a26777cfcebae7ecc621fa6373dc57180430f" }
-
+ergo-lib = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"

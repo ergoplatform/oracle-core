@@ -43,14 +43,22 @@ impl ExplorerApi {
     fn send_get_req(&self, endpoint: &str) -> Result<Response, ExplorerApiError> {
         let url = self.url.join(endpoint)?;
         let client = reqwest::blocking::Client::new().get(url);
-        Ok(self.set_req_headers(client).send()?)
+        let response = self.set_req_headers(client).send()?;
+        if response.status().is_success() {
+            Ok(response)
+        } else {
+            Err(ExplorerApiError::RequestError(
+                response.error_for_status()?.error_for_status().unwrap_err(),
+            ))
+        }
     }
 
-    /// GET /transactions/{id}
-    pub fn get_transaction(&self, tx_id: TxId) -> Result<Transaction, ExplorerApiError> {
-        let endpoint = "/transactions/".to_owned() + &tx_id.to_string();
+    /// GET /api/v1/transactions/{id}
+    pub fn get_transaction_v1(&self, tx_id: TxId) -> Result<Transaction, ExplorerApiError> {
+        let endpoint = "/api/v1/transactions/".to_owned() + &tx_id.to_string();
         let response = self.send_get_req(&endpoint)?;
         let text = response.text()?;
+        log::debug!("get_transaction_v1 response: {}", text);
         Ok(serde_json::from_str(&text)?)
     }
 }
@@ -63,9 +71,9 @@ pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let network = ORACLE_CONFIG.oracle_address.network();
     let timeout = Duration::from_secs(600);
     let explorer_api = match network {
-        NetworkPrefix::Mainnet => ExplorerApi::new("https://api.ergoplatform.com/api/v1/").unwrap(),
+        NetworkPrefix::Mainnet => ExplorerApi::new("https://api.ergoplatform.com/").unwrap(),
         NetworkPrefix::Testnet => {
-            ExplorerApi::new("https://api-testnet.ergoplatform.com/api/v1/").unwrap()
+            ExplorerApi::new("https://api-testnet.ergoplatform.com/").unwrap()
         }
     };
     let start_time = std::time::Instant::now();
@@ -73,10 +81,15 @@ pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let mut remaining_txs = tx_ids.clone();
     loop {
         for tx_id in remaining_txs.clone() {
-            if let Ok(tx) = explorer_api.get_transaction(tx_id) {
-                assert_eq!(tx.id(), tx_id);
-                log::info!("Transaction found: {tx_id}");
-                remaining_txs.retain(|id| *id != tx_id);
+            match explorer_api.get_transaction_v1(tx_id) {
+                Ok(tx) => {
+                    assert_eq!(tx.id(), tx_id);
+                    log::info!("Transaction found: {tx_id}");
+                    remaining_txs.retain(|id| *id != tx_id);
+                }
+                Err(_e) => {
+                    // log::error!("ExplorerApi error: {_e}");
+                }
             }
         }
         if remaining_txs.is_empty() {

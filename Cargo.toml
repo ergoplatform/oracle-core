@@ -3,3 +3,7 @@ members = [
     "core",
     "ergo-chain-sim",
 ]
+
+[workspace.dependencies]
+# ergo-lib = { version = "0.21" }
+ergo-lib = { git = "https://github.com/ergoplatform/sigma-rust", rev = "26ca5c4dddc96186f767e09ea1885b675c70e0f3" }
