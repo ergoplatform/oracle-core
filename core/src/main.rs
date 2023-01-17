@@ -24,6 +24,7 @@ mod cli_commands;
 mod contracts;
 mod datapoint_source;
 mod default_parameters;
+mod explorer_api;
 mod logging;
 mod migrate;
 mod node_interface;
@@ -64,6 +65,7 @@ use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
+use scans::get_scans_file_path;
 use state::process;
 use state::PoolState;
 use std::convert::TryFrom;
@@ -421,7 +423,7 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
                 &POOL_CONFIG.token_ids.oracle_token_id,
                 POOL_CONFIG_FILE_PATH.get().unwrap(),
                 op.get_local_datapoint_box_source(),
-                scans::SCANS_DIR_PATH.get().unwrap(),
+                &get_scans_file_path(),
             ) {
                 error!("Fatal import pool update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);

@@ -5,6 +5,7 @@ use ergo_chain_sim::Block;
 use ergo_chain_sim::ChainSim;
 use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::Transaction;
+use ergo_lib::chain::transaction::TxId;
 use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -28,11 +29,11 @@ struct ChainSubmitTx<'a> {
 }
 
 impl<'a> SubmitTransaction for ChainSubmitTx<'a> {
-    fn submit_transaction(&self, tx: &Transaction) -> node_interface::Result<String> {
+    fn submit_transaction(&self, tx: &Transaction) -> node_interface::Result<TxId> {
         self.chain
             .borrow_mut()
             .add_block(Block::new(vec![tx.clone()]));
-        Ok(tx.id().into())
+        Ok(tx.id())
     }
 }
 
@@ -62,6 +63,7 @@ fn bootstrap(wallet: &Wallet, net_address: &NetworkAddress, chain: &mut ChainSim
         height,
     })
     .unwrap()
+    .0
 }
 
 #[test]

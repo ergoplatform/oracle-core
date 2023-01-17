@@ -10,7 +10,7 @@ use derive_more::From;
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
-        transaction::Transaction,
+        transaction::{Transaction, TxId},
     },
     ergo_chain_types::blake2b256_hash,
     ergotree_ir::{
@@ -51,6 +51,7 @@ use crate::{
             UpdateContractParameters,
         },
     },
+    explorer_api::wait_for_txs_confirmation,
     node_interface::{node_api::NodeApi, SignTransactionWithInputs, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, StageDataSource},
@@ -108,7 +109,8 @@ pub fn prepare_update(
     };
 
     let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG, &ORACLE_CONFIG)?;
-    let new_config = prepare.execute(config)?;
+    let (new_config, submitted_tx_ids) = prepare.execute(config)?;
+    wait_for_txs_confirmation(submitted_tx_ids);
     // let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
     let blake2b_pool_ergo_tree: String = blake2b256_hash(
         new_config
@@ -331,7 +333,10 @@ impl<'a> PrepareUpdate<'a> {
             .collect()
     }
 
-    fn execute(mut self, config: UpdateBootstrapConfig) -> Result<PoolConfig, PrepareUpdateError> {
+    fn execute(
+        mut self,
+        config: UpdateBootstrapConfig,
+    ) -> Result<(PoolConfig, Vec<TxId>), PrepareUpdateError> {
         self.num_transactions_left = 7; // 5 for the tokens, 1 for the refresh box, 1 for the change
 
         let mut need_pool_contract_update = false;
@@ -494,11 +499,12 @@ impl<'a> PrepareUpdate<'a> {
             new_pool_config.pool_box_wrapper_inputs = new_pool_box_wrapper_inputs;
         }
 
+        let mut submitted_tx_ids = Vec::new();
         for tx in self.built_txs {
-            let tx_id = self.input.submit_tx.submit_transaction(&tx)?;
-            info!("Tx submitted {}", tx_id);
+            let _ = self.input.submit_tx.submit_transaction(&tx)?;
+            submitted_tx_ids.push(tx.id());
         }
-        Ok(new_pool_config)
+        Ok((new_pool_config, submitted_tx_ids))
     }
 }
 
@@ -705,7 +711,7 @@ data_point_source_custom_script: ~
 
         let prepare =
             PrepareUpdate::new(prepare_update_input, &old_pool_config, &old_oracle_config).unwrap();
-        let new_pool_config = prepare.execute(state).unwrap();
+        let (new_pool_config, _) = prepare.execute(state).unwrap();
         assert!(new_pool_config.token_ids != old_pool_config.token_ids);
     }
 }
