@@ -69,7 +69,7 @@ pub fn wait_for_tx_confirmation(tx_id: TxId) {
 
 pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let network = ORACLE_CONFIG.oracle_address.network();
-    let timeout = Duration::from_secs(600);
+    let timeout = Duration::from_secs(1200);
     let explorer_api = match network {
         NetworkPrefix::Mainnet => ExplorerApi::new("https://api.ergoplatform.com/").unwrap(),
         NetworkPrefix::Testnet => {
@@ -87,8 +87,13 @@ pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
                     log::info!("Transaction found: {tx_id}");
                     remaining_txs.retain(|id| *id != tx_id);
                 }
+                Err(ExplorerApiError::SerdeError(_)) => {
+                    // remove after https://github.com/ergoplatform/explorer-backend/issues/249 is fixed
+                    log::info!("Transaction found, but failed to parse: {tx_id}");
+                    remaining_txs.retain(|id| *id != tx_id);
+                }
                 Err(_e) => {
-                    // log::error!("ExplorerApi error: {_e}");
+                    log::debug!("ExplorerApi error: {_e}");
                 }
             }
         }
@@ -99,6 +104,11 @@ pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
             println!("Timeout waiting for transactions");
             break;
         }
-        std::thread::sleep(std::time::Duration::from_secs(10));
+        println!(
+            "Elapsed: {}s out of {}s (timeout)",
+            start_time.elapsed().as_secs(),
+            timeout.as_secs()
+        );
+        std::thread::sleep(std::time::Duration::from_secs(30));
     }
 }
