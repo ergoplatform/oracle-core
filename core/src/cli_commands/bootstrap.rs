@@ -896,6 +896,6 @@ data_point_source_custom_script: ~
 oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW
 base_fee: 1100000
 ").unwrap();
-        assert_eq!(config.refresh_contract_parameters.min_data_points(), 2);
+        assert_eq!(config.refresh_contract_parameters.min_data_points().0, 2);
     }
 }

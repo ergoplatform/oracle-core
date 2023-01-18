@@ -14,6 +14,7 @@ use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochCounter;
+use crate::oracle_types::MinDatapoints;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
@@ -42,8 +43,8 @@ pub enum RefreshActionError {
     #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys:?},")]
     FailedToReachConsensus {
         found_public_keys: Vec<ProveDlog>,
-        found_num: u32,
-        expected: u32,
+        found_num: i32,
+        expected: i32,
     },
     #[error("Not enough datapoints left during the removal of the outliers")]
     NotEnoughDatapoints,
@@ -67,7 +68,7 @@ pub fn build_refresh_action(
     refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: &dyn DatapointBoxesSource,
     max_deviation_percent: u32,
-    min_data_points: u32,
+    min_data_points: MinDatapoints,
     wallet: &dyn WalletDataSource,
     height: BlockHeight,
     change_address: Address,
@@ -98,10 +99,10 @@ pub fn build_refresh_action(
         .into_iter()
         .filter(|b| valid_in_oracle_boxes_datapoints.contains(&b.rate()))
         .collect::<Vec<_>>();
-    if (valid_in_oracle_boxes.len() as u32) < min_data_points {
+    if (valid_in_oracle_boxes.len() as i32) < min_data_points.0 {
         return Err(RefreshActionError::FailedToReachConsensus {
-            found_num: valid_in_oracle_boxes.len() as u32,
-            expected: min_data_points,
+            found_num: valid_in_oracle_boxes.len() as i32,
+            expected: min_data_points.0,
             found_public_keys: valid_in_oracle_boxes
                 .iter()
                 .map(|b| b.public_key())
@@ -521,7 +522,7 @@ mod tests {
                 datapoints: in_oracle_boxes.clone(),
             }),
             5,
-            4,
+            MinDatapoints(4),
             &wallet_mock,
             height,
             change_address.address(),
@@ -565,7 +566,7 @@ mod tests {
                     ),
                 }),
                 5,
-                4,
+                MinDatapoints(4),
                 &wallet_mock,
                 height,
                 change_address.address(),

@@ -113,7 +113,7 @@ pub fn build_action(
                 .refresh_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .min_data_points() as u32,
+                .min_data_points(),
             wallet,
             height,
             change_address,

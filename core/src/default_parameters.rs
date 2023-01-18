@@ -14,7 +14,7 @@ use crate::{
         refresh::{RefreshContractParameters, RefreshContractParametersInputs},
         update::UpdateContractParameters,
     },
-    oracle_types::EpochLength,
+    oracle_types::{EpochLength, MinDatapoints},
 };
 
 impl Default for BallotContractParameters {
@@ -76,7 +76,7 @@ impl Default for RefreshContractParameters {
             pool_nft_index: 17,
             oracle_token_id_index: 3,
             min_data_points_index: 13,
-            min_data_points: 4,
+            min_data_points: MinDatapoints(4),
             buffer_length_index: 21,
             buffer_length: 4,
             max_deviation_percent_index: 15,

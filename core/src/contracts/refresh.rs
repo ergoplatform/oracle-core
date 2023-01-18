@@ -10,6 +10,7 @@ use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
 use crate::oracle_types::EpochLength;
+use crate::oracle_types::MinDatapoints;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::TokenIdKind;
@@ -117,10 +118,10 @@ impl RefreshContract {
                 RefreshContractParametersError::NoMinDataPoints,
             ))?
             .try_extract_into::<i32>()?;
-        if min_data_points != parameters.min_data_points {
+        if min_data_points != parameters.min_data_points.0 {
             return Err(RefreshContractError::Parameters(
                 RefreshContractParametersError::MinDataPointsDiffers {
-                    expected: parameters.min_data_points,
+                    expected: parameters.min_data_points.0,
                     actual: min_data_points,
                 },
             ));
@@ -210,7 +211,7 @@ impl RefreshContract {
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
                     inputs.contract_parameters.min_data_points_index,
-                    (inputs.contract_parameters.min_data_points).into(),
+                    (inputs.contract_parameters.min_data_points.0).into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
@@ -263,13 +264,15 @@ impl RefreshContract {
             .unwrap()
     }
 
-    pub fn min_data_points(&self) -> i32 {
-        self.ergo_tree
-            .get_constant(self.min_data_points_index)
-            .unwrap()
-            .unwrap()
-            .try_extract_into::<i32>()
-            .unwrap()
+    pub fn min_data_points(&self) -> MinDatapoints {
+        MinDatapoints(
+            self.ergo_tree
+                .get_constant(self.min_data_points_index)
+                .unwrap()
+                .unwrap()
+                .try_extract_into::<i32>()
+                .unwrap(),
+        )
     }
 
     pub fn max_deviation_percent(&self) -> i32 {
@@ -368,7 +371,7 @@ pub struct RefreshContractParameters {
     pool_nft_index: usize,
     oracle_token_id_index: usize,
     min_data_points_index: usize,
-    min_data_points: i32,
+    min_data_points: MinDatapoints,
     buffer_length_index: usize,
     buffer_length: i32,
     max_deviation_percent_index: usize,
@@ -382,7 +385,7 @@ pub struct RefreshContractParametersInputs {
     pub pool_nft_index: usize,
     pub oracle_token_id_index: usize,
     pub min_data_points_index: usize,
-    pub min_data_points: i32,
+    pub min_data_points: MinDatapoints,
     pub buffer_length_index: usize,
     pub buffer_length: i32,
     pub max_deviation_percent_index: usize,
@@ -441,7 +444,10 @@ impl RefreshContractParameters {
         inputs: RefreshContractParametersInputs,
     ) -> Result<Self, RefreshContractParametersError> {
         let ergo_tree = ErgoTree::sigma_parse_bytes(inputs.ergo_tree_bytes.as_slice())?
-            .with_constant(inputs.min_data_points_index, inputs.min_data_points.into())
+            .with_constant(
+                inputs.min_data_points_index,
+                inputs.min_data_points.0.into(),
+            )
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
             .with_constant(inputs.buffer_length_index, inputs.buffer_length.into())
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
@@ -486,9 +492,9 @@ impl RefreshContractParameters {
             .map_err(|_| RefreshContractParametersError::NoMinDataPoints)?
             .ok_or(RefreshContractParametersError::NoMinDataPoints)?
             .try_extract_into::<i32>()?;
-        if min_data_points != inputs.min_data_points {
+        if min_data_points != inputs.min_data_points.0 {
             return Err(RefreshContractParametersError::MinDataPointsDiffers {
-                expected: inputs.min_data_points,
+                expected: inputs.min_data_points.0,
                 actual: min_data_points,
             });
         }
@@ -575,7 +581,7 @@ impl RefreshContractParameters {
         self.min_data_points_index
     }
 
-    pub fn min_data_points(&self) -> i32 {
+    pub fn min_data_points(&self) -> MinDatapoints {
         self.min_data_points
     }
 
@@ -638,7 +644,7 @@ mod tests {
     #[test]
     fn test_build_with() {
         let contract_parameters = RefreshContractParameters::default();
-        let expected_min_data_points = 99;
+        let expected_min_data_points = MinDatapoints(99);
         let expected_buffer_length = 100;
         let expected_max_deviation_percent = 88;
         let expected_epoch_length = EpochLength(1000);

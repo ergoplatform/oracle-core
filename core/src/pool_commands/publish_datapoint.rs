@@ -86,7 +86,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let mut tx_builder = TxBuilder::new(
         box_selection,
         vec![output_candidate],
-        height.into(),
+        height.0,
         tx_fee,
         change_address,
     );
@@ -147,7 +147,7 @@ pub fn build_publish_first_datapoint_action(
     let mut tx_builder = TxBuilder::new(
         wallet_boxes_selection,
         vec![output_candidate],
-        height.into(),
+        height.0,
         tx_fee,
         change_address,
     );
