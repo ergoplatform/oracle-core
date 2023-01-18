@@ -124,6 +124,7 @@ pub fn vote_update_pool(
     if input.trim_end() == "YES" {
         let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
         let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
+        crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
         println!(
             "Transaction made. Check status here: {}",
             ergo_explorer_transaction_link(tx_id_str, network_prefix)

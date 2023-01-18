@@ -125,6 +125,7 @@ pub fn update_pool(
 
     let signed_tx = tx_signer.sign_transaction(&tx.spending_tx)?;
     let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
+    crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
     println!(
         "Update pool box transaction submitted: view here, {}",
         ergo_explorer_transaction_link(tx_id_str, network_prefix)

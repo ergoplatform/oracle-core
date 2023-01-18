@@ -21,11 +21,9 @@ use crate::state::PoolState;
 use anyhow::Error;
 use derive_more::From;
 
-use ergo_lib::ergo_chain_types::blake2b256_hash;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
-use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, StageError>;
@@ -450,39 +448,10 @@ impl<'a> DatapointBoxesSource for DatapointStage<'a> {
 
 /// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
 pub fn register_and_save_scans(node_api: &NodeApi) -> std::result::Result<(), Error> {
-    let config = &POOL_CONFIG;
+    // let config = &POOL_CONFIG;
     if load_scan_ids().is_err() {
         register_and_save_scans_inner(node_api)?;
-    } else {
-        // If the UpdatePool command was issued values relating to the pool box in `scanIDs.json` will be out
-        // of date. So we regenerate `scanIDs.json` and initiate a wallet rescan.
-
-        // Note that the following variable was created from the existing `scanIDs.json`.
-        let oracle_pool = OraclePool::new()?;
-
-        let scan_pool_box_wrapper = oracle_pool.get_pool_box_source().get_pool_box()?;
-        let config_pool_box_bytes = &config
-            .pool_box_wrapper_inputs
-            .contract_inputs
-            .contract_parameters()
-            .ergo_tree_bytes();
-
-        let pool_hash_changed = blake2b256_hash(
-            &scan_pool_box_wrapper
-                .get_box()
-                .ergo_tree
-                .sigma_serialize_bytes()?,
-        ) != blake2b256_hash(config_pool_box_bytes);
-
-        let reward_tokens_changed = scan_pool_box_wrapper.reward_token().token_id
-            != config.pool_box_wrapper_inputs.reward_token_id;
-
-        // The UpdatePool command will lead to either a change in the pool box script and/or a
-        // change in the reward tokens.
-        if pool_hash_changed || reward_tokens_changed {
-            register_and_save_scans_inner(node_api)?;
-        }
-    }
+    };
 
     loop {
         let wallet_height = node_api.node.wallet_status()?.height;
