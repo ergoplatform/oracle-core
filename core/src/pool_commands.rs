@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::box_kind::PoolBox;
+use crate::datapoint_source::DataPointSource;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{OraclePool, StageError};
 use crate::pool_config::POOL_CONFIG;
@@ -64,7 +65,15 @@ pub fn build_action(
         } else {
             return Err(PoolCommandError::WrongOracleAddressType);
         };
-
+    // TODO: move to main.rs and pass as parameter
+    let data_point_source: Box<dyn DataPointSource> =
+        if let Some(custom_data_point_source) = ORACLE_CONFIG.custom_data_point_source() {
+            custom_data_point_source
+        } else {
+            POOL_CONFIG
+                .data_point_source()
+                .map_err(|_| PoolCommandError::Unexpected("Not data source".to_string()))?
+        };
     match cmd {
         PoolCommand::PublishFirstDataPoint => build_publish_first_datapoint_action(
             wallet,
@@ -72,7 +81,7 @@ pub fn build_action(
             change_address,
             oracle_public_key,
             POOL_CONFIG.oracle_box_wrapper_inputs.clone(),
-            &*op.data_point_source,
+            &*data_point_source,
         )
         .map_err(Into::into)
         .map(Into::into),
@@ -87,7 +96,7 @@ pub fn build_action(
                     wallet,
                     height,
                     change_address,
-                    &*op.data_point_source,
+                    &*data_point_source,
                     new_epoch_counter,
                     pool_box.rate(),
                 )
