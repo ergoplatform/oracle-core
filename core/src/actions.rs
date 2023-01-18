@@ -45,7 +45,8 @@ pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), Acti
         Err(ActionExecError::NodeError(NodeApiError::NodeInterfaceError(
             NodeError::BadRequest(msg),
         ))) if msg.as_str() == "Double spending attempt"
-            || msg.contains("it is invalidated earlier or the pool is full") =>
+            || msg.contains("it is invalidated earlier or the pool is full")
+            || msg.contains("it is already in the mempool") =>
         {
             log::debug!("Node rejected tx with error: {msg}");
             Ok(())
