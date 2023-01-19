@@ -42,7 +42,6 @@ use crate::{
             UpdateContract, UpdateContractError, UpdateContractInputs, UpdateContractParameters,
         },
     },
-    datapoint_source::PredefinedDataPointSource,
     explorer_api::wait_for_txs_confirmation,
     node_interface::{
         assert_wallet_unlocked,
@@ -50,7 +49,10 @@ use crate::{
         SignTransactionWithInputs, SubmitTransaction,
     },
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
-    pool_config::{PoolConfig, PoolConfigError, TokenIds, DEFAULT_POOL_CONFIG_FILE_NAME},
+    pool_config::{
+        PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds,
+        DEFAULT_POOL_CONFIG_FILE_NAME,
+    },
     serde::BootstrapConfigSerde,
     spec_token::{
         BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,

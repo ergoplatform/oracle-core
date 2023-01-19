@@ -21,7 +21,6 @@ use crate::contracts::oracle::OracleContractError;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::update::UpdateContractError;
-use crate::datapoint_source::PredefinedDataPointSource;
 use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
@@ -58,6 +57,14 @@ pub struct CastBallotBoxVoteParameters {
     pub reward_token_id: TokenId,
     pub reward_token_quantity: u64,
     pub update_box_creation_height: i32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum PredefinedDataPointSource {
+    NanoErgUsd,
+    NanoErgXau,
+    NanoAdaUsd,
 }
 
 /// Holds the token ids of every important token used by the oracle pool.
