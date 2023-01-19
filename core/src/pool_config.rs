@@ -21,10 +21,6 @@ use crate::contracts::oracle::OracleContractError;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::update::UpdateContractError;
-use crate::datapoint_source::erg_xau::erg_xau_aggregator;
-use crate::datapoint_source::DataPointSource;
-use crate::datapoint_source::NanoAdaUsd;
-use crate::datapoint_source::NanoErgUsd;
 use crate::datapoint_source::PredefinedDataPointSource;
 use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
@@ -174,20 +170,6 @@ impl PoolConfig {
 
     pub fn load_from_str(config_str: &str) -> Result<PoolConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
-    }
-
-    pub fn data_point_source(&self) -> Result<Box<dyn DataPointSource>, anyhow::Error> {
-        match self.data_point_source {
-            Some(predef_datasource) => {
-                Ok(
-                    match predef_datasource {
-                        PredefinedDataPointSource::NanoErgUsd => Box::new(NanoErgUsd),
-                        PredefinedDataPointSource::NanoErgXau => erg_xau_aggregator(),
-                        PredefinedDataPointSource::NanoAdaUsd => Box::new(NanoAdaUsd),
-                    })
-            }
-            _ => Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
-        }
     }
 }
 

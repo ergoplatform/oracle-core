@@ -3,9 +3,36 @@ mod ada_usd;
 mod erg_usd;
 pub mod erg_xau;
 
+use anyhow::anyhow;
 use derive_more::From;
 use futures::future::BoxFuture;
 use thiserror::Error;
+
+pub fn load_datapoint_source(
+    predef_datapoint_source: Option<PredefinedDataPointSource>,
+    custom_datapoint_source_shell_cmd: Option<String>,
+) -> Result<Box<dyn DataPointSource>, anyhow::Error> {
+    if let Some(external_script_name) = custom_datapoint_source_shell_cmd.clone() {
+        Ok(Box::new(ExternalScript::new(external_script_name.clone())))
+    } else {
+        match predef_datapoint_source {
+            Some(predef_datasource) => Ok(data_point_source_from_predef(predef_datasource)),
+            _ => Err(anyhow!(
+                "pool config data_point_source is empty along with data_point_source_custom_script in the oracle config"
+            )),
+        }
+    }
+}
+
+fn data_point_source_from_predef(
+    predef_datasource: PredefinedDataPointSource,
+) -> Box<dyn DataPointSource> {
+    match predef_datasource {
+        PredefinedDataPointSource::NanoErgUsd => Box::new(NanoErgUsd),
+        PredefinedDataPointSource::NanoErgXau => erg_xau_aggregator(),
+        PredefinedDataPointSource::NanoAdaUsd => Box::new(NanoAdaUsd),
+    }
+}
 
 pub trait DataPointSource: std::fmt::Debug {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
@@ -101,6 +128,8 @@ impl DataPointSource for ExternalScript {
 pub use ada_usd::NanoAdaUsd;
 pub use erg_usd::NanoErgUsd;
 
+use self::erg_xau::erg_xau_aggregator;
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum PredefinedDataPointSource {
@@ -108,15 +137,3 @@ pub enum PredefinedDataPointSource {
     NanoErgXau,
     NanoAdaUsd,
 }
-
-// impl DataPointSource for PredefinedDataPointSource {
-//     fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
-//         match self {
-//             PredefinedDataPointSource::NanoAdaUsd => NanoAdaUsd.get_datapoint(),
-//             PredefinedDataPointSource::NanoErgUsd => NanoErgUsd.get_datapoint(),
-//             PredefinedDataPointSource::NanoErgXau => DataPointSourceAggregator {
-//                 fetchers: vec![Box::new(NanoErgXau)],
-//             },
-//         }
-//     }
-// }
