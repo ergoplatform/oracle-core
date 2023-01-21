@@ -16,6 +16,7 @@ pub use erg_usd::NanoErgUsd;
 
 use anyhow::anyhow;
 use derive_more::From;
+use futures::future::BoxFuture;
 use thiserror::Error;
 
 pub fn load_datapoint_source(
@@ -63,3 +64,47 @@ pub enum DataPointSourceError {
     #[error("Missing JSON field")]
     JsonMissingField,
 }
+
+pub trait Asset {}
+
+pub struct NanoErg {}
+pub struct Erg {}
+pub struct KgAu {}
+pub struct Xau {}
+pub struct Usd {}
+
+impl Asset for Erg {}
+impl Asset for NanoErg {}
+impl Asset for KgAu {}
+impl Asset for Xau {}
+impl Asset for Usd {}
+
+pub struct Rate<T1: Asset, T2: Asset> {
+    l: T1,
+    r: T2,
+    rate: f64,
+}
+
+pub trait RateSource<L: Asset, R: Asset> {
+    fn get_rate(&self) -> BoxFuture<Result<Rate<L, R>, DataPointSourceError>>;
+}
+
+// pub fn convert1(rate_in: Rate<Erg, Xau>) -> Rate<NanoErg, KgAu> {
+//     todo!()
+// }
+
+// pub struct CoinGecko {}
+
+// pub trait ErgUsdSource {
+//     fn get_rate(&self) -> Result<Rate<Erg, Usd>, DataPointSourceError>;
+// }
+
+// impl ErgXauSource for CoinGecko {
+//     fn get_rate(&self) -> Result<Rate<Erg, Xau>, DataPointSourceError> {
+//         todo!()
+//     }
+// }
+
+// pub fn consume_only_specific_pair(rate: Rate<NanoErg, KgAu>) -> u32 {
+//     todo!()
+// }
