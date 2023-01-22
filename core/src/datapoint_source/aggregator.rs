@@ -1,14 +1,14 @@
 use super::Asset;
+use super::AssetsExchangeRateSource;
 use super::DataPointSource;
 use super::DataPointSourceError;
-use super::RateSource;
 
-pub struct DataPointSourceAggregator<L: Asset, R: Asset> {
-    pub fetchers: Vec<Box<dyn RateSource<L, R>>>,
+pub struct DataPointSourceAggregator<PER1: Asset, GET: Asset> {
+    pub fetchers: Vec<Box<dyn AssetsExchangeRateSource<PER1, GET>>>,
 }
 
-impl<L: Asset, R: Asset> DataPointSourceAggregator<L, R> {
-    pub fn new(fetchers: Vec<Box<dyn RateSource<L, R>>>) -> Self {
+impl<PER1: Asset, GET: Asset> DataPointSourceAggregator<PER1, GET> {
+    pub fn new(fetchers: Vec<Box<dyn AssetsExchangeRateSource<PER1, GET>>>) -> Self {
         Self { fetchers }
     }
 
@@ -28,7 +28,7 @@ impl<L: Asset, R: Asset> DataPointSourceAggregator<L, R> {
     }
 }
 
-impl<L: Asset, R: Asset> DataPointSource for DataPointSourceAggregator<L, R> {
+impl<PER1: Asset, GET: Asset> DataPointSource for DataPointSourceAggregator<PER1, GET> {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
         let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
         tokio_runtime.block_on(self.fetch_datapoints_average())
