@@ -1,4 +1,4 @@
-use super::erg_xau::erg_xau_aggregator;
+use super::erg_xau::kgau_nanoerg_aggregator;
 use super::DataPointSource;
 use super::NanoAdaUsd;
 use super::NanoErgUsd;
@@ -10,7 +10,7 @@ pub fn data_point_source_from_predef(
     // TODO: transform the rest and add more fetchers
     match predef_datasource {
         PredefinedDataPointSource::NanoErgUsd => Box::new(NanoErgUsd),
-        PredefinedDataPointSource::NanoErgXau => erg_xau_aggregator(),
+        PredefinedDataPointSource::NanoErgXau => kgau_nanoerg_aggregator(),
         PredefinedDataPointSource::NanoAdaUsd => Box::new(NanoAdaUsd),
     }
 }

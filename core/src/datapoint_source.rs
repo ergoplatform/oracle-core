@@ -35,7 +35,7 @@ pub fn load_datapoint_source(
     }
 }
 
-pub trait DataPointSource: std::fmt::Debug {
+pub trait DataPointSource {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
 
     // fn get_datapoint_retry(&self, retries: u8) -> Result<i64, DataPointSourceError> {

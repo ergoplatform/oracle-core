@@ -2,11 +2,13 @@
 
 use super::aggregator::DataPointSourceAggregator;
 use super::DataPointSource;
+use super::KgAu;
+use super::NanoErg;
 
 mod coingecko;
 
-pub fn erg_xau_aggregator() -> Box<dyn DataPointSource> {
-    Box::new(DataPointSourceAggregator {
+pub fn kgau_nanoerg_aggregator() -> Box<dyn DataPointSource> {
+    Box::new(DataPointSourceAggregator::<KgAu, NanoErg> {
         fetchers: vec![Box::new(coingecko::CoinGecko)],
     })
 }
