@@ -26,12 +26,13 @@ async fn get_kgau_nanoerg() -> Result<Rate<KgAu, NanoErg>, DataPointSourceError>
     let price_json = json::parse(&resp.text().await?)?;
     if let Some(p) = price_json["ergo"]["xau"].as_f64() {
         // Convert from price Erg/XAU to nanoErgs per 1 XAU
-        let nanoerg_price = (1.0 / p) * NANO_ERG_CONVERSION;
-        let per_kgau = nanoerg_price * 32.1507466;
+        let nanoerg_per_troy_ounce = (1.0 / p) * NANO_ERG_CONVERSION;
+        let troy_ounces_in_kg = 32.1507466;
+        let nanoerg_per_kg = nanoerg_per_troy_ounce * troy_ounces_in_kg;
         let rate = Rate {
             l: KgAu {},
             r: NanoErg {},
-            rate: per_kgau,
+            rate: nanoerg_per_kg,
         };
         Ok(rate)
     } else {
