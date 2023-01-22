@@ -1,6 +1,7 @@
 //! Datapoint sources for oracle-core
 mod ada_usd;
 mod aggregator;
+mod assets_exchange_rate;
 mod custom_ext_script;
 mod erg_usd;
 pub mod erg_xau;
@@ -16,7 +17,6 @@ pub use erg_usd::NanoErgUsd;
 
 use anyhow::anyhow;
 use derive_more::From;
-use futures::future::BoxFuture;
 use thiserror::Error;
 
 pub fn load_datapoint_source(
@@ -63,28 +63,4 @@ pub enum DataPointSourceError {
     JsonParse(json::Error),
     #[error("Missing JSON field")]
     JsonMissingField,
-}
-
-pub trait Asset {}
-
-pub struct NanoErg {}
-pub struct Erg {}
-pub struct KgAu {}
-pub struct Xau {}
-pub struct Usd {}
-
-impl Asset for Erg {}
-impl Asset for NanoErg {}
-impl Asset for KgAu {}
-impl Asset for Xau {}
-impl Asset for Usd {}
-
-pub struct AssetsExchangeRate<PER1: Asset, GET: Asset> {
-    per1: PER1,
-    get: GET,
-    rate: f64,
-}
-
-pub trait AssetsExchangeRateSource<L: Asset, R: Asset> {
-    fn get_rate(&self) -> BoxFuture<Result<AssetsExchangeRate<L, R>, DataPointSourceError>>;
 }

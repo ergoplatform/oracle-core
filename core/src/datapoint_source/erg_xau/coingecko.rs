@@ -1,10 +1,10 @@
 use futures::future::BoxFuture;
 
-use crate::datapoint_source::AssetsExchangeRate;
-use crate::datapoint_source::AssetsExchangeRateSource;
+use crate::datapoint_source::assets_exchange_rate::AssetsExchangeRate;
+use crate::datapoint_source::assets_exchange_rate::AssetsExchangeRateSource;
+use crate::datapoint_source::assets_exchange_rate::KgAu;
+use crate::datapoint_source::assets_exchange_rate::NanoErg;
 use crate::datapoint_source::DataPointSourceError;
-use crate::datapoint_source::KgAu;
-use crate::datapoint_source::NanoErg;
 
 #[derive(Debug, Clone)]
 pub struct CoinGecko;

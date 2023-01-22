@@ -1,5 +1,5 @@
-use super::Asset;
-use super::AssetsExchangeRateSource;
+use super::assets_exchange_rate::Asset;
+use super::assets_exchange_rate::AssetsExchangeRateSource;
 use super::DataPointSource;
 use super::DataPointSourceError;
 

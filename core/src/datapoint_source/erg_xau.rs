@@ -1,9 +1,9 @@
 //! Obtains the nanoErg per 1 XAU (troy ounce of gold) rate
 
 use super::aggregator::DataPointSourceAggregator;
+use super::assets_exchange_rate::KgAu;
+use super::assets_exchange_rate::NanoErg;
 use super::DataPointSource;
-use super::KgAu;
-use super::NanoErg;
 
 mod coingecko;
 
