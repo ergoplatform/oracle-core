@@ -3,8 +3,7 @@
 use super::aggregator::DataPointSourceAggregator;
 use super::assets_exchange_rate::KgAu;
 use super::assets_exchange_rate::NanoErg;
-
-mod coingecko;
+use super::coingecko;
 
 pub fn kgau_nanoerg_aggregator() -> Box<DataPointSourceAggregator<KgAu, NanoErg>> {
     Box::new(DataPointSourceAggregator::<KgAu, NanoErg> {

@@ -3,6 +3,7 @@ mod ada_usd;
 mod aggregator;
 mod assets_exchange_rate;
 mod coincap;
+mod coingecko;
 mod custom_ext_script;
 mod erg_usd;
 pub mod erg_xau;
@@ -14,7 +15,6 @@ use self::custom_ext_script::ExternalScript;
 use self::custom_ext_script::ExternalScriptError;
 use self::predef::data_point_source_from_predef;
 pub use ada_usd::NanoAdaUsd;
-pub use erg_usd::NanoErgUsd;
 
 use anyhow::anyhow;
 use derive_more::From;

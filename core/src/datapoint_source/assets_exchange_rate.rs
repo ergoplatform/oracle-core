@@ -23,6 +23,7 @@ impl Erg {
 }
 
 impl NanoErg {
+    /// Number of nanoErgs in a single Erg
     pub fn from_erg(erg: f64) -> f64 {
         erg * 1_000_000_000.0
     }
