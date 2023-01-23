@@ -2,6 +2,7 @@
 mod ada_usd;
 mod aggregator;
 mod assets_exchange_rate;
+mod coincap;
 mod custom_ext_script;
 mod erg_usd;
 pub mod erg_xau;
@@ -61,6 +62,6 @@ pub enum DataPointSourceError {
     Reqwest(reqwest::Error),
     #[error("JSON parse error: {0}")]
     JsonParse(json::Error),
-    #[error("Missing JSON field")]
-    JsonMissingField,
+    #[error("Missing JSON field {field} in {json}")]
+    JsonMissingField { field: String, json: String },
 }

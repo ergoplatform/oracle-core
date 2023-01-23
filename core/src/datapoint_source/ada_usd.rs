@@ -31,7 +31,10 @@ fn get_nanoada_usd_price() -> Result<i64, DataPointSourceError> {
         let lovelace_price = (1.0 / p) * LOVELACE_CONVERSION;
         Ok(lovelace_price as i64)
     } else {
-        Err(DataPointSourceError::JsonMissingField)
+        Err(DataPointSourceError::JsonMissingField {
+            field: "cardano.usd as f64".to_string(),
+            json: price_json.dump(),
+        })
     }
 }
 

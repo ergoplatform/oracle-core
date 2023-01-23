@@ -27,7 +27,10 @@ fn get_nanoerg_usd_price() -> Result<i64, DataPointSourceError> {
         let nanoerg_price = (1.0 / p) * NANO_ERG_CONVERSION;
         Ok(nanoerg_price as i64)
     } else {
-        Err(DataPointSourceError::JsonMissingField)
+        Err(DataPointSourceError::JsonMissingField {
+            field: "ergo.usd as f64".to_string(),
+            json: price_json.dump(),
+        })
     }
 }
 

@@ -16,6 +16,18 @@ impl Asset for KgAu {}
 impl Asset for Xau {}
 impl Asset for Usd {}
 
+impl Erg {
+    pub fn to_nanoerg(erg: f64) -> f64 {
+        erg * 1_000_000_000.0
+    }
+}
+
+impl NanoErg {
+    pub fn from_erg(erg: f64) -> f64 {
+        erg * 1_000_000_000.0
+    }
+}
+
 pub struct AssetsExchangeRate<PER1: Asset, GET: Asset> {
     pub per1: PER1,
     pub get: GET,

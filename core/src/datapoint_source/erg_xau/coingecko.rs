@@ -38,7 +38,10 @@ async fn get_kgau_nanoerg() -> Result<AssetsExchangeRate<KgAu, NanoErg>, DataPoi
         };
         Ok(rate)
     } else {
-        Err(DataPointSourceError::JsonMissingField)
+        Err(DataPointSourceError::JsonMissingField {
+            field: "ergo.xau as f64".to_string(),
+            json: price_json.dump(),
+        })
     }
 }
 
