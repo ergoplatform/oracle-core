@@ -4,6 +4,7 @@ use super::aggregator::DataPointSourceAggregator;
 use super::assets_exchange_rate::Asset;
 use super::assets_exchange_rate::NanoErg;
 use super::coingecko;
+use super::combined::BitPandaViaCoinCap;
 
 pub struct KgAu {}
 pub struct Xau {}
@@ -21,6 +22,20 @@ impl KgAu {
 
 pub fn kgau_nanoerg_aggregator() -> Box<DataPointSourceAggregator<KgAu, NanoErg>> {
     Box::new(DataPointSourceAggregator::<KgAu, NanoErg> {
-        fetchers: vec![Box::new(coingecko::CoinGecko)],
+        fetchers: vec![Box::new(coingecko::CoinGecko), Box::new(BitPandaViaCoinCap)],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::datapoint_source::DataPointSource;
+
+    use super::*;
+
+    #[test]
+    fn test_aggegator() {
+        let n = kgau_nanoerg_aggregator();
+        let rate = n.get_datapoint().unwrap();
+        assert!(rate > 0);
+    }
 }

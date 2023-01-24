@@ -2,8 +2,10 @@
 mod ada_usd;
 mod aggregator;
 mod assets_exchange_rate;
+mod bitpanda;
 mod coincap;
 mod coingecko;
+mod combined;
 mod custom_ext_script;
 mod erg_usd;
 pub mod erg_xau;
