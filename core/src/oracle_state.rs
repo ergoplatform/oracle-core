@@ -7,7 +7,7 @@ use crate::box_kind::{
 };
 use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
-use crate::datapoint_source::{DataPointSource, DataPointSourceError};
+use crate::datapoint_source::DataPointSourceError;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::pool_config::POOL_CONFIG;
@@ -102,7 +102,7 @@ pub struct Stage {
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug)]
 pub struct OraclePool<'a> {
-    pub data_point_source: Box<dyn DataPointSource + Sync + Send>,
+    // pub data_point_source: Box<dyn DataPointSource>,
     /// Stages
     pub datapoint_stage: DatapointStage<'a>,
     local_oracle_datapoint_scan: LocalOracleDatapointScan<'a>,
@@ -177,13 +177,6 @@ impl<'a> OraclePool<'a> {
         let pool_config = &POOL_CONFIG;
         let oracle_config = &ORACLE_CONFIG;
 
-        let data_point_source =
-            if let Some(custom_data_point_source) = oracle_config.custom_data_point_source() {
-                custom_data_point_source
-            } else {
-                pool_config.data_point_source()?
-            };
-
         let refresh_box_scan_name = "Refresh Box Scan";
 
         let datapoint_contract =
@@ -240,7 +233,6 @@ impl<'a> OraclePool<'a> {
 
         // Create `OraclePool` struct
         Ok(OraclePool {
-            data_point_source,
             datapoint_stage: DatapointStage {
                 stage: Stage {
                     contract_address: datapoint_contract.to_base16_bytes()?,

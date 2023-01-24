@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::datapoint_source::{DataPointSource, ExternalScript};
 use ergo_lib::{
     ergotree_ir::chain::address::NetworkAddress,
     ergotree_ir::chain::{address::AddressEncoder, ergo_box::box_value::BoxValue},
@@ -56,14 +55,6 @@ impl OracleConfig {
         let mut file = std::fs::File::create(path).unwrap();
         file.write_all(yaml_str.as_bytes()).unwrap();
         Ok(())
-    }
-
-    pub fn custom_data_point_source(&self) -> Option<Box<dyn DataPointSource + Send + Sync>> {
-        if let Some(external_script_name) = self.data_point_source_custom_script.clone() {
-            Some(Box::new(ExternalScript::new(external_script_name.clone())))
-        } else {
-            None
-        }
     }
 }
 

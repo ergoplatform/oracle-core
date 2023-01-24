@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use crate::actions::PoolAction;
 use crate::box_kind::PoolBox;
+use crate::datapoint_source::DataPointSource;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{OraclePool, StageError};
 use crate::pool_config::POOL_CONFIG;
@@ -53,6 +54,7 @@ pub fn build_action(
     wallet: &dyn WalletDataSource,
     height: u32,
     change_address: Address,
+    datapoint_source: &dyn DataPointSource,
 ) -> Result<PoolAction, PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_stage_src = op.get_datapoint_boxes_source();
@@ -64,7 +66,6 @@ pub fn build_action(
         } else {
             return Err(PoolCommandError::WrongOracleAddressType);
         };
-
     match cmd {
         PoolCommand::PublishFirstDataPoint => build_publish_first_datapoint_action(
             wallet,
@@ -72,7 +73,7 @@ pub fn build_action(
             change_address,
             oracle_public_key,
             POOL_CONFIG.oracle_box_wrapper_inputs.clone(),
-            &*op.data_point_source,
+            datapoint_source,
         )
         .map_err(Into::into)
         .map(Into::into),
@@ -87,7 +88,7 @@ pub fn build_action(
                     wallet,
                     height,
                     change_address,
-                    &*op.data_point_source,
+                    datapoint_source,
                     new_epoch_counter,
                     pool_box.rate(),
                 )

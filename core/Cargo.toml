@@ -32,6 +32,7 @@ clap = {version = "=3.1.18", features = ["derive"]}
 exitcode = "1.1.2"
 lazy_static = "1.4.0"
 once_cell = "1.15.0"
+futures = "0.3"
 
 [dev-dependencies]
 ergo-lib = { workspace = true, features = ["arbitrary"]}
@@ -40,3 +41,4 @@ proptest-derive = {version = "0.3.0"}
 sigma-test-util = {version = "0.3.0"}
 ergo-chain-sim = {version = "0.1.0", path="../ergo-chain-sim"}
 env_logger = {version = "0.10.0"}
+tokio-test = {version = "0.4"}

@@ -21,8 +21,6 @@ use crate::contracts::oracle::OracleContractError;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::update::UpdateContractError;
-use crate::datapoint_source::DataPointSource;
-use crate::datapoint_source::PredefinedDataPointSource;
 use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
@@ -59,6 +57,14 @@ pub struct CastBallotBoxVoteParameters {
     pub reward_token_id: TokenId,
     pub reward_token_quantity: u64,
     pub update_box_creation_height: i32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum PredefinedDataPointSource {
+    NanoErgUsd,
+    NanoErgXau,
+    NanoAdaUsd,
 }
 
 /// Holds the token ids of every important token used by the oracle pool.
@@ -171,15 +177,6 @@ impl PoolConfig {
 
     pub fn load_from_str(config_str: &str) -> Result<PoolConfig, anyhow::Error> {
         serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
-    }
-
-    pub fn data_point_source(
-        &self,
-    ) -> Result<Box<dyn DataPointSource + Send + Sync>, anyhow::Error> {
-        match self.data_point_source {
-            Some(datasource) => Ok(Box::new(datasource)),
-            _ => Err(anyhow!("Config: data_point_source is invalid (must be one of 'NanoErgUsd', 'NanoErgXau' or 'NanoAdaUsd'")),
-        }
     }
 }
 

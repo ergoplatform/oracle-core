@@ -29,8 +29,7 @@ use crate::{
         },
         update::{UpdateContractParameters, UpdateContractParametersError},
     },
-    datapoint_source::PredefinedDataPointSource,
-    pool_config::{PoolConfig, PoolConfigError, TokenIds},
+    pool_config::{PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds},
     spec_token::TokenIdKind,
 };
 
