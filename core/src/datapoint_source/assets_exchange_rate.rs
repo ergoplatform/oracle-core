@@ -6,14 +6,10 @@ pub trait Asset {}
 
 pub struct NanoErg {}
 pub struct Erg {}
-pub struct KgAu {}
-pub struct Xau {}
 pub struct Usd {}
 
 impl Asset for Erg {}
 impl Asset for NanoErg {}
-impl Asset for KgAu {}
-impl Asset for Xau {}
 impl Asset for Usd {}
 
 impl Erg {

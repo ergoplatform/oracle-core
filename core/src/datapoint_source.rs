@@ -14,7 +14,6 @@ use crate::pool_config::PredefinedDataPointSource;
 use self::custom_ext_script::ExternalScript;
 use self::custom_ext_script::ExternalScriptError;
 use self::predef::data_point_source_from_predef;
-pub use ada_usd::NanoAdaUsd;
 
 use anyhow::anyhow;
 use derive_more::From;
