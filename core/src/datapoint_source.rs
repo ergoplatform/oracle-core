@@ -1,26 +1,56 @@
 //! Datapoint sources for oracle-core
 mod ada_usd;
+mod aggregator;
+mod assets_exchange_rate;
+mod coincap;
+mod coingecko;
+mod custom_ext_script;
 mod erg_usd;
-mod erg_xau;
+pub mod erg_xau;
+mod predef;
+
+use crate::pool_config::PredefinedDataPointSource;
+
+use self::custom_ext_script::ExternalScript;
+use self::custom_ext_script::ExternalScriptError;
+use self::predef::data_point_source_from_predef;
+
+use anyhow::anyhow;
 use derive_more::From;
 use thiserror::Error;
 
-pub trait DataPointSource: std::fmt::Debug {
+pub fn load_datapoint_source(
+    predef_datapoint_source: Option<PredefinedDataPointSource>,
+    custom_datapoint_source_shell_cmd: Option<String>,
+) -> Result<Box<dyn DataPointSource>, anyhow::Error> {
+    if let Some(external_script_name) = custom_datapoint_source_shell_cmd.clone() {
+        Ok(Box::new(ExternalScript::new(external_script_name.clone())))
+    } else {
+        match predef_datapoint_source {
+            Some(predef_datasource) => Ok(data_point_source_from_predef(predef_datasource)),
+            _ => Err(anyhow!(
+                "pool config data_point_source is empty along with data_point_source_custom_script in the oracle config"
+            )),
+        }
+    }
+}
+
+pub trait DataPointSource {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
 
-    fn get_datapoint_retry(&self, retries: u8) -> Result<i64, DataPointSourceError> {
-        let mut last_error = None;
-        for _ in 0..retries {
-            match self.get_datapoint() {
-                Ok(datapoint) => return Ok(datapoint),
-                Err(err) => {
-                    log::warn!("Failed to get datapoint from source: {}, retrying ...", err);
-                    last_error = Some(err)
-                }
-            }
-        }
-        Err(last_error.unwrap())
-    }
+    // fn get_datapoint_retry(&self, retries: u8) -> Result<i64, DataPointSourceError> {
+    //     let mut last_error = None;
+    //     for _ in 0..retries {
+    //         match self.get_datapoint() {
+    //             Ok(datapoint) => return Ok(datapoint),
+    //             Err(err) => {
+    //                 log::warn!("Failed to get datapoint from source: {}, retrying ...", err);
+    //                 last_error = Some(err)
+    //             }
+    //         }
+    //     }
+    //     Err(last_error.unwrap())
+    // }
 }
 
 #[derive(Debug, From, Error)]
@@ -31,60 +61,6 @@ pub enum DataPointSourceError {
     Reqwest(reqwest::Error),
     #[error("JSON parse error: {0}")]
     JsonParse(json::Error),
-    #[error("Missing JSON field")]
-    JsonMissingField,
-}
-
-#[derive(Debug, From, Error)]
-pub enum ExternalScriptError {
-    #[error("external script child process error: {0}")]
-    ChildProcess(std::io::Error),
-    #[error("String from bytes error: {0}")]
-    StringFromBytes(std::string::FromUtf8Error),
-    #[error("Parse i64 from string error: {0}")]
-    ParseInt(std::num::ParseIntError),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExternalScript(String);
-
-impl ExternalScript {
-    pub fn new(script_name: String) -> Self {
-        ExternalScript(script_name)
-    }
-}
-
-impl DataPointSource for ExternalScript {
-    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
-        let script_output = std::process::Command::new(&self.0)
-            .output()
-            .map_err(ExternalScriptError::from)?;
-        let datapoint_str =
-            String::from_utf8(script_output.stdout).map_err(ExternalScriptError::from)?;
-        datapoint_str
-            .parse()
-            .map_err(|e| DataPointSourceError::from(ExternalScriptError::from(e)))
-    }
-}
-
-pub use ada_usd::NanoAdaUsd;
-pub use erg_usd::NanoErgUsd;
-pub use erg_xau::NanoErgXau;
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
-#[allow(clippy::enum_variant_names)]
-pub enum PredefinedDataPointSource {
-    NanoErgUsd,
-    NanoErgXau,
-    NanoAdaUsd,
-}
-
-impl DataPointSource for PredefinedDataPointSource {
-    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
-        match self {
-            PredefinedDataPointSource::NanoAdaUsd => NanoAdaUsd.get_datapoint(),
-            PredefinedDataPointSource::NanoErgUsd => NanoErgUsd.get_datapoint(),
-            PredefinedDataPointSource::NanoErgXau => NanoErgXau.get_datapoint(),
-        }
-    }
+    #[error("Missing JSON field {field} in {json}")]
+    JsonMissingField { field: String, json: String },
 }

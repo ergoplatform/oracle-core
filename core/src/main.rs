@@ -46,6 +46,8 @@ use actions::PoolAction;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
+use datapoint_source::load_datapoint_source;
+use datapoint_source::DataPointSource;
 use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -60,8 +62,8 @@ use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use oracle_types::BlockHeight;
-
-use pool_commands::publish_datapoint::PublishDatapointActionError::DataPointSource;
+use pool_commands::build_action;
+use pool_commands::publish_datapoint::PublishDatapointActionError;
 use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
@@ -260,6 +262,12 @@ fn main() {
 
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
+    let datapoint_source = load_datapoint_source(
+        POOL_CONFIG.data_point_source,
+        ORACLE_CONFIG.data_point_source_custom_script.clone(),
+    )
+    .unwrap();
+
     let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
 
     #[allow(clippy::wildcard_enum_match_arm)]
@@ -294,12 +302,16 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
-        oracle_command => handle_pool_command(oracle_command, &mut tokio_runtime),
+        oracle_command => handle_pool_command(oracle_command, &mut tokio_runtime, datapoint_source),
     }
 }
 
 /// Handle all non-bootstrap commands
-fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Runtime) {
+fn handle_pool_command(
+    command: Command,
+    tokio_runtime: &mut tokio::runtime::Runtime,
+    datapoint_source: Box<dyn DataPointSource>,
+) {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
     log_on_launch();
@@ -318,7 +330,7 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
                 tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
-                if let Err(e) = main_loop_iteration(&op, read_only) {
+                if let Err(e) = main_loop_iteration(&op, read_only, datapoint_source.as_ref()) {
                     error!("error: {:?}", e);
                 }
                 // Delay loop restart
@@ -441,7 +453,11 @@ fn handle_pool_command(command: Command, tokio_runtime: &mut tokio::runtime::Run
     }
 }
 
-fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<(), anyhow::Error> {
+fn main_loop_iteration(
+    op: &OraclePool,
+    read_only: bool,
+    datapoint_source: &dyn DataPointSource,
+) -> std::result::Result<(), anyhow::Error> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let height = BlockHeight(
         node_api
@@ -464,8 +480,14 @@ fn main_loop_iteration(op: &OraclePool, read_only: bool) -> std::result::Result<
         .epoch_length();
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
-        let build_action_res =
-            build_action(cmd, op, &node_api, height, network_change_address.address());
+        let build_action_res = build_action(
+            cmd,
+            op,
+            &node_api,
+            height,
+            network_change_address.address(),
+            datapoint_source,
+        );
         if let Some(action) =
             log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
@@ -496,7 +518,9 @@ fn log_and_continue_if_non_fatal(
             log::error!("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from addresses {found_oracle_addresses},");
             Ok(None)
         }
-        Err(PoolCommandError::PublishDatapointActionError(DataPointSource(e))) => {
+        Err(PoolCommandError::PublishDatapointActionError(
+            PublishDatapointActionError::DataPointSource(e),
+        )) => {
             log::error!("Failed to get datapoint with error: {}", e);
             Ok(None)
         }

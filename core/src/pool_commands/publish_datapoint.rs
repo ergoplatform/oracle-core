@@ -56,7 +56,7 @@ pub fn build_subsequent_publish_datapoint_action(
     new_epoch_counter: EpochCounter,
     _pool_datapoint: i64,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
+    let new_datapoint = datapoint_source.get_datapoint()?;
     let in_oracle_box = local_datapoint_box;
     if *in_oracle_box.reward_token().amount.as_u64() == 0 {
         return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
@@ -109,7 +109,7 @@ pub fn build_publish_first_datapoint_action(
     inputs: OracleBoxWrapperInputs,
     datapoint_source: &dyn DataPointSource,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
-    let new_datapoint = datapoint_source.get_datapoint_retry(3)?;
+    let new_datapoint = datapoint_source.get_datapoint()?;
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();

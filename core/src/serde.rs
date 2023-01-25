@@ -29,9 +29,8 @@ use crate::{
         },
         update::{UpdateContractParameters, UpdateContractParametersError},
     },
-    datapoint_source::PredefinedDataPointSource,
     oracle_types::{EpochLength, MinDatapoints},
-    pool_config::{PoolConfig, PoolConfigError, TokenIds},
+    pool_config::{PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds},
     spec_token::TokenIdKind,
 };
 
