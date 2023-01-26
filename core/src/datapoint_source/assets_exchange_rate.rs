@@ -1,11 +1,12 @@
-use futures::future::BoxFuture;
+pub trait Asset: Clone + Copy + Send + Sync {}
 
-use super::DataPointSourceError;
-
-pub trait Asset {}
-
+#[derive(Debug, Clone, Copy)]
 pub struct NanoErg {}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Erg {}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Usd {}
 
 impl Asset for Erg {}
@@ -25,12 +26,9 @@ impl NanoErg {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct AssetsExchangeRate<PER1: Asset, GET: Asset> {
     pub per1: PER1,
     pub get: GET,
     pub rate: f64,
-}
-
-pub trait AssetsExchangeRateSource<L: Asset, R: Asset> {
-    fn get_rate(&self) -> BoxFuture<Result<AssetsExchangeRate<L, R>, DataPointSourceError>>;
 }

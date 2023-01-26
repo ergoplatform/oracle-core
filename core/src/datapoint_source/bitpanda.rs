@@ -1,7 +1,4 @@
-use futures::future::BoxFuture;
-
 use super::assets_exchange_rate::AssetsExchangeRate;
-use super::assets_exchange_rate::AssetsExchangeRateSource;
 use super::assets_exchange_rate::Usd;
 use super::erg_xau::KgAu;
 use super::DataPointSourceError;
@@ -9,13 +6,7 @@ use super::DataPointSourceError;
 #[derive(Debug, Clone)]
 pub struct BitPanda {}
 
-impl AssetsExchangeRateSource<KgAu, Usd> for BitPanda {
-    fn get_rate(&self) -> BoxFuture<Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError>> {
-        Box::pin(get_kgau_usd())
-    }
-}
-
-async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError> {
+pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError> {
     let url = "https://api.bitpanda.com/v1/ticker";
     let resp = reqwest::get(url).await?;
     let json = json::parse(&resp.text().await?)?;
@@ -48,8 +39,7 @@ mod tests {
 
     #[test]
     fn test_kgau_usd_price() {
-        let n = BitPanda {};
-        let pair: AssetsExchangeRate<KgAu, Usd> = tokio_test::block_on(n.get_rate()).unwrap();
+        let pair: AssetsExchangeRate<KgAu, Usd> = tokio_test::block_on(get_kgau_usd()).unwrap();
         assert!(pair.rate > 0.0);
     }
 }

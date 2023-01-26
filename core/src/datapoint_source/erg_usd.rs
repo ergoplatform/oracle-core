@@ -1,27 +1,22 @@
-//! Obtains the nanoErg per 1 USD rate
+//! Obtains the nanoErg/USD rate
 
-use super::aggregator::DataPointSourceAggregator;
+use std::pin::Pin;
+
+use futures::Future;
+
+use super::assets_exchange_rate::AssetsExchangeRate;
 use super::assets_exchange_rate::NanoErg;
 use super::assets_exchange_rate::Usd;
 use super::coincap;
 use super::coingecko;
+use super::DataPointSourceError;
 
-pub fn usd_nanoerg_aggregator() -> Box<DataPointSourceAggregator<Usd, NanoErg>> {
-    Box::new(DataPointSourceAggregator::<Usd, NanoErg> {
-        fetchers: vec![Box::new(coingecko::CoinGecko), Box::new(coincap::CoinCap)],
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::datapoint_source::DataPointSource;
-
-    use super::*;
-
-    #[test]
-    fn test_aggegator() {
-        let aggregator = usd_nanoerg_aggregator();
-        let rate = aggregator.get_datapoint().unwrap();
-        assert!(rate > 0);
-    }
+#[allow(clippy::type_complexity)]
+pub fn nanoerg_usd_sources() -> Vec<
+    Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError>>>>,
+> {
+    vec![
+        Box::pin(coincap::get_usd_nanoerg()),
+        Box::pin(coingecko::get_usd_nanoerg()),
+    ]
 }

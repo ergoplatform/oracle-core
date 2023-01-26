@@ -1,11 +1,19 @@
 //! Obtains the lovelace per 1 USD rate.
 
-use super::aggregator::DataPointSourceAggregator;
+use std::pin::Pin;
+
+use futures::Future;
+
 use super::assets_exchange_rate::Asset;
+use super::assets_exchange_rate::AssetsExchangeRate;
 use super::assets_exchange_rate::Usd;
 use super::coingecko;
+use super::DataPointSourceError;
 
+#[derive(Debug, Clone, Copy)]
 pub struct Ada {}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Lovelace {}
 
 impl Asset for Ada {}
@@ -17,8 +25,9 @@ impl Lovelace {
     }
 }
 
-pub fn usd_lovelace_aggregator() -> Box<DataPointSourceAggregator<Usd, Lovelace>> {
-    Box::new(DataPointSourceAggregator::<Usd, Lovelace> {
-        fetchers: vec![Box::new(coingecko::CoinGecko)],
-    })
+#[allow(clippy::type_complexity)]
+pub fn usd_lovelace_sources() -> Vec<
+    Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<Usd, Lovelace>, DataPointSourceError>>>>,
+> {
+    vec![Box::pin(coingecko::get_usd_lovelace())]
 }

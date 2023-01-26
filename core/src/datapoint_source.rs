@@ -5,37 +5,20 @@ mod assets_exchange_rate;
 mod bitpanda;
 mod coincap;
 mod coingecko;
-mod combined;
 mod custom_ext_script;
 mod erg_usd;
-pub mod erg_xau;
+mod erg_xau;
 mod predef;
 
 use crate::pool_config::PredefinedDataPointSource;
 
 use self::custom_ext_script::ExternalScript;
 use self::custom_ext_script::ExternalScriptError;
-use self::predef::data_point_source_from_predef;
+use self::predef::sync_fetch_predef_source_aggregated;
 
 use anyhow::anyhow;
 use derive_more::From;
 use thiserror::Error;
-
-pub fn load_datapoint_source(
-    predef_datapoint_source: Option<PredefinedDataPointSource>,
-    custom_datapoint_source_shell_cmd: Option<String>,
-) -> Result<Box<dyn DataPointSource>, anyhow::Error> {
-    if let Some(external_script_name) = custom_datapoint_source_shell_cmd.clone() {
-        Ok(Box::new(ExternalScript::new(external_script_name.clone())))
-    } else {
-        match predef_datapoint_source {
-            Some(predef_datasource) => Ok(data_point_source_from_predef(predef_datasource)),
-            _ => Err(anyhow!(
-                "pool config data_point_source is empty along with data_point_source_custom_script in the oracle config"
-            )),
-        }
-    }
-}
 
 pub trait DataPointSource {
     fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
@@ -65,4 +48,40 @@ pub enum DataPointSourceError {
     JsonParse(json::Error),
     #[error("Missing JSON field {field} in {json}")]
     JsonMissingField { field: String, json: String },
+}
+
+pub enum RuntimeDataPointSource {
+    Predefined(PredefinedDataPointSource),
+    ExternalScript(ExternalScript),
+}
+
+impl RuntimeDataPointSource {
+    pub fn new(
+        predef_datapoint_source: Option<PredefinedDataPointSource>,
+        custom_datapoint_source_shell_cmd: Option<String>,
+    ) -> Result<RuntimeDataPointSource, anyhow::Error> {
+        if let Some(external_script_name) = custom_datapoint_source_shell_cmd.clone() {
+            Ok(RuntimeDataPointSource::ExternalScript(ExternalScript::new(
+                external_script_name.clone(),
+            )))
+        } else {
+            match predef_datapoint_source {
+                Some(predef_datasource) => Ok(RuntimeDataPointSource::Predefined(predef_datasource)),
+                _ => Err(anyhow!(
+                    "pool config data_point_source is empty along with data_point_source_custom_script in the oracle config"
+                )),
+            }
+        }
+    }
+}
+
+impl DataPointSource for RuntimeDataPointSource {
+    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+        match self {
+            RuntimeDataPointSource::Predefined(predef) => {
+                sync_fetch_predef_source_aggregated(predef)
+            }
+            RuntimeDataPointSource::ExternalScript(script) => script.get_datapoint(),
+        }
+    }
 }

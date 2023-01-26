@@ -1,7 +1,4 @@
-use futures::future::BoxFuture;
-
 use super::assets_exchange_rate::AssetsExchangeRate;
-use super::assets_exchange_rate::AssetsExchangeRateSource;
 use super::assets_exchange_rate::NanoErg;
 use super::assets_exchange_rate::Usd;
 use super::DataPointSourceError;
@@ -9,15 +6,7 @@ use super::DataPointSourceError;
 #[derive(Debug, Clone)]
 pub struct CoinCap;
 
-impl AssetsExchangeRateSource<Usd, NanoErg> for CoinCap {
-    fn get_rate(
-        &self,
-    ) -> BoxFuture<Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError>> {
-        Box::pin(get_usd_nanoerg())
-    }
-}
-
-async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
+pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
     // see https://coincap.io/assets/ergo
     let url = "https://api.coincap.io/v2/assets/ergo";
     let resp = reqwest::get(url).await?;
@@ -50,8 +39,7 @@ mod tests {
 
     #[test]
     fn test_erg_usd_price() {
-        let n = CoinCap {};
-        let pair = tokio_test::block_on(n.get_rate()).unwrap();
+        let pair = tokio_test::block_on(get_usd_nanoerg()).unwrap();
         assert!(pair.rate > 0.0);
     }
 }
