@@ -48,6 +48,8 @@ pub enum DataPointSourceError {
     JsonParse(json::Error),
     #[error("Missing JSON field {field} in {json}")]
     JsonMissingField { field: String, json: String },
+    #[error("No datapoints from any source")]
+    NoDataPoints,
 }
 
 pub enum RuntimeDataPointSource {

@@ -24,7 +24,11 @@ pub async fn fetch_aggregated<PER1: Asset, GET: Asset>(
     >,
 ) -> Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError> {
     let results = futures::future::join_all(sources).await;
-    let ok_results = results.into_iter().flat_map(|res| res.ok()).collect();
+    let ok_results: Vec<AssetsExchangeRate<PER1, GET>> =
+        results.into_iter().flat_map(|res| res.ok()).collect();
+    if ok_results.is_empty() {
+        return Err(DataPointSourceError::NoDataPoints);
+    }
     let rate = aggregate(ok_results);
     Ok(rate)
 }
