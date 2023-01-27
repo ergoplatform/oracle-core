@@ -11,14 +11,14 @@ pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSo
     let resp = reqwest::get(url).await?;
     let json = json::parse(&resp.text().await?)?;
     if let Some(p) = json["XAU"]["USD"].as_str() {
-        // USD price of 1 XAU
+        // USD price of 1 gram of gold
         let p_float = p
             .parse::<f64>()
             .map_err(|_| DataPointSourceError::JsonMissingField {
                 field: "XAU.USD as f64".to_string(),
                 json: json.dump(),
             })?;
-        let usd_per_kgau = KgAu::from_xau(p_float);
+        let usd_per_kgau = KgAu::from_gram(p_float);
         let rate = AssetsExchangeRate {
             per1: KgAu {},
             get: Usd {},

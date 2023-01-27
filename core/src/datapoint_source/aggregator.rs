@@ -23,12 +23,22 @@ pub async fn fetch_aggregated<PER1: Asset, GET: Asset>(
         Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError>>>>,
     >,
 ) -> Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError> {
-    let results = futures::future::join_all(sources).await;
-    let ok_results: Vec<AssetsExchangeRate<PER1, GET>> =
-        results.into_iter().flat_map(|res| res.ok()).collect();
+    let ok_results: Vec<AssetsExchangeRate<PER1, GET>> = fetch(sources).await?;
     if ok_results.is_empty() {
         return Err(DataPointSourceError::NoDataPoints);
     }
     let rate = aggregate(ok_results);
     Ok(rate)
+}
+
+#[allow(clippy::type_complexity)]
+pub async fn fetch<PER1: Asset, GET: Asset>(
+    sources: Vec<
+        Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError>>>>,
+    >,
+) -> Result<Vec<AssetsExchangeRate<PER1, GET>>, DataPointSourceError> {
+    let results = futures::future::join_all(sources).await;
+    let ok_results: Vec<AssetsExchangeRate<PER1, GET>> =
+        results.into_iter().flat_map(|res| res.ok()).collect();
+    Ok(ok_results)
 }

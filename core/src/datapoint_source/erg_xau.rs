@@ -23,10 +23,14 @@ impl Asset for KgAu {}
 impl Asset for Xau {}
 
 impl KgAu {
-    pub fn from_xau(xau: f64) -> f64 {
+    pub fn from_troy_ounce(oz: f64) -> f64 {
         // https://en.wikipedia.org/wiki/Gold_bar
         // troy ounces per kg
-        xau * 32.150746568627
+        oz * 32.150746568627
+    }
+
+    pub fn from_gram(g: f64) -> f64 {
+        g * 1000.0
     }
 }
 
@@ -36,11 +40,11 @@ pub fn nanoerg_kgau_sources() -> Vec<
 > {
     vec![
         Box::pin(coingecko::get_kgau_nanoerg()),
-        Box::pin(bitpanda_coincap_kgau_nanoerg()),
+        Box::pin(combined_kgau_nanoerg()),
     ]
 }
 
-pub async fn bitpanda_coincap_kgau_nanoerg(
+pub async fn combined_kgau_nanoerg(
 ) -> Result<AssetsExchangeRate<KgAu, NanoErg>, DataPointSourceError> {
     let kgau_usd_rate = bitpanda::get_kgau_usd().await?;
     let aggregated_usd_nanoerg_rate = fetch_aggregated(nanoerg_usd_sources()).await?;
@@ -58,8 +62,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bitpanda_coincap_combined() {
-        let pair = tokio_test::block_on(bitpanda_coincap_kgau_nanoerg()).unwrap();
-        assert!(pair.rate > 0.0);
+    fn test_kgau_nanoerg_combined() {
+        let combined = tokio_test::block_on(combined_kgau_nanoerg()).unwrap();
+        let coingecko = tokio_test::block_on(coingecko::get_kgau_nanoerg()).unwrap();
+        let deviation_from_coingecko = (combined.rate - coingecko.rate).abs() / coingecko.rate;
+        assert!(
+            deviation_from_coingecko < 0.05,
+            "up to 5% deviation is allowed"
+        );
     }
 }

@@ -13,7 +13,7 @@ pub async fn get_kgau_nanoerg() -> Result<AssetsExchangeRate<KgAu, NanoErg>, Dat
     if let Some(p) = price_json["ergo"]["xau"].as_f64() {
         // Convert from price Erg/XAU to nanoErgs per 1 XAU
         let nanoerg_per_troy_ounce = NanoErg::from_erg(1.0 / p);
-        let nanoerg_per_kg = KgAu::from_xau(nanoerg_per_troy_ounce);
+        let nanoerg_per_kg = KgAu::from_troy_ounce(nanoerg_per_troy_ounce);
         let rate = AssetsExchangeRate {
             per1: KgAu {},
             get: NanoErg {},
