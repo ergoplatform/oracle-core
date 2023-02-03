@@ -88,7 +88,6 @@ use crate::oracle_config::OracleConfig;
 use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
 use crate::oracle_config::ORACLE_CONFIG_OPT;
-use crate::pool_commands::build_action;
 use crate::pool_config::POOL_CONFIG_FILE_PATH;
 
 const APP_VERSION: &str = concat!(
