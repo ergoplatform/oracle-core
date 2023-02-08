@@ -6,7 +6,13 @@ fn run_command(bin: &str, args: &[&str]) -> Result<String, Box<dyn Error>> {
     if command.status.success() {
         String::from_utf8(command.stdout).map_err(|e| e.into())
     } else {
-        Err(format!("{} {:?} failed", bin, args).into())
+        Err(format!(
+            "{} {:?} failed, stderr = {:?}",
+            bin,
+            args,
+            String::from_utf8(command.stderr).unwrap()
+        )
+        .into())
     }
 }
 
