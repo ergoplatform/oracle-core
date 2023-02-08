@@ -12,6 +12,14 @@ impl std::ops::Sub<EpochLength> for BlockHeight {
     }
 }
 
+impl std::ops::Sub<u32> for BlockHeight {
+    type Output = BlockHeight;
+    fn sub(self, other: u32) -> BlockHeight {
+        // Unwrap here to panic on overflow instead of wrapping around
+        BlockHeight(self.0.checked_sub(other).unwrap())
+    }
+}
+
 impl std::fmt::Display for BlockHeight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

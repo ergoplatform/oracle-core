@@ -325,7 +325,7 @@ mod tests {
             new_pool_box_address_hash,
             new_reward_token_id,
             100_000,
-            BlockHeight(height.0 - 3), // TODO: should BlockHeight implement Sub for arbitrary units?
+            BlockHeight(height.0) - 3,
             change_address.address(),
             ballot_contract_inputs.contract_parameters(),
             &token_ids,

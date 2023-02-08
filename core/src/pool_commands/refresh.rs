@@ -77,7 +77,6 @@ pub fn build_refresh_action(
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
-    // TODO
     let min_start_height = height - in_refresh_box.contract().epoch_length();
     let in_pool_box_epoch_id = in_pool_box.epoch_counter();
     let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src

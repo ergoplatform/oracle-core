@@ -238,7 +238,7 @@ mod tests {
                 EpochCounter(1),
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
-                BlockHeight(height.0 - 9),
+                BlockHeight(height.0),
             ),
             &oracle_box_wrapper_inputs,
         )
