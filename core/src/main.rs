@@ -46,8 +46,7 @@ use actions::PoolAction;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
-use datapoint_source::load_datapoint_source;
-use datapoint_source::DataPointSource;
+use datapoint_source::RuntimeDataPointSource;
 use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -261,7 +260,7 @@ fn main() {
 
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
-    let datapoint_source = load_datapoint_source(
+    let datapoint_source = RuntimeDataPointSource::new(
         POOL_CONFIG.data_point_source,
         ORACLE_CONFIG.data_point_source_custom_script.clone(),
     )
@@ -309,7 +308,7 @@ fn main() {
 fn handle_pool_command(
     command: Command,
     tokio_runtime: &mut tokio::runtime::Runtime,
-    datapoint_source: Box<dyn DataPointSource>,
+    datapoint_source: RuntimeDataPointSource,
 ) {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
@@ -329,7 +328,7 @@ fn handle_pool_command(
                 tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
-                if let Err(e) = main_loop_iteration(&op, read_only, datapoint_source.as_ref()) {
+                if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source) {
                     error!("error: {:?}", e);
                 }
                 // Delay loop restart
@@ -455,7 +454,7 @@ fn handle_pool_command(
 fn main_loop_iteration(
     op: &OraclePool,
     read_only: bool,
-    datapoint_source: &dyn DataPointSource,
+    datapoint_source: &RuntimeDataPointSource,
 ) -> std::result::Result<(), anyhow::Error> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let height = BlockHeight(
