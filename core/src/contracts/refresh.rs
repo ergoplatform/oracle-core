@@ -9,6 +9,8 @@ use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
 use thiserror::Error;
 
+use crate::oracle_types::EpochLength;
+use crate::oracle_types::MinDatapoints;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::TokenIdKind;
@@ -116,10 +118,10 @@ impl RefreshContract {
                 RefreshContractParametersError::NoMinDataPoints,
             ))?
             .try_extract_into::<i32>()?;
-        if min_data_points != parameters.min_data_points {
+        if min_data_points != parameters.min_data_points.0 {
             return Err(RefreshContractError::Parameters(
                 RefreshContractParametersError::MinDataPointsDiffers {
-                    expected: parameters.min_data_points,
+                    expected: parameters.min_data_points.0,
                     actual: min_data_points,
                 },
             ));
@@ -163,15 +165,17 @@ impl RefreshContract {
             ));
         }
 
-        let epoch_length = ergo_tree
-            .get_constant(parameters.epoch_length_index)
-            .map_err(|_| {
-                RefreshContractError::Parameters(RefreshContractParametersError::NoEpochLength)
-            })?
-            .ok_or(RefreshContractError::Parameters(
-                RefreshContractParametersError::NoEpochLength,
-            ))?
-            .try_extract_into::<i32>()?;
+        let epoch_length = EpochLength(
+            ergo_tree
+                .get_constant(parameters.epoch_length_index)
+                .map_err(|_| {
+                    RefreshContractError::Parameters(RefreshContractParametersError::NoEpochLength)
+                })?
+                .ok_or(RefreshContractError::Parameters(
+                    RefreshContractParametersError::NoEpochLength,
+                ))?
+                .try_extract_into::<i32>()?,
+        );
         if epoch_length != parameters.epoch_length {
             return Err(RefreshContractError::Parameters(
                 RefreshContractParametersError::EpochLengthDiffers {
@@ -207,7 +211,7 @@ impl RefreshContract {
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
                     inputs.contract_parameters.min_data_points_index,
-                    (inputs.contract_parameters.min_data_points).into(),
+                    (inputs.contract_parameters.min_data_points.0).into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
@@ -222,7 +226,7 @@ impl RefreshContract {
                 .map_err(RefreshContractError::ErgoTreeConstant)?
                 .with_constant(
                     inputs.contract_parameters.epoch_length_index,
-                    (inputs.contract_parameters.epoch_length).into(),
+                    (inputs.contract_parameters.epoch_length.0).into(),
                 )
                 .map_err(RefreshContractError::ErgoTreeConstant)?;
         Ok(Self {
@@ -240,13 +244,15 @@ impl RefreshContract {
         self.ergo_tree.clone()
     }
 
-    pub fn epoch_length(&self) -> i32 {
-        self.ergo_tree
-            .get_constant(self.epoch_length_index)
-            .unwrap()
-            .unwrap()
-            .try_extract_into::<i32>()
-            .unwrap()
+    pub fn epoch_length(&self) -> EpochLength {
+        EpochLength(
+            self.ergo_tree
+                .get_constant(self.epoch_length_index)
+                .unwrap()
+                .unwrap()
+                .try_extract_into::<i32>()
+                .unwrap(),
+        )
     }
 
     pub fn buffer(&self) -> i32 {
@@ -258,13 +264,15 @@ impl RefreshContract {
             .unwrap()
     }
 
-    pub fn min_data_points(&self) -> i32 {
-        self.ergo_tree
-            .get_constant(self.min_data_points_index)
-            .unwrap()
-            .unwrap()
-            .try_extract_into::<i32>()
-            .unwrap()
+    pub fn min_data_points(&self) -> MinDatapoints {
+        MinDatapoints(
+            self.ergo_tree
+                .get_constant(self.min_data_points_index)
+                .unwrap()
+                .unwrap()
+                .try_extract_into::<i32>()
+                .unwrap(),
+        )
     }
 
     pub fn max_deviation_percent(&self) -> i32 {
@@ -363,13 +371,13 @@ pub struct RefreshContractParameters {
     pool_nft_index: usize,
     oracle_token_id_index: usize,
     min_data_points_index: usize,
-    min_data_points: i32,
+    min_data_points: MinDatapoints,
     buffer_length_index: usize,
     buffer_length: i32,
     max_deviation_percent_index: usize,
     max_deviation_percent: i32,
     epoch_length_index: usize,
-    epoch_length: i32,
+    epoch_length: EpochLength,
 }
 
 pub struct RefreshContractParametersInputs {
@@ -377,13 +385,13 @@ pub struct RefreshContractParametersInputs {
     pub pool_nft_index: usize,
     pub oracle_token_id_index: usize,
     pub min_data_points_index: usize,
-    pub min_data_points: i32,
+    pub min_data_points: MinDatapoints,
     pub buffer_length_index: usize,
     pub buffer_length: i32,
     pub max_deviation_percent_index: usize,
     pub max_deviation_percent: i32,
     pub epoch_length_index: usize,
-    pub epoch_length: i32,
+    pub epoch_length: EpochLength,
 }
 
 #[derive(Debug, Error)]
@@ -413,9 +421,12 @@ pub enum RefreshContractParametersError {
     #[error("refresh contract parameters: failed to get epoch length from constants")]
     NoEpochLength,
     #[error(
-        "refresh contract parameters: unexpected `epoch length` value from constants. Expected {expected}, got {actual}"
+        "refresh contract parameters: unexpected `epoch length` value from constants. Expected {expected:?}, got {actual:?}"
     )]
-    EpochLengthDiffers { expected: i32, actual: i32 },
+    EpochLengthDiffers {
+        expected: EpochLength,
+        actual: EpochLength,
+    },
     #[error("refresh contract parameters: sigma parsing error {0}")]
     SigmaParsing(#[from] SigmaParsingError),
     #[error("refresh contract parameters: sigma serialization error {0}")]
@@ -433,7 +444,10 @@ impl RefreshContractParameters {
         inputs: RefreshContractParametersInputs,
     ) -> Result<Self, RefreshContractParametersError> {
         let ergo_tree = ErgoTree::sigma_parse_bytes(inputs.ergo_tree_bytes.as_slice())?
-            .with_constant(inputs.min_data_points_index, inputs.min_data_points.into())
+            .with_constant(
+                inputs.min_data_points_index,
+                inputs.min_data_points.0.into(),
+            )
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
             .with_constant(inputs.buffer_length_index, inputs.buffer_length.into())
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
@@ -442,7 +456,7 @@ impl RefreshContractParameters {
                 inputs.max_deviation_percent.into(),
             )
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?
-            .with_constant(inputs.epoch_length_index, inputs.epoch_length.into())
+            .with_constant(inputs.epoch_length_index, inputs.epoch_length.0.into())
             .map_err(RefreshContractParametersError::ErgoTreeConstant)?;
         let _pool_nft = ergo_tree
             .get_constant(inputs.pool_nft_index)
@@ -478,9 +492,9 @@ impl RefreshContractParameters {
             .map_err(|_| RefreshContractParametersError::NoMinDataPoints)?
             .ok_or(RefreshContractParametersError::NoMinDataPoints)?
             .try_extract_into::<i32>()?;
-        if min_data_points != inputs.min_data_points {
+        if min_data_points != inputs.min_data_points.0 {
             return Err(RefreshContractParametersError::MinDataPointsDiffers {
-                expected: inputs.min_data_points,
+                expected: inputs.min_data_points.0,
                 actual: min_data_points,
             });
         }
@@ -511,11 +525,13 @@ impl RefreshContractParameters {
             });
         }
 
-        let epoch_length = ergo_tree
-            .get_constant(inputs.epoch_length_index)
-            .map_err(|_| RefreshContractParametersError::NoEpochLength)?
-            .ok_or(RefreshContractParametersError::NoEpochLength)?
-            .try_extract_into::<i32>()?;
+        let epoch_length = EpochLength(
+            ergo_tree
+                .get_constant(inputs.epoch_length_index)
+                .map_err(|_| RefreshContractParametersError::NoEpochLength)?
+                .ok_or(RefreshContractParametersError::NoEpochLength)?
+                .try_extract_into::<i32>()?,
+        );
 
         if epoch_length != inputs.epoch_length {
             return Err(RefreshContractParametersError::EpochLengthDiffers {
@@ -565,7 +581,7 @@ impl RefreshContractParameters {
         self.min_data_points_index
     }
 
-    pub fn min_data_points(&self) -> i32 {
+    pub fn min_data_points(&self) -> MinDatapoints {
         self.min_data_points
     }
 
@@ -589,7 +605,7 @@ impl RefreshContractParameters {
         self.epoch_length_index
     }
 
-    pub fn epoch_length(&self) -> i32 {
+    pub fn epoch_length(&self) -> EpochLength {
         self.epoch_length
     }
 }
@@ -628,10 +644,10 @@ mod tests {
     #[test]
     fn test_build_with() {
         let contract_parameters = RefreshContractParameters::default();
-        let expected_min_data_points = 99;
+        let expected_min_data_points = MinDatapoints(99);
         let expected_buffer_length = 100;
         let expected_max_deviation_percent = 88;
-        let expected_epoch_length = 1000;
+        let expected_epoch_length = EpochLength(1000);
         let new_contract_parameter_inputs = RefreshContractParametersInputs {
             ergo_tree_bytes: contract_parameters.ergo_tree_bytes(),
             pool_nft_index: contract_parameters.pool_nft_index(),

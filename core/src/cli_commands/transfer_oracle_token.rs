@@ -27,6 +27,7 @@ use crate::{
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
+    oracle_types::BlockHeight,
     wallet::{WalletDataError, WalletDataSource},
 };
 
@@ -66,7 +67,7 @@ pub fn transfer_oracle_token(
     tx_submit: &dyn SubmitTransaction,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
-    height: u32,
+    height: BlockHeight,
 ) -> Result<(), TransferOracleTokenActionError> {
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
@@ -105,7 +106,7 @@ fn build_transfer_oracle_token_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     oracle_token_destination: Address,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<UnsignedTransaction, TransferOracleTokenActionError> {
     let in_oracle_box = local_datapoint_box_source
@@ -158,7 +159,7 @@ fn build_transfer_oracle_token_tx(
         let mut tx_builder = TxBuilder::new(
             box_selection,
             vec![oracle_box_candidate],
-            height,
+            height.0,
             target_balance,
             change_address,
         );
@@ -182,6 +183,7 @@ mod tests {
     use super::*;
     use crate::box_kind::{OracleBoxWrapper, OracleBoxWrapperInputs};
     use crate::contracts::oracle::OracleContractParameters;
+    use crate::oracle_types::EpochCounter;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
         OracleBoxMock, WalletDataMock,
@@ -196,7 +198,7 @@ mod tests {
     #[test]
     fn test_transfer_oracle_datapoint() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -209,10 +211,10 @@ mod tests {
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
-                1,
+                EpochCounter(1),
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
-                height - 9,
+                BlockHeight(height.0) - 9,
             ),
             &oracle_box_wrapper_inputs,
         )

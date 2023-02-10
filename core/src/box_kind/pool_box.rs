@@ -12,6 +12,8 @@ use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
+use crate::oracle_types::BlockHeight;
+use crate::oracle_types::EpochCounter;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
 use crate::spec_token::RewardTokenId;
@@ -23,7 +25,7 @@ pub trait PoolBox {
     fn contract(&self) -> &PoolContract;
     fn pool_nft_token(&self) -> SpecToken<PoolTokenId>;
     fn reward_token(&self) -> SpecToken<RewardTokenId>;
-    fn epoch_counter(&self) -> u32;
+    fn epoch_counter(&self) -> EpochCounter;
     fn rate(&self) -> i64;
     fn get_box(&self) -> &ErgoBox;
 }
@@ -113,12 +115,14 @@ impl PoolBox for PoolBoxWrapper {
         }
     }
 
-    fn epoch_counter(&self) -> u32 {
-        self.ergo_box
-            .get_register(NonMandatoryRegisterId::R5.into())
-            .unwrap()
-            .try_extract_into::<i32>()
-            .unwrap() as u32
+    fn epoch_counter(&self) -> EpochCounter {
+        EpochCounter(
+            self.ergo_box
+                .get_register(NonMandatoryRegisterId::R5.into())
+                .unwrap()
+                .try_extract_into::<i32>()
+                .unwrap() as u32,
+        )
     }
 
     fn rate(&self) -> i64 {
@@ -205,15 +209,15 @@ impl PoolBoxWrapperInputs {
 pub fn make_pool_box_candidate(
     contract: &PoolContract,
     datapoint: i64,
-    epoch_counter: i32,
+    epoch_counter: EpochCounter,
     pool_nft_token: SpecToken<PoolTokenId>,
     reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
-    builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter.0 as i32).into());
     builder.add_token(pool_nft_token.into());
     builder.add_token(reward_token.into());
     builder.build()
@@ -223,15 +227,15 @@ pub fn make_pool_box_candidate(
 pub fn make_pool_box_candidate_unchecked(
     contract: &PoolContract,
     datapoint: i64,
-    epoch_counter: i32,
+    epoch_counter: EpochCounter,
     pool_nft_token: SpecToken<PoolTokenId>,
     reward_token: Token,
     value: BoxValue,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
     builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
-    builder.set_register_value(NonMandatoryRegisterId::R5, epoch_counter.into());
+    builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter.0 as i32).into());
     builder.add_token(pool_nft_token.into());
     builder.add_token(reward_token);
     builder.build()

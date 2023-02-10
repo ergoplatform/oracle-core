@@ -27,6 +27,7 @@ use crate::{
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},
+    oracle_types::BlockHeight,
     pool_config::{TokenIds, POOL_CONFIG},
     spec_token::SpecToken,
     wallet::{WalletDataError, WalletDataSource},
@@ -69,8 +70,8 @@ pub fn vote_update_pool(
     new_pool_box_address_hash_str: String,
     reward_token_id_str: String,
     reward_token_amount: u32,
-    update_box_creation_height: u32,
-    height: u32,
+    update_box_creation_height: BlockHeight,
+    height: BlockHeight,
 ) -> Result<(), VoteUpdatePoolError> {
     let change_network_address = wallet.get_change_address()?;
     let network_prefix = change_network_address.network();
@@ -141,8 +142,8 @@ fn build_tx_with_existing_ballot_box(
     new_pool_box_address_hash: Digest32,
     reward_token_id: TokenId,
     reward_token_amount: u32,
-    update_box_creation_height: u32,
-    height: u32,
+    update_box_creation_height: BlockHeight,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -171,7 +172,7 @@ fn build_tx_with_existing_ballot_box(
     let mut tx_builder = TxBuilder::new(
         box_selection,
         vec![ballot_box_candidate],
-        height,
+        height.0,
         *BASE_FEE,
         change_address,
     );
@@ -190,11 +191,11 @@ fn build_tx_for_first_ballot_box(
     new_pool_box_address_hash: Digest32,
     reward_token_id: TokenId,
     reward_token_amount: u32,
-    update_box_creation_height: u32,
+    update_box_creation_height: BlockHeight,
     ballot_token_owner_address: Address,
     ballot_contract_parameters: &BallotContractParameters,
     token_ids: &TokenIds,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
@@ -237,7 +238,7 @@ fn build_tx_for_first_ballot_box(
         let mut tx_builder = TxBuilder::new(
             box_selection,
             vec![ballot_box_candidate],
-            height,
+            height.0,
             *BASE_FEE,
             change_address,
         );
@@ -274,6 +275,7 @@ mod tests {
         box_kind::{make_local_ballot_box_candidate, BallotBoxWrapper, BallotBoxWrapperInputs},
         contracts::ballot::{BallotContract, BallotContractInputs, BallotContractParameters},
         oracle_config::BASE_FEE,
+        oracle_types::{BlockHeight, EpochLength},
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, WalletDataMock,
         },
@@ -286,7 +288,7 @@ mod tests {
     #[test]
     fn test_vote_update_pool_no_existing_ballot_box() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
 
         let secret = force_any_val::<DlogProverInput>();
         let new_pool_box_address_hash = force_any_val::<Digest32>();
@@ -323,7 +325,7 @@ mod tests {
             new_pool_box_address_hash,
             new_reward_token_id,
             100_000,
-            height - 3,
+            BlockHeight(height.0) - 3,
             change_address.address(),
             ballot_contract_inputs.contract_parameters(),
             &token_ids,
@@ -345,7 +347,7 @@ mod tests {
     #[test]
     fn test_vote_update_pool_with_existing_ballot_box() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
 
         let secret = force_any_val::<DlogProverInput>();
         let new_pool_box_address_hash = force_any_val::<Digest32>();
@@ -373,7 +375,7 @@ mod tests {
             &make_local_ballot_box_candidate(
                 &BallotContract::checked_load(&inputs.contract_inputs).unwrap(),
                 secret.public_image(),
-                height - 2,
+                height - EpochLength(2),
                 ballot_token,
                 new_pool_box_address_hash,
                 Token {
@@ -381,7 +383,7 @@ mod tests {
                     amount: 100_000.try_into().unwrap(),
                 },
                 BoxValue::new(10_000_000).unwrap(),
-                height - 2,
+                height - EpochLength(2),
             )
             .unwrap(),
             force_any_val::<TxId>(),
@@ -409,7 +411,7 @@ mod tests {
             new_pool_box_address_hash,
             token_ids.reward_token_id.token_id(),
             100_000,
-            height - 3,
+            height - EpochLength(3),
             height,
             change_address.address(),
         )

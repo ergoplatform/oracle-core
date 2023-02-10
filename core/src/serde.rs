@@ -29,6 +29,7 @@ use crate::{
         },
         update::{UpdateContractParameters, UpdateContractParametersError},
     },
+    oracle_types::{EpochLength, MinDatapoints},
     pool_config::{PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds},
     spec_token::TokenIdKind,
 };
@@ -346,13 +347,13 @@ struct RefreshContractParametersSerde {
     pool_nft_index: usize,
     oracle_token_id_index: usize,
     min_data_points_index: usize,
-    min_data_points: i32,
+    min_data_points: MinDatapoints,
     buffer_length_index: usize,
     buffer_length: i32,
     max_deviation_percent_index: usize,
     max_deviation_percent: i32,
     epoch_length_index: usize,
-    epoch_length: i32,
+    epoch_length: EpochLength,
 }
 
 impl From<RefreshContractParameters> for RefreshContractParametersSerde {

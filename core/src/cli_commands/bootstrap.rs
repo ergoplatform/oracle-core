@@ -49,6 +49,7 @@ use crate::{
         SignTransactionWithInputs, SubmitTransaction,
     },
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
+    oracle_types::{BlockHeight, EpochCounter},
     pool_config::{
         PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds,
         DEFAULT_POOL_CONFIG_FILE_NAME,
@@ -83,7 +84,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
         tx_fee: *BASE_FEE,
         erg_value_per_box,
         change_address: change_address.address(),
-        height: node_api.node.current_block_height()? as u32,
+        height: BlockHeight(node_api.node.current_block_height()? as u32),
     };
     let (oracle_config, submitted_tx_ids) = perform_bootstrap_chained_transaction(input)?;
     wait_for_txs_confirmation(submitted_tx_ids);
@@ -121,7 +122,7 @@ pub struct BootstrapInput<'a> {
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
-    pub height: u32,
+    pub height: BlockHeight,
 }
 
 /// Perform and submit to the mempool the chained-transaction to boostrap the oracle pool. We first
@@ -212,14 +213,15 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         };
         let token_box_guard =
             different_token_box_guard.unwrap_or_else(|| wallet_pk_ergo_tree.clone());
-        let mut builder = ErgoBoxCandidateBuilder::new(erg_value_per_box, token_box_guard, height);
+        let mut builder =
+            ErgoBoxCandidateBuilder::new(erg_value_per_box, token_box_guard, height.0);
         builder.mint_token(token.clone(), token_name, token_desc, 0);
         let mut output_candidates = vec![builder.build()?];
 
         let remaining_funds = ErgoBoxCandidateBuilder::new(
             calc_target_balance(*num_transactions_left - 1)?,
             wallet_pk_ergo_tree.clone(),
-            height,
+            height.0,
         )
         .build()?;
         output_candidates.push(remaining_funds.clone());
@@ -228,7 +230,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         let tx_builder = TxBuilder::new(
             box_selection,
             output_candidates,
-            height,
+            height.0,
             tx_fee,
             change_address.clone(),
         );
@@ -392,7 +394,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         &pool_contract,
         // We intentionally set the initial datapoint to be 0, as it's treated as 'undefined' during bootstrap.
         0,
-        1,
+        EpochCounter(1),
         SpecToken {
             token_id: token_ids.pool_nft_token_id.clone(),
             amount: pool_nft_token.amount,
@@ -410,7 +412,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let builder = ErgoBoxCandidateBuilder::new(
         calc_target_balance(num_transactions_left - 1)?,
         wallet_pk_ergo_tree.clone(),
-        height,
+        height.0,
     );
     output_candidates.push(builder.build()?);
 
@@ -442,7 +444,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let tx_builder = TxBuilder::new(
         box_selection,
         output_candidates,
-        height,
+        height.0,
         tx_fee,
         change_address.clone(),
     );
@@ -498,7 +500,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let tx_builder = TxBuilder::new(
         box_selection,
         output_candidates,
-        height,
+        height.0,
         tx_fee,
         change_address.clone(),
     );
@@ -721,7 +723,7 @@ pub(crate) mod tests {
 
         let bootstrap_config = BootstrapConfig::default();
 
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let submit_tx = SubmitTxMock::default();
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
             oracle_address: address,
@@ -907,6 +909,6 @@ data_point_source_custom_script: ~
 oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW
 base_fee: 1100000
 ").unwrap();
-        assert_eq!(config.refresh_contract_parameters.min_data_points(), 2);
+        assert_eq!(config.refresh_contract_parameters.min_data_points().0, 2);
     }
 }

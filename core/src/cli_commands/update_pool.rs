@@ -31,6 +31,7 @@ use crate::{
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
+    oracle_types::BlockHeight,
     pool_config::{CastBallotBoxVoteParameters, PoolConfig, POOL_CONFIG},
     spec_token::TokenIdKind,
     wallet::{WalletDataError, WalletDataSource},
@@ -77,7 +78,7 @@ pub fn update_pool(
     tx_submit: &dyn SubmitTransaction,
     new_pool_box_hash_str: Option<String>,
     new_reward_tokens: Option<Token>,
-    height: u32,
+    height: BlockHeight,
 ) -> Result<(), UpdatePoolError> {
     info!("Opening pool_config_updated.yaml");
     let s = std::fs::read_to_string("pool_config_updated.yaml")?;
@@ -189,7 +190,7 @@ fn build_update_pool_box_tx(
     update_box: &dyn UpdateBoxSource,
     new_pool_contract: PoolContract,
     new_reward_tokens: Option<Token>,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
     let update_box = update_box.get_update_box()?;
@@ -244,14 +245,14 @@ fn build_update_pool_box_tx(
     let pool_box_candidate = make_pool_box_candidate_unchecked(
         &new_pool_contract,
         old_pool_box.rate(),
-        old_pool_box.epoch_counter() as i32,
+        old_pool_box.epoch_counter(),
         old_pool_box.pool_nft_token(),
         reward_tokens.clone(),
         old_pool_box.get_box().value,
         height,
     )?;
     let mut update_box_candidate =
-        ErgoBoxCandidateBuilder::new(update_box.get_box().value, update_box.ergo_tree(), height);
+        ErgoBoxCandidateBuilder::new(update_box.get_box().value, update_box.ergo_tree(), height.0);
     update_box_candidate.add_token(update_box.update_nft());
     let update_box_candidate = update_box_candidate.build()?;
 
@@ -302,7 +303,7 @@ fn build_update_pool_box_tx(
         let mut ballot_box_candidate = ErgoBoxCandidateBuilder::new(
             ballot_box.get_box().value, // value must be preserved or increased
             ballot_box.contract().ergo_tree(),
-            height,
+            height.0,
         );
         ballot_box_candidate.add_token(ballot_box.ballot_token().into());
         ballot_box_candidate.set_register_value(
@@ -315,7 +316,7 @@ fn build_update_pool_box_tx(
     let mut tx_builder = TxBuilder::new(
         box_selection.clone(),
         outputs.clone(),
-        height,
+        height.0,
         *BASE_FEE,
         change_address,
     );
@@ -373,6 +374,7 @@ mod tests {
             update::{UpdateContract, UpdateContractInputs, UpdateContractParameters},
         },
         oracle_config::BASE_FEE,
+        oracle_types::{BlockHeight, EpochCounter},
         pool_commands::test_utils::{
             generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
             UpdateBoxMock, WalletDataMock,
@@ -395,7 +397,7 @@ mod tests {
     #[test]
     fn test_update_pool_box() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
 
         let token_ids = generate_token_ids();
         dbg!(&token_ids);
@@ -426,7 +428,7 @@ mod tests {
         .unwrap();
         let update_contract = UpdateContract::checked_load(&update_contract_inputs).unwrap();
         let mut update_box_candidate =
-            ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height);
+            ErgoBoxCandidateBuilder::new(*BASE_FEE, update_contract.ergo_tree(), height.0);
         update_box_candidate.add_token(Token {
             token_id: token_ids.update_nft_token_id.token_id(),
             amount: 1.try_into().unwrap(),
@@ -450,7 +452,7 @@ mod tests {
         let pool_box_candidate = make_pool_box_candidate(
             &pool_contract,
             0,
-            0,
+            EpochCounter(0),
             SpecToken {
                 token_id: token_ids.pool_nft_token_id.clone(),
                 amount: 1.try_into().unwrap(),
@@ -490,7 +492,7 @@ mod tests {
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,
                 secret.public_image(),
-                update_box.creation_height,
+                BlockHeight(update_box.creation_height),
                 SpecToken {
                     token_id: token_ids.ballot_token_id.clone(),
                     amount: 1.try_into().unwrap(),
@@ -562,7 +564,7 @@ mod tests {
             &update_mock,
             new_pool_contract,
             Some(new_reward_tokens),
-            height + 1,
+            BlockHeight(height.0 + 1),
             change_address.address(),
         )
         .unwrap();

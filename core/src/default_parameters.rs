@@ -6,12 +6,15 @@ use ergo_lib::{
     ergo_chain_types::blake2b256_hash, ergotree_ir::chain::ergo_box::box_value::BoxValue,
 };
 
-use crate::contracts::{
-    ballot::BallotContractParameters,
-    oracle::OracleContractParameters,
-    pool::PoolContractParameters,
-    refresh::{RefreshContractParameters, RefreshContractParametersInputs},
-    update::UpdateContractParameters,
+use crate::{
+    contracts::{
+        ballot::BallotContractParameters,
+        oracle::OracleContractParameters,
+        pool::PoolContractParameters,
+        refresh::{RefreshContractParameters, RefreshContractParametersInputs},
+        update::UpdateContractParameters,
+    },
+    oracle_types::{EpochLength, MinDatapoints},
 };
 
 impl Default for BallotContractParameters {
@@ -73,13 +76,13 @@ impl Default for RefreshContractParameters {
             pool_nft_index: 17,
             oracle_token_id_index: 3,
             min_data_points_index: 13,
-            min_data_points: 4,
+            min_data_points: MinDatapoints(4),
             buffer_length_index: 21,
             buffer_length: 4,
             max_deviation_percent_index: 15,
             max_deviation_percent: 5,
             epoch_length_index: 0,
-            epoch_length: 30,
+            epoch_length: EpochLength(30),
         })
         .unwrap()
     }

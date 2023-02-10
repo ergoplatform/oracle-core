@@ -30,6 +30,7 @@ use crate::{
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
+    oracle_types::BlockHeight,
     spec_token::SpecToken,
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -70,7 +71,7 @@ pub fn extract_reward_tokens(
     tx_submit: &dyn SubmitTransaction,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
-    height: u32,
+    height: BlockHeight,
 ) -> Result<(), ExtractRewardTokensActionError> {
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
@@ -110,7 +111,7 @@ fn build_extract_reward_tokens_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     wallet: &dyn WalletDataSource,
     rewards_destination: Address,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
 ) -> Result<(UnsignedTransaction, u64), ExtractRewardTokensActionError> {
     let in_oracle_box = local_datapoint_box_source
@@ -154,7 +155,7 @@ fn build_extract_reward_tokens_tx(
 
         // Build box to hold extracted tokens
         let mut builder =
-            ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height);
+            ErgoBoxCandidateBuilder::new(*BASE_FEE, rewards_destination.script()?, height.0);
 
         let extracted_reward_tokens = Token {
             token_id: in_oracle_box.reward_token().token_id(),
@@ -180,7 +181,7 @@ fn build_extract_reward_tokens_tx(
         let mut tx_builder = TxBuilder::new(
             box_selection,
             vec![oracle_box_candidate, reward_box_candidate],
-            height,
+            height.0,
             *BASE_FEE,
             change_address,
         );
@@ -204,6 +205,7 @@ mod tests {
     use super::*;
     use crate::box_kind::{OracleBoxWrapper, OracleBoxWrapperInputs};
     use crate::contracts::oracle::OracleContractParameters;
+    use crate::oracle_types::EpochCounter;
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
         OracleBoxMock, WalletDataMock,
@@ -218,7 +220,7 @@ mod tests {
     #[test]
     fn test_extract_reward_tokens() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
@@ -233,10 +235,10 @@ mod tests {
             make_datapoint_box(
                 *oracle_pub_key,
                 200,
-                1,
+                EpochCounter(1),
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
-                height - 9,
+                BlockHeight(height.0),
             ),
             &oracle_box_wrapper_inputs,
         )

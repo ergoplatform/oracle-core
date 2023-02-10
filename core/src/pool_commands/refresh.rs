@@ -12,6 +12,9 @@ use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_state::StageError;
+use crate::oracle_types::BlockHeight;
+use crate::oracle_types::EpochCounter;
+use crate::oracle_types::MinDatapoints;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
@@ -40,8 +43,8 @@ pub enum RefreshActionError {
     #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys:?},")]
     FailedToReachConsensus {
         found_public_keys: Vec<ProveDlog>,
-        found_num: u32,
-        expected: u32,
+        found_num: i32,
+        expected: i32,
     },
     #[error("Not enough datapoints left during the removal of the outliers")]
     NotEnoughDatapoints,
@@ -65,22 +68,22 @@ pub fn build_refresh_action(
     refresh_box_source: &dyn RefreshBoxSource,
     datapoint_stage_src: &dyn DatapointBoxesSource,
     max_deviation_percent: u32,
-    min_data_points: u32,
+    min_data_points: MinDatapoints,
     wallet: &dyn WalletDataSource,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
     my_oracle_pk: &EcPoint,
 ) -> Result<RefreshAction, RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
-    let min_start_height = height - in_refresh_box.contract().epoch_length() as u32;
+    let min_start_height = height - in_refresh_box.contract().epoch_length();
     let in_pool_box_epoch_id = in_pool_box.epoch_counter();
     let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src
         .get_oracle_datapoint_boxes()?
         .into_iter()
         .filter(|b| {
-            b.get_box().creation_height > min_start_height
+            b.get_box().creation_height > min_start_height.0
                 && b.epoch_counter() == in_pool_box_epoch_id
         })
         .collect();
@@ -95,10 +98,10 @@ pub fn build_refresh_action(
         .into_iter()
         .filter(|b| valid_in_oracle_boxes_datapoints.contains(&b.rate()))
         .collect::<Vec<_>>();
-    if (valid_in_oracle_boxes.len() as u32) < min_data_points {
+    if (valid_in_oracle_boxes.len() as i32) < min_data_points.0 {
         return Err(RefreshActionError::FailedToReachConsensus {
-            found_num: valid_in_oracle_boxes.len() as u32,
-            expected: min_data_points,
+            found_num: valid_in_oracle_boxes.len() as i32,
+            expected: min_data_points.0,
             found_public_keys: valid_in_oracle_boxes
                 .iter()
                 .map(|b| b.public_key())
@@ -148,7 +151,7 @@ pub fn build_refresh_action(
     let mut b = TxBuilder::new(
         box_selection,
         output_candidates,
-        height,
+        height.0,
         tx_fee,
         change_address,
     );
@@ -234,11 +237,11 @@ fn calc_pool_rate(oracle_boxes_rates: Vec<u64>) -> u64 {
 
 fn build_out_pool_box(
     in_pool_box: &PoolBoxWrapper,
-    creation_height: u32,
+    creation_height: BlockHeight,
     rate: u64,
     reward_decrement: u64,
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
-    let new_epoch_counter: i32 = (in_pool_box.epoch_counter() + 1) as i32;
+    let new_epoch_counter = EpochCounter(in_pool_box.epoch_counter().0 + 1);
     let reward_token = in_pool_box.reward_token();
     let new_reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: reward_token.token_id,
@@ -262,7 +265,7 @@ fn build_out_pool_box(
 
 fn build_out_refresh_box(
     in_refresh_box: &RefreshBoxWrapper,
-    creation_height: u32,
+    creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
     make_refresh_box_candidate(
         in_refresh_box.contract(),
@@ -275,7 +278,7 @@ fn build_out_refresh_box(
 
 fn build_out_oracle_boxes(
     valid_oracle_boxes: &Vec<PostedOracleBox>,
-    creation_height: u32,
+    creation_height: BlockHeight,
     my_public_key: &EcPoint,
 ) -> Result<Vec<ErgoBoxCandidate>, RefreshActionError> {
     valid_oracle_boxes
@@ -335,6 +338,7 @@ mod tests {
     use crate::contracts::refresh::RefreshContractParameters;
     use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::StageError;
+    use crate::oracle_types::EpochLength;
     use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
@@ -372,7 +376,7 @@ mod tests {
     fn make_refresh_box(
         value: BoxValue,
         inputs: &RefreshBoxWrapperInputs,
-        creation_height: u32,
+        creation_height: BlockHeight,
     ) -> RefreshBoxWrapper {
         let tokens = vec![Token::from((
             inputs.refresh_nft_token_id.token_id(),
@@ -388,7 +392,7 @@ mod tests {
                     .ergo_tree(),
                 Some(tokens),
                 NonMandatoryRegisters::empty(),
-                creation_height,
+                creation_height.0,
                 force_any_val::<TxId>(),
                 0,
             )
@@ -402,9 +406,9 @@ mod tests {
     fn make_datapoint_boxes(
         pub_keys: Vec<EcPoint>,
         datapoints: Vec<i64>,
-        epoch_counter: i32,
+        epoch_counter: EpochCounter,
         value: BoxValue,
-        creation_height: u32,
+        creation_height: BlockHeight,
         oracle_contract_parameters: &OracleContractParameters,
         token_ids: &TokenIds,
     ) -> Vec<PostedOracleBox> {
@@ -434,7 +438,7 @@ mod tests {
     #[test]
     fn test_refresh_pool() {
         let ctx = force_any_val::<ErgoStateContext>();
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let pool_contract_parameters = PoolContractParameters::default();
         let oracle_contract_parameters = OracleContractParameters::default();
         let refresh_contract_parameters = RefreshContractParameters::default();
@@ -452,13 +456,13 @@ mod tests {
             refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
             contract_inputs: refresh_contract_inputs,
         };
-        let pool_box_epoch_id = 1;
-        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - 32);
+        let pool_box_epoch_id = EpochCounter(1);
+        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - EpochLength(32));
         let in_pool_box = make_pool_box(
             200,
             pool_box_epoch_id,
             *BASE_FEE,
-            height - 32, // from previous epoch
+            height - EpochLength(32), // from previous epoch
             &pool_contract_parameters,
             &token_ids,
         );
@@ -480,7 +484,7 @@ mod tests {
             vec![199, 70, 196, 197, 198, 200],
             pool_box_epoch_id,
             BASE_FEE.checked_mul_u32(100).unwrap(),
-            height - 9,
+            height - EpochLength(9),
             &oracle_contract_parameters,
             &token_ids,
         );
@@ -517,7 +521,7 @@ mod tests {
                 datapoints: in_oracle_boxes.clone(),
             }),
             5,
-            4,
+            MinDatapoints(4),
             &wallet_mock,
             height,
             change_address.address(),
@@ -553,15 +557,15 @@ mod tests {
                     datapoints: make_datapoint_boxes(
                         oracle_pub_keys,
                         vec![199, 70, 196, 197, 198, 200],
-                        pool_box_epoch_id + 1,
+                        EpochCounter(pool_box_epoch_id.0 + 1),
                         BASE_FEE.checked_mul_u32(100).unwrap(),
-                        height - 9,
+                        height - EpochLength(9),
                         &oracle_contract_parameters,
                         &token_ids,
                     ),
                 }),
                 5,
-                4,
+                MinDatapoints(4),
                 &wallet_mock,
                 height,
                 change_address.address(),

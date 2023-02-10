@@ -30,6 +30,7 @@ mod migrate;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
+mod oracle_types;
 mod pool_commands;
 mod pool_config;
 mod scans;
@@ -41,7 +42,6 @@ mod templates;
 mod tests;
 mod wallet;
 
-use actions::execute_action;
 use actions::PoolAction;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -60,6 +60,7 @@ use node_interface::node_api::NodeApi;
 use oracle_config::ORACLE_CONFIG;
 use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
+use oracle_types::BlockHeight;
 use pool_commands::build_action;
 use pool_commands::publish_datapoint::PublishDatapointActionError;
 use pool_commands::refresh::RefreshActionError;
@@ -78,6 +79,7 @@ use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 
+use crate::actions::execute_action;
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
 use crate::migrate::check_migration_to_split_config;
@@ -309,7 +311,7 @@ fn handle_pool_command(
     datapoint_source: RuntimeDataPointSource,
 ) {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let height = node_api.node.current_block_height().unwrap() as u32;
+    let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
     log_on_launch();
     assert_wallet_unlocked(&node_api.node);
     register_and_save_scans(&node_api).unwrap();
@@ -388,7 +390,7 @@ fn handle_pool_command(
                 new_pool_box_address_hash_str,
                 reward_token_id_str,
                 reward_token_amount,
-                update_box_creation_height,
+                BlockHeight(update_box_creation_height),
                 height,
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
@@ -455,10 +457,12 @@ fn main_loop_iteration(
     datapoint_source: &RuntimeDataPointSource,
 ) -> std::result::Result<(), anyhow::Error> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let height = node_api
-        .node
-        .current_block_height()
-        .context("Failed to get the current height")? as u32;
+    let height = BlockHeight(
+        node_api
+            .node
+            .current_block_height()
+            .context("Failed to get the current height")? as u32,
+    );
     let network_change_address = node_api.get_change_address()?;
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
@@ -471,7 +475,7 @@ fn main_loop_iteration(
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
-        .epoch_length() as u32;
+        .epoch_length();
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_res = build_action(

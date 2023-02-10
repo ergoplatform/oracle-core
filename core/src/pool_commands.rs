@@ -8,6 +8,7 @@ use crate::box_kind::PoolBox;
 use crate::datapoint_source::RuntimeDataPointSource;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{OraclePool, StageError};
+use crate::oracle_types::BlockHeight;
 use crate::pool_config::POOL_CONFIG;
 use crate::wallet::WalletDataSource;
 
@@ -52,7 +53,7 @@ pub fn build_action(
     cmd: PoolCommand,
     op: &OraclePool,
     wallet: &dyn WalletDataSource,
-    height: u32,
+    height: BlockHeight,
     change_address: Address,
     datapoint_source: &RuntimeDataPointSource,
 ) -> Result<PoolAction, PoolCommandError> {
@@ -113,7 +114,7 @@ pub fn build_action(
                 .refresh_box_wrapper_inputs
                 .contract_inputs
                 .contract_parameters()
-                .min_data_points() as u32,
+                .min_data_points(),
             wallet,
             height,
             change_address,

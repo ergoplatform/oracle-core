@@ -55,6 +55,7 @@ use crate::{
     node_interface::{node_api::NodeApi, SignTransactionWithInputs, SubmitTransaction},
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, StageDataSource},
+    oracle_types::BlockHeight,
     pool_config::{PoolConfig, POOL_CONFIG},
     serde::{PoolConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
     spec_token::{
@@ -85,7 +86,7 @@ pub struct UpdateBootstrapConfig {
 pub fn prepare_update(
     config_file_name: String,
     node_api: &NodeApi,
-    height: u32,
+    height: BlockHeight,
 ) -> Result<(), PrepareUpdateError> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
@@ -133,7 +134,7 @@ pub fn prepare_update(
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
     );
-    print_hints_for_voting(height)?;
+    print_hints_for_voting(height.0)?;
     Ok(())
 }
 
@@ -142,7 +143,8 @@ fn print_hints_for_voting(height: u32) -> Result<(), PrepareUpdateError> {
         .refresh_box_wrapper_inputs
         .contract_inputs
         .contract_parameters()
-        .epoch_length() as u32;
+        .epoch_length()
+        .0 as u32;
     let op = OraclePool::new().unwrap();
     let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
     let min_oracle_box_height = height - epoch_length;
@@ -186,7 +188,7 @@ struct PrepareUpdateInput<'a> {
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
-    pub height: u32,
+    pub height: BlockHeight,
 }
 
 struct PrepareUpdate<'a> {
@@ -246,7 +248,7 @@ impl<'a> PrepareUpdate<'a> {
         let mut builder = ErgoBoxCandidateBuilder::new(
             self.input.erg_value_per_box,
             token_box_guard,
-            self.input.height,
+            self.input.height.0,
         );
         builder.mint_token(token.clone(), token_name, token_desc, 1);
         let mut output_candidates = vec![builder.build()?];
@@ -254,7 +256,7 @@ impl<'a> PrepareUpdate<'a> {
         let remaining_funds = ErgoBoxCandidateBuilder::new(
             self.calc_target_balance(self.num_transactions_left - 1)?,
             self.wallet_pk_ergo_tree.clone(),
-            self.input.height,
+            self.input.height.0,
         )
         .build()?;
         output_candidates.push(remaining_funds.clone());
@@ -263,7 +265,7 @@ impl<'a> PrepareUpdate<'a> {
         let tx_builder = TxBuilder::new(
             box_selection,
             output_candidates,
-            self.input.height,
+            self.input.height.0,
             self.input.tx_fee,
             self.input.change_address.clone(),
         );
@@ -301,14 +303,14 @@ impl<'a> PrepareUpdate<'a> {
         let remaining_funds = ErgoBoxCandidateBuilder::new(
             self.calc_target_balance(self.num_transactions_left - 1)?,
             self.wallet_pk_ergo_tree.clone(),
-            self.input.height,
+            self.input.height.0,
         )
         .build()?;
         output_candidates.push(remaining_funds.clone());
         let tx_builder = TxBuilder::new(
             box_selection.clone(),
             output_candidates,
-            self.input.height,
+            self.input.height.0,
             self.input.tx_fee,
             self.input.change_address.clone(),
         );
@@ -566,8 +568,10 @@ mod test {
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::cli_commands::bootstrap::tests::SubmitTxMock;
-    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
+    use crate::{
+        cli_commands::bootstrap::tests::SubmitTxMock,
+        pool_commands::test_utils::{LocalTxSigner, WalletDataMock},
+    };
 
     #[test]
     fn test_prepare_update_transaction() {
@@ -691,7 +695,7 @@ data_point_source_custom_script: ~
             update_contract_parameters: Some(UpdateContractParameters::default()),
         };
 
-        let height = ctx.pre_header.height;
+        let height = BlockHeight(ctx.pre_header.height);
         let submit_tx = SubmitTxMock::default();
         let prepare_update_input = PrepareUpdateInput {
             wallet: &WalletDataMock {
