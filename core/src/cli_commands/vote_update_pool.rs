@@ -7,10 +7,7 @@ use ergo_lib::{
     },
     ergo_chain_types::{Digest32, DigestNError},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
-    ergotree_ir::chain::{
-        address::Address,
-        token::{Token, TokenAmount, TokenId},
-    },
+    ergotree_ir::chain::address::Address,
     wallet::{
         box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
         tx_builder::{TxBuilder, TxBuilderError},
@@ -29,7 +26,7 @@ use crate::{
     oracle_state::{LocalBallotBoxSource, StageError},
     oracle_types::BlockHeight,
     pool_config::{TokenIds, POOL_CONFIG},
-    spec_token::SpecToken,
+    spec_token::{RewardTokenId, SpecToken, TokenIdKind},
     wallet::{WalletDataError, WalletDataSource},
 };
 use derive_more::From;
@@ -68,15 +65,13 @@ pub fn vote_update_pool(
     tx_submit: &dyn SubmitTransaction,
     local_ballot_box_source: &dyn LocalBallotBoxSource,
     new_pool_box_address_hash_str: String,
-    reward_token_id_str: String,
-    reward_token_amount: u32,
+    reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     height: BlockHeight,
 ) -> Result<(), VoteUpdatePoolError> {
     let change_network_address = wallet.get_change_address()?;
     let network_prefix = change_network_address.network();
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
-    let reward_token_id: TokenId = Digest32::try_from(reward_token_id_str)?.into();
     let unsigned_tx = if let Some(local_ballot_box) = local_ballot_box_source.get_ballot_box()? {
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // which stipulates that the address in R4 is the 'owner' of the token
@@ -84,8 +79,7 @@ pub fn vote_update_pool(
             local_ballot_box,
             wallet,
             new_pool_box_address_hash,
-            reward_token_id,
-            reward_token_amount,
+            reward_token_opt.clone(),
             update_box_creation_height,
             height,
             change_network_address.address(),
@@ -95,8 +89,7 @@ pub fn vote_update_pool(
         build_tx_for_first_ballot_box(
             wallet,
             new_pool_box_address_hash,
-            reward_token_id,
-            reward_token_amount,
+            reward_token_opt.clone(),
             update_box_creation_height,
             ORACLE_CONFIG.oracle_address.address(),
             POOL_CONFIG
@@ -110,15 +103,18 @@ pub fn vote_update_pool(
     };
     println!(
         "YOU WILL BE CASTING A VOTE FOR THE FOLLOWING ITEMS:\
-           - Hash of new pool box address: {}\
-           - Reward token Id: {}\
-           - Reward token amount: {}\n
-         TYPE 'YES' TO INITIATE THE TRANSACTION.
-        ",
+           - Hash of new pool box contract: {}",
         String::from(new_pool_box_address_hash),
-        String::from(reward_token_id),
-        reward_token_amount,
     );
+    if let Some(reward_token) = reward_token_opt {
+        println!(
+            "  - Reward token Id: {}\
+               - Reward token amount: {}",
+            String::from(reward_token.token_id.token_id()),
+            reward_token.amount.as_u64(),
+        );
+    }
+    println!("TYPE 'YES' TO INITIATE THE TRANSACTION.");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim_end() == "YES" {
@@ -140,24 +136,19 @@ fn build_tx_with_existing_ballot_box(
     in_ballot_box: BallotBoxWrapper,
     wallet: &dyn WalletDataSource,
     new_pool_box_address_hash: Digest32,
-    reward_token_id: TokenId,
-    reward_token_amount: u32,
+    reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     height: BlockHeight,
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let reward_token = Token {
-        token_id: reward_token_id,
-        amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
-    };
     let ballot_box_candidate = make_local_ballot_box_candidate(
         in_ballot_box.contract(),
         in_ballot_box.ballot_token_owner(),
         update_box_creation_height,
         in_ballot_box.ballot_token(),
         new_pool_box_address_hash,
-        reward_token,
+        reward_token_opt,
         in_ballot_box.get_box().value,
         height,
     )?;
@@ -189,8 +180,7 @@ fn build_tx_with_existing_ballot_box(
 fn build_tx_for_first_ballot_box(
     wallet: &dyn WalletDataSource,
     new_pool_box_address_hash: Digest32,
-    reward_token_id: TokenId,
-    reward_token_amount: u32,
+    reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     ballot_token_owner_address: Address,
     ballot_contract_parameters: &BallotContractParameters,
@@ -200,10 +190,6 @@ fn build_tx_for_first_ballot_box(
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let out_ballot_box_value = ballot_contract_parameters.min_storage_rent();
-    let reward_token = Token {
-        token_id: reward_token_id,
-        amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
-    };
     let inputs = BallotContractInputs::build_with(
         ballot_contract_parameters.clone(),
         token_ids.update_nft_token_id.clone(),
@@ -220,7 +206,7 @@ fn build_tx_for_first_ballot_box(
             update_box_creation_height,
             ballot_token.clone(),
             new_pool_box_address_hash,
-            reward_token,
+            reward_token_opt,
             out_ballot_box_value,
             height,
         )?;
@@ -279,7 +265,7 @@ mod tests {
         pool_commands::test_utils::{
             find_input_boxes, generate_token_ids, make_wallet_unspent_box, WalletDataMock,
         },
-        spec_token::{SpecToken, TokenIdKind},
+        spec_token::{RewardTokenId, SpecToken, TokenIdKind},
         wallet::WalletDataSource,
     };
 
@@ -319,12 +305,14 @@ mod tests {
             change_address: change_address.clone(),
         };
 
-        let new_reward_token_id = force_any_val::<TokenId>();
+        let new_reward_token = SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(force_any_val::<TokenId>()),
+            amount: 100_000.try_into().unwrap(),
+        };
         let unsigned_tx = build_tx_for_first_ballot_box(
             &wallet_mock,
             new_pool_box_address_hash,
-            new_reward_token_id,
-            100_000,
+            Some(new_reward_token),
             BlockHeight(height.0) - 3,
             change_address.address(),
             ballot_contract_inputs.contract_parameters(),
@@ -378,10 +366,10 @@ mod tests {
                 height - EpochLength(2),
                 ballot_token,
                 new_pool_box_address_hash,
-                Token {
-                    token_id: token_ids.reward_token_id.token_id(),
+                Some(SpecToken {
+                    token_id: token_ids.reward_token_id.clone(),
                     amount: 100_000.try_into().unwrap(),
-                },
+                }),
                 BoxValue::new(10_000_000).unwrap(),
                 height - EpochLength(2),
             )
@@ -409,8 +397,10 @@ mod tests {
             ballot_box,
             &wallet_mock,
             new_pool_box_address_hash,
-            token_ids.reward_token_id.token_id(),
-            100_000,
+            Some(SpecToken {
+                token_id: token_ids.reward_token_id,
+                amount: 100_000.try_into().unwrap(),
+            }),
             height - EpochLength(3),
             height,
             change_address.address(),

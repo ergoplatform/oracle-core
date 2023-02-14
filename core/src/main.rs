@@ -51,7 +51,7 @@ use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
-use ergo_lib::ergotree_ir::chain::token::Token;
+use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::error;
 use log::LevelFilter;
@@ -68,10 +68,12 @@ use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
 use scans::get_scans_file_path;
+use spec_token::RewardTokenId;
+use spec_token::SpecToken;
+use spec_token::TokenIdKind;
 use state::process;
 use state::PoolState;
 use std::convert::TryFrom;
-use std::convert::TryInto;
 use std::env;
 use std::path::Path;
 use std::path::PathBuf;
@@ -162,9 +164,9 @@ enum Command {
         /// The base16-encoded blake2b hash of the serialized pool box contract for the new pool box.
         new_pool_box_address_hash_str: String,
         /// The base16-encoded reward token id of the new pool box (use existing if unchanged)
-        reward_token_id_str: String,
+        reward_token_id_str: Option<String>,
         /// The reward token amount in the pool box at the time of update transaction is committed.
-        reward_token_amount: u32,
+        reward_token_amount: Option<u64>,
         /// The creation height of the existing update box.
         update_box_creation_height: u32,
     },
@@ -382,14 +384,14 @@ fn handle_pool_command(
             reward_token_amount,
             update_box_creation_height,
         } => {
+            let reward_token_opt = check_reward_token_opt(reward_token_id_str, reward_token_amount);
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 &node_api,
                 &node_api.node,
                 &node_api.node,
                 op.get_local_ballot_box_source(),
                 new_pool_box_address_hash_str,
-                reward_token_id_str,
-                reward_token_amount,
+                reward_token_opt,
                 BlockHeight(update_box_creation_height),
                 height,
             ) {
@@ -402,20 +404,14 @@ fn handle_pool_command(
             reward_token_id,
             reward_token_amount,
         } => {
-            let new_reward_tokens =
-                reward_token_id
-                    .zip(reward_token_amount)
-                    .map(|(token_id, amount)| Token {
-                        token_id: TokenId::from(Digest32::try_from(token_id).unwrap()),
-                        amount: amount.try_into().unwrap(),
-                    });
+            let reward_token_opt = check_reward_token_opt(reward_token_id, reward_token_amount);
             if let Err(e) = cli_commands::update_pool::update_pool(
                 &op,
                 &node_api,
                 &node_api.node,
                 &node_api.node,
                 new_pool_box_hash,
-                new_reward_tokens,
+                reward_token_opt,
                 height,
             ) {
                 error!("Fatal update-pool error: {}", e);
@@ -532,4 +528,27 @@ fn log_on_launch() {
         // log::info!("Token ids: {:?}", config.token_ids);
         log::info!("Oracle address: {}", config.oracle_address.to_base58());
     }
+}
+
+fn check_reward_token_opt(
+    reward_token_id_str: Option<String>,
+    reward_token_amount: Option<u64>,
+) -> Option<SpecToken<RewardTokenId>> {
+    let reward_token_opt = match (reward_token_id_str, reward_token_amount) {
+        (None, None) => None,
+        (None, Some(_)) => {
+            panic!("reward_token_amount is set, but reward_token_id is not set")
+        }
+        (Some(_), None) => {
+            panic!("reward_token_id is set, but reward_token_amount is not set")
+        }
+        (Some(reward_token_id_str), Some(reward_token_amount)) => Some({
+            let reward_token_id: TokenId = Digest32::try_from(reward_token_id_str).unwrap().into();
+            SpecToken {
+                token_id: RewardTokenId::from_token_id_unchecked(reward_token_id),
+                amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
+            }
+        }),
+    };
+    reward_token_opt
 }

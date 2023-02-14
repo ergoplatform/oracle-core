@@ -3,8 +3,7 @@ use crate::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
     oracle_types::BlockHeight,
-    pool_config::CastBallotBoxVoteParameters,
-    spec_token::{BallotTokenId, SpecToken, TokenIdKind, UpdateTokenId},
+    spec_token::{BallotTokenId, RewardTokenId, SpecToken, TokenIdKind, UpdateTokenId},
 };
 use ergo_lib::{
     chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -13,7 +12,7 @@ use ergo_lib::{
         chain::{
             address::{Address, AddressEncoderError},
             ergo_box::{box_value::BoxValue, ErgoBox, ErgoBoxCandidate, NonMandatoryRegisterId},
-            token::{Token, TokenId},
+            token::TokenId,
         },
         mir::constant::{TryExtractFromError, TryExtractInto},
         serialization::SigmaSerializationError,
@@ -28,10 +27,6 @@ pub enum BallotBoxError {
     NoBallotToken,
     #[error("ballot box: unknown ballot token id in `TOKENS(0)`")]
     UnknownBallotTokenId,
-    #[error("ballot box: no reward token id in R7 register")]
-    NoRewardTokenIdInR7,
-    #[error("ballot box: no reward token quantity in R8 register")]
-    NoRewardTokenQuantityInR8,
     #[error("ballot box: no group element in R4 register")]
     NoGroupElementInR4,
     #[error("ballot box: unexpected group element in R4 register")]
@@ -48,6 +43,8 @@ pub enum BallotBoxError {
     TryExtractFrom(#[from] TryExtractFromError),
     #[error("ballot box: SigmaSerializationError {0:?}")]
     SigmaSerialization(#[from] SigmaSerializationError),
+    #[error("invalid reward token: {0:?}")]
+    InvalidRewardToken(String),
 }
 
 pub trait BallotBox {
@@ -130,6 +127,13 @@ impl BallotBoxWrapperInputs {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CastBallotBoxVoteParameters {
+    pub pool_box_address_hash: Digest32,
+    pub reward_token_opt: Option<SpecToken<RewardTokenId>>,
+    pub update_box_creation_height: i32,
+}
+
 /// A Ballot Box with vote parameters guaranteed to be set
 #[derive(Clone, Debug)]
 pub struct VoteBallotBoxWrapper {
@@ -169,21 +173,31 @@ impl VoteBallotBoxWrapper {
             .ok_or(BallotBoxError::NoPoolBoxAddressInR6)?
             .try_extract_into::<Digest32>()?;
 
-        let reward_token_id = ergo_box
+        let reward_token_id_opt = ergo_box
             .get_register(NonMandatoryRegisterId::R7.into())
-            .ok_or(BallotBoxError::NoRewardTokenIdInR7)?
-            .try_extract_into::<TokenId>()?;
-        let reward_token_quantity = ergo_box
+            .map(|c| c.try_extract_into::<TokenId>());
+        let reward_token_quantity_opt = ergo_box
             .get_register(NonMandatoryRegisterId::R8.into())
-            .ok_or(BallotBoxError::NoRewardTokenQuantityInR8)?
-            .try_extract_into::<i64>()? as u64;
+            .map(|c| c.try_extract_into::<i64>());
 
+        let reward_token_opt = match (reward_token_id_opt, reward_token_quantity_opt) {
+            (Some(Ok(reward_token_id)), Some(Ok(reward_token_quantity))) => Some(SpecToken {
+                token_id: RewardTokenId::from_token_id_unchecked(reward_token_id),
+                amount: (reward_token_quantity as u64).try_into().unwrap(),
+            }),
+            (None, None) => None,
+            (id, amt) => {
+                return Err(BallotBoxError::InvalidRewardToken(format!(
+                    "Reward token id {:?} amount {:?}",
+                    id, amt
+                )))
+            }
+        };
         let contract =
             BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), &inputs.contract_inputs)?;
         let vote_parameters = CastBallotBoxVoteParameters {
             pool_box_address_hash,
-            reward_token_id,
-            reward_token_quantity,
+            reward_token_opt,
             update_box_creation_height,
         };
         Ok(Self {
@@ -269,7 +283,7 @@ pub fn make_local_ballot_box_candidate(
     update_box_creation_height: BlockHeight,
     ballot_token: SpecToken<BallotTokenId>,
     pool_box_address_hash: Digest32,
-    reward_tokens: Token,
+    reward_token_opt: Option<SpecToken<RewardTokenId>>,
     value: BoxValue,
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
@@ -283,11 +297,16 @@ pub fn make_local_ballot_box_candidate(
         (update_box_creation_height.0 as i32).into(),
     );
     builder.set_register_value(NonMandatoryRegisterId::R6, pool_box_address_hash.into());
-    builder.set_register_value(NonMandatoryRegisterId::R7, reward_tokens.token_id.into());
-    builder.set_register_value(
-        NonMandatoryRegisterId::R8,
-        (*reward_tokens.amount.as_u64() as i64).into(),
-    );
+    if let Some(reward_tokens) = reward_token_opt {
+        builder.set_register_value(
+            NonMandatoryRegisterId::R7,
+            reward_tokens.token_id.token_id().into(),
+        );
+        builder.set_register_value(
+            NonMandatoryRegisterId::R8,
+            (*reward_tokens.amount.as_u64() as i64).into(),
+        );
+    }
     builder.add_token(ballot_token.into());
     builder.build()
 }
