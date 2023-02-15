@@ -163,12 +163,12 @@ enum Command {
     VoteUpdatePool {
         /// The base16-encoded blake2b hash of the serialized pool box contract for the new pool box.
         new_pool_box_address_hash_str: String,
-        /// The base16-encoded reward token id of the new pool box (use existing if unchanged)
-        reward_token_id_str: Option<String>,
-        /// The reward token amount in the pool box at the time of update transaction is committed.
-        reward_token_amount: Option<u64>,
         /// The creation height of the existing update box.
         update_box_creation_height: u32,
+        /// The base16-encoded reward token id of the new pool box (if minted)
+        reward_token_id_str: Option<String>,
+        /// The reward token amount in the pool box at the time of update transaction is committed (if minted).
+        reward_token_amount: Option<u64>,
     },
     /// Initiate the Update Pool transaction.
     /// Run with no arguments to show diff between oracle_config.yaml and oracle_config_updated.yaml
@@ -546,7 +546,7 @@ fn check_reward_token_opt(
             let reward_token_id: TokenId = Digest32::try_from(reward_token_id_str).unwrap().into();
             SpecToken {
                 token_id: RewardTokenId::from_token_id_unchecked(reward_token_id),
-                amount: TokenAmount::try_from(reward_token_amount as u64).unwrap(),
+                amount: TokenAmount::try_from(reward_token_amount).unwrap(),
             }
         }),
     };
