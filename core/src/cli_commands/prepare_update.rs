@@ -134,50 +134,15 @@ pub fn prepare_update(
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
     );
-    print_hints_for_voting(height.0)?;
+    print_hints_for_voting()?;
     Ok(())
 }
 
-fn print_hints_for_voting(height: u32) -> Result<(), PrepareUpdateError> {
-    let epoch_length = POOL_CONFIG
-        .refresh_box_wrapper_inputs
-        .contract_inputs
-        .contract_parameters()
-        .epoch_length()
-        .0 as u32;
+fn print_hints_for_voting() -> Result<(), PrepareUpdateError> {
     let op = OraclePool::new().unwrap();
-    let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
-    let min_oracle_box_height = height - epoch_length;
-    let active_oracle_count = oracle_boxes
-        .into_iter()
-        .filter(|b| b.creation_height >= min_oracle_box_height)
-        .count() as u32;
-    let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
-    let pool_box_height = pool_box.get_box().creation_height;
-    let next_epoch_height = max(pool_box_height + epoch_length, height);
-    let reward_tokens_left = *pool_box.reward_token().amount.as_u64();
     let update_box = op.get_update_box_source().get_update_box().unwrap();
     let update_box_height = update_box.get_box().creation_height;
     info!("Update box height: {}", update_box_height);
-    info!(
-        "Reward token id in the pool box: {}",
-        String::from(pool_box.reward_token().token_id.token_id())
-    );
-    info!(
-        "Current height is {}, pool box height (epoch start) {}, epoch length is {}",
-        height, pool_box_height, epoch_length
-    );
-    info!(
-        "Estimated active oracle count is {}, reward tokens in the pool box {}",
-        active_oracle_count, reward_tokens_left
-    );
-    for i in 0..10 {
-        info!(
-            "On new epoch height {} estimating reward tokens in the pool box: {}",
-            next_epoch_height + i * (epoch_length + 1),
-            reward_tokens_left - ((i + 1) * (active_oracle_count * 2)) as u64
-        );
-    }
     Ok(())
 }
 
