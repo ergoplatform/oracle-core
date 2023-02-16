@@ -254,8 +254,10 @@ impl OracleContractParameters {
         min_storage_rent_index: usize,
         min_storage_rent: BoxValue,
     ) -> Result<Self, OracleContractParametersError> {
-        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?
-            .with_constant(min_storage_rent_index, min_storage_rent.into())?;
+        let ergo_tree_orig = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
+        log::debug!("oracle contract ergo_tree_orig: {:#?}", ergo_tree_orig);
+        let ergo_tree =
+            ergo_tree_orig.with_constant(min_storage_rent_index, min_storage_rent.into())?;
 
         let _pool_nft = ergo_tree
             .get_constant(pool_nft_index)
