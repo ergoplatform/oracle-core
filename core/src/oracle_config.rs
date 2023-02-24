@@ -15,6 +15,8 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::explorer_api::default_explorer_url;
+
 pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -26,6 +28,7 @@ pub struct OracleConfig {
     pub core_api_port: u16,
     pub oracle_address: NetworkAddress,
     pub data_point_source_custom_script: Option<String>,
+    pub explorer_url: Option<Url>,
 }
 
 impl OracleConfig {
@@ -73,13 +76,14 @@ impl Default for OracleConfig {
         )
         .unwrap();
         Self {
-            oracle_address: address,
+            oracle_address: address.clone(),
             node_api_key: "hello".into(),
             core_api_port: 9010,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
             node_url: Url::parse("http://127.0.0.1:9053").unwrap(),
+            explorer_url: Some(default_explorer_url(address.network())),
         }
     }
 }

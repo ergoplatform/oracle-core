@@ -7,10 +7,22 @@ use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::Url;
 use thiserror::Error;
 use url::ParseError;
 
 use crate::oracle_config::ORACLE_CONFIG;
+
+pub const MAINNET_EXPLORER_URL: &str = "https://api.ergoplatform.com/";
+pub const TESTNET_EXPLORER_URL: &str = "https://api-testnet.ergoplatform.com/";
+
+pub fn default_explorer_url(network_prefix: NetworkPrefix) -> Url {
+    let url_str = match network_prefix {
+        NetworkPrefix::Mainnet => MAINNET_EXPLORER_URL,
+        NetworkPrefix::Testnet => TESTNET_EXPLORER_URL,
+    };
+    Url::parse(url_str).unwrap()
+}
 
 #[derive(Debug, From, Error)]
 pub enum ExplorerApiError {
@@ -27,10 +39,11 @@ pub struct ExplorerApi {
 }
 
 impl ExplorerApi {
-    pub fn new(url: &str) -> Result<Self, ExplorerApiError> {
-        Ok(Self {
-            url: url::Url::parse(url)?,
-        })
+    pub const MAINNET_EXPLORER_URL: &'static str = "https://api.ergoplatform.com/";
+    pub const TESTNET_EXPLORER_URL: &'static str = "https://api-testnet.ergoplatform.com/";
+
+    pub fn new(url: Url) -> Self {
+        Self { url }
     }
 
     /// Sets required headers for a request
@@ -70,12 +83,11 @@ pub fn wait_for_tx_confirmation(tx_id: TxId) {
 pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let network = ORACLE_CONFIG.oracle_address.network();
     let timeout = Duration::from_secs(1200);
-    let explorer_api = match network {
-        NetworkPrefix::Mainnet => ExplorerApi::new("https://api.ergoplatform.com/").unwrap(),
-        NetworkPrefix::Testnet => {
-            ExplorerApi::new("https://api-testnet.ergoplatform.com/").unwrap()
-        }
-    };
+    let explorer_url = ORACLE_CONFIG
+        .explorer_url
+        .clone()
+        .unwrap_or_else(|| default_explorer_url(network));
+    let explorer_api = ExplorerApi::new(explorer_url);
     let start_time = std::time::Instant::now();
     println!("Waiting for block confirmation from ExplorerApi for tx ids: {tx_ids:?} ...");
     let mut remaining_txs = tx_ids.clone();
