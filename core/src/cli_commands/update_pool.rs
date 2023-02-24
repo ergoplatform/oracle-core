@@ -76,7 +76,6 @@ pub fn update_pool(
     wallet: &dyn WalletDataSource,
     tx_signer: &dyn SignTransaction,
     tx_submit: &dyn SubmitTransaction,
-    new_pool_box_hash_str: Option<String>,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
 ) -> Result<(), UpdatePoolError> {
@@ -104,32 +103,46 @@ pub fn update_pool(
         new_reward_tokens.clone(),
     );
 
-    if new_pool_box_hash_str.is_none() {
-        println!(
-            "Run ./oracle-core --new_pool_box_hash {} to update pool",
-            String::from(new_pool_box_hash)
-        );
-        return Ok(());
-    }
-
     let tx = build_update_pool_box_tx(
         op.get_pool_box_source(),
         op.get_ballot_boxes_source(),
         wallet,
         op.get_update_box_source(),
         new_pool_contract,
-        new_reward_tokens,
+        new_reward_tokens.clone(),
         height,
         change_address,
     )?;
 
+    log::debug!("Signing update pool box tx: {:#?}", tx);
     let signed_tx = tx_signer.sign_transaction(&tx.spending_tx)?;
-    let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
-    crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
+
     println!(
-        "Update pool box transaction submitted: view here, {}",
-        ergo_explorer_transaction_link(tx_id_str, network_prefix)
+        "YOU WILL BE SUBMITTING AN UPDATE TO THE POOL CONTRACT:\
+           - Hash of new pool box contract: {}",
+        String::from(new_pool_box_hash),
     );
+    if let Some(reward_token) = new_reward_tokens {
+        println!(
+            "  - Reward token Id: {}\
+               - Reward token amount: {}",
+            String::from(reward_token.token_id.token_id()),
+            reward_token.amount.as_u64(),
+        );
+    }
+    println!("TYPE 'YES' TO SUBMIT THE TRANSACTION.");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    if input.trim_end() == "YES" {
+        let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
+        crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
+        println!(
+            "Update pool box transaction submitted: view here, {}",
+            ergo_explorer_transaction_link(tx_id_str, network_prefix)
+        );
+    } else {
+        println!("Aborting the transaction.")
+    }
     Ok(())
 }
 

@@ -171,14 +171,12 @@ enum Command {
         reward_token_amount: Option<u64>,
     },
     /// Initiate the Update Pool transaction.
-    /// Run with no arguments to show diff between oracle_config.yaml and oracle_config_updated.yaml
-    /// Updated config file must be created using --prepare-update command first
+    /// Updated config file `pool_config_updated.yaml` is expected to be in the current directory
+    /// and must be created using --prepare-update command first
     UpdatePool {
-        /// New pool box hash. Must match hash of updated pool contract
-        new_pool_box_hash: Option<String>,
-        /// New reward token id (optional, base64)
+        /// New reward token id (only if minted)
         reward_token_id: Option<String>,
-        /// New reward token amount, required if new token id was voted for
+        /// New reward token amount (only if minted)
         reward_token_amount: Option<u64>,
     },
     /// Prepare updating oracle pool with new contracts/parameters.
@@ -400,7 +398,6 @@ fn handle_pool_command(
             }
         }
         Command::UpdatePool {
-            new_pool_box_hash,
             reward_token_id,
             reward_token_amount,
         } => {
@@ -410,7 +407,6 @@ fn handle_pool_command(
                 &node_api,
                 &node_api.node,
                 &node_api.node,
-                new_pool_box_hash,
                 reward_token_opt,
                 height,
             ) {
