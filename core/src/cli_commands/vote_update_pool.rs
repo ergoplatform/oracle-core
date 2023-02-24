@@ -17,10 +17,10 @@ use ergo_node_interface::node_interface::NodeError;
 
 use crate::{
     box_kind::{make_local_ballot_box_candidate, BallotBox, BallotBoxWrapper},
-    cli_commands::ergo_explorer_transaction_link,
     contracts::ballot::{
         BallotContract, BallotContractError, BallotContractInputs, BallotContractParameters,
     },
+    explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
     oracle_state::{LocalBallotBoxSource, StageError},

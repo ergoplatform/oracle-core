@@ -23,7 +23,7 @@ use crate::{
     box_kind::{
         make_collected_oracle_box_candidate, make_oracle_box_candidate, OracleBox, OracleBoxWrapper,
     },
-    cli_commands::ergo_explorer_transaction_link,
+    explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},

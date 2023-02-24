@@ -15,7 +15,7 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::explorer_api::default_explorer_url;
+use crate::explorer_api::explorer_url::default_explorer_api_url;
 
 pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 
@@ -83,7 +83,7 @@ impl Default for OracleConfig {
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
             node_url: Url::parse("http://127.0.0.1:9053").unwrap(),
-            explorer_url: Some(default_explorer_url(address.network())),
+            explorer_url: Some(default_explorer_api_url(address.network())),
         }
     }
 }

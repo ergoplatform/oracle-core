@@ -13,16 +13,10 @@ use url::ParseError;
 
 use crate::oracle_config::ORACLE_CONFIG;
 
-pub const MAINNET_EXPLORER_URL: &str = "https://api.ergoplatform.com/";
-pub const TESTNET_EXPLORER_URL: &str = "https://api-testnet.ergoplatform.com/";
+use self::explorer_url::default_explorer_api_url;
+use self::explorer_url::default_explorer_url;
 
-pub fn default_explorer_url(network_prefix: NetworkPrefix) -> Url {
-    let url_str = match network_prefix {
-        NetworkPrefix::Mainnet => MAINNET_EXPLORER_URL,
-        NetworkPrefix::Testnet => TESTNET_EXPLORER_URL,
-    };
-    Url::parse(url_str).unwrap()
-}
+pub mod explorer_url;
 
 #[derive(Debug, From, Error)]
 pub enum ExplorerApiError {
@@ -39,9 +33,6 @@ pub struct ExplorerApi {
 }
 
 impl ExplorerApi {
-    pub const MAINNET_EXPLORER_URL: &'static str = "https://api.ergoplatform.com/";
-    pub const TESTNET_EXPLORER_URL: &'static str = "https://api-testnet.ergoplatform.com/";
-
     pub fn new(url: Url) -> Self {
         Self { url }
     }
@@ -76,6 +67,19 @@ impl ExplorerApi {
     }
 }
 
+pub(crate) fn ergo_explorer_transaction_link(tx_id: TxId, prefix: NetworkPrefix) -> String {
+    let url = ORACLE_CONFIG
+        .explorer_url
+        .clone()
+        .unwrap_or_else(|| default_explorer_url(prefix));
+    let tx_id_str = String::from(tx_id);
+    url.join("en/transactions/")
+        .unwrap()
+        .join(&tx_id_str)
+        .unwrap();
+    url.to_string()
+}
+
 pub fn wait_for_tx_confirmation(tx_id: TxId) {
     wait_for_txs_confirmation(vec![tx_id]);
 }
@@ -86,7 +90,7 @@ pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let explorer_url = ORACLE_CONFIG
         .explorer_url
         .clone()
-        .unwrap_or_else(|| default_explorer_url(network));
+        .unwrap_or_else(|| default_explorer_api_url(network));
     let explorer_api = ExplorerApi::new(explorer_url);
     let start_time = std::time::Instant::now();
     println!("Waiting for block confirmation from ExplorerApi for tx ids: {tx_ids:?} ...");
