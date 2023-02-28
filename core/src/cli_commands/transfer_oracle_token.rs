@@ -113,7 +113,7 @@ fn build_transfer_oracle_token_tx(
         .get_local_oracle_datapoint_box()?
         .ok_or(TransferOracleTokenActionError::NoLocalDatapointBox)?;
     let num_reward_tokens = *in_oracle_box.reward_token().amount.as_u64();
-    if num_reward_tokens <= 1 {
+    if num_reward_tokens != 1 {
         return Err(
             TransferOracleTokenActionError::IncorrectNumberOfRewardTokensInOracleBox(
                 num_reward_tokens as usize,
