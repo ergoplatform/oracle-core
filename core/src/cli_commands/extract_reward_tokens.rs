@@ -226,7 +226,7 @@ mod tests {
         let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
-        let num_reward_tokens_in_box = 100_u64;
+        let num_reward_tokens_in_box = 2;
 
         let parameters = OracleContractParameters::default();
         let oracle_box_wrapper_inputs =
@@ -239,6 +239,7 @@ mod tests {
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
                 BlockHeight(height.0),
+                num_reward_tokens_in_box,
             ),
             &oracle_box_wrapper_inputs,
         )

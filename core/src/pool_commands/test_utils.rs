@@ -195,6 +195,7 @@ pub(crate) fn make_datapoint_box(
     token_ids: &TokenIds,
     value: BoxValue,
     creation_height: BlockHeight,
+    reward_token_amount: u64,
 ) -> ErgoBox {
     let tokens = vec![
         Token::from((
@@ -203,7 +204,7 @@ pub(crate) fn make_datapoint_box(
         )),
         Token::from((
             token_ids.reward_token_id.token_id(),
-            100u64.try_into().unwrap(),
+            reward_token_amount.try_into().unwrap(),
         )),
     ]
     .try_into()

@@ -239,6 +239,7 @@ mod tests {
                     .contract_parameters()
                     .min_storage_rent,
                 height - EpochLength(99),
+                100,
             ),
             &oracle_box_wrapper_inputs,
         )
