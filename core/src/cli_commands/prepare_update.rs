@@ -111,8 +111,6 @@ pub fn prepare_update(
 
     let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG, &ORACLE_CONFIG)?;
     let (new_config, submitted_tx_ids) = prepare.execute(config)?;
-    wait_for_txs_confirmation(submitted_tx_ids);
-    // let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
     let blake2b_pool_ergo_tree: String = blake2b256_hash(
         new_config
             .pool_box_wrapper_inputs
@@ -135,6 +133,7 @@ pub fn prepare_update(
         blake2b_pool_ergo_tree
     );
     print_hints_for_voting(height)?;
+    wait_for_txs_confirmation(submitted_tx_ids);
     Ok(())
 }
 
