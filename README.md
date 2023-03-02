@@ -175,24 +175,26 @@ Make sure the `pool_config_updated.yaml` config file generated during the `prepa
 Run
 
 ```console
-oracle-core update-pool 
+oracle-core update-pool
 ```
 
-to see the diff for the tokens.
-Run
-
-```console
-oracle-core update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> 
-```
-
-Where:
-  <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
-  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
-  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
+With optional(only if minted) parameters:
+  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (only if minted)
+  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed (only if minted)
 
 This will submit an update tx.
 After the update tx is confirmed, remove `scanIds.json` and use `pool_config_updated.yaml` to run the oracle (i.e., rename it to `pool_config.yaml` and restart the oracle).
 Distribute the `pool_config.yaml` file to all the oracles. Be sure they delete `scanIds.json` before restart.
+
+### Import update pool config with `import-pool-update` command
+Make sure the `pool_config_updated.yaml` config file generated during the `prepare-update` command is at hand.
+Run
+
+```console
+oracle-core update-pool pool_config_updated.yaml
+```
+
+This will update the pool_config.yaml, removes `scanIds.json`. Restart the oracle afterwards.
 
 ## How to run as systemd daemon
 
