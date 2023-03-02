@@ -4,7 +4,6 @@ use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
-use ergo_lib::ergotree_ir::chain::token::Token;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use thiserror::Error;
 
@@ -229,7 +228,7 @@ pub fn make_pool_box_candidate_unchecked(
     datapoint: i64,
     epoch_counter: EpochCounter,
     pool_nft_token: SpecToken<PoolTokenId>,
-    reward_token: Token,
+    reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
@@ -237,6 +236,6 @@ pub fn make_pool_box_candidate_unchecked(
     builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter.0 as i32).into());
     builder.add_token(pool_nft_token.into());
-    builder.add_token(reward_token);
+    builder.add_token(reward_token.into());
     builder.build()
 }

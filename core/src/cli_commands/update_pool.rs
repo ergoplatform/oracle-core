@@ -9,7 +9,6 @@ use ergo_lib::{
     ergotree_ir::chain::{
         address::Address,
         ergo_box::{ErgoBox, NonMandatoryRegisterId},
-        token::Token,
     },
     ergotree_ir::serialization::SigmaSerializable,
     wallet::{
@@ -24,16 +23,17 @@ use std::convert::TryInto;
 
 use crate::{
     box_kind::{
-        make_pool_box_candidate_unchecked, BallotBox, PoolBox, PoolBoxWrapper, VoteBallotBoxWrapper,
+        make_pool_box_candidate_unchecked, BallotBox, CastBallotBoxVoteParameters, PoolBox,
+        PoolBoxWrapper, VoteBallotBoxWrapper,
     },
-    cli_commands::ergo_explorer_transaction_link,
     contracts::pool::PoolContract,
+    explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
     oracle_types::BlockHeight,
-    pool_config::{CastBallotBoxVoteParameters, PoolConfig, POOL_CONFIG},
-    spec_token::TokenIdKind,
+    pool_config::{PoolConfig, POOL_CONFIG},
+    spec_token::{RewardTokenId, SpecToken, TokenIdKind},
     wallet::{WalletDataError, WalletDataSource},
 };
 use derive_more::From;
@@ -76,8 +76,7 @@ pub fn update_pool(
     wallet: &dyn WalletDataSource,
     tx_signer: &dyn SignTransaction,
     tx_submit: &dyn SubmitTransaction,
-    new_pool_box_hash_str: Option<String>,
-    new_reward_tokens: Option<Token>,
+    new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
 ) -> Result<(), UpdatePoolError> {
     info!("Opening pool_config_updated.yaml");
@@ -104,32 +103,46 @@ pub fn update_pool(
         new_reward_tokens.clone(),
     );
 
-    if new_pool_box_hash_str.is_none() {
-        println!(
-            "Run ./oracle-core --new_pool_box_hash {} to update pool",
-            String::from(new_pool_box_hash)
-        );
-        return Ok(());
-    }
-
     let tx = build_update_pool_box_tx(
         op.get_pool_box_source(),
         op.get_ballot_boxes_source(),
         wallet,
         op.get_update_box_source(),
         new_pool_contract,
-        new_reward_tokens,
+        new_reward_tokens.clone(),
         height,
         change_address,
     )?;
 
+    log::debug!("Signing update pool box tx: {:#?}", tx);
     let signed_tx = tx_signer.sign_transaction(&tx.spending_tx)?;
-    let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
-    crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
+
     println!(
-        "Update pool box transaction submitted: view here, {}",
-        ergo_explorer_transaction_link(tx_id_str, network_prefix)
+        "YOU WILL BE SUBMITTING AN UPDATE TO THE POOL CONTRACT:\
+           - Hash of new pool box contract: {}",
+        String::from(new_pool_box_hash),
     );
+    if let Some(reward_token) = new_reward_tokens {
+        println!(
+            "  - Reward token Id: {}\
+               - Reward token amount: {}",
+            String::from(reward_token.token_id.token_id()),
+            reward_token.amount.as_u64(),
+        );
+    }
+    println!("TYPE 'YES' TO SUBMIT THE TRANSACTION.");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    if input.trim_end() == "YES" {
+        let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
+        crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
+        println!(
+            "Update pool box transaction submitted: view here, {}",
+            ergo_explorer_transaction_link(tx_id_str, network_prefix)
+        );
+    } else {
+        println!("Aborting the transaction.")
+    }
     Ok(())
 }
 
@@ -137,9 +150,9 @@ fn display_update_diff(
     old_pool_config: &PoolConfig,
     new_pool_config: &PoolConfig,
     old_pool_box: PoolBoxWrapper,
-    new_reward_tokens: Option<Token>,
+    new_reward_tokens: Option<SpecToken<RewardTokenId>>,
 ) {
-    let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token().into());
+    let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
     let new_pool_contract =
         PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)
             .unwrap();
@@ -189,7 +202,7 @@ fn build_update_pool_box_tx(
     wallet: &dyn WalletDataSource,
     update_box: &dyn UpdateBoxSource,
     new_pool_contract: PoolContract,
-    new_reward_tokens: Option<Token>,
+    new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
     change_address: Address,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
@@ -202,13 +215,12 @@ fn build_update_pool_box_tx(
             .sigma_serialize_bytes()
             .unwrap(),
     );
-    let reward_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token().into());
     let vote_parameters = CastBallotBoxVoteParameters {
         pool_box_address_hash: pool_box_hash,
-        reward_token_id: reward_tokens.token_id,
-        reward_token_quantity: *reward_tokens.amount.as_u64(),
+        reward_token_opt: new_reward_tokens.clone(),
         update_box_creation_height: update_box.get_box().creation_height as i32,
     };
+    let reward_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
     // Find ballot boxes that are voting for the new pool hash
     let mut sorted_ballot_boxes = ballot_boxes.get_ballot_boxes()?;
     // Sort in descending order of ballot token amounts. If two boxes have the same amount of ballot tokens, also compare box value, in case some boxes were incorrectly created below minStorageRent
@@ -278,11 +290,12 @@ fn build_update_pool_box_tx(
     }
 
     let target_balance = *BASE_FEE;
-    let target_tokens = if reward_tokens.token_id != old_pool_box.reward_token().token_id() {
-        vec![reward_tokens.clone()]
-    } else {
-        vec![]
-    };
+    let target_tokens =
+        if reward_tokens.token_id.token_id() != old_pool_box.reward_token().token_id() {
+            vec![reward_tokens.clone().into()]
+        } else {
+            vec![]
+        };
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, target_balance, &target_tokens)?;
     let mut input_boxes = vec![old_pool_box.get_box().clone(), update_box.get_box().clone()];
@@ -321,7 +334,7 @@ fn build_update_pool_box_tx(
         change_address,
     );
 
-    if reward_tokens.token_id != old_pool_box.reward_token().token_id() {
+    if reward_tokens.token_id.token_id() != old_pool_box.reward_token().token_id() {
         tx_builder.set_token_burn_permit(vec![old_pool_box.reward_token().into()]);
     }
 
@@ -379,7 +392,7 @@ mod tests {
             generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
             UpdateBoxMock, WalletDataMock,
         },
-        spec_token::{RefreshTokenId, SpecToken, TokenIdKind},
+        spec_token::{RefreshTokenId, RewardTokenId, SpecToken, TokenIdKind},
     };
 
     use super::build_update_pool_box_tx;
@@ -405,8 +418,8 @@ mod tests {
             token_id: token_ids.reward_token_id.clone(),
             amount: 1500.try_into().unwrap(),
         };
-        let new_reward_tokens = Token {
-            token_id: force_any_tokenid(),
+        let new_reward_tokens = SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(force_any_tokenid()),
             amount: force_any_val(),
         };
         dbg!(&new_reward_tokens);
@@ -498,7 +511,7 @@ mod tests {
                     amount: 1.try_into().unwrap(),
                 },
                 pool_box_hash,
-                new_reward_tokens.clone(),
+                Some(new_reward_tokens.clone()),
                 ballot_contract.min_storage_rent(),
                 height,
             )
@@ -524,7 +537,7 @@ mod tests {
             // create a wallet box with new reward tokens
             secret.public_image(),
             BASE_FEE.checked_mul_u32(4_000_000_000).unwrap(),
-            Some(vec![new_reward_tokens.clone()].try_into().unwrap()),
+            Some(vec![new_reward_tokens.clone().into()].try_into().unwrap()),
         );
         let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
             "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",

@@ -260,7 +260,9 @@ impl UpdateContractParameters {
         min_votes_index: usize,
         min_votes: u64,
     ) -> Result<Self, UpdateContractParametersError> {
-        let ergo_tree = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?
+        let ergo_tree_orig = ErgoTree::sigma_parse_bytes(ergo_tree_bytes.as_slice())?;
+        log::debug!("update contract ergo_tree_orig: {:#?}", ergo_tree_orig);
+        let ergo_tree = ergo_tree_orig
             .with_constant(min_votes_index, (min_votes as i32).into())
             .map_err(UpdateContractParametersError::ErgoTreeConstant)?;
         let _pool_nft = ergo_tree

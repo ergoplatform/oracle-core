@@ -7,10 +7,16 @@ use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::Url;
 use thiserror::Error;
 use url::ParseError;
 
 use crate::oracle_config::ORACLE_CONFIG;
+
+use self::explorer_url::default_explorer_api_url;
+use self::explorer_url::default_explorer_url;
+
+pub mod explorer_url;
 
 #[derive(Debug, From, Error)]
 pub enum ExplorerApiError {
@@ -27,10 +33,8 @@ pub struct ExplorerApi {
 }
 
 impl ExplorerApi {
-    pub fn new(url: &str) -> Result<Self, ExplorerApiError> {
-        Ok(Self {
-            url: url::Url::parse(url)?,
-        })
+    pub fn new(url: Url) -> Self {
+        Self { url }
     }
 
     /// Sets required headers for a request
@@ -63,6 +67,19 @@ impl ExplorerApi {
     }
 }
 
+pub(crate) fn ergo_explorer_transaction_link(tx_id: TxId, prefix: NetworkPrefix) -> String {
+    let url = ORACLE_CONFIG
+        .explorer_url
+        .clone()
+        .unwrap_or_else(|| default_explorer_url(prefix));
+    let tx_id_str = String::from(tx_id);
+    url.join("en/transactions/")
+        .unwrap()
+        .join(&tx_id_str)
+        .unwrap();
+    url.to_string()
+}
+
 pub fn wait_for_tx_confirmation(tx_id: TxId) {
     wait_for_txs_confirmation(vec![tx_id]);
 }
@@ -70,12 +87,11 @@ pub fn wait_for_tx_confirmation(tx_id: TxId) {
 pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
     let network = ORACLE_CONFIG.oracle_address.network();
     let timeout = Duration::from_secs(1200);
-    let explorer_api = match network {
-        NetworkPrefix::Mainnet => ExplorerApi::new("https://api.ergoplatform.com/").unwrap(),
-        NetworkPrefix::Testnet => {
-            ExplorerApi::new("https://api-testnet.ergoplatform.com/").unwrap()
-        }
-    };
+    let explorer_url = ORACLE_CONFIG
+        .explorer_url
+        .clone()
+        .unwrap_or_else(|| default_explorer_api_url(network));
+    let explorer_api = ExplorerApi::new(explorer_url);
     let start_time = std::time::Instant::now();
     println!("Waiting for block confirmation from ExplorerApi for tx ids: {tx_ids:?} ...");
     let mut remaining_txs = tx_ids.clone();

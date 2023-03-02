@@ -669,7 +669,6 @@ pub(crate) mod tests {
         ergotree_ir::chain::{
             address::{AddressEncoder, NetworkAddress, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
-            token::TokenId,
         },
         wallet::Wallet,
     };
@@ -780,12 +779,6 @@ pub(crate) mod tests {
         assert!(update_contract.ballot_token_id() == token_ids.ballot_token_id.token_id());
         let s = serde_yaml::to_string(&oracle_config).unwrap();
         println!("{}", s);
-
-        // Quickly check an encoding
-        let bytes: Vec<u8> = token_ids.ballot_token_id.token_id().into();
-        let encoded = base64::encode(bytes);
-        let ballot_id = TokenId::from_base64(&encoded).unwrap();
-        assert_eq!(token_ids.ballot_token_id.token_id(), ballot_id);
 
         // Check that refresh contract is updated
         assert_ne!(

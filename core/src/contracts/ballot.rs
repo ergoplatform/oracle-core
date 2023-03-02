@@ -98,16 +98,18 @@ impl BallotContract {
 
     fn build_with(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let parameters = inputs.contract_parameters.clone();
-        let ergo_tree =
-            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
-                .with_constant(
-                    parameters.min_storage_rent_index,
-                    parameters.min_storage_rent.into(),
-                )?
-                .with_constant(
-                    parameters.update_nft_index,
-                    inputs.update_nft_token_id.token_id().into(),
-                )?;
+        let ergo_tree_orig =
+            ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
+        log::debug!("ballot contract ergo_tree_orig: {:#?}", ergo_tree_orig);
+        let ergo_tree = ergo_tree_orig
+            .with_constant(
+                parameters.min_storage_rent_index,
+                parameters.min_storage_rent.into(),
+            )?
+            .with_constant(
+                parameters.update_nft_index,
+                inputs.update_nft_token_id.token_id().into(),
+            )?;
         let contract = Self::from_ergo_tree(ergo_tree, inputs)?;
         Ok(contract)
     }

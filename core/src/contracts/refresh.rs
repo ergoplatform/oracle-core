@@ -443,7 +443,9 @@ impl RefreshContractParameters {
     pub fn build_with(
         inputs: RefreshContractParametersInputs,
     ) -> Result<Self, RefreshContractParametersError> {
-        let ergo_tree = ErgoTree::sigma_parse_bytes(inputs.ergo_tree_bytes.as_slice())?
+        let ergo_tree_orig = ErgoTree::sigma_parse_bytes(inputs.ergo_tree_bytes.as_slice())?;
+        log::debug!("refresh contract ergo_tree_orig: {:#?}", ergo_tree_orig);
+        let ergo_tree = ergo_tree_orig
             .with_constant(
                 inputs.min_data_points_index,
                 inputs.min_data_points.0.into(),

@@ -3,8 +3,6 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use derive_more::From;
-use ergo_lib::ergo_chain_types::Digest32;
-use ergo_lib::ergotree_ir::chain::token::TokenId;
 use once_cell::sync;
 use serde::Deserialize;
 use serde::Serialize;
@@ -49,14 +47,6 @@ pub struct PoolConfig {
     pub update_box_wrapper_inputs: UpdateBoxWrapperInputs,
     pub ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
     pub token_ids: TokenIds,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct CastBallotBoxVoteParameters {
-    pub pool_box_address_hash: Digest32,
-    pub reward_token_id: TokenId,
-    pub reward_token_quantity: u64,
-    pub update_box_creation_height: i32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]

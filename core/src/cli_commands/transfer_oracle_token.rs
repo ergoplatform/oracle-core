@@ -23,7 +23,7 @@ use crate::{
     box_kind::{
         make_collected_oracle_box_candidate, make_oracle_box_candidate, OracleBox, OracleBoxWrapper,
     },
-    cli_commands::ergo_explorer_transaction_link,
+    explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{LocalDatapointBoxSource, StageError},
@@ -113,7 +113,7 @@ fn build_transfer_oracle_token_tx(
         .get_local_oracle_datapoint_box()?
         .ok_or(TransferOracleTokenActionError::NoLocalDatapointBox)?;
     let num_reward_tokens = *in_oracle_box.reward_token().amount.as_u64();
-    if num_reward_tokens <= 1 {
+    if num_reward_tokens != 1 {
         return Err(
             TransferOracleTokenActionError::IncorrectNumberOfRewardTokensInOracleBox(
                 num_reward_tokens as usize,
@@ -215,6 +215,7 @@ mod tests {
                 &token_ids,
                 BASE_FEE.checked_mul_u32(100).unwrap(),
                 BlockHeight(height.0) - 9,
+                1,
             ),
             &oracle_box_wrapper_inputs,
         )

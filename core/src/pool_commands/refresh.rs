@@ -427,6 +427,7 @@ mod tests {
                         token_ids,
                         value,
                         creation_height,
+                        100,
                     ),
                     &oracle_box_wrapper_inputs,
                 )

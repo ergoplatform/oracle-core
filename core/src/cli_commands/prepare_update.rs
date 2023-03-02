@@ -111,8 +111,6 @@ pub fn prepare_update(
 
     let prepare = PrepareUpdate::new(update_bootstrap_input, &POOL_CONFIG, &ORACLE_CONFIG)?;
     let (new_config, submitted_tx_ids) = prepare.execute(config)?;
-    wait_for_txs_confirmation(submitted_tx_ids);
-    // let new_config = perform_update_chained_transaction(update_bootstrap_input)?;
     let blake2b_pool_ergo_tree: String = blake2b256_hash(
         new_config
             .pool_box_wrapper_inputs
@@ -134,11 +132,12 @@ pub fn prepare_update(
         "Base16-encoded blake2b hash of the serialized new pool box contract(ErgoTree): {}",
         blake2b_pool_ergo_tree
     );
-    print_hints_for_voting(height.0)?;
+    print_hints_for_voting(height)?;
+    wait_for_txs_confirmation(submitted_tx_ids);
     Ok(())
 }
 
-fn print_hints_for_voting(height: u32) -> Result<(), PrepareUpdateError> {
+fn print_hints_for_voting(height: BlockHeight) -> Result<(), PrepareUpdateError> {
     let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
@@ -150,15 +149,16 @@ fn print_hints_for_voting(height: u32) -> Result<(), PrepareUpdateError> {
     let min_oracle_box_height = height - epoch_length;
     let active_oracle_count = oracle_boxes
         .into_iter()
-        .filter(|b| b.creation_height >= min_oracle_box_height)
+        .filter(|b| b.creation_height >= min_oracle_box_height.0)
         .count() as u32;
     let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
     let pool_box_height = pool_box.get_box().creation_height;
-    let next_epoch_height = max(pool_box_height + epoch_length, height);
+    let next_epoch_height = max(pool_box_height + epoch_length, height.0);
     let reward_tokens_left = *pool_box.reward_token().amount.as_u64();
     let update_box = op.get_update_box_source().get_update_box().unwrap();
     let update_box_height = update_box.get_box().creation_height;
     info!("Update box height: {}", update_box_height);
+
     info!(
         "Reward token id in the pool box: {}",
         String::from(pool_box.reward_token().token_id.token_id())
