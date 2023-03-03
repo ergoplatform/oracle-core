@@ -54,13 +54,20 @@ pub fn build_subsequent_publish_datapoint_action(
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: EpochCounter,
-    _pool_datapoint: i64,
+    reward_token_id: &RewardTokenId,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint()?;
     let in_oracle_box = local_datapoint_box;
-    if *in_oracle_box.reward_token().amount.as_u64() == 0 {
-        return Err(PublishDatapointActionError::NoRewardTokenInOracleBox);
-    }
+
+    let box_reward_tokens = if reward_token_id != &in_oracle_box.reward_token().token_id {
+        todo!("send old reward tokens to oracle address?");
+        SpecToken {
+            token_id: reward_token_id.clone(),
+            amount: TokenAmount::try_from(1).unwrap(),
+        }
+    } else {
+        in_oracle_box.reward_token()
+    };
 
     let output_candidate = make_oracle_box_candidate(
         in_oracle_box.contract(),
@@ -68,7 +75,7 @@ pub fn build_subsequent_publish_datapoint_action(
         new_datapoint,
         new_epoch_counter,
         in_oracle_box.oracle_token(),
-        in_oracle_box.reward_token(),
+        box_reward_tokens,
         in_oracle_box.get_box().value,
         height,
     )?;
@@ -268,7 +275,7 @@ mod tests {
             change_address.address(),
             &datapoint_source,
             pool_box_epoch_id,
-            datapoint_source.datapoint - 1,
+            &RewardTokenId::from_token_id_unchecked(reward_token_id),
         )
         .unwrap();
 

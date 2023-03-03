@@ -91,7 +91,7 @@ pub fn build_action(
                     change_address,
                     datapoint_source,
                     new_epoch_counter,
-                    pool_box.rate(),
+                    &POOL_CONFIG.token_ids.reward_token_id,
                 )
                 .map_err(Into::into)
                 .map(Into::into)
