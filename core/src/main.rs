@@ -426,6 +426,7 @@ fn handle_pool_command(
             if let Err(e) = cli_commands::import_pool_update::import_pool_update(
                 pool_config_file,
                 &POOL_CONFIG.token_ids.oracle_token_id,
+                &POOL_CONFIG.token_ids.reward_token_id,
                 POOL_CONFIG_FILE_PATH.get().unwrap(),
                 op.get_local_datapoint_box_source(),
                 &get_scans_file_path(),
