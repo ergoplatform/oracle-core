@@ -98,7 +98,11 @@ impl OracleBoxWrapper {
             .token_id;
 
         if reward_token_id != inputs.reward_token_id.token_id() {
-            return Err(OracleBoxError::UnknownRewardTokenId);
+            log::error!(
+                "found reward token id {reward_token_id:?} in oracle box but expected {expected_reward_token_id:?}",
+                reward_token_id = reward_token_id,
+                expected_reward_token_id = inputs.reward_token_id.token_id()
+            );
         }
 
         // We won't be analysing the actual address since there exists multiple oracle boxes that
