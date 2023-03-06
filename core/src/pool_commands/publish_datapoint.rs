@@ -1,4 +1,4 @@
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use derive_more::From;
 use ergo_lib::{
@@ -9,7 +9,7 @@ use ergo_lib::{
         sigma_protocol::sigma_boolean::ProveDlog,
     },
     wallet::{
-        box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
+        box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
@@ -59,8 +59,7 @@ pub fn build_subsequent_publish_datapoint_action(
     let new_datapoint = datapoint_source.get_datapoint()?;
     let in_oracle_box = local_datapoint_box;
 
-    let box_reward_tokens = if reward_token_id != &in_oracle_box.reward_token().token_id {
-        todo!("send old reward tokens to oracle address?");
+    let outbox_reward_tokens = if reward_token_id != &in_oracle_box.reward_token().token_id {
         SpecToken {
             token_id: reward_token_id.clone(),
             amount: TokenAmount::try_from(1).unwrap(),
@@ -75,23 +74,23 @@ pub fn build_subsequent_publish_datapoint_action(
         new_datapoint,
         new_epoch_counter,
         in_oracle_box.oracle_token(),
-        box_reward_tokens,
+        outbox_reward_tokens.clone(),
         in_oracle_box.get_box().value,
         height,
     )?;
 
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    let mut unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
-    let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
-    let mut input_boxes = vec![in_oracle_box.get_box().clone()];
-    input_boxes.append(selection.boxes.as_vec().clone().as_mut());
-    let box_selection = BoxSelection {
-        boxes: input_boxes.try_into().unwrap(),
-        change_boxes: selection.change_boxes,
-    };
+    let target_tokens = vec![
+        in_oracle_box.oracle_token().into(),
+        outbox_reward_tokens.into(),
+    ];
+    let target_balace = in_oracle_box.get_box().value.checked_add(&tx_fee).unwrap();
+    unspent_boxes.push(in_oracle_box.get_box().clone());
+    let selection = box_selector.select(unspent_boxes, target_balace, target_tokens.as_slice())?;
     let mut tx_builder = TxBuilder::new(
-        box_selection,
+        selection,
         vec![output_candidate],
         height.0,
         tx_fee,
@@ -212,11 +211,9 @@ mod tests {
         let ctx = force_any_val::<ErgoStateContext>();
         let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
-        let reward_token_id = force_any_val::<TokenId>();
         let oracle_contract_parameters = OracleContractParameters::default();
         let pool_contract_parameters = PoolContractParameters::default();
         let pool_box_epoch_id = EpochCounter(1);
-        dbg!(&reward_token_id);
         let in_pool_box = make_pool_box(
             200,
             pool_box_epoch_id,
@@ -275,7 +272,7 @@ mod tests {
             change_address.address(),
             &datapoint_source,
             pool_box_epoch_id,
-            &RewardTokenId::from_token_id_unchecked(reward_token_id),
+            &token_ids.reward_token_id,
         )
         .unwrap();
 
@@ -293,26 +290,6 @@ mod tests {
         .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
-
-        // let action_republish = build_subsequent_publish_datapoint_action(
-        //     &oracle_box,
-        //     &wallet_mock,
-        //     height,
-        //     change_address,
-        //     &datapoint_source,
-        //     pool_box_epoch_id as u32,
-        //     datapoint_source.datapoint - 1,
-        // )
-        // .unwrap();
-        // let tx_context_republish = TransactionContext::new(
-        //     action_republish.tx.clone(),
-        //     find_input_boxes(action_republish.tx, possible_input_boxes),
-        //     Vec::new(),
-        // )
-        // .unwrap();
-        // let _signed_tx_republish = wallet
-        //     .sign_transaction(tx_context_republish, &ctx, None)
-        //     .unwrap();
     }
 
     #[test]
@@ -393,6 +370,103 @@ mod tests {
 
         let tx_context =
             TransactionContext::new(action.tx.clone(), unspent_boxes, Vec::new()).unwrap();
+
+        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+    }
+
+    #[test]
+    fn test_subsequent_publish_datapoint_with_minted_reward_token() {
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = BlockHeight(ctx.pre_header.height);
+        let token_ids = generate_token_ids();
+        let minted_reward_token_id =
+            RewardTokenId::from_token_id_unchecked(force_any_val::<TokenId>());
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let pool_contract_parameters = PoolContractParameters::default();
+        let pool_box_epoch_id = EpochCounter(1);
+        dbg!(&token_ids);
+        dbg!(&minted_reward_token_id);
+        let in_pool_box = make_pool_box(
+            200,
+            pool_box_epoch_id,
+            *BASE_FEE,
+            height - EpochLength(32), // from previous epoch
+            &pool_contract_parameters,
+            &token_ids,
+        );
+        let secret = force_any_val::<DlogProverInput>();
+        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let oracle_pub_key = secret.public_image().h;
+
+        let pool_box_mock = PoolBoxMock {
+            pool_box: in_pool_box,
+        };
+
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
+        let oracle_box = OracleBoxWrapper::new(
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                EpochCounter(pool_box_epoch_id.0 - 1),
+                &token_ids,
+                oracle_box_wrapper_inputs
+                    .contract_inputs
+                    .contract_parameters()
+                    .min_storage_rent,
+                height - EpochLength(99),
+                100,
+            ),
+            &oracle_box_wrapper_inputs,
+        )
+        .unwrap();
+
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
+
+        let wallet_unspent_box = make_wallet_unspent_box(
+            secret.public_image(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
+            Some(
+                vec![Token {
+                    token_id: minted_reward_token_id.token_id(),
+                    amount: 1u64.try_into().unwrap(),
+                }]
+                .try_into()
+                .unwrap(),
+            ),
+        );
+        let wallet_mock = WalletDataMock {
+            unspent_boxes: vec![wallet_unspent_box],
+            change_address: change_address.clone(),
+        };
+
+        let datapoint_source = MockDatapointSource { datapoint: 201 };
+        let action = build_subsequent_publish_datapoint_action(
+            &oracle_box,
+            &wallet_mock,
+            height,
+            change_address.address(),
+            &datapoint_source,
+            pool_box_epoch_id,
+            &minted_reward_token_id,
+        )
+        .unwrap();
+
+        let mut possible_input_boxes = vec![
+            pool_box_mock.get_pool_box().unwrap().get_box().clone(),
+            oracle_box.get_box().clone(),
+        ];
+        possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
+
+        let tx_context = TransactionContext::new(
+            action.tx.clone(),
+            find_input_boxes(action.tx, possible_input_boxes.clone()),
+            Vec::new(),
+        )
+        .unwrap();
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
     }
