@@ -6,10 +6,12 @@ use crate::box_kind::OracleBox;
 use crate::oracle_state::LocalDatapointBoxSource;
 use crate::pool_config::PoolConfig;
 use crate::spec_token::OracleTokenId;
+use crate::spec_token::RewardTokenId;
 
 pub fn import_pool_update(
     new_pool_config_file: String,
     oracle_token_id: &OracleTokenId,
+    reward_token_id: &RewardTokenId,
     current_pool_config_path: &Path,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     scan_ids_path: &Path,
@@ -40,6 +42,11 @@ pub fn import_pool_update(
                 anyhow!("Since new oracle token is minted reward tokens from the current oracle box will be lost. Please transfer them to a different address with extract-reward-tokens command before importing new pool config.")
             );
         }
+    }
+    if &new_pool_config.token_ids.reward_token_id != reward_token_id {
+        return Err(
+                anyhow!("Since new reward token is minted reward tokens from the current oracle box will be lost. Please transfer them to a different address with extract-reward-tokens command before importing new pool config.")
+            );
     }
     new_pool_config.save(current_pool_config_path)?;
     std::fs::remove_file(scan_ids_path)
