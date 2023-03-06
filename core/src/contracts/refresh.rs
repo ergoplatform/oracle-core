@@ -1,7 +1,7 @@
 use base16::DecodeError;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
@@ -47,8 +47,8 @@ pub enum RefreshContractError {
     },
     #[error("refresh contract: sigma parsing error {0}")]
     SigmaParsing(#[from] SigmaParsingError),
-    #[error("refresh contract: ergo tree constant error {0:?}")]
-    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("refresh contract: ergo tree error {0:?}")]
+    ErgoTreeError(ErgoTreeError),
     #[error("refresh contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(#[from] TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]
@@ -203,32 +203,32 @@ impl RefreshContract {
                     inputs.contract_parameters.pool_nft_index,
                     inputs.pool_nft_token_id.clone().token_id().into(),
                 )
-                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .map_err(RefreshContractError::ErgoTreeError)?
                 .with_constant(
                     inputs.contract_parameters.oracle_token_id_index,
                     inputs.oracle_token_id.clone().token_id().into(),
                 )
-                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .map_err(RefreshContractError::ErgoTreeError)?
                 .with_constant(
                     inputs.contract_parameters.min_data_points_index,
                     (inputs.contract_parameters.min_data_points.0).into(),
                 )
-                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .map_err(RefreshContractError::ErgoTreeError)?
                 .with_constant(
                     inputs.contract_parameters.buffer_length_index,
                     (inputs.contract_parameters.buffer_length).into(),
                 )
-                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .map_err(RefreshContractError::ErgoTreeError)?
                 .with_constant(
                     inputs.contract_parameters.max_deviation_percent_index,
                     (inputs.contract_parameters.max_deviation_percent).into(),
                 )
-                .map_err(RefreshContractError::ErgoTreeConstant)?
+                .map_err(RefreshContractError::ErgoTreeError)?
                 .with_constant(
                     inputs.contract_parameters.epoch_length_index,
                     (inputs.contract_parameters.epoch_length.0).into(),
                 )
-                .map_err(RefreshContractError::ErgoTreeConstant)?;
+                .map_err(RefreshContractError::ErgoTreeError)?;
         Ok(Self {
             ergo_tree,
             pool_nft_index: inputs.contract_parameters.pool_nft_index,
@@ -435,8 +435,8 @@ pub enum RefreshContractParametersError {
     Decode(#[from] DecodeError),
     #[error("refresh contract parameters: TryExtractFrom error {0:?}")]
     TryExtractFrom(#[from] TryExtractFromError),
-    #[error("refresh contract parameters: ergo tree constant error {0:?}")]
-    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("refresh contract parameters: ergo tree error {0:?}")]
+    ErgoTreeError(ErgoTreeError),
 }
 
 impl RefreshContractParameters {
@@ -450,16 +450,16 @@ impl RefreshContractParameters {
                 inputs.min_data_points_index,
                 inputs.min_data_points.0.into(),
             )
-            .map_err(RefreshContractParametersError::ErgoTreeConstant)?
+            .map_err(RefreshContractParametersError::ErgoTreeError)?
             .with_constant(inputs.buffer_length_index, inputs.buffer_length.into())
-            .map_err(RefreshContractParametersError::ErgoTreeConstant)?
+            .map_err(RefreshContractParametersError::ErgoTreeError)?
             .with_constant(
                 inputs.max_deviation_percent_index,
                 inputs.max_deviation_percent.into(),
             )
-            .map_err(RefreshContractParametersError::ErgoTreeConstant)?
+            .map_err(RefreshContractParametersError::ErgoTreeError)?
             .with_constant(inputs.epoch_length_index, inputs.epoch_length.0.into())
-            .map_err(RefreshContractParametersError::ErgoTreeConstant)?;
+            .map_err(RefreshContractParametersError::ErgoTreeError)?;
         let _pool_nft = ergo_tree
             .get_constant(inputs.pool_nft_index)
             .map_err(|_| RefreshContractParametersError::NoPoolNftId)?

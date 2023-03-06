@@ -1,7 +1,7 @@
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
@@ -30,8 +30,8 @@ pub enum PoolContractError {
     UnknownUpdateNftId,
     #[error("pool contract: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),
-    #[error("pool contract: ergo tree constant error {0:?}")]
-    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("pool contract: ergo tree error {0:?}")]
+    ErgoTreeError(ErgoTreeError),
     #[error("pool contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]

@@ -2,7 +2,7 @@ use base16::DecodeError;
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeConstantError;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::{Literal, TryExtractInto};
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
@@ -41,8 +41,8 @@ pub enum UpdateContractError {
     MinVotesDiffers { expected: u64, actual: u64 },
     #[error("update contract: sigma parsing error {0}")]
     SigmaParsing(SigmaParsingError),
-    #[error("update contract: ergo tree constant error {0:?}")]
-    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("update contract: ergo tree error {0:?}")]
+    ErgoTreeError(ErgoTreeError),
     #[error("update contract: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]
@@ -244,8 +244,8 @@ pub enum UpdateContractParametersError {
     MinVotesDiffers { expected: u64, actual: u64 },
     #[error("update contract parameters: TryExtractFrom error {0:?}")]
     TryExtractFrom(TryExtractFromError),
-    #[error("update contract parameters: ergo tree constant error {0:?}")]
-    ErgoTreeConstant(ErgoTreeConstantError),
+    #[error("update contract parameters: ergo tree error {0:?}")]
+    ErgoTreeError(ErgoTreeError),
     #[error("update contract parameters: sigma serialization error {0}")]
     SigmaSerialization(SigmaSerializationError),
     #[error("update contract parameters: base16 decoding error {0}")]
@@ -264,7 +264,7 @@ impl UpdateContractParameters {
         log::debug!("update contract ergo_tree_orig: {:#?}", ergo_tree_orig);
         let ergo_tree = ergo_tree_orig
             .with_constant(min_votes_index, (min_votes as i32).into())
-            .map_err(UpdateContractParametersError::ErgoTreeConstant)?;
+            .map_err(UpdateContractParametersError::ErgoTreeError)?;
         let _pool_nft = ergo_tree
             .get_constant(pool_nft_index)
             .map_err(|_| UpdateContractParametersError::NoPoolNftId)?
