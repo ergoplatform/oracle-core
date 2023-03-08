@@ -448,11 +448,12 @@ pub fn register_and_save_scans(node_api: &NodeApi) -> std::result::Result<(), Er
     loop {
         let wallet_height = node_api.node.wallet_status()?.height;
         let block_height = node_api.node.current_block_height()?;
+        println!("Scanned {}/{} blocks", wallet_height, block_height);
         if wallet_height == block_height {
+            println!("Wallet Scan Complete!");
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
-        println!("Scanned {}/{} blocks", wallet_height, block_height);
     }
     Ok(())
 }
