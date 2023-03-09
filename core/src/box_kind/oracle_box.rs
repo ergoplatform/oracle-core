@@ -7,7 +7,7 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
-use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
+
 use thiserror::Error;
 
 use crate::contracts::oracle::OracleContract;
@@ -24,7 +24,7 @@ pub trait OracleBox {
     fn contract(&self) -> &OracleContract;
     fn oracle_token(&self) -> SpecToken<OracleTokenId>;
     fn reward_token(&self) -> SpecToken<RewardTokenId>;
-    fn public_key(&self) -> ProveDlog;
+    fn public_key(&self) -> EcPoint;
     fn get_box(&self) -> &ErgoBox;
 }
 
@@ -167,14 +167,12 @@ impl OracleBox for OracleBoxWrapper {
             amount: token.amount,
         }
     }
-
-    fn public_key(&self) -> ProveDlog {
+    fn public_key(&self) -> EcPoint {
         self.get_box()
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
             .unwrap()
-            .into()
     }
 
     fn get_box(&self) -> &ErgoBox {
@@ -231,13 +229,12 @@ impl PostedOracleBox {
         }
     }
 
-    pub fn public_key(&self) -> ProveDlog {
+    pub fn public_key(&self) -> EcPoint {
         self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
             .unwrap()
-            .into()
     }
 
     pub fn contract(&self) -> &OracleContract {
@@ -321,7 +318,7 @@ impl From<PostedOracleBox> for ErgoBox {
 #[allow(clippy::too_many_arguments)]
 pub fn make_oracle_box_candidate(
     contract: &OracleContract,
-    public_key: ProveDlog,
+    public_key: EcPoint,
     datapoint: i64,
     epoch_counter: u32,
     oracle_token: SpecToken<OracleTokenId>,
@@ -330,7 +327,7 @@ pub fn make_oracle_box_candidate(
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
-    builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
+    builder.set_register_value(NonMandatoryRegisterId::R4, public_key.into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter as i32).into());
     builder.set_register_value(NonMandatoryRegisterId::R6, datapoint.into());
     builder.add_token(oracle_token.into());
@@ -342,14 +339,14 @@ pub fn make_oracle_box_candidate(
 /// Without data point and epoch counter to prevent it to be used as input on next collection
 pub fn make_collected_oracle_box_candidate(
     contract: &OracleContract,
-    public_key: ProveDlog,
+    public_key: EcPoint,
     oracle_token: SpecToken<OracleTokenId>,
     reward_token: SpecToken<RewardTokenId>,
     value: BoxValue,
     creation_height: u32,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height);
-    builder.set_register_value(NonMandatoryRegisterId::R4, (*public_key.h).clone().into());
+    builder.set_register_value(NonMandatoryRegisterId::R4, public_key.into());
     builder.add_token(oracle_token.into());
     builder.add_token(reward_token.into());
     builder.build()

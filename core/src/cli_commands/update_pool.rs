@@ -307,7 +307,7 @@ fn build_update_pool_box_tx(
         ballot_box_candidate.add_token(ballot_box.ballot_token().into());
         ballot_box_candidate.set_register_value(
             NonMandatoryRegisterId::R4,
-            (*ballot_box.ballot_token_owner().h).clone().into(),
+            ballot_box.ballot_token_owner().clone().into(),
         );
         outputs.push(ballot_box_candidate.build()?)
     }
@@ -489,7 +489,7 @@ mod tests {
             let secret = DlogProverInput::random();
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &ballot_contract,
-                secret.public_image(),
+                secret.public_image().h.as_ref().clone(),
                 update_box.creation_height,
                 SpecToken {
                     token_id: token_ids.ballot_token_id.clone(),

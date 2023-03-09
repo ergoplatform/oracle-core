@@ -124,7 +124,7 @@ fn build_transfer_oracle_token_tx(
             if let OracleBoxWrapper::Posted(ref posted_oracle_box) = in_oracle_box {
                 make_oracle_box_candidate(
                     posted_oracle_box.contract(),
-                    p2pk_dest.clone(),
+                    p2pk_dest.h.as_ref().clone(),
                     posted_oracle_box.rate() as i64,
                     posted_oracle_box.epoch_counter(),
                     posted_oracle_box.oracle_token(),
@@ -135,7 +135,7 @@ fn build_transfer_oracle_token_tx(
             } else {
                 make_collected_oracle_box_candidate(
                     in_oracle_box.contract(),
-                    p2pk_dest.clone(),
+                    p2pk_dest.h.as_ref().clone(),
                     in_oracle_box.oracle_token(),
                     in_oracle_box.reward_token(),
                     in_oracle_box.get_box().value,

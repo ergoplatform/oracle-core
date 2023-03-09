@@ -215,7 +215,7 @@ fn build_tx_for_first_ballot_box(
     if let Address::P2Pk(ballot_token_owner) = &ballot_token_owner_address {
         let ballot_box_candidate = make_local_ballot_box_candidate(
             &contract,
-            ballot_token_owner.clone(),
+            ballot_token_owner.h.as_ref().clone(),
             update_box_creation_height,
             ballot_token.clone(),
             new_pool_box_address_hash,
@@ -372,7 +372,7 @@ mod tests {
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
                 &BallotContract::checked_load(&inputs.contract_inputs).unwrap(),
-                secret.public_image(),
+                secret.public_image().h.as_ref().clone(),
                 height - 2,
                 ballot_token,
                 new_pool_box_address_hash,

@@ -133,7 +133,7 @@ pub fn build_publish_first_datapoint_action(
 
     let output_candidate = make_oracle_box_candidate(
         &contract,
-        public_key,
+        public_key.h.as_ref().clone(),
         new_datapoint,
         1,
         oracle_token,
