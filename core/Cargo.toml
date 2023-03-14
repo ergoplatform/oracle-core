@@ -27,7 +27,7 @@ tower-http = { version = "0.3.0", features = ["cors"] }
 axum = "0.6"
 ergo-lib = { workspace = true }
 # ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "ffc93d869e79b9461fd1d4c9f4ea0f5d34ff9569" }
-ergo-node-interface = { version = "0.3" }
+ergo-node-interface = { version = "0.4" }
 derive_more = "0.99"
 clap = {version = "=3.1.18", features = ["derive"]}
 exitcode = "1.1.2"

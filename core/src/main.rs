@@ -43,6 +43,7 @@ mod tests;
 mod wallet;
 
 use actions::PoolAction;
+use anyhow::anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
@@ -328,7 +329,7 @@ fn handle_pool_command(
                 tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
-                if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source) {
+                if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source, &node_api) {
                     error!("error: {:?}", e);
                 }
                 // Delay loop restart
@@ -448,8 +449,11 @@ fn main_loop_iteration(
     op: &OraclePool,
     read_only: bool,
     datapoint_source: &RuntimeDataPointSource,
+    node_api: &NodeApi,
 ) -> std::result::Result<(), anyhow::Error> {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    if !node_api.node.wallet_status()?.unlocked {
+        return Err(anyhow!("Wallet is locked!"));
+    }
     let height = BlockHeight(
         node_api
             .node
@@ -474,7 +478,7 @@ fn main_loop_iteration(
         let build_action_res = build_action(
             cmd,
             op,
-            &node_api,
+            node_api,
             height,
             network_change_address.address(),
             datapoint_source,
@@ -483,7 +487,7 @@ fn main_loop_iteration(
             log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
         {
             if !read_only {
-                execute_action(action, &node_api)?;
+                execute_action(action, node_api)?;
             }
         };
     }

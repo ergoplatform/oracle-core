@@ -25,7 +25,11 @@ impl NodeApi {
     }
 
     pub fn get_change_address(&self) -> Result<NetworkAddress, NodeApiError> {
-        let change_address_str = self.node.wallet_status()?.change_address.unwrap();
+        let change_address_str = self
+            .node
+            .wallet_status()?
+            .change_address
+            .ok_or(NodeApiError::NoChangeAddressSetInNode)?;
         let addr = AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
         Ok(addr)
     }
@@ -68,14 +72,7 @@ impl WalletDataSource for NodeApi {
     }
 
     fn get_change_address(&self) -> Result<NetworkAddress, WalletDataError> {
-        let change_address_str = self
-            .node
-            .wallet_status()?
-            .change_address
-            .ok_or(WalletDataError::NoChangeAddressSetInNode)?;
-        let change_network_address =
-            AddressEncoder::unchecked_parse_network_address_from_str(&change_address_str)?;
-        Ok(change_network_address)
+        self.get_change_address().map_err(Into::into)
     }
 }
 
@@ -85,4 +82,6 @@ pub enum NodeApiError {
     NodeInterfaceError(NodeError),
     #[error("AddressEncoder error: {0}")]
     AddressEncoderError(AddressEncoderError),
+    #[error("no change address is set in node")]
+    NoChangeAddressSetInNode,
 }

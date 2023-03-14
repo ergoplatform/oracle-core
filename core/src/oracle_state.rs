@@ -445,6 +445,11 @@ pub fn register_and_save_scans(node_api: &NodeApi) -> std::result::Result<(), Er
         register_and_save_scans_inner(node_api)?;
     };
 
+    let wallet_height = node_api.node.wallet_status()?.height;
+    let block_height = node_api.node.current_block_height()?;
+    if wallet_height == block_height {
+        return Ok(());
+    }
     loop {
         let wallet_height = node_api.node.wallet_status()?.height;
         let block_height = node_api.node.current_block_height()?;
