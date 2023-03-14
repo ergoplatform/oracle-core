@@ -52,7 +52,10 @@ use crate::{
         },
     },
     explorer_api::wait_for_txs_confirmation,
-    node_interface::{node_api::NodeApi, SignTransactionWithInputs, SubmitTransaction},
+    node_interface::{
+        node_api::{NodeApi, NodeApiError},
+        SignTransactionWithInputs, SubmitTransaction,
+    },
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
     oracle_state::{OraclePool, StageDataSource},
     oracle_types::BlockHeight,
@@ -91,13 +94,7 @@ pub fn prepare_update(
     let s = std::fs::read_to_string(config_file_name)?;
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
-    let change_address = AddressEncoder::unchecked_parse_address_from_str(
-        &node_api
-            .node
-            .wallet_status()?
-            .change_address
-            .ok_or(PrepareUpdateError::NoChangeAddressSetInNode)?,
-    )?;
+    let change_address = node_api.get_change_address()?.address();
     let config = UpdateBootstrapConfig::try_from(config_serde)?;
     let update_bootstrap_input = PrepareUpdateInput {
         wallet: node_api,
@@ -552,6 +549,8 @@ pub enum PrepareUpdateError {
     WalletData(WalletDataError),
     #[error("Ballot contract error: {0}")]
     BallotContract(BallotContractError),
+    #[error("Node API error: {0}")]
+    NodeApiError(NodeApiError),
 }
 
 #[cfg(test)]
