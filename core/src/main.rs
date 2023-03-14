@@ -43,6 +43,7 @@ mod tests;
 mod wallet;
 
 use actions::PoolAction;
+use anyhow::anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
@@ -450,6 +451,9 @@ fn main_loop_iteration(
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
 ) -> std::result::Result<(), anyhow::Error> {
+    if !node_api.node.wallet_status()?.unlocked {
+        return Err(anyhow!("Wallet is locked!"));
+    }
     let height = BlockHeight(
         node_api
             .node
