@@ -20,8 +20,11 @@ pub fn setup_log(
 
     // via https://stackoverflow.com/questions/56345288/how-do-i-use-log4rs-rollingfileappender-to-incorporate-rolling-logging#
     let window_size = 3; // log0, log1, log2
+    let roller_path = data_dir.join("oracle-core.log");
+    // we're making "[data_dir]/oracle-core.log{}" here
+    let roller_path_with_pattern = format!("{}{{}}", roller_path.to_str().unwrap());
     let fixed_window_roller = FixedWindowRoller::builder()
-        .build("oracle-core.log{}", window_size)
+        .build(&roller_path_with_pattern, window_size)
         .unwrap();
 
     let size_limit = 5 * 1024 * 1024; // 5MB as max log file size to roll
@@ -41,10 +44,6 @@ pub fn setup_log(
         config_log_level
     };
 
-    // cmdline_log_level.unwrap_or_else(get_level_filter);
-
-    let log_path = data_dir.join("oracle-core.log");
-
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
         .appender(
@@ -52,7 +51,7 @@ pub fn setup_log(
                 "logfile",
                 Box::new(
                     RollingFileAppender::builder()
-                        .build(log_path, Box::new(compound_policy))
+                        .build(data_dir.join("oracle-core.log"), Box::new(compound_policy))
                         .unwrap(),
                 ),
             ),

@@ -19,3 +19,4 @@ erg-usd-oracle-deployed
 *oracle-core.log
 oracle-config.yaml
 /.vim/
+/oracles/
