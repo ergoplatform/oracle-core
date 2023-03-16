@@ -61,16 +61,29 @@ async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
 // Basic information about the oracle pool
 async fn pool_info() -> impl IntoResponse {
     let conf = &POOL_CONFIG;
-    let pool_box_tree_bytes = conf
-        .pool_box_wrapper_inputs
-        .contract_inputs
-        .contract_parameters()
-        .ergo_tree_bytes();
     let network = &ORACLE_CONFIG.oracle_address.network();
     let address_encoder = AddressEncoder::new(*network);
-    let pool_box_address = Address::P2S(pool_box_tree_bytes.clone());
-    let pool_box_address_base58 = address_encoder.address_to_str(&pool_box_address);
-    // TODO: addresses for other contracts?
+    let pool_box_address = Address::P2S(
+        conf.pool_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .clone(),
+    );
+    let refresh_box_address = Address::P2S(
+        conf.refresh_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .clone(),
+    );
+    let update_box_address = Address::P2S(
+        conf.update_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .clone(),
+    );
     Json(json!({
         "pool_nft_id": conf.token_ids.pool_nft_token_id,
         "oracle_token_id": conf.token_ids.oracle_token_id,
@@ -82,7 +95,9 @@ async fn pool_info() -> impl IntoResponse {
         "max_deviation_percent": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().max_deviation_percent(),
         "min_data_points": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().min_data_points(),
         "min_votes": conf.update_box_wrapper_inputs.contract_inputs.contract_parameters().min_votes(),
-        "pool_box_address": pool_box_address_base58,
+        "pool_box_address": address_encoder.address_to_str(&pool_box_address),
+        "refresh_box_address": address_encoder.address_to_str(&refresh_box_address),
+        "update_box_address": address_encoder.address_to_str(&update_box_address),
     }))
 }
 
