@@ -20,14 +20,20 @@ use tower_http::cors::CorsLayer;
 
 /// Basic welcome endpoint
 async fn root() -> &'static str {
-    "This is an Oracle Core. Please use one of the endpoints to interact with it.\n"
+    "This is an Oracle Core. Please use one of the endpoints to interact with it: 
+        /poolInfo - basic information about the oracle pool
+        /poolStatus - status of the oracle pool
+        /oracleInfo - basic information about the oracle
+        /oracleStatus - status of the oracle"
 }
 
 /// Basic oracle information
 async fn oracle_info() -> impl IntoResponse {
+    let conf = &ORACLE_CONFIG;
     Json(json! ( {
-            "oracle_address": &ORACLE_CONFIG.oracle_address.to_base58(),
-        } ))
+        "oracle_address": conf.oracle_address.to_base58(),
+        "base_fee": conf.base_fee,
+    } ))
 }
 
 /// Status of the oracle
