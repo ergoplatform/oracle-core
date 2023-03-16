@@ -1,16 +1,18 @@
 use std::convert::From;
 use std::net::SocketAddr;
 
+use crate::box_kind::PoolBox;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
 use crate::oracle_state::LocalDatapointState::{Collected, Posted};
-use crate::oracle_state::{OraclePool, StageError};
+use crate::oracle_state::{OraclePool, StageDataSource, StageError};
 use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use crossbeam::channel::Receiver;
+use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder};
 use ergo_node_interface::scanning::NodeError;
 use serde_json::json;
 use tokio::task;
@@ -18,14 +20,20 @@ use tower_http::cors::CorsLayer;
 
 /// Basic welcome endpoint
 async fn root() -> &'static str {
-    "This is an Oracle Core. Please use one of the endpoints to interact with it.\n"
+    "This is an Oracle Core. Please use one of the endpoints to interact with it: 
+        /poolInfo - basic information about the oracle pool
+        /poolStatus - status of the oracle pool
+        /oracleInfo - basic information about the oracle
+        /oracleStatus - status of the oracle"
 }
 
 /// Basic oracle information
 async fn oracle_info() -> impl IntoResponse {
+    let conf = &ORACLE_CONFIG;
     Json(json! ( {
-            "oracle_address": &ORACLE_CONFIG.oracle_address.to_base58(),
-        } ))
+        "oracle_address": conf.oracle_address.to_base58(),
+        "base_fee": conf.base_fee,
+    } ))
 }
 
 /// Status of the oracle
@@ -59,6 +67,29 @@ async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
 // Basic information about the oracle pool
 async fn pool_info() -> impl IntoResponse {
     let conf = &POOL_CONFIG;
+    let network = &ORACLE_CONFIG.oracle_address.network();
+    let address_encoder = AddressEncoder::new(*network);
+    let pool_box_address = Address::P2S(
+        conf.pool_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .clone(),
+    );
+    let refresh_box_address = Address::P2S(
+        conf.refresh_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .clone(),
+    );
+    let update_box_address = Address::P2S(
+        conf.update_box_wrapper_inputs
+            .contract_inputs
+            .contract_parameters()
+            .ergo_tree_bytes()
+            .clone(),
+    );
     Json(json!({
         "pool_nft_id": conf.token_ids.pool_nft_token_id,
         "oracle_token_id": conf.token_ids.oracle_token_id,
@@ -70,20 +101,48 @@ async fn pool_info() -> impl IntoResponse {
         "max_deviation_percent": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().max_deviation_percent(),
         "min_data_points": conf.refresh_box_wrapper_inputs.contract_inputs.contract_parameters().min_data_points(),
         "min_votes": conf.update_box_wrapper_inputs.contract_inputs.contract_parameters().min_votes(),
+        "pool_box_address": address_encoder.address_to_str(&pool_box_address),
+        "refresh_box_address": address_encoder.address_to_str(&refresh_box_address),
+        "update_box_address": address_encoder.address_to_str(&update_box_address),
     }))
 }
 
 /// Status of the oracle pool
 async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
+    let json = task::spawn_blocking(pool_status_sync).await.unwrap()?;
+    Ok(json)
+}
+
+fn pool_status_sync() -> Result<Json<serde_json::Value>, ApiError> {
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let current_height = node_api.node.current_block_height()? as u32;
     let op = OraclePool::new().unwrap();
-    let live_epoch = task::spawn_blocking(move || op.get_live_epoch_state())
-        .await
-        .unwrap()?;
-    Ok(Json(json!({
-            "latest_pool_datapoint": live_epoch.latest_pool_datapoint,
-            "latest_pool_box_height": live_epoch.latest_pool_box_height,
-            "pool_box_epoch_id" : live_epoch.pool_box_epoch_id,
-    })))
+    let pool_box = op.get_pool_box_source().get_pool_box()?;
+    let epoch_length = POOL_CONFIG
+        .refresh_box_wrapper_inputs
+        .contract_inputs
+        .contract_parameters()
+        .epoch_length();
+    let latest_pool_box_height = pool_box.get_box().creation_height;
+    let epoch_end_height = latest_pool_box_height + epoch_length.0 as u32;
+
+    let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
+    let min_oracle_box_height = current_height - epoch_length.0 as u32;
+    let active_oracle_count = oracle_boxes
+        .into_iter()
+        .filter(|b| b.creation_height >= min_oracle_box_height)
+        .count() as u32;
+
+    let json = Json(json!({
+        "latest_pool_datapoint": pool_box.rate(),
+        "latest_pool_box_height": latest_pool_box_height,
+        "pool_box_epoch_id" : pool_box.epoch_counter(),
+        "current_block_height": current_height,
+        "epoch_end_height": epoch_end_height,
+        "reward_tokens_in_pool_box": pool_box.reward_token().amount.as_u64(),
+        "number_of_oracles": active_oracle_count,
+    }));
+    Ok(json)
 }
 
 /// Block height of the Ergo blockchain
