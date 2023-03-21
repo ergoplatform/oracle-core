@@ -82,6 +82,13 @@ pub fn update_pool(
     info!("Opening pool_config_updated.yaml");
     let s = std::fs::read_to_string("pool_config_updated.yaml")?;
     let new_pool_config: PoolConfig = serde_yaml::from_str(&s)?;
+    if let Some(ref reward_token) = new_reward_tokens {
+        assert_eq!(
+            reward_token.token_id,
+            new_pool_config.token_ids.reward_token_id,
+            "Reward token id in pool_config_updated.yaml does not match the one from the command line"
+        );
+    }
     let (change_address, network_prefix) = {
         let net_addr = wallet.get_change_address()?;
         (net_addr.address(), net_addr.network())
@@ -140,6 +147,9 @@ pub fn update_pool(
             "Update pool box transaction submitted: view here, {}",
             ergo_explorer_transaction_link(tx_id_str, network_prefix)
         );
+        println!("Send the new pool_config_updated.yaml to the oracle operators.");
+        println!("The operators should import it with `import-pool-update` command.");
+        remind_send_minted_tokens_to_oracles(&POOL_CONFIG, &new_pool_config);
     } else {
         println!("Aborting the transaction.")
     }
@@ -152,7 +162,6 @@ fn display_update_diff(
     old_pool_box: PoolBoxWrapper,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
 ) {
-    let new_tokens = new_reward_tokens.unwrap_or_else(|| old_pool_box.reward_token());
     let new_pool_contract =
         PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)
             .unwrap();
@@ -164,35 +173,93 @@ fn display_update_diff(
             .unwrap(),
     );
     println!("Pool Box Hash (new): {}", String::from(pool_box_hash));
-    println!(
-        "Reward Token ID (old): {}",
-        String::from(old_pool_config.token_ids.reward_token_id.token_id())
-    );
-    println!(
-        "Reward Token ID (new): {}",
-        String::from(new_pool_config.token_ids.reward_token_id.token_id())
-    );
-    println!(
-        "Reward Token Amount (old): {}",
-        old_pool_box.reward_token().amount.as_u64()
-    );
-    println!("Reward Token Amount (new): {}", new_tokens.amount.as_u64());
-    println!(
-        "Update NFT ID (old): {}",
-        String::from(old_pool_box.contract().update_nft_token_id())
-    );
-    println!(
-        "Update NFT ID (new): {}",
-        String::from(new_pool_contract.update_nft_token_id())
-    );
-    println!(
-        "Refresh NFT ID (old): {}",
-        String::from(old_pool_box.contract().refresh_nft_token_id())
-    );
-    println!(
-        "Refresh NFT ID (new): {}",
-        String::from(new_pool_contract.refresh_nft_token_id())
-    );
+    if old_pool_config.token_ids.reward_token_id != new_pool_config.token_ids.reward_token_id {
+        println!(
+            "Reward Token ID (old): {}",
+            String::from(old_pool_config.token_ids.reward_token_id.token_id())
+        );
+        println!(
+            "Reward Token ID (new): {}",
+            String::from(new_pool_config.token_ids.reward_token_id.token_id())
+        );
+        println!(
+            "Reward Token Amount (old): {}",
+            old_pool_box.reward_token().amount.as_u64()
+        );
+        println!(
+            "Reward Token Amount (new): {}",
+            new_reward_tokens.unwrap().amount.as_u64()
+        );
+    }
+    if old_pool_config.token_ids.update_nft_token_id
+        != new_pool_config.token_ids.update_nft_token_id
+    {
+        println!(
+            "Update NFT ID (old): {}",
+            String::from(old_pool_config.token_ids.update_nft_token_id.token_id())
+        );
+        println!(
+            "Update NFT ID (new): {}",
+            String::from(new_pool_config.token_ids.update_nft_token_id.token_id())
+        );
+    }
+    if old_pool_config.token_ids.refresh_nft_token_id
+        != new_pool_config.token_ids.refresh_nft_token_id
+    {
+        println!(
+            "Refresh NFT ID (old): {}",
+            String::from(old_pool_config.token_ids.refresh_nft_token_id.token_id())
+        );
+        println!(
+            "Refresh NFT ID (new): {}",
+            String::from(new_pool_config.token_ids.refresh_nft_token_id.token_id())
+        );
+    }
+    if old_pool_config.token_ids.oracle_token_id != new_pool_config.token_ids.oracle_token_id {
+        println!(
+            "Oracle Token ID (old): {}",
+            String::from(old_pool_config.token_ids.oracle_token_id.token_id())
+        );
+        println!(
+            "Oracle Token ID (new): {}",
+            String::from(new_pool_config.token_ids.oracle_token_id.token_id())
+        );
+    }
+    if old_pool_config.token_ids.ballot_token_id != new_pool_config.token_ids.ballot_token_id {
+        println!(
+            "Ballot Token ID (old): {}",
+            String::from(old_pool_config.token_ids.ballot_token_id.token_id())
+        );
+        println!(
+            "Ballot Token ID (new): {}",
+            String::from(new_pool_config.token_ids.ballot_token_id.token_id())
+        );
+    }
+    if old_pool_config.token_ids.pool_nft_token_id != new_pool_config.token_ids.pool_nft_token_id {
+        println!(
+            "Pool NFT ID (old): {}",
+            String::from(old_pool_config.token_ids.pool_nft_token_id.token_id())
+        );
+        println!(
+            "Pool NFT ID (new): {}",
+            String::from(new_pool_config.token_ids.pool_nft_token_id.token_id())
+        );
+    }
+}
+
+fn remind_send_minted_tokens_to_oracles(
+    old_pool_config: &PoolConfig,
+    new_pool_config: &PoolConfig,
+) {
+    if old_pool_config.token_ids.reward_token_id != new_pool_config.token_ids.reward_token_id {
+        println!("Send the minted reward token (one) to the oracle operators.");
+    }
+    if old_pool_config.token_ids.oracle_token_id != new_pool_config.token_ids.oracle_token_id {
+        println!("Send the minted oracle tokens to the oracle operators.");
+    }
+    if old_pool_config.token_ids.ballot_token_id != new_pool_config.token_ids.ballot_token_id {
+        println!("Send the minted ballot tokens to the oracle operators.");
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
