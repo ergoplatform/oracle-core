@@ -7,10 +7,13 @@ use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::scanning::NodeError;
 use ergo_node_interface::NodeInterface;
+use log::info;
 use reqwest::Url;
+use serde_json::json;
 use thiserror::Error;
 
 use crate::scans::ScanID;
+use crate::scans::ScanId;
 use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
@@ -38,6 +41,32 @@ impl NodeApi {
     pub fn register_scan(&self, scan_json: &serde_json::Value) -> Result<ScanID, NodeApiError> {
         let scan_json_t = json::parse(&serde_json::to_string(scan_json).unwrap()).unwrap();
         Ok(self.node.register_scan(&scan_json_t)?)
+    }
+
+    fn register_scan_safe(&self, scan_json: &serde_json::Value) -> Result<ScanId, NodeApiError> {
+        let scan_id_str = self.register_scan(scan_json)?;
+        let scan_id_raw = scan_id_str
+            .parse::<u64>()
+            .map_err(|_| NodeApiError::InvalidScanId(scan_id_str))?;
+        Ok(scan_id_raw.into())
+    }
+
+    pub fn register_scan2(
+        &self,
+        name: &'static str,
+        tracking_rule: serde_json::Value,
+    ) -> std::result::Result<ScanId, NodeApiError> {
+        let scan_json = json!({
+            "scanName": name,
+            "trackingRule": tracking_rule,
+        });
+        info!(
+            "Registering Scan:\n{}",
+            serde_json::to_string_pretty(&scan_json).unwrap()
+        );
+        let scan_id = self.register_scan_safe(&scan_json)?;
+        info!("Scan Successfully Set.\nID: {}", scan_id);
+        Ok(scan_id)
     }
 
     pub fn rescan_from_height(&self, height: u32) -> Result<(), NodeApiError> {
@@ -84,4 +113,6 @@ pub enum NodeApiError {
     AddressEncoderError(AddressEncoderError),
     #[error("no change address is set in node")]
     NoChangeAddressSetInNode,
+    #[error("invalid scan id: {0}")]
+    InvalidScanId(String),
 }

@@ -6,13 +6,13 @@ use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
+use crate::pool_config::POOL_CONFIG;
 use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
 
-use derive_more::From;
+use derive_more::{Display, From, Into};
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
-use json::JsonValue;
 use log::info;
 use once_cell::sync;
 use serde_json::json;
@@ -40,6 +40,72 @@ pub enum ScanError {
     #[error("address util error: {0}")]
     AddressUtilError(AddressUtilError),
 }
+
+#[derive(Debug, Copy, Clone, From, Into, Display)]
+pub struct ScanId(u64);
+
+#[derive(Debug, Clone, Copy)]
+pub struct OracleTokenScan {
+    id: ScanId,
+}
+
+impl OracleTokenScan {
+    pub fn load_from_json(json: &serde_json::Value) -> Result<Self, ScanError> {
+        let id = json.get(Self::name()).unwrap().as_u64().unwrap();
+        Ok(OracleTokenScan { id: ScanId(id) })
+    }
+
+    pub fn name() -> &'static str {
+        "All Datapoints Scan"
+    }
+
+    pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
+        json!({
+        "predicate": "and",
+        "args":
+            [
+                {
+                    "predicate": "containsAsset",
+                    "assetId": oracle_token_id,
+                }
+            ]
+          })
+    }
+
+    pub fn register(
+        node_api: &NodeApi,
+        oracle_token_id: &OracleTokenId,
+    ) -> Result<Self, ScanError> {
+        let id = node_api.register_scan2(Self::name(), Self::tracking_rule(oracle_token_id))?;
+        Ok(OracleTokenScan { id })
+    }
+
+    pub fn get_old_scan(&self) -> Scan {
+        Scan::new(Self::name(), &self.id.0.to_string())
+    }
+}
+
+impl ScanGetId for OracleTokenScan {
+    fn get_scan_id(&self) -> ScanId {
+        self.id
+    }
+}
+
+pub trait ScanGetId {
+    fn get_scan_id(&self) -> ScanId;
+}
+
+pub trait ScanGetBoxes: ScanGetId {
+    fn get_boxes(&self) -> Result<Vec<ErgoBox>, ScanError> {
+        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+        let boxes = node_api
+            .node
+            .scan_boxes(&self.get_scan_id().0.to_string())?;
+        Ok(boxes)
+    }
+}
+
+impl ScanGetBoxes for OracleTokenScan {}
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
 #[derive(Debug, Clone)]
@@ -113,10 +179,12 @@ pub fn save_scan_ids(scans: Vec<Scan>) -> std::result::Result<(), ScanError> {
     Ok(())
 }
 
-pub fn load_scan_ids() -> Result<JsonValue, anyhow::Error> {
+pub fn load_scan_ids() -> Result<serde_json::Value, anyhow::Error> {
     let path = get_scans_file_path();
     log::debug!("Loading scan IDs from {}", path.display());
-    Ok(json::parse(&std::fs::read_to_string(path)?)?)
+    let str = &std::fs::read_to_string(path)?;
+    let json = serde_json::from_str(str)?;
+    Ok(json)
 }
 
 /// This function registers scanning for the pool box
@@ -178,23 +246,6 @@ pub fn register_local_oracle_datapoint_scan(
     Scan::register("Local Oracle Datapoint Scan", scan_json)
 }
 
-/// This function registers scanning for all of the pools oracles' Datapoint boxes for datapoint collection
-pub fn register_datapoint_scan(
-    oracle_pool_participant_token: &OracleTokenId,
-) -> std::result::Result<Scan, ScanError> {
-    let scan_json = json! ( {
-        "predicate": "and",
-        "args": [
-        {
-            "predicate": "containsAsset",
-            "assetId": oracle_pool_participant_token.clone(),
-        }
-    ]
-    } );
-
-    Scan::register("All Datapoints Scan", scan_json)
-}
-
 /// This function registers scanning for the local ballot box
 pub fn register_local_ballot_box_scan(
     ballot_token_id: &BallotTokenId,
@@ -246,4 +297,64 @@ pub fn register_update_box_scan(
         },
         ] });
     Scan::register("Update Box Scan", scan_json)
+}
+
+/// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
+pub fn register_and_save_scans(node_api: &NodeApi) -> std::result::Result<(), anyhow::Error> {
+    // let config = &POOL_CONFIG;
+    if load_scan_ids().is_err() {
+        register_and_save_scans_inner(node_api)?;
+    };
+
+    let wallet_height = node_api.node.wallet_status()?.height;
+    let block_height = node_api.node.current_block_height()?;
+    if wallet_height == block_height {
+        return Ok(());
+    }
+    loop {
+        let wallet_height = node_api.node.wallet_status()?.height;
+        let block_height = node_api.node.current_block_height()?;
+        println!("Scanned {}/{} blocks", wallet_height, block_height);
+        if wallet_height == block_height {
+            println!("Wallet Scan Complete!");
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    Ok(())
+}
+
+/// Registers and saves scans to `scanIDs.json` as well as performing wallet rescanning.
+///
+/// WARNING: will overwrite existing `scanIDs.json`!
+fn register_and_save_scans_inner(node_api: &NodeApi) -> std::result::Result<(), anyhow::Error> {
+    let pool_config = &POOL_CONFIG;
+    let oracle_config = &ORACLE_CONFIG;
+    let local_oracle_address = oracle_config.oracle_address.clone();
+    let oracle_pool_participant_token_id = pool_config.token_ids.oracle_token_id.clone();
+    let refresh_box_scan_name = "Refresh Box Scan";
+    let scans = vec![
+        OracleTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?.get_old_scan(),
+        register_update_box_scan(&pool_config.token_ids.update_nft_token_id)?,
+        register_pool_box_scan(pool_config.pool_box_wrapper_inputs.clone())?,
+        register_refresh_box_scan(
+            refresh_box_scan_name,
+            pool_config.refresh_box_wrapper_inputs.clone(),
+        )?,
+        register_local_oracle_datapoint_scan(
+            &oracle_pool_participant_token_id,
+            &local_oracle_address,
+        )?,
+        register_local_ballot_box_scan(
+            &pool_config.token_ids.ballot_token_id,
+            &oracle_config.oracle_address,
+        )?,
+        register_ballot_box_scan(&pool_config.token_ids.ballot_token_id)?,
+    ];
+
+    log::info!("Registering UTXO-Set Scans");
+    save_scan_ids(scans)?;
+    log::info!("Triggering wallet rescan");
+    node_api.rescan_from_height(0)?;
+    Ok(())
 }

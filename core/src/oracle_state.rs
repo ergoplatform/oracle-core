@@ -6,15 +6,10 @@ use crate::box_kind::{
     VoteBallotBoxWrapper,
 };
 use crate::datapoint_source::DataPointSourceError;
-use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::{BlockHeight, EpochCounter};
 use crate::pool_config::POOL_CONFIG;
-use crate::scans::{
-    load_scan_ids, register_ballot_box_scan, register_datapoint_scan,
-    register_local_ballot_box_scan, register_local_oracle_datapoint_scan, register_pool_box_scan,
-    register_refresh_box_scan, register_update_box_scan, save_scan_ids, Scan, ScanError,
-};
+use crate::scans::{load_scan_ids, OracleTokenScan, Scan, ScanError, ScanGetBoxes};
 use anyhow::Error;
 use derive_more::From;
 
@@ -92,7 +87,7 @@ pub struct OraclePool<'a> {
 
 #[derive(Debug)]
 pub struct OracleDatapointScan<'a> {
-    scan: Scan,
+    scan: OracleTokenScan,
     oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
@@ -164,10 +159,7 @@ impl<'a> OraclePool<'a> {
         let scan_json = load_scan_ids()?;
 
         // Create all `Scan` structs for protocol
-        let datapoint_scan = Scan::new(
-            "All Oracle Datapoints Scan",
-            &scan_json["All Datapoints Scan"].to_string(),
-        );
+        let datapoint_scan = OracleTokenScan::load_from_json(&scan_json)?;
         let oracle_datapoint_scan = OracleDatapointScan {
             scan: datapoint_scan,
             oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
@@ -381,64 +373,4 @@ impl<'a> DatapointBoxesSource for OracleDatapointScan<'a> {
             .collect();
         Ok(posted_boxes)
     }
-}
-
-/// Register scans and save in scanIDs.json (if it doesn't already exist), and wait for rescan to complete
-pub fn register_and_save_scans(node_api: &NodeApi) -> std::result::Result<(), Error> {
-    // let config = &POOL_CONFIG;
-    if load_scan_ids().is_err() {
-        register_and_save_scans_inner(node_api)?;
-    };
-
-    let wallet_height = node_api.node.wallet_status()?.height;
-    let block_height = node_api.node.current_block_height()?;
-    if wallet_height == block_height {
-        return Ok(());
-    }
-    loop {
-        let wallet_height = node_api.node.wallet_status()?.height;
-        let block_height = node_api.node.current_block_height()?;
-        println!("Scanned {}/{} blocks", wallet_height, block_height);
-        if wallet_height == block_height {
-            println!("Wallet Scan Complete!");
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    Ok(())
-}
-
-/// Registers and saves scans to `scanIDs.json` as well as performing wallet rescanning.
-///
-/// WARNING: will overwrite existing `scanIDs.json`!
-fn register_and_save_scans_inner(node_api: &NodeApi) -> std::result::Result<(), Error> {
-    let pool_config = &POOL_CONFIG;
-    let oracle_config = &ORACLE_CONFIG;
-    let local_oracle_address = oracle_config.oracle_address.clone();
-    let oracle_pool_participant_token_id = pool_config.token_ids.oracle_token_id.clone();
-    let refresh_box_scan_name = "Refresh Box Scan";
-    let scans = vec![
-        register_datapoint_scan(&oracle_pool_participant_token_id)?,
-        register_update_box_scan(&pool_config.token_ids.update_nft_token_id)?,
-        register_pool_box_scan(pool_config.pool_box_wrapper_inputs.clone())?,
-        register_refresh_box_scan(
-            refresh_box_scan_name,
-            pool_config.refresh_box_wrapper_inputs.clone(),
-        )?,
-        register_local_oracle_datapoint_scan(
-            &oracle_pool_participant_token_id,
-            &local_oracle_address,
-        )?,
-        register_local_ballot_box_scan(
-            &pool_config.token_ids.ballot_token_id,
-            &oracle_config.oracle_address,
-        )?,
-        register_ballot_box_scan(&pool_config.token_ids.ballot_token_id)?,
-    ];
-
-    log::info!("Registering UTXO-Set Scans");
-    save_scan_ids(scans)?;
-    log::info!("Triggering wallet rescan");
-    node_api.rescan_from_height(0)?;
-    Ok(())
 }
