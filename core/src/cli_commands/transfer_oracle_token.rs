@@ -26,7 +26,7 @@ use crate::{
     explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
-    oracle_state::{LocalDatapointBoxSource, StageError},
+    oracle_state::{DataSourceError, LocalDatapointBoxSource},
     oracle_types::BlockHeight,
     wallet::{WalletDataError, WalletDataSource},
 };
@@ -39,8 +39,8 @@ pub enum TransferOracleTokenActionError {
     IncorrectDestinationAddress,
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
-    #[error("stage error: {0}")]
-    StageError(StageError),
+    #[error("data source error: {0}")]
+    DataSourceError(DataSourceError),
     #[error("node error: {0}")]
     Node(NodeError),
     #[error("box selector error: {0}")]

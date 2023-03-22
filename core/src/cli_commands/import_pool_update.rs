@@ -49,6 +49,8 @@ pub fn import_pool_update(
             );
     }
     new_pool_config.save(current_pool_config_path)?;
+    // TODO: unregister scans with node
+    // TODO: only remove scans if tokens changed
     std::fs::remove_file(scan_ids_path)
         .map_err(|e| anyhow!("Failed to remove scan ids file {:?}: {}", scan_ids_path, e))?;
     Ok(())

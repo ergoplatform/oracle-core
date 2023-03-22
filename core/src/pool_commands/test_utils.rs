@@ -42,7 +42,7 @@ use crate::node_interface::SignTransactionWithInputs;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::VoteBallotBoxesSource;
-use crate::oracle_state::{LocalDatapointBoxSource, PoolBoxSource, StageError};
+use crate::oracle_state::{DataSourceError, LocalDatapointBoxSource, PoolBoxSource};
 use crate::oracle_types::EpochCounter;
 use crate::pool_config::TokenIds;
 use crate::spec_token::BallotTokenId;
@@ -62,7 +62,7 @@ pub(crate) struct PoolBoxMock {
 }
 
 impl PoolBoxSource for PoolBoxMock {
-    fn get_pool_box(&self) -> std::result::Result<PoolBoxWrapper, StageError> {
+    fn get_pool_box(&self) -> std::result::Result<PoolBoxWrapper, DataSourceError> {
         Ok(self.pool_box.clone())
     }
 }
@@ -75,7 +75,7 @@ pub(crate) struct OracleBoxMock {
 impl LocalDatapointBoxSource for OracleBoxMock {
     fn get_local_oracle_datapoint_box(
         &self,
-    ) -> std::result::Result<Option<OracleBoxWrapper>, StageError> {
+    ) -> std::result::Result<Option<OracleBoxWrapper>, DataSourceError> {
         Ok(Some(self.oracle_box.clone()))
     }
 }
@@ -86,7 +86,7 @@ pub(crate) struct BallotBoxMock {
 }
 
 impl LocalBallotBoxSource for BallotBoxMock {
-    fn get_ballot_box(&self) -> std::result::Result<Option<BallotBoxWrapper>, StageError> {
+    fn get_ballot_box(&self) -> std::result::Result<Option<BallotBoxWrapper>, DataSourceError> {
         Ok(Some(self.ballot_box.clone()))
     }
 }
@@ -96,7 +96,7 @@ pub struct BallotBoxesMock {
 }
 
 impl VoteBallotBoxesSource for BallotBoxesMock {
-    fn get_ballot_boxes(&self) -> std::result::Result<Vec<VoteBallotBoxWrapper>, StageError> {
+    fn get_ballot_boxes(&self) -> std::result::Result<Vec<VoteBallotBoxWrapper>, DataSourceError> {
         Ok(self.ballot_boxes.clone())
     }
 }

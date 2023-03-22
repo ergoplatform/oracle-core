@@ -7,7 +7,7 @@ use crate::actions::PoolAction;
 use crate::box_kind::PoolBox;
 use crate::datapoint_source::RuntimeDataPointSource;
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_state::{OraclePool, StageError};
+use crate::oracle_state::{DataSourceError, OraclePool};
 use crate::oracle_types::BlockHeight;
 use crate::pool_config::POOL_CONFIG;
 use crate::wallet::WalletDataSource;
@@ -33,8 +33,8 @@ pub enum PoolCommand {
 
 #[derive(Debug, From, Error)]
 pub enum PoolCommandError {
-    #[error("stage error: {0}")]
-    StageError(StageError),
+    #[error("data source error: {0}")]
+    DataSourceError(DataSourceError),
     #[error("unexpected error: {0}")]
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
@@ -58,7 +58,7 @@ pub fn build_action(
     datapoint_source: &RuntimeDataPointSource,
 ) -> Result<PoolAction, PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();
-    let datapoint_stage_src = op.get_datapoint_boxes_source();
+    let datapoint_boxes_source = op.get_datapoint_boxes_source();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
     let current_epoch_counter = pool_box.epoch_counter();
     let oracle_public_key =
@@ -104,7 +104,7 @@ pub fn build_action(
         PoolCommand::Refresh => build_refresh_action(
             op.get_pool_box_source(),
             refresh_box_source,
-            datapoint_stage_src,
+            datapoint_boxes_source,
             POOL_CONFIG
                 .refresh_box_wrapper_inputs
                 .contract_inputs

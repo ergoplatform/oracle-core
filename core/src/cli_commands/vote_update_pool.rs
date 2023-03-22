@@ -23,7 +23,7 @@ use crate::{
     explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::{BASE_FEE, ORACLE_CONFIG},
-    oracle_state::{LocalBallotBoxSource, StageError},
+    oracle_state::{DataSourceError, LocalBallotBoxSource},
     oracle_types::BlockHeight,
     pool_config::{TokenIds, POOL_CONFIG},
     spec_token::{RewardTokenId, SpecToken, TokenIdKind},
@@ -34,8 +34,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error, From)]
 pub enum VoteUpdatePoolError {
-    #[error("Vote update pool: stage error {0}")]
-    StageError(StageError),
+    #[error("Vote update pool: data source error {0}")]
+    DataSourceError(DataSourceError),
     #[error("Vote update pool: ErgoBoxCandidateBuilder error {0}")]
     ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
     #[error("Vote update pool: node error {0}")]

@@ -5,7 +5,6 @@ use crate::box_kind::{
     RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
     VoteBallotBoxWrapper,
 };
-use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::DataPointSourceError;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
@@ -16,19 +15,17 @@ use crate::scans::{
     register_local_ballot_box_scan, register_local_oracle_datapoint_scan, register_pool_box_scan,
     register_refresh_box_scan, register_update_box_scan, save_scan_ids, Scan, ScanError,
 };
-use crate::state::PoolState;
 use anyhow::Error;
 use derive_more::From;
 
 use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, StageError>;
+pub type Result<T> = std::result::Result<T, DataSourceError>;
 
 #[derive(Debug, From, Error)]
-pub enum StageError {
+pub enum DataSourceError {
     #[error("unexpected data error: {0}")]
     UnexpectedData(TryExtractFromError),
     #[error("scan error: {0}")]
@@ -51,17 +48,6 @@ pub enum StageError {
     UpdateBoxError(UpdateBoxError),
     #[error("update box not found")]
     UpdateBoxNotFoundError,
-}
-
-pub trait StageDataSource {
-    /// Returns all boxes held at the given stage based on the registered scan
-    fn get_boxes(&self) -> Result<Vec<ErgoBox>>;
-
-    /// Returns the first box found by the registered scan for a given `Stage`
-    fn get_box(&self) -> Result<Option<ErgoBox>>;
-
-    /// Returns the number of boxes held at the given stage based on the registered scan
-    fn number_of_boxes(&self) -> Result<u64>;
 }
 
 pub trait PoolBoxSource {
@@ -92,19 +78,10 @@ pub trait UpdateBoxSource {
     fn get_update_box(&self) -> Result<UpdateBoxWrapper>;
 }
 
-/// A `Stage` in the multi-stage smart contract protocol. Is defined here by it's contract address & it's scan_id
-#[derive(Debug, Clone)]
-pub struct Stage {
-    pub contract_address: String,
-    pub scan: Scan,
-}
-
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug)]
 pub struct OraclePool<'a> {
-    // pub data_point_source: Box<dyn DataPointSource>,
-    /// Stages
-    pub datapoint_stage: DatapointStage<'a>,
+    oracle_datapoint_scan: OracleDatapointScan<'a>,
     local_oracle_datapoint_scan: LocalOracleDatapointScan<'a>,
     local_ballot_box_scan: LocalBallotBoxScan<'a>,
     pool_box_scan: PoolBoxScan<'a>,
@@ -114,8 +91,8 @@ pub struct OraclePool<'a> {
 }
 
 #[derive(Debug)]
-pub struct DatapointStage<'a> {
-    pub stage: Stage,
+pub struct OracleDatapointScan<'a> {
+    scan: Scan,
     oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
@@ -184,10 +161,6 @@ impl<'a> OraclePool<'a> {
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
-        let datapoint_contract =
-            OracleContract::checked_load(&pool_config.oracle_box_wrapper_inputs.contract_inputs)?
-                .ergo_tree();
-
         let scan_json = load_scan_ids()?;
 
         // Create all `Scan` structs for protocol
@@ -195,6 +168,10 @@ impl<'a> OraclePool<'a> {
             "All Oracle Datapoints Scan",
             &scan_json["All Datapoints Scan"].to_string(),
         );
+        let oracle_datapoint_scan = OracleDatapointScan {
+            scan: datapoint_scan,
+            oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
+        };
         let local_scan_str = "Local Oracle Datapoint Scan";
         let local_oracle_datapoint_scan = LocalOracleDatapointScan {
             scan: Scan::new(
@@ -238,13 +215,7 @@ impl<'a> OraclePool<'a> {
 
         // Create `OraclePool` struct
         Ok(OraclePool {
-            datapoint_stage: DatapointStage {
-                stage: Stage {
-                    contract_address: datapoint_contract.to_base16_bytes()?,
-                    scan: datapoint_scan,
-                },
-                oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
-            },
+            oracle_datapoint_scan,
             local_oracle_datapoint_scan,
             local_ballot_box_scan,
             ballot_boxes_scan,
@@ -252,14 +223,6 @@ impl<'a> OraclePool<'a> {
             refresh_box_scan,
             update_box_scan,
         })
-    }
-
-    /// Get the current stage of the oracle pool box. Returns either `Preparation` or `Epoch`.
-    pub fn check_oracle_pool_stage(&self) -> PoolState {
-        match self.get_live_epoch_state() {
-            Ok(s) => PoolState::LiveEpoch(s),
-            Err(_) => PoolState::NeedsBootstrap,
-        }
     }
 
     /// Get the state of the current oracle pool epoch
@@ -310,7 +273,7 @@ impl<'a> OraclePool<'a> {
     }
 
     pub fn get_datapoint_boxes_source(&self) -> &dyn DatapointBoxesSource {
-        &self.datapoint_stage as &dyn DatapointBoxesSource
+        &self.oracle_datapoint_scan as &dyn DatapointBoxesSource
     }
 
     pub fn get_local_datapoint_box_source(&self) -> &dyn LocalDatapointBoxSource {
@@ -327,7 +290,7 @@ impl<'a> PoolBoxSource for PoolBoxScan<'a> {
         let box_wrapper = PoolBoxWrapper::new(
             self.scan
                 .get_box()?
-                .ok_or(StageError::PoolBoxNotFoundError)?,
+                .ok_or(DataSourceError::PoolBoxNotFoundError)?,
             self.pool_box_wrapper_inputs,
         )?;
         Ok(box_wrapper)
@@ -355,7 +318,7 @@ impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
         let box_wrapper = RefreshBoxWrapper::new(
             self.scan
                 .get_box()?
-                .ok_or(StageError::RefreshBoxNotFoundError)?,
+                .ok_or(DataSourceError::RefreshBoxNotFoundError)?,
             self.refresh_box_wrapper_inputs,
         )?;
         Ok(box_wrapper)
@@ -393,34 +356,17 @@ impl<'a> UpdateBoxSource for UpdateBoxScan<'a> {
         let box_wrapper = UpdateBoxWrapper::new(
             self.scan
                 .get_box()?
-                .ok_or(StageError::UpdateBoxNotFoundError)?,
+                .ok_or(DataSourceError::UpdateBoxNotFoundError)?,
             self.update_box_wrapper_inputs,
         )?;
         Ok(box_wrapper)
     }
 }
 
-impl StageDataSource for Stage {
-    /// Returns all boxes held at the given stage based on the registered scan
-    fn get_boxes(&self) -> Result<Vec<ErgoBox>> {
-        self.scan.get_boxes().map_err(Into::into)
-    }
-
-    /// Returns the first box found by the registered scan for a given `Stage`
-    fn get_box(&self) -> Result<Option<ErgoBox>> {
-        self.scan.get_box().map_err(Into::into)
-    }
-
-    /// Returns the number of boxes held at the given stage based on the registered scan
-    fn number_of_boxes(&self) -> Result<u64> {
-        Ok(self.get_boxes()?.len() as u64)
-    }
-}
-
-impl<'a> DatapointBoxesSource for DatapointStage<'a> {
+impl<'a> DatapointBoxesSource for OracleDatapointScan<'a> {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
         let oracle_boxes: Vec<OracleBoxWrapper> = self
-            .stage
+            .scan
             .get_boxes()?
             .into_iter()
             .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
