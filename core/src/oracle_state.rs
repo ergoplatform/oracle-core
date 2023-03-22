@@ -5,7 +5,6 @@ use crate::box_kind::{
     RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
     VoteBallotBoxWrapper,
 };
-use crate::contracts::ballot::BallotContract;
 use crate::contracts::oracle::OracleContract;
 use crate::datapoint_source::DataPointSourceError;
 use crate::node_interface::node_api::NodeApi;
@@ -470,24 +469,10 @@ fn register_and_save_scans_inner(node_api: &NodeApi) -> std::result::Result<(), 
     let pool_config = &POOL_CONFIG;
     let oracle_config = &ORACLE_CONFIG;
     let local_oracle_address = oracle_config.oracle_address.clone();
-
     let oracle_pool_participant_token_id = pool_config.token_ids.oracle_token_id.clone();
-
     let refresh_box_scan_name = "Refresh Box Scan";
-
-    let datapoint_contract_address =
-        OracleContract::checked_load(&pool_config.oracle_box_wrapper_inputs.contract_inputs)?
-            .ergo_tree();
-
-    let ballot_contract_address =
-        BallotContract::checked_load(&pool_config.ballot_box_wrapper_inputs.contract_inputs)?
-            .ergo_tree();
-
     let scans = vec![
-        register_datapoint_scan(
-            &oracle_pool_participant_token_id,
-            &datapoint_contract_address,
-        )?,
+        register_datapoint_scan(&oracle_pool_participant_token_id)?,
         register_update_box_scan(&pool_config.token_ids.update_nft_token_id)?,
         register_pool_box_scan(pool_config.pool_box_wrapper_inputs.clone())?,
         register_refresh_box_scan(
@@ -496,18 +481,13 @@ fn register_and_save_scans_inner(node_api: &NodeApi) -> std::result::Result<(), 
         )?,
         register_local_oracle_datapoint_scan(
             &oracle_pool_participant_token_id,
-            &datapoint_contract_address,
             &local_oracle_address,
         )?,
         register_local_ballot_box_scan(
-            &ballot_contract_address,
             &pool_config.token_ids.ballot_token_id,
             &oracle_config.oracle_address,
         )?,
-        register_ballot_box_scan(
-            &ballot_contract_address,
-            &pool_config.token_ids.ballot_token_id,
-        )?,
+        register_ballot_box_scan(&pool_config.token_ids.ballot_token_id)?,
     ];
 
     log::info!("Registering UTXO-Set Scans");
