@@ -9,10 +9,11 @@ use crate::oracle_config::ORACLE_CONFIG;
 use crate::pool_config::POOL_CONFIG;
 use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
 
-use derive_more::{Display, From, Into};
+use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
+use ergo_node_interface::ScanId;
 use log::info;
 use once_cell::sync;
 use serde_json::json;
@@ -41,9 +42,6 @@ pub enum ScanError {
     AddressUtilError(AddressUtilError),
 }
 
-#[derive(Debug, Copy, Clone, From, Into, Display)]
-pub struct ScanId(u64);
-
 #[derive(Debug, Clone, Copy)]
 pub struct OracleTokenScan {
     id: ScanId,
@@ -54,7 +52,9 @@ impl OracleTokenScan {
 
     pub fn load_from_json(json: &serde_json::Value) -> Result<Self, ScanError> {
         let id = json.get(Self::NAME).unwrap().as_u64().unwrap();
-        Ok(OracleTokenScan { id: ScanId(id) })
+        Ok(OracleTokenScan {
+            id: ScanId::from(id),
+        })
     }
 
     pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
@@ -74,12 +74,17 @@ impl OracleTokenScan {
         node_api: &NodeApi,
         oracle_token_id: &OracleTokenId,
     ) -> Result<Self, ScanError> {
-        let id = node_api.register_scan2(Self::NAME, Self::tracking_rule(oracle_token_id))?;
+        let id = node_api.register_scan(Self::NAME, Self::tracking_rule(oracle_token_id))?;
         Ok(OracleTokenScan { id })
     }
 
+    pub fn deregister(&self, node_api: &NodeApi) -> Result<(), ScanError> {
+        node_api.deregister_scan(self.id)?;
+        Ok(())
+    }
+
     pub fn get_old_scan(&self) -> Scan {
-        Scan::new(Self::NAME, &self.id.0.to_string())
+        Scan::new(Self::NAME, &u64::from(self.id).to_string())
     }
 }
 
@@ -96,9 +101,7 @@ pub trait ScanGetId {
 pub trait ScanGetBoxes: ScanGetId {
     fn get_boxes(&self) -> Result<Vec<ErgoBox>, ScanError> {
         let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-        let boxes = node_api
-            .node
-            .scan_boxes(&self.get_scan_id().0.to_string())?;
+        let boxes = node_api.node.scan_boxes(self.get_scan_id())?;
         Ok(boxes)
     }
 }
@@ -137,7 +140,7 @@ impl Scan {
             serde_json::to_string_pretty(&scan_json).unwrap()
         );
 
-        let scan_id = node_api.register_scan(&scan_json)?;
+        let scan_id = node_api.register_scan_raw(scan_json)?;
         info!("Scan Successfully Set.\nID: {}", scan_id);
 
         Ok(Scan::new(name, &scan_id))
@@ -146,7 +149,8 @@ impl Scan {
     /// Returns all boxes found by the scan
     pub fn get_boxes(&self) -> std::result::Result<Vec<ErgoBox>, ScanError> {
         let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-        let boxes = node_api.node.scan_boxes(&self.id)?;
+        let scan_id: ScanId = self.id.parse::<u64>().unwrap().into();
+        let boxes = node_api.node.scan_boxes(scan_id)?;
         Ok(boxes)
     }
 
