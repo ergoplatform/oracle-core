@@ -50,13 +50,11 @@ pub struct OracleTokenScan {
 }
 
 impl OracleTokenScan {
-    pub fn load_from_json(json: &serde_json::Value) -> Result<Self, ScanError> {
-        let id = json.get(Self::name()).unwrap().as_u64().unwrap();
-        Ok(OracleTokenScan { id: ScanId(id) })
-    }
+    pub const NAME: &'static str = "All Datapoints Scan";
 
-    pub fn name() -> &'static str {
-        "All Datapoints Scan"
+    pub fn load_from_json(json: &serde_json::Value) -> Result<Self, ScanError> {
+        let id = json.get(Self::NAME).unwrap().as_u64().unwrap();
+        Ok(OracleTokenScan { id: ScanId(id) })
     }
 
     pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
@@ -76,12 +74,12 @@ impl OracleTokenScan {
         node_api: &NodeApi,
         oracle_token_id: &OracleTokenId,
     ) -> Result<Self, ScanError> {
-        let id = node_api.register_scan2(Self::name(), Self::tracking_rule(oracle_token_id))?;
+        let id = node_api.register_scan2(Self::NAME, Self::tracking_rule(oracle_token_id))?;
         Ok(OracleTokenScan { id })
     }
 
     pub fn get_old_scan(&self) -> Scan {
-        Scan::new(Self::name(), &self.id.0.to_string())
+        Scan::new(Self::NAME, &self.id.0.to_string())
     }
 }
 
