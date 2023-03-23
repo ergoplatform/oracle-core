@@ -5,6 +5,7 @@ use anyhow::anyhow;
 use crate::box_kind::OracleBox;
 use crate::oracle_state::LocalDatapointBoxSource;
 use crate::pool_config::PoolConfig;
+use crate::pool_config::POOL_CONFIG;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::RewardTokenId;
 
@@ -48,10 +49,19 @@ pub fn import_pool_update(
                 anyhow!("Since new reward token is minted reward tokens from the current oracle box will be lost. Please transfer them to a different address with extract-reward-tokens command before importing new pool config.")
             );
     }
+
+    let new_token_ids = &new_pool_config.token_ids;
+    let old_token_ids = &POOL_CONFIG.token_ids;
+    if new_token_ids.pool_nft_token_id != old_token_ids.pool_nft_token_id
+        || new_token_ids.refresh_nft_token_id != old_token_ids.refresh_nft_token_id
+        || new_token_ids.oracle_token_id != old_token_ids.oracle_token_id
+        || new_token_ids.update_nft_token_id != old_token_ids.update_nft_token_id
+        || new_token_ids.ballot_token_id != old_token_ids.ballot_token_id
+    {
+        // TODO: unregister scans with node
+        std::fs::remove_file(scan_ids_path)
+            .map_err(|e| anyhow!("Failed to remove scan ids file {:?}: {}", scan_ids_path, e))?;
+    }
     new_pool_config.save(current_pool_config_path)?;
-    // TODO: unregister scans with node
-    // TODO: only remove scans if tokens changed
-    std::fs::remove_file(scan_ids_path)
-        .map_err(|e| anyhow!("Failed to remove scan ids file {:?}: {}", scan_ids_path, e))?;
     Ok(())
 }
