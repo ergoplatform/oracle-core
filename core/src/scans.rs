@@ -19,6 +19,9 @@ use once_cell::sync;
 use serde_json::json;
 use thiserror::Error;
 
+mod registry;
+pub use registry::*;
+
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;
 
@@ -80,15 +83,15 @@ impl OracleTokenScan {
 }
 
 pub trait NodeScan: NodeScanId {
-    fn scan_name() -> &'static str;
+    fn scan_name(&self) -> &'static str;
     fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError>;
     fn get_old_scan(&self) -> Scan {
-        Scan::new(Self::scan_name(), &u64::from(self.scan_id()).to_string())
+        Scan::new(self.scan_name(), &u64::from(self.scan_id()).to_string())
     }
 }
 
 impl NodeScan for OracleTokenScan {
-    fn scan_name() -> &'static str {
+    fn scan_name(&self) -> &'static str {
         OracleTokenScan::NAME
     }
 

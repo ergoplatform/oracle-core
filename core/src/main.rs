@@ -315,6 +315,7 @@ fn handle_pool_command(
     let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
     log_on_launch();
     assert_wallet_unlocked(&node_api.node);
+    todo!("instantiate NodeScanRegistry here");
     register_and_save_scans(&node_api).unwrap();
     let op = OraclePool::new().unwrap();
     match command {

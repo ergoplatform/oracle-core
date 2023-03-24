@@ -58,6 +58,7 @@ pub fn import_pool_update(
         || new_token_ids.update_nft_token_id != old_token_ids.update_nft_token_id
         || new_token_ids.ballot_token_id != old_token_ids.ballot_token_id
     {
+        // TODO: get scans from NodeScanRegistry
         // TODO: unregister scans with node
         std::fs::remove_file(scan_ids_path)
             .map_err(|e| anyhow!("Failed to remove scan ids file {:?}: {}", scan_ids_path, e))?;

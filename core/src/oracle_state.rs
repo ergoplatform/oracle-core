@@ -156,6 +156,8 @@ impl<'a> OraclePool<'a> {
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
+        todo!("get rid of the OraclePool and use individual scans as needed");
+
         let scan_json = load_scan_ids()?;
 
         // Create all `Scan` structs for protocol
