@@ -77,31 +77,41 @@ impl OracleTokenScan {
         let id = node_api.register_scan(Self::NAME, Self::tracking_rule(oracle_token_id))?;
         Ok(OracleTokenScan { id })
     }
+}
 
-    pub fn deregister(&self, node_api: &NodeApi) -> Result<(), ScanError> {
-        node_api.deregister_scan(self.id)?;
-        Ok(())
-    }
-
-    pub fn get_old_scan(&self) -> Scan {
-        Scan::new(Self::NAME, &u64::from(self.id).to_string())
+pub trait NodeScan: NodeScanId {
+    fn scan_name() -> &'static str;
+    fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError>;
+    fn get_old_scan(&self) -> Scan {
+        Scan::new(Self::scan_name(), &u64::from(self.scan_id()).to_string())
     }
 }
 
-impl ScanGetId for OracleTokenScan {
-    fn get_scan_id(&self) -> ScanId {
+impl NodeScan for OracleTokenScan {
+    fn scan_name() -> &'static str {
+        OracleTokenScan::NAME
+    }
+
+    fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError> {
+        node_api.deregister_scan(self.id)?;
+        Ok(())
+    }
+}
+
+impl NodeScanId for OracleTokenScan {
+    fn scan_id(&self) -> ScanId {
         self.id
     }
 }
 
-pub trait ScanGetId {
-    fn get_scan_id(&self) -> ScanId;
+pub trait NodeScanId {
+    fn scan_id(&self) -> ScanId;
 }
 
-pub trait ScanGetBoxes: ScanGetId {
+pub trait ScanGetBoxes: NodeScanId {
     fn get_boxes(&self) -> Result<Vec<ErgoBox>, ScanError> {
         let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-        let boxes = node_api.node.scan_boxes(self.get_scan_id())?;
+        let boxes = node_api.node.scan_boxes(self.scan_id())?;
         Ok(boxes)
     }
 }
