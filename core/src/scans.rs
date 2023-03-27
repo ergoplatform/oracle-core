@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use crate::address_util::{address_to_raw_for_register, AddressUtilError};
 use crate::box_kind::{PoolBoxWrapperInputs, RefreshBoxWrapperInputs};
 use crate::contracts::pool::PoolContractError;
@@ -15,7 +13,7 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
 use ergo_node_interface::ScanId;
 use log::info;
-use once_cell::sync;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 
@@ -45,20 +43,14 @@ pub enum ScanError {
     AddressUtilError(AddressUtilError),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct OracleTokenScan {
     id: ScanId,
 }
 
 impl OracleTokenScan {
     pub const NAME: &'static str = "All Datapoints Scan";
-
-    pub fn load_from_json(json: &serde_json::Value) -> Result<Self, ScanError> {
-        let id = json.get(Self::NAME).unwrap().as_u64().unwrap();
-        Ok(OracleTokenScan {
-            id: ScanId::from(id),
-        })
-    }
 
     pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
         json!({
@@ -171,12 +163,6 @@ impl Scan {
     pub fn get_box(&self) -> std::result::Result<Option<ErgoBox>, ScanError> {
         Ok(self.get_boxes()?.first().cloned())
     }
-}
-
-pub static SCANS_DIR_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
-
-pub fn get_scans_file_path() -> PathBuf {
-    SCANS_DIR_PATH.get().unwrap().join("scanIDs.json")
 }
 
 /// Saves UTXO-set scans (specifically id) to scanIDs.json

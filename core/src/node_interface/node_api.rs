@@ -71,6 +71,7 @@ impl NodeApi {
     }
 
     pub fn rescan_from_height(&self, height: u32) -> Result<(), NodeApiError> {
+        log::info!("Triggering wallet rescan");
         self.node.send_post_req(
             "/wallet/rescan",
             format!("{{ \"fromHeight\": {} }} ", height),

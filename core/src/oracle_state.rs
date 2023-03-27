@@ -9,7 +9,9 @@ use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::{BlockHeight, EpochCounter};
 use crate::pool_config::POOL_CONFIG;
-use crate::scans::{load_scan_ids, OracleTokenScan, Scan, ScanError, ScanGetBoxes};
+use crate::scans::{
+    load_scan_ids, NodeScanRegistry, OracleTokenScan, Scan, ScanError, ScanGetBoxes,
+};
 use anyhow::Error;
 use derive_more::From;
 
@@ -156,14 +158,12 @@ impl<'a> OraclePool<'a> {
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
-        todo!("get rid of the OraclePool and use individual scans as needed");
-
         let scan_json = load_scan_ids()?;
 
+        let node_scan_registry = NodeScanRegistry::load()?;
         // Create all `Scan` structs for protocol
-        let datapoint_scan = OracleTokenScan::load_from_json(&scan_json)?;
         let oracle_datapoint_scan = OracleDatapointScan {
-            scan: datapoint_scan,
+            scan: node_scan_registry.oracle_token_scan,
             oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
         };
         let local_scan_str = "Local Oracle Datapoint Scan";

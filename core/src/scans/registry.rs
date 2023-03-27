@@ -1,26 +1,116 @@
+use std::path::PathBuf;
+
 use crate::node_interface::node_api::NodeApi;
 use crate::node_interface::node_api::NodeApiError;
+use crate::pool_config::POOL_CONFIG;
+
+use ::serde::Deserialize;
+use ::serde::Serialize;
+use once_cell::sync;
+use thiserror::Error;
 
 use super::NodeScan;
+use super::OracleTokenScan;
+use super::ScanError;
 
-pub struct NodeScanRegistry<'a> {
-    // TODO: own scans
-    pub scans: Vec<&'a dyn NodeScan>,
+pub static SCANS_DIR_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
+
+pub fn get_scans_file_path() -> PathBuf {
+    SCANS_DIR_PATH.get().unwrap().join("scanIDs.json")
 }
 
-impl<'a> NodeScanRegistry<'a> {
-    pub fn new() -> NodeScanRegistry<'static> {
-        NodeScanRegistry { scans: Vec::new() }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeScanRegistry {
+    #[serde(rename = "All Datapoints Scan")]
+    pub oracle_token_scan: OracleTokenScan,
+}
+
+impl NodeScanRegistry {
+    fn load_from_json_str(json_str: &str) -> Result<Self, NodeScanRegistryError> {
+        serde_json::from_str(json_str).map_err(|e| NodeScanRegistryError::ParseError(e.to_string()))
     }
 
-    pub fn register(&mut self, scan: &'a dyn NodeScan) {
-        self.scans.push(scan);
+    fn save_to_json_file(&self, file_path: &PathBuf) -> Result<(), NodeScanRegistryError> {
+        let json_str = serde_json::to_string_pretty(&self).unwrap();
+        log::debug!("Saving scan IDs to {}", file_path.display());
+        std::fs::write(file_path, json_str)
+            .map_err(|e| NodeScanRegistryError::IoError(e.to_string()))
+    }
+
+    fn register_and_save_scans_inner(
+        node_api: &NodeApi,
+    ) -> std::result::Result<Self, NodeScanRegistryError> {
+        let pool_config = &POOL_CONFIG;
+        log::info!("Registering UTXO-Set Scans");
+        let oracle_token_scan =
+            OracleTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?;
+        let registry = Self { oracle_token_scan };
+        registry.save_to_json_file(&get_scans_file_path())?;
+        node_api.rescan_from_height(0)?;
+        Ok(registry)
+    }
+
+    pub fn load() -> Result<Self, NodeScanRegistryError> {
+        let path = get_scans_file_path();
+        log::debug!("Loading scan IDs from {}", path.display());
+        let json_str = std::fs::read_to_string(path)
+            .map_err(|e| NodeScanRegistryError::IoError(e.to_string()))?;
+        let registry = Self::load_from_json_str(&json_str)?;
+        Ok(registry)
+    }
+
+    pub fn ensure_node_registered_scans(
+        node_api: &NodeApi,
+    ) -> std::result::Result<Self, NodeScanRegistryError> {
+        let path = get_scans_file_path();
+        log::debug!("Loading scan IDs from {}", path.display());
+        let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
+            Self::load_from_json_str(&json_str)?
+        } else {
+            Self::register_and_save_scans_inner(node_api)?
+        };
+        wait_for_node_rescan(node_api)?;
+        Ok(registry)
+    }
+
+    fn node_scans(&self) -> Vec<&dyn NodeScan> {
+        vec![&self.oracle_token_scan]
     }
 
     pub fn deregister_all_scans(self, node_api: &NodeApi) -> Result<(), NodeApiError> {
-        for scan in self.scans {
+        for scan in self.node_scans() {
             node_api.deregister_scan(scan.scan_id())?;
         }
         Ok(())
     }
+}
+
+fn wait_for_node_rescan(node_api: &NodeApi) -> Result<(), NodeApiError> {
+    let wallet_height = node_api.node.wallet_status()?.height;
+    let block_height = node_api.node.current_block_height()?;
+    if wallet_height == block_height {
+        return Ok(());
+    }
+    Ok(loop {
+        let wallet_height = node_api.node.wallet_status()?.height;
+        let block_height = node_api.node.current_block_height()?;
+        println!("Scanned {}/{} blocks", wallet_height, block_height);
+        if wallet_height == block_height {
+            println!("Wallet Scan Complete!");
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    })
+}
+
+#[derive(Debug, Error)]
+pub enum NodeScanRegistryError {
+    #[error("Error registering scan: {0}")]
+    ScanError(#[from] ScanError),
+    #[error("Error node: {0}")]
+    NodeApiError(#[from] NodeApiError),
+    #[error("Error parsing oracle config file: {0}")]
+    ParseError(String),
+    #[error("Error reading/writing file: {0}")]
+    IoError(String),
 }

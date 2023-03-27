@@ -68,7 +68,6 @@ use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
 use scans::get_scans_file_path;
-use scans::register_and_save_scans;
 use spec_token::RewardTokenId;
 use spec_token::SpecToken;
 use spec_token::TokenIdKind;
@@ -91,6 +90,7 @@ use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
 use crate::oracle_config::ORACLE_CONFIG_OPT;
 use crate::pool_config::POOL_CONFIG_FILE_PATH;
+use crate::scans::NodeScanRegistry;
 
 const APP_VERSION: &str = concat!(
     "v",
@@ -315,8 +315,7 @@ fn handle_pool_command(
     let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
     log_on_launch();
     assert_wallet_unlocked(&node_api.node);
-    todo!("instantiate NodeScanRegistry here");
-    register_and_save_scans(&node_api).unwrap();
+    let node_scan_registry = NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
     let op = OraclePool::new().unwrap();
     match command {
         Command::Run {
