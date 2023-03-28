@@ -19,7 +19,7 @@ pub fn get_scans_file_path() -> PathBuf {
     SCANS_DIR_PATH.get().unwrap().join("scanIDs.json")
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NodeScanRegistry {
     #[serde(rename = "All Datapoints Scan")]
     pub oracle_token_scan: OracleTokenScan,
@@ -30,8 +30,12 @@ impl NodeScanRegistry {
         serde_json::from_str(json_str).map_err(|e| NodeScanRegistryError::Parse(e.to_string()))
     }
 
+    fn save_to_json_str(&self) -> String {
+        serde_json::to_string_pretty(&self).unwrap()
+    }
+
     fn save_to_json_file(&self, file_path: &PathBuf) -> Result<(), NodeScanRegistryError> {
-        let json_str = serde_json::to_string_pretty(&self).unwrap();
+        let json_str = self.save_to_json_str();
         log::debug!("Saving scan IDs to {}", file_path.display());
         std::fs::write(file_path, json_str).map_err(|e| NodeScanRegistryError::Io(e.to_string()))
     }
@@ -112,4 +116,47 @@ pub enum NodeScanRegistryError {
     Parse(String),
     #[error("Error reading/writing file: {0}")]
     Io(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn parse_legacy_json() {
+        let json_str = r#"{ 
+        "All Datapoints Scan": "185",
+        "Update Box Scan": "186",
+        "Pool Box Scan": "187",
+        "Refresh Box Scan": "188",
+        "Local Oracle Datapoint Scan": "189",
+        "Local Ballot Box Scan": "190",
+        "Ballot Box Scan": "191" 
+        }"#;
+        let registry = NodeScanRegistry::load_from_json_str(json_str).unwrap();
+        assert_eq!(registry.oracle_token_scan.id, 185.into());
+    }
+
+    #[test]
+    fn check_encoded_json() {
+        let registry = NodeScanRegistry {
+            oracle_token_scan: OracleTokenScan { id: 185.into() },
+        };
+        let json_str = registry.save_to_json_str();
+        let expected_json_str = r#"{
+  "All Datapoints Scan": "185"
+}"#;
+        assert_eq!(json_str, expected_json_str);
+    }
+
+    #[test]
+    fn json_roundtrip() {
+        let registry = NodeScanRegistry {
+            oracle_token_scan: OracleTokenScan { id: 185.into() },
+        };
+        let json_str = registry.save_to_json_str();
+        let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
+        assert_eq!(registry, registry2);
+    }
 }

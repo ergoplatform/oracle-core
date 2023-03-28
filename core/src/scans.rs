@@ -43,8 +43,8 @@ pub enum ScanError {
     AddressUtilError(AddressUtilError),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(try_from = "String", into = "String")]
 pub struct OracleTokenScan {
     id: ScanId,
 }
@@ -73,6 +73,21 @@ impl OracleTokenScan {
         );
         let id = node_api.register_scan(scan_name, Self::tracking_rule(oracle_token_id))?;
         Ok(OracleTokenScan { id })
+    }
+}
+
+impl TryFrom<String> for OracleTokenScan {
+    type Error = ScanError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let id = value.parse::<u64>().unwrap().into();
+        Ok(OracleTokenScan { id })
+    }
+}
+
+impl From<OracleTokenScan> for String {
+    fn from(scan: OracleTokenScan) -> Self {
+        scan.id.to_string()
     }
 }
 
