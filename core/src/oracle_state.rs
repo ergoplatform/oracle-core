@@ -151,8 +151,9 @@ pub enum LocalDatapointState {
 }
 
 impl<'a> OraclePool<'a> {
-    /// Create a new `OraclePool` struct
-    pub fn new() -> std::result::Result<OraclePool<'static>, Error> {
+    pub fn new(
+        node_scan_registry: &NodeScanRegistry,
+    ) -> std::result::Result<OraclePool<'static>, Error> {
         let pool_config = &POOL_CONFIG;
         let oracle_config = &ORACLE_CONFIG;
 
@@ -160,7 +161,6 @@ impl<'a> OraclePool<'a> {
 
         let scan_json = load_scan_ids()?;
 
-        let node_scan_registry = NodeScanRegistry::load()?;
         // Create all `Scan` structs for protocol
         let oracle_datapoint_scan = OracleDatapointScan {
             scan: node_scan_registry.oracle_token_scan,
@@ -217,6 +217,12 @@ impl<'a> OraclePool<'a> {
             refresh_box_scan,
             update_box_scan,
         })
+    }
+
+    /// Create a new `OraclePool` struct with loaded scans
+    pub fn load() -> std::result::Result<OraclePool<'static>, Error> {
+        let node_scan_registry = NodeScanRegistry::load()?;
+        Self::new(&node_scan_registry)
     }
 
     /// Get the state of the current oracle pool epoch

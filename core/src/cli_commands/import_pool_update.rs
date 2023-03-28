@@ -3,12 +3,15 @@ use std::path::Path;
 use anyhow::anyhow;
 
 use crate::box_kind::OracleBox;
+use crate::node_interface::node_api::NodeApi;
 use crate::oracle_state::LocalDatapointBoxSource;
 use crate::pool_config::PoolConfig;
 use crate::pool_config::POOL_CONFIG;
+use crate::scans::NodeScanRegistry;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::RewardTokenId;
 
+#[allow(clippy::too_many_arguments)]
 pub fn import_pool_update(
     new_pool_config_file: String,
     oracle_token_id: &OracleTokenId,
@@ -16,6 +19,8 @@ pub fn import_pool_update(
     current_pool_config_path: &Path,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     scan_ids_path: &Path,
+    node_scan_registry: NodeScanRegistry,
+    node_api: &NodeApi,
 ) -> Result<(), anyhow::Error> {
     let new_pool_config_str =
         std::fs::read_to_string(new_pool_config_file.clone()).map_err(|e| {
@@ -58,8 +63,7 @@ pub fn import_pool_update(
         || new_token_ids.update_nft_token_id != old_token_ids.update_nft_token_id
         || new_token_ids.ballot_token_id != old_token_ids.ballot_token_id
     {
-        // TODO: get scans from NodeScanRegistry
-        // TODO: unregister scans with node
+        node_scan_registry.deregister_all_scans(node_api).unwrap();
         std::fs::remove_file(scan_ids_path)
             .map_err(|e| anyhow!("Failed to remove scan ids file {:?}: {}", scan_ids_path, e))?;
     }

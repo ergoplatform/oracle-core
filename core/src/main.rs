@@ -316,7 +316,7 @@ fn handle_pool_command(
     log_on_launch();
     assert_wallet_unlocked(&node_api.node);
     let node_scan_registry = NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
-    let op = OraclePool::new().unwrap();
+    let op = OraclePool::new(&node_scan_registry).unwrap();
     match command {
         Command::Run {
             read_only,
@@ -431,6 +431,8 @@ fn handle_pool_command(
                 POOL_CONFIG_FILE_PATH.get().unwrap(),
                 op.get_local_datapoint_box_source(),
                 &get_scans_file_path(),
+                node_scan_registry,
+                &node_api,
             ) {
                 error!("Fatal import pool update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);

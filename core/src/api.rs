@@ -38,7 +38,7 @@ async fn oracle_info() -> impl IntoResponse {
 
 /// Status of the oracle
 async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
-    let op = OraclePool::new().unwrap();
+    let op = OraclePool::load().unwrap();
     let live_epoch = task::spawn_blocking(move || op.get_live_epoch_state())
         .await
         .unwrap()?;
@@ -116,7 +116,7 @@ async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
 fn pool_status_sync() -> Result<Json<serde_json::Value>, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = node_api.node.current_block_height()? as u32;
-    let op = OraclePool::new().unwrap();
+    let op = OraclePool::load().unwrap();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
     let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs

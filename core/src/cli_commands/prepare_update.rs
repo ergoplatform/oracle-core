@@ -141,7 +141,7 @@ fn print_hints_for_voting(height: BlockHeight) -> Result<(), PrepareUpdateError>
         .contract_parameters()
         .epoch_length()
         .0 as u32;
-    let op = OraclePool::new().unwrap();
+    let op = OraclePool::load().unwrap();
     let oracle_boxes = op
         .get_datapoint_boxes_source()
         .get_oracle_datapoint_boxes()?;
