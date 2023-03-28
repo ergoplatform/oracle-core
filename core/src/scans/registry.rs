@@ -27,14 +27,13 @@ pub struct NodeScanRegistry {
 
 impl NodeScanRegistry {
     fn load_from_json_str(json_str: &str) -> Result<Self, NodeScanRegistryError> {
-        serde_json::from_str(json_str).map_err(|e| NodeScanRegistryError::ParseError(e.to_string()))
+        serde_json::from_str(json_str).map_err(|e| NodeScanRegistryError::Parse(e.to_string()))
     }
 
     fn save_to_json_file(&self, file_path: &PathBuf) -> Result<(), NodeScanRegistryError> {
         let json_str = serde_json::to_string_pretty(&self).unwrap();
         log::debug!("Saving scan IDs to {}", file_path.display());
-        std::fs::write(file_path, json_str)
-            .map_err(|e| NodeScanRegistryError::IoError(e.to_string()))
+        std::fs::write(file_path, json_str).map_err(|e| NodeScanRegistryError::Io(e.to_string()))
     }
 
     fn register_and_save_scans_inner(
@@ -53,8 +52,8 @@ impl NodeScanRegistry {
     pub fn load() -> Result<Self, NodeScanRegistryError> {
         let path = get_scans_file_path();
         log::debug!("Loading scan IDs from {}", path.display());
-        let json_str = std::fs::read_to_string(path)
-            .map_err(|e| NodeScanRegistryError::IoError(e.to_string()))?;
+        let json_str =
+            std::fs::read_to_string(path).map_err(|e| NodeScanRegistryError::Io(e.to_string()))?;
         let registry = Self::load_from_json_str(&json_str)?;
         Ok(registry)
     }
@@ -106,11 +105,11 @@ fn wait_for_node_rescan(node_api: &NodeApi) -> Result<(), NodeApiError> {
 #[derive(Debug, Error)]
 pub enum NodeScanRegistryError {
     #[error("Error registering scan: {0}")]
-    ScanError(#[from] ScanError),
+    Scan(#[from] ScanError),
     #[error("Error node: {0}")]
-    NodeApiError(#[from] NodeApiError),
+    NodeApi(#[from] NodeApiError),
     #[error("Error parsing oracle config file: {0}")]
-    ParseError(String),
+    Parse(String),
     #[error("Error reading/writing file: {0}")]
-    IoError(String),
+    Io(String),
 }

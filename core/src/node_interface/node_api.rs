@@ -45,7 +45,7 @@ impl NodeApi {
 
     pub fn register_scan(
         &self,
-        name: &'static str,
+        name: String,
         tracking_rule: serde_json::Value,
     ) -> std::result::Result<ScanId, NodeApiError> {
         let scan_json = json!({

@@ -187,6 +187,7 @@ After the update tx is confirmed, remove `scanIds.json` and use `pool_config_upd
 Distribute the `pool_config.yaml` file to all the oracles. Be sure they delete `scanIds.json` before restart.
 
 ### Import update pool config with `import-pool-update` command
+
 Make sure the `pool_config_updated.yaml` config file generated during the `prepare-update` command is at hand.
 Run
 

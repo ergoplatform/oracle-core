@@ -5,7 +5,7 @@ use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::pool_config::POOL_CONFIG;
-use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
+use crate::spec_token::{BallotTokenId, OracleTokenId, TokenIdKind, UpdateTokenId};
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -50,8 +50,6 @@ pub struct OracleTokenScan {
 }
 
 impl OracleTokenScan {
-    pub const NAME: &'static str = "All Datapoints Scan";
-
     pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
         json!({
         "predicate": "and",
@@ -69,7 +67,11 @@ impl OracleTokenScan {
         node_api: &NodeApi,
         oracle_token_id: &OracleTokenId,
     ) -> Result<Self, ScanError> {
-        let id = node_api.register_scan(Self::NAME, Self::tracking_rule(oracle_token_id))?;
+        let scan_name = format!(
+            "oracle token scan {}",
+            String::from(oracle_token_id.token_id())
+        );
+        let id = node_api.register_scan(scan_name, Self::tracking_rule(oracle_token_id))?;
         Ok(OracleTokenScan { id })
     }
 }
@@ -83,8 +85,9 @@ pub trait NodeScan: NodeScanId {
 }
 
 impl NodeScan for OracleTokenScan {
+    #[allow(clippy::todo)]
     fn scan_name(&self) -> &'static str {
-        OracleTokenScan::NAME
+        todo!()
     }
 
     fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError> {
