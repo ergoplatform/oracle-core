@@ -45,9 +45,7 @@ pub enum ScanError {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(try_from = "String", into = "String")]
-pub struct OracleTokenScan {
-    id: ScanId,
-}
+pub struct OracleTokenScan(ScanId);
 
 impl OracleTokenScan {
     pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
@@ -72,7 +70,7 @@ impl OracleTokenScan {
             String::from(oracle_token_id.token_id())
         );
         let id = node_api.register_scan(scan_name, Self::tracking_rule(oracle_token_id))?;
-        Ok(OracleTokenScan { id })
+        Ok(OracleTokenScan(id))
     }
 }
 
@@ -81,13 +79,13 @@ impl TryFrom<String> for OracleTokenScan {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let id = value.parse::<u64>().unwrap().into();
-        Ok(OracleTokenScan { id })
+        Ok(OracleTokenScan(id))
     }
 }
 
 impl From<OracleTokenScan> for String {
     fn from(scan: OracleTokenScan) -> Self {
-        scan.id.to_string()
+        scan.0.to_string()
     }
 }
 
@@ -106,14 +104,14 @@ impl NodeScan for OracleTokenScan {
     }
 
     fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError> {
-        node_api.deregister_scan(self.id)?;
+        node_api.deregister_scan(self.0)?;
         Ok(())
     }
 }
 
 impl NodeScanId for OracleTokenScan {
     fn scan_id(&self) -> ScanId {
-        self.id
+        self.0
     }
 }
 

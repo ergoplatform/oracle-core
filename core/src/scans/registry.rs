@@ -135,13 +135,13 @@ mod tests {
         "Ballot Box Scan": "191" 
         }"#;
         let registry = NodeScanRegistry::load_from_json_str(json_str).unwrap();
-        assert_eq!(registry.oracle_token_scan.id, 185.into());
+        assert_eq!(registry.oracle_token_scan.0, 185.into());
     }
 
     #[test]
     fn check_encoded_json() {
         let registry = NodeScanRegistry {
-            oracle_token_scan: OracleTokenScan { id: 185.into() },
+            oracle_token_scan: OracleTokenScan(185.into()),
         };
         let json_str = registry.save_to_json_str();
         let expected_json_str = r#"{
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn json_roundtrip() {
         let registry = NodeScanRegistry {
-            oracle_token_scan: OracleTokenScan { id: 185.into() },
+            oracle_token_scan: OracleTokenScan(185.into()),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
