@@ -5,7 +5,7 @@ use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::pool_config::POOL_CONFIG;
-use crate::spec_token::{BallotTokenId, OracleTokenId, TokenIdKind, UpdateTokenId};
+use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
 
 use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
@@ -13,11 +13,13 @@ use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
 use ergo_node_interface::ScanId;
 use log::info;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 
+mod oracle_token_scan;
 mod registry;
+
+pub use oracle_token_scan::*;
 pub use registry::*;
 
 /// Integer which is provided by the Ergo node to reference a given scan.
@@ -43,75 +45,11 @@ pub enum ScanError {
     AddressUtilError(AddressUtilError),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(try_from = "String", into = "String")]
-pub struct OracleTokenScan(ScanId);
-
-impl OracleTokenScan {
-    pub fn tracking_rule(oracle_token_id: &OracleTokenId) -> serde_json::Value {
-        json!({
-        "predicate": "and",
-        "args":
-            [
-                {
-                    "predicate": "containsAsset",
-                    "assetId": oracle_token_id,
-                }
-            ]
-          })
-    }
-
-    pub fn register(
-        node_api: &NodeApi,
-        oracle_token_id: &OracleTokenId,
-    ) -> Result<Self, ScanError> {
-        let scan_name = format!(
-            "oracle token scan {}",
-            String::from(oracle_token_id.token_id())
-        );
-        let id = node_api.register_scan(scan_name, Self::tracking_rule(oracle_token_id))?;
-        Ok(OracleTokenScan(id))
-    }
-}
-
-impl TryFrom<String> for OracleTokenScan {
-    type Error = ScanError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let id = value.parse::<u64>().unwrap().into();
-        Ok(OracleTokenScan(id))
-    }
-}
-
-impl From<OracleTokenScan> for String {
-    fn from(scan: OracleTokenScan) -> Self {
-        scan.0.to_string()
-    }
-}
-
 pub trait NodeScan: NodeScanId {
     fn scan_name(&self) -> &'static str;
-    fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError>;
+    fn node_deregister(self, node_api: &NodeApi) -> Result<(), ScanError>;
     fn get_old_scan(&self) -> Scan {
         Scan::new(self.scan_name(), &u64::from(self.scan_id()).to_string())
-    }
-}
-
-impl NodeScan for OracleTokenScan {
-    #[allow(clippy::todo)]
-    fn scan_name(&self) -> &'static str {
-        todo!()
-    }
-
-    fn node_deregister(&self, node_api: &NodeApi) -> Result<(), ScanError> {
-        node_api.deregister_scan(self.0)?;
-        Ok(())
-    }
-}
-
-impl NodeScanId for OracleTokenScan {
-    fn scan_id(&self) -> ScanId {
-        self.0
     }
 }
 
@@ -126,8 +64,6 @@ pub trait ScanGetBoxes: NodeScanId {
         Ok(boxes)
     }
 }
-
-impl ScanGetBoxes for OracleTokenScan {}
 
 /// A `Scan` is a name + scan_id for a given scan with extra methods for acquiring boxes.
 #[derive(Debug, Clone)]
