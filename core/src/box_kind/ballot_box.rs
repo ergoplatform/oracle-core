@@ -51,7 +51,7 @@ pub trait BallotBox {
     fn contract(&self) -> &BallotContract;
     fn ballot_token(&self) -> SpecToken<BallotTokenId>;
     fn min_storage_rent(&self) -> BoxValue;
-    fn ballot_token_owner(&self) -> ProveDlog;
+    fn ballot_token_owner(&self) -> EcPoint;
     fn get_box(&self) -> &ErgoBox;
 }
 
@@ -230,13 +230,12 @@ impl BallotBox for BallotBoxWrapper {
         self.contract.min_storage_rent()
     }
 
-    fn ballot_token_owner(&self) -> ProveDlog {
+    fn ballot_token_owner(&self) -> EcPoint {
         self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
             .unwrap()
-            .into()
     }
 
     fn get_box(&self) -> &ErgoBox {
@@ -262,13 +261,12 @@ impl BallotBox for VoteBallotBoxWrapper {
         self.contract.min_storage_rent()
     }
 
-    fn ballot_token_owner(&self) -> ProveDlog {
+    fn ballot_token_owner(&self) -> EcPoint {
         self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<EcPoint>()
             .unwrap()
-            .into()
     }
 
     fn get_box(&self) -> &ErgoBox {
@@ -279,7 +277,7 @@ impl BallotBox for VoteBallotBoxWrapper {
 #[allow(clippy::too_many_arguments)]
 pub fn make_local_ballot_box_candidate(
     contract: &BallotContract,
-    ballot_token_owner: ProveDlog,
+    ballot_token_owner: EcPoint,
     update_box_creation_height: BlockHeight,
     ballot_token: SpecToken<BallotTokenId>,
     pool_box_address_hash: Digest32,
@@ -288,10 +286,7 @@ pub fn make_local_ballot_box_candidate(
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
-    builder.set_register_value(
-        NonMandatoryRegisterId::R4,
-        (*ballot_token_owner.h).clone().into(),
-    );
+    builder.set_register_value(NonMandatoryRegisterId::R4, ballot_token_owner.into());
     builder.set_register_value(
         NonMandatoryRegisterId::R5,
         (update_box_creation_height.0 as i32).into(),

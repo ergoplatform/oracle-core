@@ -3,11 +3,9 @@ use std::convert::TryFrom;
 use derive_more::From;
 use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
+    ergo_chain_types::EcPoint,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
-    ergotree_ir::{
-        chain::{address::Address, token::TokenAmount},
-        sigma_protocol::sigma_boolean::ProveDlog,
-    },
+    ergotree_ir::chain::{address::Address, token::TokenAmount},
     wallet::{
         box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
         tx_builder::{TxBuilder, TxBuilderError},
@@ -111,7 +109,7 @@ pub fn build_publish_first_datapoint_action(
     wallet: &dyn WalletDataSource,
     height: BlockHeight,
     change_address: Address,
-    public_key: ProveDlog,
+    public_key: EcPoint,
     inputs: OracleBoxWrapperInputs,
     datapoint_source: &dyn DataPointSource,
 ) -> Result<PublishDataPointAction, PublishDatapointActionError> {
@@ -357,7 +355,7 @@ mod tests {
             },
             height,
             change_address.address(),
-            secret.public_image(),
+            *secret.public_image().h,
             oracle_box_wrapper_inputs,
             &MockDatapointSource { datapoint: 201 },
         )

@@ -63,7 +63,7 @@ pub fn build_action(
     let current_epoch_counter = pool_box.epoch_counter();
     let oracle_public_key =
         if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
-            public_key
+            *public_key.h
         } else {
             return Err(PoolCommandError::WrongOracleAddressType);
         };
@@ -118,7 +118,7 @@ pub fn build_action(
             wallet,
             height,
             change_address,
-            oracle_public_key.h.as_ref(),
+            &oracle_public_key,
         )
         .map_err(Into::into)
         .map(Into::into),

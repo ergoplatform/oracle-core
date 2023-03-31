@@ -507,7 +507,9 @@ fn log_and_continue_if_non_fatal(
         })) => {
             let found_oracle_addresses: String = found_public_keys
                 .into_iter()
-                .map(|pk| NetworkAddress::new(network_prefix, &Address::P2Pk(pk)).to_base58())
+                .map(|pk| {
+                    NetworkAddress::new(network_prefix, &Address::P2Pk(pk.into())).to_base58()
+                })
                 .collect::<Vec<String>>()
                 .join(", ");
             log::error!("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from addresses {found_oracle_addresses},");
