@@ -12,7 +12,7 @@ use crate::pool_config::POOL_CONFIG;
 use crate::scans::{
     load_scan_ids, GenericTokenScan, NodeScanRegistry, Scan, ScanError, ScanGetBoxes,
 };
-use crate::spec_token::OracleTokenId;
+use crate::spec_token::{OracleTokenId, PoolTokenId};
 use anyhow::Error;
 use derive_more::From;
 
@@ -109,7 +109,7 @@ pub struct LocalBallotBoxScan<'a> {
 
 #[derive(Debug)]
 pub struct PoolBoxScan<'a> {
-    scan: Scan,
+    scan: GenericTokenScan<PoolTokenId>,
     pool_box_wrapper_inputs: &'a PoolBoxWrapperInputs,
 }
 
@@ -189,7 +189,7 @@ impl<'a> OraclePool<'a> {
         };
 
         let pool_box_scan = PoolBoxScan {
-            scan: Scan::new("Pool Box Scan", &scan_json["Pool Box Scan"].to_string()),
+            scan: node_scan_registry.pool_token_scan.clone(),
             pool_box_wrapper_inputs: &pool_config.pool_box_wrapper_inputs,
         };
 

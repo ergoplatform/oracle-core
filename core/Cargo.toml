@@ -44,3 +44,4 @@ ergo-chain-sim = {version = "0.1.0", path="../ergo-chain-sim"}
 env_logger = {version = "0.10.0"}
 tokio-test = {version = "0.4"}
 pretty_assertions = {workspace = true}
+expect-test = "1.0.1"
