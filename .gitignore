@@ -20,3 +20,4 @@ erg-usd-oracle-deployed
 oracle-config.yaml
 /.vim/
 /oracles/
+/.vscode/

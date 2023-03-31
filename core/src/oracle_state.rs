@@ -10,8 +10,9 @@ use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::{BlockHeight, EpochCounter};
 use crate::pool_config::POOL_CONFIG;
 use crate::scans::{
-    load_scan_ids, NodeScanRegistry, OracleTokenScan, Scan, ScanError, ScanGetBoxes,
+    load_scan_ids, GenericTokenScan, NodeScanRegistry, Scan, ScanError, ScanGetBoxes,
 };
+use crate::spec_token::OracleTokenId;
 use anyhow::Error;
 use derive_more::From;
 
@@ -89,7 +90,7 @@ pub struct OraclePool<'a> {
 
 #[derive(Debug)]
 pub struct OracleDatapointScan<'a> {
-    scan: OracleTokenScan,
+    scan: GenericTokenScan<OracleTokenId>,
     oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
 }
 
@@ -163,7 +164,7 @@ impl<'a> OraclePool<'a> {
 
         // Create all `Scan` structs for protocol
         let oracle_datapoint_scan = OracleDatapointScan {
-            scan: node_scan_registry.oracle_token_scan,
+            scan: node_scan_registry.oracle_token_scan.clone(),
             oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
         };
         let local_scan_str = "Local Oracle Datapoint Scan";

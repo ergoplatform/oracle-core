@@ -16,9 +16,11 @@ use log::info;
 use serde_json::json;
 use thiserror::Error;
 
+mod generic_token_scan;
 mod oracle_token_scan;
 mod registry;
 
+pub use generic_token_scan::*;
 pub use oracle_token_scan::*;
 pub use registry::*;
 
@@ -47,7 +49,6 @@ pub enum ScanError {
 
 pub trait NodeScan: NodeScanId {
     fn scan_name(&self) -> &'static str;
-    fn node_deregister(self, node_api: &NodeApi) -> Result<(), ScanError>;
     fn get_old_scan(&self) -> Scan {
         Scan::new(self.scan_name(), &u64::from(self.scan_id()).to_string())
     }
@@ -287,7 +288,8 @@ fn register_and_save_scans_inner(node_api: &NodeApi) -> std::result::Result<(), 
     let oracle_pool_participant_token_id = pool_config.token_ids.oracle_token_id.clone();
     let refresh_box_scan_name = "Refresh Box Scan";
     let scans = vec![
-        OracleTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?.get_old_scan(),
+        GenericTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?
+            .get_old_scan(),
         register_update_box_scan(&pool_config.token_ids.update_nft_token_id)?,
         register_pool_box_scan(pool_config.pool_box_wrapper_inputs.clone())?,
         register_refresh_box_scan(

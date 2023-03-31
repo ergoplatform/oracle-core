@@ -71,11 +71,6 @@ impl NodeScan for OracleTokenScan {
     fn scan_name(&self) -> &'static str {
         todo!()
     }
-
-    fn node_deregister(self, node_api: &NodeApi) -> Result<(), ScanError> {
-        node_api.deregister_scan(self.into())?;
-        Ok(())
-    }
 }
 
 impl ScanGetBoxes for OracleTokenScan {}

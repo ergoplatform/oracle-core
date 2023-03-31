@@ -3,14 +3,15 @@ use std::path::PathBuf;
 use crate::node_interface::node_api::NodeApi;
 use crate::node_interface::node_api::NodeApiError;
 use crate::pool_config::POOL_CONFIG;
+use crate::spec_token::OracleTokenId;
 
 use ::serde::Deserialize;
 use ::serde::Serialize;
 use once_cell::sync;
 use thiserror::Error;
 
+use super::generic_token_scan::GenericTokenScan;
 use super::NodeScan;
-use super::OracleTokenScan;
 use super::ScanError;
 
 pub static SCANS_DIR_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
@@ -22,7 +23,7 @@ pub fn get_scans_file_path() -> PathBuf {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NodeScanRegistry {
     #[serde(rename = "All Datapoints Scan")]
-    pub oracle_token_scan: OracleTokenScan,
+    pub oracle_token_scan: GenericTokenScan<OracleTokenId>,
 }
 
 impl NodeScanRegistry {
@@ -46,7 +47,7 @@ impl NodeScanRegistry {
         let pool_config = &POOL_CONFIG;
         log::info!("Registering UTXO-Set Scans");
         let oracle_token_scan =
-            OracleTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?;
+            GenericTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?;
         let registry = Self { oracle_token_scan };
         registry.save_to_json_file(&get_scans_file_path())?;
         node_api.rescan_from_height(0)?;
@@ -120,6 +121,8 @@ pub enum NodeScanRegistryError {
 
 #[cfg(test)]
 mod tests {
+    use crate::scans::NodeScanId;
+
     use super::*;
     use ergo_node_interface::ScanId;
     use pretty_assertions::assert_eq;
@@ -136,13 +139,13 @@ mod tests {
         "Ballot Box Scan": "191" 
         }"#;
         let registry = NodeScanRegistry::load_from_json_str(json_str).unwrap();
-        assert_eq!(ScanId::from(registry.oracle_token_scan), ScanId::from(185));
+        assert_eq!(registry.oracle_token_scan.scan_id(), ScanId::from(185));
     }
 
     #[test]
     fn check_encoded_json() {
         let registry = NodeScanRegistry {
-            oracle_token_scan: ScanId::from(185).into(),
+            oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
         };
         let json_str = registry.save_to_json_str();
         let expected_json_str = r#"{
@@ -154,7 +157,7 @@ mod tests {
     #[test]
     fn json_roundtrip() {
         let registry = NodeScanRegistry {
-            oracle_token_scan: ScanId::from(185).into(),
+            oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
