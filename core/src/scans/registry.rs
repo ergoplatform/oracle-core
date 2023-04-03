@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::node_interface::node_api::NodeApi;
 use crate::node_interface::node_api::NodeApiError;
 use crate::pool_config::POOL_CONFIG;
+use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 
@@ -27,6 +28,8 @@ pub struct NodeScanRegistry {
     pub oracle_token_scan: GenericTokenScan<OracleTokenId>,
     #[serde(rename = "Pool Box Scan")]
     pub pool_token_scan: GenericTokenScan<PoolTokenId>,
+    #[serde(rename = "Ballot Box Scan")]
+    pub ballot_token_scan: GenericTokenScan<BallotTokenId>,
 }
 
 impl NodeScanRegistry {
@@ -53,9 +56,12 @@ impl NodeScanRegistry {
             GenericTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?;
         let pool_token_scan =
             GenericTokenScan::register(node_api, &pool_config.token_ids.pool_nft_token_id)?;
+        let ballot_token_scan =
+            GenericTokenScan::register(node_api, &pool_config.token_ids.ballot_token_id)?;
         let registry = Self {
             oracle_token_scan,
             pool_token_scan,
+            ballot_token_scan,
         };
         registry.save_to_json_file(&get_scans_file_path())?;
         node_api.rescan_from_height(0)?;
@@ -160,15 +166,17 @@ mod tests {
         let registry = NodeScanRegistry {
             oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
             pool_token_scan: GenericTokenScan::new(ScanId::from(187)),
+            ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
         };
         let json_str = registry.save_to_json_str();
         expect_json(
             &json_str,
             expect![[r#"
-            {
-              "All Datapoints Scan": "185",
-              "Pool Box Scan": "187"
-            }"#]],
+                {
+                  "All Datapoints Scan": "185",
+                  "Pool Box Scan": "187",
+                  "Ballot Box Scan": "191"
+                }"#]],
         );
     }
 
@@ -177,6 +185,7 @@ mod tests {
         let registry = NodeScanRegistry {
             oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
             pool_token_scan: GenericTokenScan::new(ScanId::from(187)),
+            ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();

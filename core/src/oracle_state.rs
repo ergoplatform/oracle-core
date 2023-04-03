@@ -1,5 +1,5 @@
 use crate::box_kind::{
-    BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
+    BallotBox, BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
     OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
     PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError, RefreshBoxWrapper,
     RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
@@ -12,11 +12,10 @@ use crate::pool_config::POOL_CONFIG;
 use crate::scans::{
     load_scan_ids, GenericTokenScan, NodeScanRegistry, Scan, ScanError, ScanGetBoxes,
 };
-use crate::spec_token::{OracleTokenId, PoolTokenId};
+use crate::spec_token::{BallotTokenId, OracleTokenId, PoolTokenId};
 use anyhow::Error;
 use derive_more::From;
 
-use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
@@ -104,9 +103,9 @@ pub struct LocalOracleDatapointScan<'a> {
 
 #[derive(Debug)]
 pub struct LocalBallotBoxScan<'a> {
-    scan: Scan,
+    scan: GenericTokenScan<BallotTokenId>,
     ballot_box_wrapper_inputs: &'a BallotBoxWrapperInputs,
-    ballot_token_owner_address: Address,
+    ballot_token_owner_pk: ProveDlog,
 }
 
 #[derive(Debug)]
@@ -123,7 +122,7 @@ pub struct RefreshBoxScan<'a> {
 
 #[derive(Debug)]
 pub struct BallotBoxesScan<'a> {
-    scan: Scan,
+    scan: GenericTokenScan<BallotTokenId>,
     ballot_box_wrapper_inputs: &'a BallotBoxWrapperInputs,
 }
 #[derive(Debug)]
@@ -159,6 +158,7 @@ impl<'a> OraclePool<'a> {
     ) -> std::result::Result<OraclePool<'static>, Error> {
         let pool_config = &POOL_CONFIG;
         let oracle_config = &ORACLE_CONFIG;
+        let oracle_pk = oracle_config.oracle_address_p2pk()?;
 
         let refresh_box_scan_name = "Refresh Box Scan";
 
@@ -172,18 +172,17 @@ impl<'a> OraclePool<'a> {
         let local_oracle_datapoint_scan = LocalOracleDatapointScan {
             scan: node_scan_registry.oracle_token_scan.clone(),
             oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
-            oracle_pk: oracle_config.oracle_address_p2pk()?,
+            oracle_pk: oracle_pk.clone(),
         };
 
-        let local_scan_str = "Local Ballot Box Scan";
         let local_ballot_box_scan = LocalBallotBoxScan {
-            scan: Scan::new(local_scan_str, &scan_json[local_scan_str].to_string()),
+            scan: node_scan_registry.ballot_token_scan.clone(),
             ballot_box_wrapper_inputs: &pool_config.ballot_box_wrapper_inputs,
-            ballot_token_owner_address: oracle_config.oracle_address.address(),
+            ballot_token_owner_pk: oracle_pk.clone(),
         };
 
         let ballot_boxes_scan = BallotBoxesScan {
-            scan: Scan::new("Ballot Box Scan", &scan_json["Ballot Box Scan"].to_string()),
+            scan: node_scan_registry.ballot_token_scan.clone(),
             ballot_box_wrapper_inputs: &pool_config.ballot_box_wrapper_inputs,
         };
 
@@ -207,7 +206,6 @@ impl<'a> OraclePool<'a> {
 
         log::debug!("Scans loaded");
 
-        // Create `OraclePool` struct
         Ok(OraclePool {
             oracle_datapoint_scan,
             local_oracle_datapoint_scan,
@@ -299,17 +297,20 @@ impl<'a> PoolBoxSource for PoolBoxScan<'a> {
 
 impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
     fn get_ballot_box(&self) -> Result<Option<BallotBoxWrapper>> {
-        self.scan
-            .get_box()?
+        Ok(self
+            .scan
+            .get_boxes()?
+            .into_iter()
             .map(|b| {
                 BallotBoxWrapper::new(
                     b,
                     self.ballot_box_wrapper_inputs,
-                    &self.ballot_token_owner_address,
+                    &self.ballot_token_owner_pk,
                 )
-                .map_err(Into::into)
             })
-            .transpose()
+            .collect::<std::result::Result<Vec<BallotBoxWrapper>, _>>()?
+            .into_iter()
+            .find(|b| b.ballot_token_owner() == *self.ballot_token_owner_pk.h))
     }
 }
 

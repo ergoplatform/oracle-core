@@ -249,7 +249,7 @@ mod tests {
         ergo_chain_types::Digest32,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::{Address, AddressEncoder},
+            address::AddressEncoder,
             ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
             token::{Token, TokenId},
         },
@@ -378,12 +378,8 @@ mod tests {
             0,
         )
         .unwrap();
-        let ballot_box = BallotBoxWrapper::new(
-            in_ballot_box.clone(),
-            &inputs,
-            &Address::P2Pk(secret.public_image()),
-        )
-        .unwrap();
+        let ballot_box =
+            BallotBoxWrapper::new(in_ballot_box.clone(), &inputs, &secret.public_image()).unwrap();
         let wallet_unspent_box = make_wallet_unspent_box(
             secret.public_image(),
             BASE_FEE.checked_mul_u32(100_000_000).unwrap(),

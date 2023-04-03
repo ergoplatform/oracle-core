@@ -1,13 +1,12 @@
-use crate::address_util::{address_to_raw_for_register, AddressUtilError};
+use crate::address_util::AddressUtilError;
 use crate::box_kind::RefreshBoxWrapperInputs;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::spec_token::{BallotTokenId, OracleTokenId, UpdateTokenId};
+use crate::spec_token::UpdateTokenId;
 
 use derive_more::From;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
 use ergo_node_interface::ScanId;
@@ -160,45 +159,6 @@ pub fn register_refresh_box_scan(
     } );
 
     Scan::register(scan_name, scan_json)
-}
-
-/// This function registers scanning for the oracle's personal Datapoint box
-pub fn register_local_oracle_datapoint_scan(
-    oracle_pool_participant_token: &OracleTokenId,
-    oracle_address: &NetworkAddress,
-) -> std::result::Result<Scan, ScanError> {
-    let oracle_add_bytes = address_to_raw_for_register(&oracle_address.to_base58())?;
-    let scan_json = json! ( {
-        "predicate": "and",
-        "args": [
-        {
-            "predicate": "containsAsset",
-            "assetId": oracle_pool_participant_token.clone(),
-        },
-                {
-            "predicate": "equals",
-            "register": "R4",
-            "value": oracle_add_bytes.clone(),
-        }
-    ]
-    } );
-
-    Scan::register("Local Oracle Datapoint Scan", scan_json)
-}
-
-/// Scan for all ballot boxes matching token id of oracle pool.
-pub fn register_ballot_box_scan(
-    ballot_token_id: &BallotTokenId,
-) -> std::result::Result<Scan, ScanError> {
-    let scan_json = json! ( {
-        "predicate": "and",
-        "args": [
-        {
-            "predicate": "containsAsset",
-            "assetId": ballot_token_id.clone(),
-        }
-        ] });
-    Scan::register("Ballot Box Scan", scan_json)
 }
 
 pub fn register_update_box_scan(

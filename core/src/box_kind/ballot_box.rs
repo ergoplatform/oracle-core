@@ -10,7 +10,7 @@ use ergo_lib::{
     ergo_chain_types::{Digest32, EcPoint},
     ergotree_ir::{
         chain::{
-            address::{Address, AddressEncoderError},
+            address::AddressEncoderError,
             ergo_box::{box_value::BoxValue, ErgoBox, ErgoBoxCandidate, NonMandatoryRegisterId},
             token::TokenId,
         },
@@ -65,7 +65,7 @@ impl BallotBoxWrapper {
     pub fn new(
         ergo_box: ErgoBox,
         inputs: &BallotBoxWrapperInputs,
-        ballot_token_owner_address: &Address,
+        ballot_token_owner_pk: &ProveDlog,
     ) -> Result<Self, BallotBoxError> {
         let ballot_token_id = &ergo_box
             .tokens
@@ -82,7 +82,7 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        if ballot_token_owner_address != &Address::P2Pk(ProveDlog::from(ec)) {
+        if ballot_token_owner_pk != &ProveDlog::from(ec) {
             return Err(BallotBoxError::UnexpectedGroupElementInR4);
         }
 
