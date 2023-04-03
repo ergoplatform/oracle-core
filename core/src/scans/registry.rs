@@ -6,6 +6,8 @@ use crate::pool_config::POOL_CONFIG;
 use crate::spec_token::BallotTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
+use crate::spec_token::RefreshTokenId;
+use crate::spec_token::UpdateTokenId;
 
 use ::serde::Deserialize;
 use ::serde::Serialize;
@@ -13,7 +15,7 @@ use once_cell::sync;
 use thiserror::Error;
 
 use super::generic_token_scan::GenericTokenScan;
-use super::NodeScan;
+use super::NodeScanId;
 use super::ScanError;
 
 pub static SCANS_DIR_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
@@ -30,6 +32,10 @@ pub struct NodeScanRegistry {
     pub pool_token_scan: GenericTokenScan<PoolTokenId>,
     #[serde(rename = "Ballot Box Scan")]
     pub ballot_token_scan: GenericTokenScan<BallotTokenId>,
+    #[serde(rename = "Refresh Box Scan")]
+    pub refresh_token_scan: GenericTokenScan<RefreshTokenId>,
+    #[serde(rename = "Update Box Scan")]
+    pub update_token_scan: GenericTokenScan<UpdateTokenId>,
 }
 
 impl NodeScanRegistry {
@@ -58,10 +64,16 @@ impl NodeScanRegistry {
             GenericTokenScan::register(node_api, &pool_config.token_ids.pool_nft_token_id)?;
         let ballot_token_scan =
             GenericTokenScan::register(node_api, &pool_config.token_ids.ballot_token_id)?;
+        let refresh_token_scan =
+            GenericTokenScan::register(node_api, &pool_config.token_ids.refresh_nft_token_id)?;
+        let update_token_scan =
+            GenericTokenScan::register(node_api, &pool_config.token_ids.update_nft_token_id)?;
         let registry = Self {
             oracle_token_scan,
             pool_token_scan,
             ballot_token_scan,
+            refresh_token_scan,
+            update_token_scan,
         };
         registry.save_to_json_file(&get_scans_file_path())?;
         node_api.rescan_from_height(0)?;
@@ -91,14 +103,12 @@ impl NodeScanRegistry {
         Ok(registry)
     }
 
-    fn node_scans(&self) -> Vec<&dyn NodeScan> {
-        vec![&self.oracle_token_scan]
-    }
-
     pub fn deregister_all_scans(self, node_api: &NodeApi) -> Result<(), NodeApiError> {
-        for scan in self.node_scans() {
-            node_api.deregister_scan(scan.scan_id())?;
-        }
+        node_api.deregister_scan(self.oracle_token_scan.scan_id())?;
+        node_api.deregister_scan(self.pool_token_scan.scan_id())?;
+        node_api.deregister_scan(self.ballot_token_scan.scan_id())?;
+        node_api.deregister_scan(self.refresh_token_scan.scan_id())?;
+        node_api.deregister_scan(self.update_token_scan.scan_id())?;
         Ok(())
     }
 }
@@ -167,6 +177,8 @@ mod tests {
             oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
             pool_token_scan: GenericTokenScan::new(ScanId::from(187)),
             ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
+            refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
+            update_token_scan: GenericTokenScan::new(ScanId::from(186)),
         };
         let json_str = registry.save_to_json_str();
         expect_json(
@@ -175,7 +187,9 @@ mod tests {
                 {
                   "All Datapoints Scan": "185",
                   "Pool Box Scan": "187",
-                  "Ballot Box Scan": "191"
+                  "Ballot Box Scan": "191",
+                  "Refresh Box Scan": "188",
+                  "Update Box Scan": "186"
                 }"#]],
         );
     }
@@ -186,6 +200,8 @@ mod tests {
             oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
             pool_token_scan: GenericTokenScan::new(ScanId::from(187)),
             ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
+            refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
+            update_token_scan: GenericTokenScan::new(ScanId::from(186)),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();

@@ -7,7 +7,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 
-use super::NodeScan;
 use super::NodeScanId;
 use super::ScanError;
 use super::ScanGetBoxes;
@@ -71,13 +70,6 @@ impl<T: TokenIdKind + Clone> From<GenericTokenScan<T>> for String {
 impl<T: TokenIdKind + Clone> NodeScanId for GenericTokenScan<T> {
     fn scan_id(&self) -> ScanId {
         self.id
-    }
-}
-
-impl<T: TokenIdKind + Clone> NodeScan for GenericTokenScan<T> {
-    #[allow(clippy::todo)]
-    fn scan_name(&self) -> &'static str {
-        todo!()
     }
 }
 

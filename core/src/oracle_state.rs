@@ -9,10 +9,8 @@ use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::{BlockHeight, EpochCounter};
 use crate::pool_config::POOL_CONFIG;
-use crate::scans::{
-    load_scan_ids, GenericTokenScan, NodeScanRegistry, Scan, ScanError, ScanGetBoxes,
-};
-use crate::spec_token::{BallotTokenId, OracleTokenId, PoolTokenId};
+use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
+use crate::spec_token::{BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, UpdateTokenId};
 use anyhow::Error;
 use derive_more::From;
 
@@ -116,7 +114,7 @@ pub struct PoolBoxScan<'a> {
 
 #[derive(Debug)]
 pub struct RefreshBoxScan<'a> {
-    scan: Scan,
+    scan: GenericTokenScan<RefreshTokenId>,
     refresh_box_wrapper_inputs: &'a RefreshBoxWrapperInputs,
 }
 
@@ -127,7 +125,7 @@ pub struct BallotBoxesScan<'a> {
 }
 #[derive(Debug)]
 pub struct UpdateBoxScan<'a> {
-    scan: Scan,
+    scan: GenericTokenScan<UpdateTokenId>,
     update_box_wrapper_inputs: &'a UpdateBoxWrapperInputs,
 }
 
@@ -160,10 +158,6 @@ impl<'a> OraclePool<'a> {
         let oracle_config = &ORACLE_CONFIG;
         let oracle_pk = oracle_config.oracle_address_p2pk()?;
 
-        let refresh_box_scan_name = "Refresh Box Scan";
-
-        let scan_json = load_scan_ids()?;
-
         // Create all `Scan` structs for protocol
         let oracle_datapoint_scan = OracleDatapointScan {
             scan: node_scan_registry.oracle_token_scan.clone(),
@@ -192,15 +186,12 @@ impl<'a> OraclePool<'a> {
         };
 
         let refresh_box_scan = RefreshBoxScan {
-            scan: Scan::new(
-                refresh_box_scan_name,
-                &scan_json[refresh_box_scan_name].to_string(),
-            ),
+            scan: node_scan_registry.refresh_token_scan.clone(),
             refresh_box_wrapper_inputs: &pool_config.refresh_box_wrapper_inputs,
         };
 
         let update_box_scan = UpdateBoxScan {
-            scan: Scan::new("Update Box Scan", &scan_json["Update Box Scan"].to_string()),
+            scan: node_scan_registry.update_token_scan.clone(),
             update_box_wrapper_inputs: &pool_config.update_box_wrapper_inputs,
         };
 
