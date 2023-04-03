@@ -334,7 +334,7 @@ impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
             .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
             .collect::<std::result::Result<Vec<OracleBoxWrapper>, _>>()?
             .into_iter()
-            .find(|b| b.public_key() == self.oracle_pk))
+            .find(|b| b.public_key() == *self.oracle_pk.h))
     }
 }
 
