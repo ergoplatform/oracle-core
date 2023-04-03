@@ -27,7 +27,6 @@ use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
-use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use ergo_lib::wallet::box_selector::BoxSelection;
 use ergo_lib::wallet::box_selector::BoxSelector;
 use ergo_lib::wallet::box_selector::BoxSelectorError;
@@ -42,7 +41,7 @@ use std::convert::TryInto;
 pub enum RefreshActionError {
     #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys:?},")]
     FailedToReachConsensus {
-        found_public_keys: Vec<ProveDlog>,
+        found_public_keys: Vec<EcPoint>,
         found_num: i32,
         expected: i32,
     },
@@ -125,7 +124,7 @@ pub fn build_refresh_action(
     ];
     let my_input_oracle_box_index: i32 = valid_in_oracle_boxes
         .iter()
-        .position(|b| b.public_key().h.as_ref() == my_oracle_pk)
+        .position(|b| &b.public_key() == my_oracle_pk)
         .ok_or(RefreshActionError::MyOracleBoxNoFound)?
         as i32;
 
@@ -285,7 +284,7 @@ fn build_out_oracle_boxes(
         .iter()
         .map(|in_ob| {
             let mut reward_token_new = in_ob.reward_token();
-            reward_token_new.amount = if in_ob.public_key().h.as_ref() == my_public_key {
+            reward_token_new.amount = if &in_ob.public_key() == my_public_key {
                 let increment: TokenAmount =
                 // additional 1 reward token per collected oracle box goes to the collector
                     (1 + valid_oracle_boxes.len() as u64).try_into().unwrap();
