@@ -186,30 +186,6 @@ pub fn register_local_oracle_datapoint_scan(
     Scan::register("Local Oracle Datapoint Scan", scan_json)
 }
 
-/// This function registers scanning for the local ballot box
-pub fn register_local_ballot_box_scan(
-    ballot_token_id: &BallotTokenId,
-    ballot_token_owner_address: &NetworkAddress,
-) -> std::result::Result<Scan, ScanError> {
-    let ballot_add_bytes = address_to_raw_for_register(&ballot_token_owner_address.to_base58())?;
-    let scan_json = json! ( {
-        "predicate": "and",
-        "args": [
-        {
-            "predicate": "containsAsset",
-            "assetId": ballot_token_id.clone(),
-        },
-        {
-            "predicate": "equals",
-            "register": "R4",
-            "value": ballot_add_bytes.clone(),
-        }
-    ]
-    } );
-
-    Scan::register("Local Ballot Box Scan", scan_json)
-}
-
 /// Scan for all ballot boxes matching token id of oracle pool.
 pub fn register_ballot_box_scan(
     ballot_token_id: &BallotTokenId,

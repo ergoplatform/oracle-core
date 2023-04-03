@@ -18,6 +18,7 @@ use derive_more::From;
 
 use ergo_lib::ergotree_ir::chain::address::Address;
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
+use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, DataSourceError>;
@@ -96,8 +97,9 @@ pub struct OracleDatapointScan<'a> {
 
 #[derive(Debug)]
 pub struct LocalOracleDatapointScan<'a> {
-    scan: Scan,
+    scan: GenericTokenScan<OracleTokenId>,
     oracle_box_wrapper_inputs: &'a OracleBoxWrapperInputs,
+    oracle_pk: ProveDlog,
 }
 
 #[derive(Debug)]
@@ -167,13 +169,10 @@ impl<'a> OraclePool<'a> {
             scan: node_scan_registry.oracle_token_scan.clone(),
             oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
         };
-        let local_scan_str = "Local Oracle Datapoint Scan";
         let local_oracle_datapoint_scan = LocalOracleDatapointScan {
-            scan: Scan::new(
-                "Local Oracle Datapoint Scan",
-                &scan_json[local_scan_str].to_string(),
-            ),
+            scan: node_scan_registry.oracle_token_scan.clone(),
             oracle_box_wrapper_inputs: &pool_config.oracle_box_wrapper_inputs,
+            oracle_pk: oracle_config.oracle_address_p2pk()?,
         };
 
         let local_scan_str = "Local Ballot Box Scan";
@@ -328,10 +327,14 @@ impl<'a> RefreshBoxSource for RefreshBoxScan<'a> {
 
 impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
     fn get_local_oracle_datapoint_box(&self) -> Result<Option<OracleBoxWrapper>> {
-        self.scan
-            .get_box()?
-            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs).map_err(Into::into))
-            .transpose()
+        Ok(self
+            .scan
+            .get_boxes()?
+            .into_iter()
+            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
+            .collect::<std::result::Result<Vec<OracleBoxWrapper>, _>>()?
+            .into_iter()
+            .find(|b| b.public_key() == self.oracle_pk))
     }
 }
 
