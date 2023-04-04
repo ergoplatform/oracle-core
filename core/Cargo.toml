@@ -26,7 +26,7 @@ tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.3.0", features = ["cors"] }
 axum = "0.6"
 ergo-lib = { workspace = true }
-ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "30f0c1d072e3de23ea6ad457f32e951408bae31b" }
+ergo-node-interface = { git = "https://github.com/ergoplatform/ergo-node-interface-rust", rev = "143c2a3dc8fb772d1af37f1f1e1924067c6aad14" }
 # ergo-node-interface = { version = "0.4" }
 derive_more = "0.99"
 clap = {version = "=3.1.18", features = ["derive"]}
