@@ -261,14 +261,6 @@ fn main() {
 
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
-    let datapoint_source = RuntimeDataPointSource::new(
-        POOL_CONFIG.data_point_source,
-        ORACLE_CONFIG.data_point_source_custom_script.clone(),
-    )
-    .unwrap();
-
-    let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
-
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::GenerateOracleConfig => {
@@ -301,31 +293,26 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
-        oracle_command => handle_pool_command(oracle_command, &mut tokio_runtime, datapoint_source),
-    }
-}
-
-/// Handle all non-bootstrap commands
-fn handle_pool_command(
-    command: Command,
-    tokio_runtime: &mut tokio::runtime::Runtime,
-    datapoint_source: RuntimeDataPointSource,
-) {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
-    log_on_launch();
-    assert_wallet_unlocked(&node_api.node);
-    let node_scan_registry = NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
-    let op = OraclePool::new(&node_scan_registry).unwrap();
-    match command {
         Command::Run {
             read_only,
             enable_rest_api,
         } => {
             let (_, repost_receiver) = bounded::<bool>(1);
 
+            let node_api =
+                NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+            let node_scan_registry =
+                NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
+            let op = OraclePool::new(&node_scan_registry).unwrap();
+            let datapoint_source = RuntimeDataPointSource::new(
+                POOL_CONFIG.data_point_source,
+                ORACLE_CONFIG.data_point_source_custom_script.clone(),
+            )
+            .unwrap();
+
             // Start Oracle Core GET API Server
             if enable_rest_api {
+                let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
                 tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
@@ -336,7 +323,19 @@ fn handle_pool_command(
                 thread::sleep(Duration::new(30, 0));
             }
         }
+        oracle_command => handle_pool_command(oracle_command),
+    }
+}
 
+/// Handle all other commands
+fn handle_pool_command(command: Command) {
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
+    log_on_launch();
+    assert_wallet_unlocked(&node_api.node);
+    let node_scan_registry = NodeScanRegistry::load().unwrap();
+    let op = OraclePool::new(&node_scan_registry).unwrap();
+    match command {
         Command::ExtractRewardTokens { rewards_address } => {
             if let Err(e) = cli_commands::extract_reward_tokens::extract_reward_tokens(
                 // TODO: pass the NodeApi instance instead of these three
@@ -443,7 +442,8 @@ fn handle_pool_command(
         }
         Command::Bootstrap { .. }
         | Command::PrintContractHashes
-        | Command::GenerateOracleConfig => unreachable!(),
+        | Command::GenerateOracleConfig
+        | Command::Run { .. } => unreachable!(),
     }
 }
 

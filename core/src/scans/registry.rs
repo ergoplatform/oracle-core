@@ -93,10 +93,11 @@ impl NodeScanRegistry {
         node_api: &NodeApi,
     ) -> std::result::Result<Self, NodeScanRegistryError> {
         let path = get_scans_file_path();
-        log::debug!("Loading scan IDs from {}", path.display());
+        log::info!("Loading scan IDs from {}", path.display());
         let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
             Self::load_from_json_str(&json_str)?
         } else {
+            log::info!("scans not found");
             Self::register_and_save_scans_inner(node_api)?
         };
         wait_for_node_rescan(node_api)?;
