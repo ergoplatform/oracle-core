@@ -52,7 +52,7 @@ impl NodeApi {
             "scanName": name,
             "trackingRule": tracking_rule,
         });
-        info!(
+        log::info!(
             "Registering Scan:\n{}",
             serde_json::to_string_pretty(&scan_json).unwrap()
         );
@@ -61,11 +61,12 @@ impl NodeApi {
             .parse::<u64>()
             .map_err(|_| NodeApiError::InvalidScanId(scan_id_str))?;
         let scan_id = scan_id_raw.into();
-        info!("Scan Successfully Set.\nID: {}", scan_id);
+        info!("Scan Successfully registered.\nID: {}", scan_id);
         Ok(scan_id)
     }
 
     pub fn deregister_scan(&self, scan_id: ScanId) -> Result<ScanId, NodeApiError> {
+        log::info!("Deregistering Scan: {}", scan_id);
         let scan_id = self.node.deregister_scan(scan_id)?;
         Ok(scan_id)
     }
