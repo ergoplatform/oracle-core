@@ -39,23 +39,25 @@ pub struct NodeScanRegistry {
 }
 
 impl NodeScanRegistry {
-    fn load_from_json_str(json_str: &str) -> Result<Self, NodeScanRegistryError> {
-        serde_json::from_str(json_str).map_err(|e| NodeScanRegistryError::Parse(e.to_string()))
+    fn load_from_json_str(json_str: &str) -> Result<Self, anyhow::Error> {
+        Ok(serde_json::from_str(json_str)
+            .map_err(|e| NodeScanRegistryError::Parse(e.to_string()))?)
     }
 
     fn save_to_json_str(&self) -> String {
         serde_json::to_string_pretty(&self).unwrap()
     }
 
-    fn save_to_json_file(&self, file_path: &PathBuf) -> Result<(), NodeScanRegistryError> {
+    fn save_to_json_file(&self, file_path: &PathBuf) -> Result<(), anyhow::Error> {
         let json_str = self.save_to_json_str();
         log::debug!("Saving scan IDs to {}", file_path.display());
-        std::fs::write(file_path, json_str).map_err(|e| NodeScanRegistryError::Io(e.to_string()))
+        Ok(std::fs::write(file_path, json_str)
+            .map_err(|e| NodeScanRegistryError::Io(e.to_string()))?)
     }
 
     fn register_and_save_scans_inner(
         node_api: &NodeApi,
-    ) -> std::result::Result<Self, NodeScanRegistryError> {
+    ) -> std::result::Result<Self, anyhow::Error> {
         let pool_config = &POOL_CONFIG;
         log::info!("Registering UTXO-Set Scans");
         let oracle_token_scan =
@@ -80,9 +82,9 @@ impl NodeScanRegistry {
         Ok(registry)
     }
 
-    pub fn load() -> Result<Self, NodeScanRegistryError> {
+    pub fn load() -> Result<Self, anyhow::Error> {
         let path = get_scans_file_path();
-        log::debug!("Loading scan IDs from {}", path.display());
+        log::info!("Loading scan IDs from {}", path.display());
         let json_str =
             std::fs::read_to_string(path).map_err(|e| NodeScanRegistryError::Io(e.to_string()))?;
         let registry = Self::load_from_json_str(&json_str)?;
@@ -91,7 +93,7 @@ impl NodeScanRegistry {
 
     pub fn ensure_node_registered_scans(
         node_api: &NodeApi,
-    ) -> std::result::Result<Self, NodeScanRegistryError> {
+    ) -> std::result::Result<Self, anyhow::Error> {
         let path = get_scans_file_path();
         log::info!("Loading scan IDs from {}", path.display());
         let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
@@ -138,7 +140,7 @@ pub enum NodeScanRegistryError {
     Scan(#[from] ScanError),
     #[error("Error node: {0}")]
     NodeApi(#[from] NodeApiError),
-    #[error("Error parsing oracle config file: {0}")]
+    #[error("Error parsing scans file: {0}")]
     Parse(String),
     #[error("Error reading/writing file: {0}")]
     Io(String),
