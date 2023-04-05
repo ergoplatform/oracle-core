@@ -292,13 +292,7 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
             .scan
             .get_boxes()?
             .into_iter()
-            .map(|b| {
-                BallotBoxWrapper::new(
-                    b,
-                    self.ballot_box_wrapper_inputs,
-                    &self.ballot_token_owner_pk,
-                )
-            })
+            .map(|b| BallotBoxWrapper::new(b, self.ballot_box_wrapper_inputs))
             .collect::<std::result::Result<Vec<BallotBoxWrapper>, _>>()?
             .into_iter()
             .find(|b| b.ballot_token_owner() == *self.ballot_token_owner_pk.h))

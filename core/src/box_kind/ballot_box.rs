@@ -16,7 +16,6 @@ use ergo_lib::{
         },
         mir::constant::{TryExtractFromError, TryExtractInto},
         serialization::SigmaSerializationError,
-        sigma_protocol::sigma_boolean::ProveDlog,
     },
 };
 use thiserror::Error;
@@ -29,8 +28,6 @@ pub enum BallotBoxError {
     UnknownBallotTokenId,
     #[error("ballot box: no group element in R4 register")]
     NoGroupElementInR4,
-    #[error("ballot box: unexpected group element in R4 register")]
-    UnexpectedGroupElementInR4,
     #[error("ballot box: no update box creation height in R5 register")]
     NoUpdateBoxCreationHeightInR5,
     #[error("ballot box: no pool box address hash in R6 register")]
@@ -62,11 +59,7 @@ pub struct BallotBoxWrapper {
 }
 
 impl BallotBoxWrapper {
-    pub fn new(
-        ergo_box: ErgoBox,
-        inputs: &BallotBoxWrapperInputs,
-        ballot_token_owner_pk: &ProveDlog,
-    ) -> Result<Self, BallotBoxError> {
+    pub fn new(ergo_box: ErgoBox, inputs: &BallotBoxWrapperInputs) -> Result<Self, BallotBoxError> {
         let ballot_token_id = &ergo_box
             .tokens
             .as_ref()
@@ -77,15 +70,10 @@ impl BallotBoxWrapper {
         if *ballot_token_id != inputs.ballot_token_id.token_id() {
             return Err(BallotBoxError::UnknownBallotTokenId);
         }
-
-        let ec = ergo_box
+        let _ = ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        if ballot_token_owner_pk != &ProveDlog::from(ec) {
-            return Err(BallotBoxError::UnexpectedGroupElementInR4);
-        }
-
         let contract =
             BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), &inputs.contract_inputs)?;
         Ok(Self { ergo_box, contract })
