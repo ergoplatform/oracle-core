@@ -30,7 +30,9 @@ use crate::{
     explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
-    oracle_state::{OraclePool, PoolBoxSource, StageError, UpdateBoxSource, VoteBallotBoxesSource},
+    oracle_state::{
+        DataSourceError, OraclePool, PoolBoxSource, UpdateBoxSource, VoteBallotBoxesSource,
+    },
     oracle_types::BlockHeight,
     pool_config::{PoolConfig, POOL_CONFIG},
     spec_token::{RewardTokenId, SpecToken, TokenIdKind},
@@ -53,8 +55,8 @@ pub enum UpdatePoolError {
     TxBuilder(TxBuilderError),
     #[error("Update pool: tx context error {0}")]
     TxSigningError(TxSigningError),
-    #[error("Update pool: stage error {0}")]
-    StageError(StageError),
+    #[error("Update pool: data source error {0}")]
+    DataSourceError(DataSourceError),
     #[error("Update pool: node error {0}")]
     Node(NodeError),
     #[error("No change address in node")]

@@ -8,10 +8,10 @@ use crate::box_kind::PostedOracleBox;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
+use crate::oracle_state::DataSourceError;
 use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::RefreshBoxSource;
-use crate::oracle_state::StageError;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochCounter;
 use crate::oracle_types::MinDatapoints;
@@ -47,8 +47,8 @@ pub enum RefreshActionError {
     },
     #[error("Not enough datapoints left during the removal of the outliers")]
     NotEnoughDatapoints,
-    #[error("stage error: {0}")]
-    StageError(StageError),
+    #[error("data source error: {0}")]
+    DataSourceError(DataSourceError),
     #[error("WalletData error: {0}")]
     WalletData(WalletDataError),
     #[error("box selector error: {0}")]
@@ -65,7 +65,7 @@ pub enum RefreshActionError {
 pub fn build_refresh_action(
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
-    datapoint_stage_src: &dyn DatapointBoxesSource,
+    datapoint_src: &dyn DatapointBoxesSource,
     max_deviation_percent: u32,
     min_data_points: MinDatapoints,
     wallet: &dyn WalletDataSource,
@@ -78,7 +78,7 @@ pub fn build_refresh_action(
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
     let min_start_height = height - in_refresh_box.contract().epoch_length();
     let in_pool_box_epoch_id = in_pool_box.epoch_counter();
-    let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_stage_src
+    let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_src
         .get_oracle_datapoint_boxes()?
         .into_iter()
         .filter(|b| {
@@ -336,7 +336,7 @@ mod tests {
     use crate::contracts::refresh::RefreshContractInputs;
     use crate::contracts::refresh::RefreshContractParameters;
     use crate::oracle_config::BASE_FEE;
-    use crate::oracle_state::StageError;
+    use crate::oracle_state::DataSourceError;
     use crate::oracle_types::EpochLength;
     use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::{
@@ -354,20 +354,20 @@ mod tests {
     }
 
     impl RefreshBoxSource for RefreshBoxMock {
-        fn get_refresh_box(&self) -> std::result::Result<RefreshBoxWrapper, StageError> {
+        fn get_refresh_box(&self) -> std::result::Result<RefreshBoxWrapper, DataSourceError> {
             Ok(self.refresh_box.clone())
         }
     }
 
     #[derive(Clone)]
-    struct DatapointStageMock {
+    struct DatapointSourceMock {
         datapoints: Vec<PostedOracleBox>,
     }
 
-    impl DatapointBoxesSource for DatapointStageMock {
+    impl DatapointBoxesSource for DatapointSourceMock {
         fn get_oracle_datapoint_boxes(
             &self,
-        ) -> std::result::Result<Vec<PostedOracleBox>, StageError> {
+        ) -> std::result::Result<Vec<PostedOracleBox>, DataSourceError> {
             Ok(self.datapoints.clone())
         }
     }
@@ -517,7 +517,7 @@ mod tests {
         let action = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
-            &(DatapointStageMock {
+            &(DatapointSourceMock {
                 datapoints: in_oracle_boxes.clone(),
             }),
             5,
@@ -553,7 +553,7 @@ mod tests {
             build_refresh_action(
                 &pool_box_mock,
                 &refresh_box_mock,
-                &(DatapointStageMock {
+                &(DatapointSourceMock {
                     datapoints: make_datapoint_boxes(
                         oracle_pub_keys,
                         vec![199, 70, 196, 197, 198, 200],

@@ -59,7 +59,6 @@ use log::LevelFilter;
 use node_interface::assert_wallet_unlocked;
 use node_interface::node_api::NodeApi;
 use oracle_config::ORACLE_CONFIG;
-use oracle_state::register_and_save_scans;
 use oracle_state::OraclePool;
 use oracle_types::BlockHeight;
 use pool_commands::build_action;
@@ -91,6 +90,7 @@ use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
 use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
 use crate::oracle_config::ORACLE_CONFIG_OPT;
 use crate::pool_config::POOL_CONFIG_FILE_PATH;
+use crate::scans::NodeScanRegistry;
 
 const APP_VERSION: &str = concat!(
     "v",
@@ -261,13 +261,9 @@ fn main() {
 
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
-    let datapoint_source = RuntimeDataPointSource::new(
-        POOL_CONFIG.data_point_source,
-        ORACLE_CONFIG.data_point_source_custom_script.clone(),
-    )
-    .unwrap();
-
-    let mut tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+    log_on_launch();
+    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    assert_wallet_unlocked(&node_api.node);
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
@@ -301,31 +297,24 @@ fn main() {
         Command::PrintContractHashes => {
             print_contract_hashes();
         }
-        oracle_command => handle_pool_command(oracle_command, &mut tokio_runtime, datapoint_source),
-    }
-}
-
-/// Handle all non-bootstrap commands
-fn handle_pool_command(
-    command: Command,
-    tokio_runtime: &mut tokio::runtime::Runtime,
-    datapoint_source: RuntimeDataPointSource,
-) {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
-    log_on_launch();
-    assert_wallet_unlocked(&node_api.node);
-    register_and_save_scans(&node_api).unwrap();
-    let op = OraclePool::new().unwrap();
-    match command {
         Command::Run {
             read_only,
             enable_rest_api,
         } => {
             let (_, repost_receiver) = bounded::<bool>(1);
 
+            let node_scan_registry =
+                NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
+            let op = OraclePool::new(&node_scan_registry).unwrap();
+            let datapoint_source = RuntimeDataPointSource::new(
+                POOL_CONFIG.data_point_source,
+                ORACLE_CONFIG.data_point_source_custom_script.clone(),
+            )
+            .unwrap();
+
             // Start Oracle Core GET API Server
             if enable_rest_api {
+                let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
                 tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
@@ -336,11 +325,20 @@ fn handle_pool_command(
                 thread::sleep(Duration::new(30, 0));
             }
         }
+        oracle_command => handle_pool_command(oracle_command, &node_api),
+    }
+}
 
+/// Handle all other commands
+fn handle_pool_command(command: Command, node_api: &NodeApi) {
+    let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
+    let node_scan_registry = NodeScanRegistry::load().unwrap();
+    let op = OraclePool::new(&node_scan_registry).unwrap();
+    match command {
         Command::ExtractRewardTokens { rewards_address } => {
             if let Err(e) = cli_commands::extract_reward_tokens::extract_reward_tokens(
                 // TODO: pass the NodeApi instance instead of these three
-                &node_api,
+                node_api,
                 &node_api.node,
                 &node_api.node,
                 op.get_local_datapoint_box_source(),
@@ -365,7 +363,7 @@ fn handle_pool_command(
             oracle_token_address,
         } => {
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
-                &node_api,
+                node_api,
                 &node_api.node,
                 &node_api.node,
                 op.get_local_datapoint_box_source(),
@@ -385,7 +383,7 @@ fn handle_pool_command(
         } => {
             let reward_token_opt = check_reward_token_opt(reward_token_id_str, reward_token_amount);
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
-                &node_api,
+                node_api,
                 &node_api.node,
                 &node_api.node,
                 op.get_local_ballot_box_source(),
@@ -405,7 +403,7 @@ fn handle_pool_command(
             let reward_token_opt = check_reward_token_opt(reward_token_id, reward_token_amount);
             if let Err(e) = cli_commands::update_pool::update_pool(
                 &op,
-                &node_api,
+                node_api,
                 &node_api.node,
                 &node_api.node,
                 reward_token_opt,
@@ -417,7 +415,7 @@ fn handle_pool_command(
         }
         Command::PrepareUpdate { update_file } => {
             if let Err(e) =
-                cli_commands::prepare_update::prepare_update(update_file, &node_api, height)
+                cli_commands::prepare_update::prepare_update(update_file, node_api, height)
             {
                 error!("Fatal update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -431,6 +429,8 @@ fn handle_pool_command(
                 POOL_CONFIG_FILE_PATH.get().unwrap(),
                 op.get_local_datapoint_box_source(),
                 &get_scans_file_path(),
+                node_scan_registry,
+                node_api,
             ) {
                 error!("Fatal import pool update error : {}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -441,7 +441,8 @@ fn handle_pool_command(
         }
         Command::Bootstrap { .. }
         | Command::PrintContractHashes
-        | Command::GenerateOracleConfig => unreachable!(),
+        | Command::GenerateOracleConfig
+        | Command::Run { .. } => unreachable!(),
     }
 }
 

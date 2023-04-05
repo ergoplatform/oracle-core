@@ -5,7 +5,7 @@ use crate::box_kind::PoolBox;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
 use crate::oracle_state::LocalDatapointState::{Collected, Posted};
-use crate::oracle_state::{OraclePool, StageDataSource, StageError};
+use crate::oracle_state::{DataSourceError, OraclePool};
 use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -38,7 +38,7 @@ async fn oracle_info() -> impl IntoResponse {
 
 /// Status of the oracle
 async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
-    let op = OraclePool::new().unwrap();
+    let op = OraclePool::load().unwrap();
     let live_epoch = task::spawn_blocking(move || op.get_live_epoch_state())
         .await
         .unwrap()?;
@@ -116,7 +116,7 @@ async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
 fn pool_status_sync() -> Result<Json<serde_json::Value>, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = node_api.node.current_block_height()? as u32;
-    let op = OraclePool::new().unwrap();
+    let op = OraclePool::load().unwrap();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
     let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
@@ -126,11 +126,13 @@ fn pool_status_sync() -> Result<Json<serde_json::Value>, ApiError> {
     let latest_pool_box_height = pool_box.get_box().creation_height;
     let epoch_end_height = latest_pool_box_height + epoch_length.0 as u32;
 
-    let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
+    let oracle_boxes = op
+        .get_datapoint_boxes_source()
+        .get_oracle_datapoint_boxes()?;
     let min_oracle_box_height = current_height - epoch_length.0 as u32;
     let active_oracle_count = oracle_boxes
         .into_iter()
-        .filter(|b| b.creation_height >= min_oracle_box_height)
+        .filter(|b| b.get_box().creation_height >= min_oracle_box_height)
         .count() as u32;
 
     let json = Json(json!({
@@ -191,9 +193,9 @@ pub async fn start_rest_server(repost_receiver: Receiver<bool>) {
 
 struct ApiError(String);
 
-impl From<StageError> for ApiError {
-    fn from(err: StageError) -> Self {
-        ApiError(format!("StageError: {}", err))
+impl From<DataSourceError> for ApiError {
+    fn from(err: DataSourceError) -> Self {
+        ApiError(format!("DataSourceError: {}", err))
     }
 }
 

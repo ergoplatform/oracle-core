@@ -6,7 +6,13 @@ use std::{
 
 use ergo_lib::{
     ergotree_ir::chain::address::NetworkAddress,
-    ergotree_ir::chain::{address::AddressEncoder, ergo_box::box_value::BoxValue},
+    ergotree_ir::{
+        chain::{
+            address::{Address, AddressEncoder},
+            ergo_box::box_value::BoxValue,
+        },
+        sigma_protocol::sigma_boolean::ProveDlog,
+    },
     wallet::tx_builder::{self, SUGGESTED_TX_FEE},
 };
 use log::LevelFilter;
@@ -45,7 +51,9 @@ impl OracleConfig {
         })?;
         let config_str: &str = &std::fs::read_to_string(config_file_path)
             .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
-        Self::load_from_str(config_str)
+        let config = Self::load_from_str(config_str)?;
+        let _ = config.oracle_address_p2pk()?;
+        Ok(config)
     }
 
     pub fn load_from_str(config_str: &str) -> Result<Self, OracleConfigFileError> {
@@ -59,6 +67,14 @@ impl OracleConfig {
         file.write_all(yaml_str.as_bytes()).unwrap();
         Ok(())
     }
+
+    pub fn oracle_address_p2pk(&self) -> Result<ProveDlog, OracleConfigFileError> {
+        if let Address::P2Pk(public_key) = self.oracle_address.address() {
+            Ok(public_key.clone())
+        } else {
+            Err(OracleConfigFileError::InvalidOracleAddress)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Error)]
@@ -67,6 +83,8 @@ pub enum OracleConfigFileError {
     IoError(String),
     #[error("Error parsing oracle config file: {0}")]
     ParseError(String),
+    #[error("Invalid oracle address, must be P2PK")]
+    InvalidOracleAddress,
 }
 
 impl Default for OracleConfig {

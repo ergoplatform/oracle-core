@@ -57,7 +57,7 @@ use crate::{
         SignTransactionWithInputs, SubmitTransaction,
     },
     oracle_config::{OracleConfig, BASE_FEE, ORACLE_CONFIG},
-    oracle_state::{OraclePool, StageDataSource},
+    oracle_state::{DataSourceError, OraclePool},
     oracle_types::BlockHeight,
     pool_config::{PoolConfig, POOL_CONFIG},
     serde::{PoolConfigSerde, SerdeConversionError, UpdateBootstrapConfigSerde},
@@ -141,12 +141,14 @@ fn print_hints_for_voting(height: BlockHeight) -> Result<(), PrepareUpdateError>
         .contract_parameters()
         .epoch_length()
         .0 as u32;
-    let op = OraclePool::new().unwrap();
-    let oracle_boxes = op.datapoint_stage.stage.get_boxes().unwrap();
+    let op = OraclePool::load().unwrap();
+    let oracle_boxes = op
+        .get_datapoint_boxes_source()
+        .get_oracle_datapoint_boxes()?;
     let min_oracle_box_height = height - epoch_length;
     let active_oracle_count = oracle_boxes
         .into_iter()
-        .filter(|b| b.creation_height >= min_oracle_box_height.0)
+        .filter(|b| b.get_box().creation_height >= min_oracle_box_height.0)
         .count() as u32;
     let pool_box = op.get_pool_box_source().get_pool_box().unwrap();
     let pool_box_height = pool_box.get_box().creation_height;
@@ -551,6 +553,8 @@ pub enum PrepareUpdateError {
     BallotContract(BallotContractError),
     #[error("Node API error: {0}")]
     NodeApiError(NodeApiError),
+    #[error("Data source error: {0}")]
+    DataSourceError(DataSourceError),
 }
 
 #[cfg(test)]

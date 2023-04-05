@@ -7,7 +7,10 @@ use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::scanning::NodeError;
 use ergo_node_interface::NodeInterface;
+use ergo_node_interface::ScanId;
+use log::info;
 use reqwest::Url;
+use serde_json::json;
 use thiserror::Error;
 
 use crate::scans::ScanID;
@@ -35,12 +38,41 @@ impl NodeApi {
     }
 
     /// Registers a scan with the node and either returns the `scan_id` or an error
-    pub fn register_scan(&self, scan_json: &serde_json::Value) -> Result<ScanID, NodeApiError> {
-        let scan_json_t = json::parse(&serde_json::to_string(scan_json).unwrap()).unwrap();
-        Ok(self.node.register_scan(&scan_json_t)?)
+    pub fn register_scan_raw(&self, scan_json: serde_json::Value) -> Result<ScanID, NodeApiError> {
+        let scan_id = self.node.register_scan(scan_json)?;
+        Ok(scan_id.to_string())
+    }
+
+    pub fn register_scan(
+        &self,
+        name: String,
+        tracking_rule: serde_json::Value,
+    ) -> std::result::Result<ScanId, NodeApiError> {
+        let scan_json = json!({
+            "scanName": name,
+            "trackingRule": tracking_rule,
+        });
+        log::info!(
+            "Registering Scan:\n{}",
+            serde_json::to_string_pretty(&scan_json).unwrap()
+        );
+        let scan_id_str = self.register_scan_raw(scan_json)?;
+        let scan_id_raw = scan_id_str
+            .parse::<u64>()
+            .map_err(|_| NodeApiError::InvalidScanId(scan_id_str))?;
+        let scan_id = scan_id_raw.into();
+        info!("Scan Successfully registered.\nID: {}", scan_id);
+        Ok(scan_id)
+    }
+
+    pub fn deregister_scan(&self, scan_id: ScanId) -> Result<ScanId, NodeApiError> {
+        log::info!("Deregistering Scan: {}", scan_id);
+        let scan_id = self.node.deregister_scan(scan_id)?;
+        Ok(scan_id)
     }
 
     pub fn rescan_from_height(&self, height: u32) -> Result<(), NodeApiError> {
+        log::info!("Triggering wallet rescan");
         self.node.send_post_req(
             "/wallet/rescan",
             format!("{{ \"fromHeight\": {} }} ", height),
@@ -84,4 +116,6 @@ pub enum NodeApiError {
     AddressEncoderError(AddressEncoderError),
     #[error("no change address is set in node")]
     NoChangeAddressSetInNode,
+    #[error("invalid scan id: {0}")]
+    InvalidScanId(String),
 }

@@ -19,7 +19,7 @@ use crate::{
     contracts::oracle::{OracleContract, OracleContractError},
     datapoint_source::{DataPointSource, DataPointSourceError},
     oracle_config::BASE_FEE,
-    oracle_state::StageError,
+    oracle_state::DataSourceError,
     oracle_types::{BlockHeight, EpochCounter},
     spec_token::{OracleTokenId, RewardTokenId, SpecToken},
     wallet::{WalletDataError, WalletDataSource},
@@ -27,8 +27,8 @@ use crate::{
 
 #[derive(Debug, Error, From)]
 pub enum PublishDatapointActionError {
-    #[error("stage error: {0}")]
-    StageError(StageError),
+    #[error("data source error: {0}")]
+    DataSourceError(DataSourceError),
     #[error("Oracle box has no reward token")]
     NoRewardTokenInOracleBox,
     #[error("tx builder error: {0}")]
