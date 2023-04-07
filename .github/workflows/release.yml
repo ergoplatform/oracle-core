@@ -57,6 +57,8 @@ jobs:
         with:
           toolchain: stable
       - uses: actions/checkout@v3
+      - name: fit git warning of dubious ownership
+        run: git config --global --add safe.directory /__w/oracle-core/oracle-core
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: oracle-core
