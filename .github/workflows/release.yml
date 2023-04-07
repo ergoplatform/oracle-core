@@ -35,6 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         name: Install cross-compilation tools
+      - uses: dtolnay/rust-toolchain@stable
+        name: Install rust toolchain
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: oracle-core
