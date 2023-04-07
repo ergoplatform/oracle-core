@@ -29,7 +29,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  upload-asset-x86-ubuntu:
+  upload-asset-x86-ubuntu-18:
     runs-on: ubuntu-latest
     container: 'ubuntu:18.04'
     steps:
