@@ -3,6 +3,7 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   upload-assets:
@@ -12,9 +13,6 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-20.04
             build_tool: cross # Use https://github.com/cross-rs/cross for ARM
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-20.04
-            build_tool: cargo
           - target: x86_64-apple-darwin
             os: macos-latest
             build_tool: cargo
@@ -30,6 +28,22 @@ jobs:
           build_tool: ${{ matrix.build_tool }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-asset-x86-ubuntu:
+    runs-on: ubuntu-latest
+    container: 'ubuntu:18.04'
+    steps:
+      - uses: actions/checkout@v3
+        name: Install cross-compilation tools
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: oracle-core
+          archive: $bin-$tag-$target
+          target: x86_64-unknown-linux-gnu
+          build_tool: cargo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   upload-asset-windows:
     strategy:
       matrix:
