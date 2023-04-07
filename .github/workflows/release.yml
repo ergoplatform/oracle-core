@@ -41,8 +41,9 @@ jobs:
             clang make gcc g++ libssl-dev pkg-config protobuf-compiler
       - name: Install modern Git
         run: |
-          add-apt-repository ppa:git-core/ppa |
-          apt update |
+          apt install software-properties-common \
+          add-apt-repository ppa:git-core/ppa \
+          apt update \
           apt install git
       - name: Install Github CLI
         run: |
