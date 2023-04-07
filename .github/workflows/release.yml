@@ -37,8 +37,13 @@ jobs:
         run: |
           apt update -y
           apt install --no-install-recommends -y \
-            ca-certificates curl git jq zip \
+            ca-certificates curl jq zip \
             clang make gcc g++ libssl-dev pkg-config protobuf-compiler
+      - name: Install modern Git
+        run: |
+          add-apt-repository ppa:git-core/ppa |
+          apt update |
+          apt install git
       - name: Install Github CLI
         run: |
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
