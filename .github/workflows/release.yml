@@ -37,7 +37,7 @@ jobs:
         run: |
           apt update -y
           apt install --no-install-recommends -y \
-            ca-certificates curl git \
+            ca-certificates curl git jq zip \
             clang make gcc g++ libssl-dev pkg-config protobuf-compiler
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -47,7 +47,8 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: oracle-core
-          archive: $bin-$tag-$target
+          # archive: $bin-$tag-$target
+          archive: $bin-$target
           target: x86_64-unknown-linux-gnu
           build_tool: cargo
         env:
