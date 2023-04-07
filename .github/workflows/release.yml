@@ -33,10 +33,17 @@ jobs:
     runs-on: ubuntu-latest
     container: 'ubuntu:18.04'
     steps:
+      - name: Install dependencies
+        run: |
+          apt update -y
+          apt install --no-install-recommends -y \
+            ca-certificates curl git \
+            clang make gcc g++ libssl-dev pkg-config protobuf-compiler
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
       - uses: actions/checkout@v3
-        name: Install cross-compilation tools
-      - uses: dtolnay/rust-toolchain@stable
-        name: Install rust toolchain
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: oracle-core
