@@ -465,7 +465,7 @@ fn main_loop_iteration(
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
-            log::debug!("error getting live epoch state: {}", error);
+            log::error!("error getting live epoch state: {}", error);
             PoolState::NeedsBootstrap
         }
     };
