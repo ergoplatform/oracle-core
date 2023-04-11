@@ -317,9 +317,7 @@ impl<'a> LocalDatapointBoxSource for LocalOracleDatapointScan<'a> {
             .scan
             .get_boxes()?
             .into_iter()
-            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
-            .collect::<std::result::Result<Vec<OracleBoxWrapper>, _>>()?
-            .into_iter()
+            .filter_map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs).ok())
             .find(|b| b.public_key() == *self.oracle_pk.h))
     }
 }
@@ -355,15 +353,11 @@ impl<'a> UpdateBoxSource for UpdateBoxScan<'a> {
 
 impl<'a> DatapointBoxesSource for OracleDatapointScan<'a> {
     fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
-        let oracle_boxes: Vec<OracleBoxWrapper> = self
+        let posted_boxes = self
             .scan
             .get_boxes()?
             .into_iter()
-            .map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs))
-            .collect::<std::result::Result<Vec<OracleBoxWrapper>, _>>()?;
-
-        let posted_boxes = oracle_boxes
-            .into_iter()
+            .filter_map(|b| OracleBoxWrapper::new(b, self.oracle_box_wrapper_inputs).ok())
             .filter_map(|b| match b {
                 OracleBoxWrapper::Posted(p) => Some(p),
                 OracleBoxWrapper::Collected(_) => None,
