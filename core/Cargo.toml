@@ -1,6 +1,6 @@
 [package]
 name = "oracle-core"
-version = "2.0.0-beta8"
+version = "2.0.0-beta9"
 authors = ["Robert Kornacki <11645932+robkorn@users.noreply.github.com>", "@greenhat", "@kettlebell", "@SethDusek"]
 edition = "2021"
 
