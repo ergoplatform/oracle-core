@@ -117,7 +117,7 @@ oracle-core print-reward-tokens
 
 ## Transfer the oracle token to a new operator
 
-Be aware that reward tokens currently accumulated in the oracle box are transferred as well.
+Be aware that reward tokens currently accumulated in the oracle box should be extracted with `extract-reward-tokens` command firstbefore transferring the oracle token to the new address.
 Run
 
 ``` console

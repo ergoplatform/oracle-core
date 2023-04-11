@@ -292,9 +292,7 @@ impl<'a> LocalBallotBoxSource for LocalBallotBoxScan<'a> {
             .scan
             .get_boxes()?
             .into_iter()
-            .map(|b| BallotBoxWrapper::new(b, self.ballot_box_wrapper_inputs))
-            .collect::<std::result::Result<Vec<BallotBoxWrapper>, _>>()?
-            .into_iter()
+            .filter_map(|b| BallotBoxWrapper::new(b, self.ballot_box_wrapper_inputs).ok())
             .find(|b| b.ballot_token_owner() == *self.ballot_token_owner_pk.h))
     }
 }
@@ -328,13 +326,9 @@ impl<'a> VoteBallotBoxesSource for BallotBoxesScan<'a> {
             .scan
             .get_boxes()?
             .into_iter()
-            .map(|ballot_box| {
-                Ok(VoteBallotBoxWrapper::new(
-                    ballot_box,
-                    self.ballot_box_wrapper_inputs,
-                )?)
+            .filter_map(|ballot_box| {
+                VoteBallotBoxWrapper::new(ballot_box, self.ballot_box_wrapper_inputs).ok()
             })
-            .filter_map(Result::ok) // Filter out boxes that are not participating in voting
             .collect())
     }
 }
