@@ -301,6 +301,7 @@ fn main() {
             read_only,
             enable_rest_api,
         } => {
+            let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
             let (_, repost_receiver) = bounded::<bool>(1);
 
             let node_scan_registry =
@@ -314,7 +315,6 @@ fn main() {
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
-                let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
                 tokio_runtime.spawn(start_rest_server(repost_receiver));
             }
             loop {
