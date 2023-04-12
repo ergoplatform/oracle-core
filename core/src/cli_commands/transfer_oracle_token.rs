@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 
-use derive_more::From;
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::ErgoBoxCandidateBuilderError,
@@ -31,34 +30,37 @@ use crate::{
     wallet::{WalletDataError, WalletDataSource},
 };
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum TransferOracleTokenActionError {
-    #[error("Oracle box should contain exactly 1 reward token. It contains {0} tokens")]
+    #[error(
+        "Oracle box should contain exactly 1 reward token. It contains {0} tokens. \
+        Use `extract-reward-tokens` command to extract reward tokens from the oracle box.`"
+    )]
     IncorrectNumberOfRewardTokensInOracleBox(usize),
     #[error("Destination address not P2PK")]
     IncorrectDestinationAddress,
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("data source error: {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("node error: {0}")]
-    Node(NodeError),
+    Node(#[from] NodeError),
     #[error("box selector error: {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("Sigma parsing error: {0}")]
-    SigmaParse(SigmaParsingError),
+    SigmaParse(#[from] SigmaParsingError),
     #[error("tx builder error: {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
     #[error("No local datapoint box")]
     NoLocalDatapointBox,
     #[error("AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("IO error: {0}")]
-    Io(std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
 }
 
 pub fn transfer_oracle_token(
@@ -68,7 +70,7 @@ pub fn transfer_oracle_token(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
     height: BlockHeight,
-) -> Result<(), TransferOracleTokenActionError> {
+) -> Result<(), anyhow::Error> {
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
     let (change_address, network_prefix) = {

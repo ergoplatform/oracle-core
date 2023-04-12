@@ -370,7 +370,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
                 oracle_token_address,
                 height,
             ) {
-                error!("Fatal transfer-oracle-token error: {:?}", e);
+                error!("Fatal transfer-oracle-token error: {}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
