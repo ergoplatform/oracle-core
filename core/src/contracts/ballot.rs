@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 
 use base16::DecodeError;
-use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValueError;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
@@ -24,22 +23,22 @@ pub struct BallotContract {
     update_nft_index: usize,
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum BallotContractError {
     #[error("ballot contract: parameter error: {0}")]
-    ParametersError(BallotContractParametersError),
+    ParametersError(#[from] BallotContractParametersError),
     #[error("ballot contract: unknown update NFT defined in constant")]
     UnknownUpdateNftId,
     #[error("ballot contract: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("ballot contract: ergo tree error {0:?}")]
-    ErgoTreeError(ErgoTreeError),
+    ErgoTreeError(#[from] ErgoTreeError),
     #[error("ballot contract: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]
     WrappedWithExpectedP2SAddress(String, Box<Self>),
     #[error("contract error: min storage rent error: {0:?}")]
-    MinStorageRent(BoxValueError),
+    MinStorageRent(#[from] BoxValueError),
 }
 
 #[derive(Clone, Debug)]
@@ -203,7 +202,7 @@ pub struct BallotContractParameters {
     update_nft_index: usize,
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum BallotContractParametersError {
     #[error("ballot contract parameters: failed to get update NFT from constants")]
     NoUpdateNftId,
@@ -217,17 +216,17 @@ pub enum BallotContractParametersError {
         actual: BoxValue,
     },
     #[error("contract error: min storage rent error: {0:?}")]
-    MinStorageRent(BoxValueError),
+    MinStorageRent(#[from] BoxValueError),
     #[error("ballot contract parameters: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("ballot contract parameters: sigma serialization error {0}")]
-    SigmaSerialization(SigmaSerializationError),
+    SigmaSerialization(#[from] SigmaSerializationError),
     #[error("ballot contract parameters: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
     #[error("ballot contract parameters: ergo tree error {0:?}")]
-    ErgoTreeError(ErgoTreeError),
+    ErgoTreeError(#[from] ErgoTreeError),
     #[error("ballot contract parameters: base16 decoding error {0}")]
-    Decode(DecodeError),
+    Decode(#[from] DecodeError),
 }
 
 impl BallotContractParameters {

@@ -4,7 +4,6 @@ use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
 
-use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
 use ergo_node_interface::ScanId;
@@ -19,24 +18,24 @@ pub use registry::*;
 /// Integer which is provided by the Ergo node to reference a given scan.
 pub type ScanID = String;
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum ScanError {
     #[error("node error: {0}")]
-    NodeError(NodeError),
+    NodeError(#[from] NodeError),
     #[error("node api error: {0}")]
-    NodeApiError(NodeApiError),
+    NodeApiError(#[from] NodeApiError),
     #[error("no boxes found")]
     NoBoxesFound,
     #[error("failed to register scan")]
     FailedToRegister,
     #[error("IO error: {0}")]
-    IoError(std::io::Error),
+    IoError(#[from] std::io::Error),
     #[error("refresh contract error: {0}")]
-    RefreshContract(RefreshContractError),
+    RefreshContract(#[from] RefreshContractError),
     #[error("pool contract error: {0}")]
-    PoolContract(PoolContractError),
+    PoolContract(#[from] PoolContractError),
     #[error("address util error: {0}")]
-    AddressUtilError(AddressUtilError),
+    AddressUtilError(#[from] AddressUtilError),
 }
 
 pub trait NodeScanId {

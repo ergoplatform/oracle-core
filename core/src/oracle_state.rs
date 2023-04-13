@@ -12,7 +12,6 @@ use crate::pool_config::POOL_CONFIG;
 use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
 use crate::spec_token::{BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, UpdateTokenId};
 use anyhow::Error;
-use derive_more::From;
 
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
@@ -20,28 +19,28 @@ use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, DataSourceError>;
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum DataSourceError {
     #[error("unexpected data error: {0}")]
-    UnexpectedData(TryExtractFromError),
+    UnexpectedData(#[from] TryExtractFromError),
     #[error("scan error: {0}")]
-    ScanError(ScanError),
+    ScanError(#[from] ScanError),
     #[error("pool box error: {0}")]
-    PoolBoxError(PoolBoxError),
+    PoolBoxError(#[from] PoolBoxError),
     #[error("pool box not found")]
     PoolBoxNotFoundError,
     #[error("ballot box error: {0}")]
-    BallotBoxError(BallotBoxError),
+    BallotBoxError(#[from] BallotBoxError),
     #[error("refresh box error: {0}")]
-    RefreshBoxError(RefreshBoxError),
+    RefreshBoxError(#[from] RefreshBoxError),
     #[error("refresh box not found")]
     RefreshBoxNotFoundError,
     #[error("oracle box error: {0}")]
-    OracleBoxError(OracleBoxError),
+    OracleBoxError(#[from] OracleBoxError),
     #[error("datapoint source error: {0}")]
-    DataPointSource(DataPointSourceError),
+    DataPointSource(#[from] DataPointSourceError),
     #[error("update box error: {0}")]
-    UpdateBoxError(UpdateBoxError),
+    UpdateBoxError(#[from] UpdateBoxError),
     #[error("update box not found")]
     UpdateBoxNotFoundError,
 }
@@ -215,7 +214,7 @@ impl<'a> OraclePool<'a> {
     }
 
     /// Get the state of the current oracle pool epoch
-    pub fn get_live_epoch_state(&self) -> Result<LiveEpochState> {
+    pub fn get_live_epoch_state(&self) -> std::result::Result<LiveEpochState, anyhow::Error> {
         let pool_box = self.get_pool_box_source().get_pool_box()?;
         let epoch_id = pool_box.epoch_counter();
 

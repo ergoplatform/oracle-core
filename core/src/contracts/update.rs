@@ -1,5 +1,4 @@
 use base16::DecodeError;
-use derive_more::From;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeError;
@@ -23,7 +22,7 @@ pub struct UpdateContract {
     min_votes_index: usize,
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum UpdateContractError {
     #[error("update contract: failed to get pool NFT from constants")]
     NoPoolNftId,
@@ -40,11 +39,11 @@ pub enum UpdateContractError {
     )]
     MinVotesDiffers { expected: u64, actual: u64 },
     #[error("update contract: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("update contract: ergo tree error {0:?}")]
-    ErgoTreeError(ErgoTreeError),
+    ErgoTreeError(#[from] ErgoTreeError),
     #[error("update contract: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]
     WrappedWithExpectedP2SAddress(String, Box<Self>),
 }
@@ -228,14 +227,14 @@ pub struct UpdateContractParameters {
     min_votes: u64,
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum UpdateContractParametersError {
     #[error("update contract parameters: failed to get pool NFT from constants")]
     NoPoolNftId,
     #[error("update contract parameters: failed to get ballot token id from constants")]
     NoBallotTokenId,
     #[error("update contract parameters: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("update contract parameters: failed to get minimum votes (must be SInt)")]
     NoMinVotes,
     #[error(
@@ -243,13 +242,13 @@ pub enum UpdateContractParametersError {
     )]
     MinVotesDiffers { expected: u64, actual: u64 },
     #[error("update contract parameters: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
     #[error("update contract parameters: ergo tree error {0:?}")]
-    ErgoTreeError(ErgoTreeError),
+    ErgoTreeError(#[from] ErgoTreeError),
     #[error("update contract parameters: sigma serialization error {0}")]
-    SigmaSerialization(SigmaSerializationError),
+    SigmaSerialization(#[from] SigmaSerializationError),
     #[error("update contract parameters: base16 decoding error {0}")]
-    Decode(DecodeError),
+    Decode(#[from] DecodeError),
 }
 
 impl UpdateContractParameters {

@@ -1,7 +1,6 @@
 //! Bootstrap a new oracle pool
 use std::{convert::TryInto, io::Write, path::Path};
 
-use derive_more::From;
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -65,7 +64,7 @@ use crate::{
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
-pub fn bootstrap(config_file_name: String) -> Result<(), BootstrapError> {
+pub fn bootstrap(config_file_name: String) -> Result<(), anyhow::Error> {
     let oracle_config = &ORACLE_CONFIG;
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
@@ -619,46 +618,46 @@ pub struct NftMintDetails {
     pub description: String,
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum BootstrapError {
     #[error("tx builder error: {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("node error: {0}")]
-    Node(NodeError),
+    Node(#[from] NodeError),
     #[error("node api error: {0}")]
-    NodeApiError(NodeApiError),
+    NodeApiError(#[from] NodeApiError),
     #[error("box selector error: {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("box value error: {0}")]
-    BoxValue(BoxValueError),
+    BoxValue(#[from] BoxValueError),
     #[error("IO error: {0}")]
-    Io(std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("serde-yaml error: {0}")]
-    SerdeYaml(serde_yaml::Error),
+    SerdeYaml(#[from] serde_yaml::Error),
     #[error("yaml-rust error: {0}")]
     YamlRust(String),
     #[error("AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("SigmaParsing error: {0}")]
-    SigmaParse(SigmaParsingError),
+    SigmaParse(#[from] SigmaParsingError),
     #[error("Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
     #[error("Node doesn't have a change address set")]
-    RefreshContract(RefreshContractError),
+    RefreshContract(#[from] RefreshContractError),
     #[error("Update contract error: {0}")]
-    UpdateContract(UpdateContractError),
+    UpdateContract(#[from] UpdateContractError),
     #[error("Bootstrap config file already exists")]
     ConfigFilenameAlreadyExists,
     #[error("Ballot contract error: {0}")]
-    BallotContractError(BallotContractError),
+    BallotContractError(#[from] BallotContractError),
     #[error("Pool config error: {0}")]
-    PoolConfigError(PoolConfigError),
+    PoolConfigError(#[from] PoolConfigError),
     #[error("Pool contract error: {0}")]
-    PoolContractError(PoolContractError),
+    PoolContractError(#[from] PoolContractError),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
 }
 
 #[cfg(test)]

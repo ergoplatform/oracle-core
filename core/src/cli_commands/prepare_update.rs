@@ -90,7 +90,7 @@ pub fn prepare_update(
     config_file_name: String,
     node_api: &NodeApi,
     height: BlockHeight,
-) -> Result<(), PrepareUpdateError> {
+) -> Result<(), anyhow::Error> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
@@ -509,36 +509,36 @@ impl<'a> PrepareUpdate<'a> {
     }
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum PrepareUpdateError {
     #[error("tx builder error: {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("node error: {0}")]
-    Node(NodeError),
+    Node(#[from] NodeError),
     #[error("box selector error: {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("box value error: {0}")]
-    BoxValue(BoxValueError),
+    BoxValue(#[from] BoxValueError),
     #[error("IO error: {0}")]
-    Io(std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("serde-yaml error: {0}")]
-    SerdeYaml(serde_yaml::Error),
+    SerdeYaml(#[from] serde_yaml::Error),
     #[error("yaml-rust error: {0}")]
     YamlRust(String),
     #[error("AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("SigmaParsing error: {0}")]
-    SigmaParse(SigmaParsingError),
+    SigmaParse(#[from] SigmaParsingError),
     #[error("Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
     #[error("Refresh contract failed: {0}")]
-    RefreshContract(RefreshContractError),
+    RefreshContract(#[from] RefreshContractError),
     #[error("Update contract error: {0}")]
-    UpdateContract(UpdateContractError),
+    UpdateContract(#[from] UpdateContractError),
     #[error("Pool contract failed: {0}")]
-    PoolContract(PoolContractError),
+    PoolContract(#[from] PoolContractError),
     #[error("Bootstrap config file already exists")]
     ConfigFilenameAlreadyExists,
     #[error("No parameters were added for update")]
@@ -546,15 +546,15 @@ pub enum PrepareUpdateError {
     #[error("No mint details were provided for update/refresh contract in tokens_to_mint")]
     NoMintDetails,
     #[error("Serde conversion error {0}")]
-    SerdeConversion(SerdeConversionError),
+    SerdeConversion(#[from] SerdeConversionError),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
     #[error("Ballot contract error: {0}")]
-    BallotContract(BallotContractError),
+    BallotContract(#[from] BallotContractError),
     #[error("Node API error: {0}")]
-    NodeApiError(NodeApiError),
+    NodeApiError(#[from] NodeApiError),
     #[error("Data source error: {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
 }
 
 #[cfg(test)]

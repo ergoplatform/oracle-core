@@ -2,7 +2,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use derive_more::From;
 use once_cell::sync;
 use serde::Deserialize;
 use serde::Serialize;
@@ -92,18 +91,18 @@ pub struct TokenIds {
     pub ballot_token_id: BallotTokenId,
 }
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum PoolConfigError {
     #[error("Oracle contract error: {0}")]
-    OracleContractError(OracleContractError),
+    OracleContractError(#[from] OracleContractError),
     #[error("Refresh contract error: {0}")]
-    RefreshContractError(RefreshContractError),
+    RefreshContractError(#[from] RefreshContractError),
     #[error("Pool contract error: {0}")]
-    PoolContractError(PoolContractError),
+    PoolContractError(#[from] PoolContractError),
     #[error("Update contract error: {0}")]
-    UpdateContractErro(UpdateContractError),
+    UpdateContractErro(#[from] UpdateContractError),
     #[error("Ballot contract error: {0}")]
-    BallotContractErro(BallotContractError),
+    BallotContractErro(#[from] BallotContractError),
 }
 
 impl PoolConfig {

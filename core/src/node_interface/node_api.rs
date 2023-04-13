@@ -1,4 +1,3 @@
-use derive_more::From;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
@@ -108,12 +107,12 @@ impl WalletDataSource for NodeApi {
     }
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum NodeApiError {
     #[error("Node error: {0}")]
-    NodeInterfaceError(NodeError),
+    NodeInterfaceError(#[from] NodeError),
     #[error("AddressEncoder error: {0}")]
-    AddressEncoderError(AddressEncoderError),
+    AddressEncoderError(#[from] AddressEncoderError),
     #[error("no change address is set in node")]
     NoChangeAddressSetInNode,
     #[error("invalid scan id: {0}")]

@@ -1,4 +1,3 @@
-use derive_more::From;
 use ergo_lib::ergotree_ir::{
     chain::address::{Address, AddressEncoder, AddressEncoderError},
     mir::constant::{Constant, Literal},
@@ -7,20 +6,20 @@ use ergo_lib::ergotree_ir::{
 };
 use thiserror::Error;
 
-#[derive(Error, From, Debug)]
+#[derive(Error, Debug)]
 pub enum AddressUtilError {
     #[error("address encoder error: {0}")]
-    AddressEncoderError(AddressEncoderError),
+    AddressEncoderError(#[from] AddressEncoderError),
     #[error("expected P2PK address")]
     ExpectedP2PK,
     #[error("expected P2S address")]
     ExpectedP2S,
     #[error("serialization error: {0}")]
-    SigmaSerializationError(SigmaSerializationError),
+    SigmaSerializationError(#[from] SigmaSerializationError),
     #[error("sigma parse error: {0}")]
-    SigmaParsingError(SigmaParsingError),
+    SigmaParsingError(#[from] SigmaParsingError),
     #[error("base16 error: {0}")]
-    Base16DecodeError(base16::DecodeError),
+    Base16DecodeError(#[from] base16::DecodeError),
 }
 
 /// Given a P2S Ergo address, extract the hex-encoded serialized ErgoTree (script)

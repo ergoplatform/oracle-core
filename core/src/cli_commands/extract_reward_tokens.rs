@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 
-use derive_more::From;
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -35,34 +34,34 @@ use crate::{
     wallet::{WalletDataError, WalletDataSource},
 };
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum ExtractRewardTokensActionError {
     #[error("Oracle box must contain at least 2 reward tokens. It contains {0} tokens")]
     InsufficientRewardTokensInOracleBox(usize),
     #[error("Destination address not P2PK")]
     IncorrectDestinationAddress,
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("data source error: {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("node error: {0}")]
-    Node(NodeError),
+    Node(#[from] NodeError),
     #[error("box selector error: {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("Sigma parsing error: {0}")]
-    SigmaParse(SigmaParsingError),
+    SigmaParse(#[from] SigmaParsingError),
     #[error("tx builder error: {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("No local datapoint box")]
     NoLocalDatapointBox,
     #[error("AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
     #[error("IO error: {0}")]
-    Io(std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
 }
 
 pub fn extract_reward_tokens(
@@ -72,7 +71,7 @@ pub fn extract_reward_tokens(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
     height: BlockHeight,
-) -> Result<(), ExtractRewardTokensActionError> {
+) -> Result<(), anyhow::Error> {
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
     let network_prefix = rewards_destination.network();

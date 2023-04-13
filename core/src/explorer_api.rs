@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use derive_more::From;
 use ergo_lib::chain::transaction::Transaction;
 use ergo_lib::chain::transaction::TxId;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
@@ -18,14 +17,14 @@ use self::explorer_url::default_explorer_url;
 
 pub mod explorer_url;
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum ExplorerApiError {
     #[error("reqwest error: {0}")]
-    RequestError(reqwest::Error),
+    RequestError(#[from] reqwest::Error),
     #[error("serde error: {0}")]
-    SerdeError(serde_json::Error),
+    SerdeError(#[from] serde_json::Error),
     #[error("invalid explorer url: {0}")]
-    InvalidExplorerUrl(ParseError),
+    InvalidExplorerUrl(#[from] ParseError),
 }
 
 pub struct ExplorerApi {

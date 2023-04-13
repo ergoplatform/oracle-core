@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 
-use derive_more::From;
 use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
     ergo_chain_types::EcPoint,
@@ -25,24 +24,24 @@ use crate::{
     wallet::{WalletDataError, WalletDataSource},
 };
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum PublishDatapointActionError {
     #[error("data source error: {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("Oracle box has no reward token")]
     NoRewardTokenInOracleBox,
     #[error("tx builder error: {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
     #[error("box selector error: {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("datapoint source error: {0}")]
-    DataPointSource(DataPointSourceError),
+    DataPointSource(#[from] DataPointSourceError),
     #[error("oracle contract error: {0}")]
-    OracleContract(OracleContractError),
+    OracleContract(#[from] OracleContractError),
 }
 
 pub fn build_subsequent_publish_datapoint_action(

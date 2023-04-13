@@ -29,33 +29,32 @@ use crate::{
     spec_token::{RewardTokenId, SpecToken, TokenIdKind},
     wallet::{WalletDataError, WalletDataSource},
 };
-use derive_more::From;
 use thiserror::Error;
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum VoteUpdatePoolError {
     #[error("Vote update pool: data source error {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("Vote update pool: ErgoBoxCandidateBuilder error {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("Vote update pool: node error {0}")]
-    Node(NodeError),
+    Node(#[from] NodeError),
     #[error("Vote update pool: box selector error {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("Vote update pool: tx builder error {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("Vote update pool: Node doesn't have a change address set")]
     NoChangeAddressSetInNode,
     #[error("Vote update pool: Ballot token owner address not P2PK")]
     IncorrectBallotTokenOwnerAddress,
     #[error("Vote update pool: IO error {0}")]
-    Io(std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("Vote update pool: Digest32 error {0}")]
-    Digest(DigestNError),
+    Digest(#[from] DigestNError),
     #[error("Vote update pool: Ballot contract error {0}")]
-    BallotContract(BallotContractError),
+    BallotContract(#[from] BallotContractError),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -68,7 +67,7 @@ pub fn vote_update_pool(
     reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     height: BlockHeight,
-) -> Result<(), VoteUpdatePoolError> {
+) -> Result<(), anyhow::Error> {
     let change_network_address = wallet.get_change_address()?;
     let network_prefix = change_network_address.network();
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
