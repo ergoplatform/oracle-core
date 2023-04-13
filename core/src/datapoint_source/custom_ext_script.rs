@@ -1,17 +1,16 @@
-use derive_more::From;
 use thiserror::Error;
 
 use super::DataPointSource;
 use super::DataPointSourceError;
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum ExternalScriptError {
     #[error("external script child process error: {0}")]
-    ChildProcess(std::io::Error),
+    ChildProcess(#[from] std::io::Error),
     #[error("String from bytes error: {0}")]
-    StringFromBytes(std::string::FromUtf8Error),
+    StringFromBytes(#[from] std::string::FromUtf8Error),
     #[error("Parse i64 from string error: {0}")]
-    ParseInt(std::num::ParseIntError),
+    ParseInt(#[from] std::num::ParseIntError),
 }
 
 #[derive(Debug, Clone)]

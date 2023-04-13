@@ -2,7 +2,6 @@
 
 use std::convert::{TryFrom, TryInto};
 
-use derive_more::From;
 use ergo_lib::{
     ergo_chain_types::Digest32,
     ergotree_ir::chain::{address::AddressEncoderError, ergo_box::box_value::BoxValueError},
@@ -45,26 +44,26 @@ pub(crate) struct PoolConfigSerde {
     token_ids: TokenIds,
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum SerdeConversionError {
     #[error("Serde conversion error: AddressEncoder {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("Pool config error: {0}")]
-    PoolConfigError(PoolConfigError),
+    PoolConfigError(#[from] PoolConfigError),
     #[error("Base16 decode error: {0}")]
-    DecodeError(base16::DecodeError),
+    DecodeError(#[from] base16::DecodeError),
     #[error("Ballot contract parameter error: {0}")]
-    BallotContractParameters(BallotContractParametersError),
+    BallotContractParameters(#[from] BallotContractParametersError),
     #[error("Oracle contract parameter error: {0}")]
-    OracleContractParameters(OracleContractParametersError),
+    OracleContractParameters(#[from] OracleContractParametersError),
     #[error("Pool contract parameter error: {0}")]
-    PoolContractParameters(PoolContractParametersError),
+    PoolContractParameters(#[from] PoolContractParametersError),
     #[error("Refresh contract parameter error: {0}")]
-    RefreshContractParameters(RefreshContractParametersError),
+    RefreshContractParameters(#[from] RefreshContractParametersError),
     #[error("Update contract parameter error: {0}")]
-    UpdateContractParameters(UpdateContractParametersError),
+    UpdateContractParameters(#[from] UpdateContractParametersError),
     #[error("BoxValueError: {0}")]
-    BoxValueError(BoxValueError),
+    BoxValueError(#[from] BoxValueError),
 }
 
 impl From<PoolConfig> for PoolConfigSerde {

@@ -38,39 +38,38 @@ use crate::{
     spec_token::{RewardTokenId, SpecToken, TokenIdKind},
     wallet::{WalletDataError, WalletDataSource},
 };
-use derive_more::From;
 use thiserror::Error;
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum UpdatePoolError {
     #[error("Update pool: Not enough votes for {2:?}, expected {0}, found {1}")]
     NotEnoughVotes(usize, usize, CastBallotBoxVoteParameters),
     #[error("Update pool: Pool parameters (refresh NFT, update NFT) unchanged")]
     PoolUnchanged,
     #[error("Update pool: ErgoBoxCandidateBuilderError {0}")]
-    ErgoBoxCandidateBuilder(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
     #[error("Update pool: box selector error {0}")]
-    BoxSelector(BoxSelectorError),
+    BoxSelector(#[from] BoxSelectorError),
     #[error("Update pool: tx builder error {0}")]
-    TxBuilder(TxBuilderError),
+    TxBuilder(#[from] TxBuilderError),
     #[error("Update pool: tx context error {0}")]
-    TxSigningError(TxSigningError),
+    TxSigningError(#[from] TxSigningError),
     #[error("Update pool: data source error {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("Update pool: node error {0}")]
-    Node(NodeError),
+    Node(#[from] NodeError),
     #[error("No change address in node")]
     NoChangeAddressSetInNode,
     #[error("Update pool: pool contract error {0}")]
-    PoolContractError(crate::contracts::pool::PoolContractError),
+    PoolContractError(#[from] crate::contracts::pool::PoolContractError),
     #[error("Update pool: io error {0}")]
-    IoError(std::io::Error),
+    IoError(#[from] std::io::Error),
     #[error("Update pool: yaml error {0}")]
-    YamlError(serde_yaml::Error),
+    YamlError(#[from] serde_yaml::Error),
     #[error("Update pool: could not find unspent wallot boxes that do not contain ballot tokens")]
     NoUsableWalletBoxes,
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
 }
 
 pub fn update_pool(
@@ -80,7 +79,7 @@ pub fn update_pool(
     tx_submit: &dyn SubmitTransaction,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
-) -> Result<(), UpdatePoolError> {
+) -> Result<(), anyhow::Error> {
     info!("Opening pool_config_updated.yaml");
     let s = std::fs::read_to_string("pool_config_updated.yaml")?;
     let new_pool_config: PoolConfig = serde_yaml::from_str(&s)?;

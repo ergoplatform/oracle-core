@@ -20,7 +20,6 @@ use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
-use derive_more::From;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
@@ -37,7 +36,7 @@ use thiserror::Error;
 
 use std::convert::TryInto;
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum RefreshActionError {
     #[error("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from public keys {found_public_keys:?},")]
     FailedToReachConsensus {
@@ -48,15 +47,15 @@ pub enum RefreshActionError {
     #[error("Not enough datapoints left during the removal of the outliers")]
     NotEnoughDatapoints,
     #[error("data source error: {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("WalletData error: {0}")]
-    WalletData(WalletDataError),
+    WalletData(#[from] WalletDataError),
     #[error("box selector error: {0}")]
-    BoxSelectorError(BoxSelectorError),
+    BoxSelectorError(#[from] BoxSelectorError),
     #[error("tx builder error: {0}")]
-    TxBuilderError(TxBuilderError),
+    TxBuilderError(#[from] TxBuilderError),
     #[error("box builder error: {0}")]
-    ErgoBoxCandidateBuilderError(ErgoBoxCandidateBuilderError),
+    ErgoBoxCandidateBuilderError(#[from] ErgoBoxCandidateBuilderError),
     #[error("failed to found my own oracle box in the filtered posted oracle boxes")]
     MyOracleBoxNoFound,
 }

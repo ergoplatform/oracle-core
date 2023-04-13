@@ -1,4 +1,3 @@
-use derive_more::From;
 use ergo_lib::ergotree_ir::chain::address::AddressEncoderError;
 use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -7,16 +6,16 @@ use thiserror::Error;
 
 use crate::node_interface::node_api::NodeApiError;
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum WalletDataError {
     #[error("node error: {0}")]
-    NodeError(NodeError),
+    NodeError(#[from] NodeError),
     #[error("no change address found")]
     NoChangeAddressSetInNode,
     #[error("AddressEncoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("node api error: {0}")]
-    NodeApiError(NodeApiError),
+    NodeApiError(#[from] NodeApiError),
 }
 
 // TODO: remove and pass unspent boxes and change address directly?

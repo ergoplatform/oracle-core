@@ -1,4 +1,3 @@
-use derive_more::From;
 use ergo_lib::ergo_chain_types::DigestNError;
 use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoderError};
 use thiserror::Error;
@@ -31,20 +30,20 @@ pub enum PoolCommand {
     PublishSubsequentDataPoint { republish: bool },
 }
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum PoolCommandError {
     #[error("data source error: {0}")]
-    DataSourceError(DataSourceError),
+    DataSourceError(#[from] DataSourceError),
     #[error("unexpected error: {0}")]
     Unexpected(String),
     #[error("error on building RefreshAction: {0}")]
-    RefreshActionError(RefreshActionError),
+    RefreshActionError(#[from] RefreshActionError),
     #[error("error on building PublishDatapointAction: {0}")]
-    PublishDatapointActionError(PublishDatapointActionError),
+    PublishDatapointActionError(#[from] PublishDatapointActionError),
     #[error("Digest error: {0}")]
-    Digest(DigestNError),
+    Digest(#[from] DigestNError),
     #[error("Address encoder error: {0}")]
-    AddressEncoder(AddressEncoderError),
+    AddressEncoder(#[from] AddressEncoderError),
     #[error("Wrong oracle address type")]
     WrongOracleAddressType,
 }

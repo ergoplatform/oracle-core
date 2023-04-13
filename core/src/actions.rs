@@ -29,13 +29,13 @@ pub struct PublishDataPointAction {
     pub tx: UnsignedTransaction,
 }
 
-#[derive(Error, Debug, From)]
+#[derive(Error, Debug)]
 pub enum ActionExecError {
     #[error("node error: {0}")]
-    NodeError(NodeApiError),
+    NodeError(#[from] NodeApiError),
 }
 
-pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), ActionExecError> {
+pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), anyhow::Error> {
     let exec_res = match action {
         PoolAction::Refresh(action) => execute_refresh_action(action, node_api),
         PoolAction::PublishDatapoint(action) => execute_publish_datapoint_action(action, node_api),
@@ -51,7 +51,7 @@ pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), Acti
             log::debug!("Node rejected tx with error: {msg}");
             Ok(())
         }
-        Err(e) => Err(e),
+        Err(e) => Err(e.into()),
     }
 }
 

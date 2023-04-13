@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 
-use derive_more::From;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValueError;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
@@ -180,7 +179,7 @@ impl OracleContract {
     }
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum OracleContractParametersError {
     #[error("oracle contract parameters: failed to get pool NFT from constants")]
     NoPoolNftId,
@@ -192,15 +191,15 @@ pub enum OracleContractParametersError {
         actual: BoxValue,
     },
     #[error("oracle contract parameters: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("oracle contract parameters: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
     #[error("oracle contract parameters: BoxValue error {0:?}")]
-    BoxValue(BoxValueError),
+    BoxValue(#[from] BoxValueError),
     #[error("oracle contract parameters: ergo tree error {0:?}")]
-    ErgoTreeError(ErgoTreeError),
+    ErgoTreeError(#[from] ErgoTreeError),
     #[error("oracle contract parameters: sigma serialization error {0}")]
-    SigmaSerialization(SigmaSerializationError),
+    SigmaSerialization(#[from] SigmaSerializationError),
 }
 
 #[derive(Debug, Clone)]

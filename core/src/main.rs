@@ -409,7 +409,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
                 reward_token_opt,
                 height,
             ) {
-                error!("Fatal update-pool error: {}", e);
+                error!("Fatal update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
@@ -417,7 +417,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
             if let Err(e) =
                 cli_commands::prepare_update::prepare_update(update_file, node_api, height)
             {
-                error!("Fatal update error : {}", e);
+                error!("Fatal update error : {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
@@ -432,7 +432,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
                 node_scan_registry,
                 node_api,
             ) {
-                error!("Fatal import pool update error : {}", e);
+                error!("Fatal import pool update error : {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             } else {
                 log::info!("pool config update imported successfully. Please, restart the oracle");
@@ -465,7 +465,7 @@ fn main_loop_iteration(
     let pool_state = match op.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
-            log::error!("error getting live epoch state: {}", error);
+            log::error!("error getting live epoch state: {:?}", error);
             PoolState::NeedsBootstrap
         }
     };
@@ -498,7 +498,7 @@ fn main_loop_iteration(
 fn log_and_continue_if_non_fatal(
     network_prefix: NetworkPrefix,
     res: Result<PoolAction, PoolCommandError>,
-) -> Result<Option<PoolAction>, PoolCommandError> {
+) -> Result<Option<PoolAction>, anyhow::Error> {
     match res {
         Ok(action) => Ok(Some(action)),
         Err(PoolCommandError::RefreshActionError(RefreshActionError::FailedToReachConsensus {
@@ -522,7 +522,7 @@ fn log_and_continue_if_non_fatal(
             log::error!("Failed to get datapoint with error: {}", e);
             Ok(None)
         }
-        Err(e) => Err(e),
+        Err(e) => Err(e.into()),
     }
 }
 

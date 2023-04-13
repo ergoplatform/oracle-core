@@ -1,4 +1,3 @@
-use derive_more::From;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeError;
@@ -20,20 +19,20 @@ pub struct PoolContract {
     update_nft_index: usize,
 }
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, Error)]
 pub enum PoolContractError {
     #[error("pool contract: parameter error: {0}")]
-    ParametersError(PoolContractParametersError),
+    ParametersError(#[from] PoolContractParametersError),
     #[error("pool contract: unknown refresh NFT in box")]
     UnknownRefreshNftId,
     #[error("pool contract: unknown update NFT in box")]
     UnknownUpdateNftId,
     #[error("pool contract: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("pool contract: ergo tree error {0:?}")]
-    ErgoTreeError(ErgoTreeError),
+    ErgoTreeError(#[from] ErgoTreeError),
     #[error("pool contract: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
     #[error("contract error: {1:?}, expected P2S: {0}")]
     WrappedWithExpectedP2SAddress(String, Box<Self>),
 }
@@ -183,16 +182,16 @@ impl PoolContract {
     }
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum PoolContractParametersError {
     #[error("pool contract parameters: failed to get update NFT from constants")]
     NoUpdateNftId,
     #[error("pool contract parameters: failed to get refresh NFT from constants")]
     NoRefreshNftId,
     #[error("pool contract parameters: sigma parsing error {0}")]
-    SigmaParsing(SigmaParsingError),
+    SigmaParsing(#[from] SigmaParsingError),
     #[error("pool contract parameters: TryExtractFrom error {0:?}")]
-    TryExtractFrom(TryExtractFromError),
+    TryExtractFrom(#[from] TryExtractFromError),
 }
 
 #[derive(Debug, Clone)]

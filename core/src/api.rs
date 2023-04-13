@@ -210,3 +210,9 @@ impl IntoResponse for ApiError {
         (StatusCode::INTERNAL_SERVER_ERROR, self.0).into_response()
     }
 }
+
+impl From<anyhow::Error> for ApiError {
+    fn from(err: anyhow::Error) -> Self {
+        ApiError(format!("Error: {:?}", err))
+    }
+}
