@@ -68,6 +68,7 @@ use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
 use scans::get_scans_file_path;
+use scans::wait_for_node_rescan;
 use spec_token::RewardTokenId;
 use spec_token::SpecToken;
 use spec_token::TokenIdKind;
@@ -264,6 +265,7 @@ fn main() {
     log_on_launch();
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     assert_wallet_unlocked(&node_api.node);
+    wait_for_node_rescan(&node_api).unwrap();
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
