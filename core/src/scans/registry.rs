@@ -116,10 +116,11 @@ impl NodeScanRegistry {
     }
 }
 
-fn wait_for_node_rescan(node_api: &NodeApi) -> Result<(), NodeApiError> {
+pub fn wait_for_node_rescan(node_api: &NodeApi) -> Result<(), NodeApiError> {
     let wallet_height = node_api.node.wallet_status()?.height;
     let block_height = node_api.node.current_block_height()?;
     if wallet_height == block_height {
+        log::debug!("No wallet scan is running");
         return Ok(());
     }
     Ok(loop {
@@ -127,7 +128,7 @@ fn wait_for_node_rescan(node_api: &NodeApi) -> Result<(), NodeApiError> {
         let block_height = node_api.node.current_block_height()?;
         println!("Scanned {}/{} blocks", wallet_height, block_height);
         if wallet_height == block_height {
-            println!("Wallet Scan Complete!");
+            log::info!("Wallet Scan Complete!");
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
