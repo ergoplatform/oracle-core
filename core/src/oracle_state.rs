@@ -1,7 +1,7 @@
 use crate::box_kind::{
-    BallotBox, BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
-    OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
-    PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError, RefreshBoxWrapper,
+    BallotBox, BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, BuybackBoxWrapper,
+    OracleBox, OracleBoxError, OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError,
+    PoolBoxWrapper, PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError, RefreshBoxWrapper,
     RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
     VoteBallotBoxWrapper,
 };
@@ -71,6 +71,10 @@ pub trait VoteBallotBoxesSource {
 
 pub trait UpdateBoxSource {
     fn get_update_box(&self) -> Result<UpdateBoxWrapper>;
+}
+
+pub trait BuybackBoxSource {
+    fn get_buyback_box(&self) -> Result<BuybackBoxWrapper>;
 }
 
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol

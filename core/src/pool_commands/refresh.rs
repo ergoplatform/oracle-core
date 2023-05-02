@@ -8,6 +8,7 @@ use crate::box_kind::PostedOracleBox;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
+use crate::oracle_state::BuybackBoxSource;
 use crate::oracle_state::DataSourceError;
 use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
@@ -71,6 +72,7 @@ pub fn build_refresh_action(
     height: BlockHeight,
     change_address: Address,
     my_oracle_pk: &EcPoint,
+    buyback_box_source: Option<&dyn BuybackBoxSource>,
 ) -> Result<RefreshAction, RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
@@ -113,6 +115,10 @@ pub fn build_refresh_action(
     let mut out_oracle_boxes =
         build_out_oracle_boxes(&valid_in_oracle_boxes, height, my_oracle_pk)?;
 
+    let in_buyback_box_opt = buyback_box_source
+        .map(|s| s.get_buyback_box())
+        .transpose()?;
+
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
@@ -145,6 +151,14 @@ pub fn build_refresh_action(
 
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
     output_candidates.append(&mut out_oracle_boxes);
+
+    if let Some(buyback_box) = in_buyback_box_opt {
+        if let Some(buyback_reward_token) = buyback_box.reward_token() {
+            input_boxes.push(buyback_box.get_box().clone());
+            todo!("add reward tokens from buyback box to pool box output");
+            todo!("make buyback box output")
+        }
+    }
 
     let mut b = TxBuilder::new(
         box_selection,
