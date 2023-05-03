@@ -149,28 +149,24 @@ pub fn build_refresh_action(
         change_boxes: selection.change_boxes,
     };
 
-    let mut output_candidates = Vec::new();
+    let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
+    let mut output_candidates = vec![out_pool_box, out_refresh_box];
     if let Some(buyback_box) = in_buyback_box_opt {
         if let Some(buyback_reward_token) = buyback_box.reward_token() {
             input_boxes.push(buyback_box.get_box().clone());
-            let out_pool_box = build_out_pool_box(
+            let out_pool_box_w_buyback_rewards = build_out_pool_box(
                 &in_pool_box,
                 height,
                 rate,
                 reward_decrement,
                 Some(buyback_reward_token.amount),
             )?;
-            todo!("make buyback box output with index 2")
-        } else {
-            let out_pool_box =
-                build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
-            output_candidates.push(out_pool_box);
+            let out_buyback_box = buyback_box.without_reward_token();
+            output_candidates.remove(0);
+            output_candidates.insert(0, out_pool_box_w_buyback_rewards);
+            output_candidates.push(out_buyback_box);
         }
-    } else {
-        let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
-        output_candidates.push(out_pool_box);
-    }
-    output_candidates.push(out_refresh_box);
+    };
     output_candidates.append(&mut out_oracle_boxes);
 
     let mut b = TxBuilder::new(
