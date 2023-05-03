@@ -111,7 +111,6 @@ pub fn build_refresh_action(
     }
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
-    let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement)?;
     let out_refresh_box = build_out_refresh_box(&in_refresh_box, height)?;
     let mut out_oracle_boxes =
         build_out_oracle_boxes(&valid_in_oracle_boxes, height, my_oracle_pk)?;
@@ -146,20 +145,33 @@ pub fn build_refresh_action(
     );
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     let box_selection = BoxSelection {
-        boxes: input_boxes.try_into().unwrap(),
+        boxes: input_boxes.clone().try_into().unwrap(),
         change_boxes: selection.change_boxes,
     };
 
-    let mut output_candidates = vec![out_pool_box, out_refresh_box];
-    output_candidates.append(&mut out_oracle_boxes);
-
+    let mut output_candidates = Vec::new();
     if let Some(buyback_box) = in_buyback_box_opt {
         if let Some(buyback_reward_token) = buyback_box.reward_token() {
             input_boxes.push(buyback_box.get_box().clone());
-            todo!("add reward tokens from buyback box to pool box output");
-            todo!("make buyback box output")
+            let out_pool_box = build_out_pool_box(
+                &in_pool_box,
+                height,
+                rate,
+                reward_decrement,
+                Some(buyback_reward_token.amount),
+            )?;
+            todo!("make buyback box output with index 2")
+        } else {
+            let out_pool_box =
+                build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
+            output_candidates.push(out_pool_box);
         }
+    } else {
+        let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
+        output_candidates.push(out_pool_box);
     }
+    output_candidates.push(out_refresh_box);
+    output_candidates.append(&mut out_oracle_boxes);
 
     let mut b = TxBuilder::new(
         box_selection,
