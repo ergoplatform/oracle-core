@@ -1,3 +1,12 @@
+use std::iter::Sum;
+
+use derive_more::Add;
+use derive_more::Display;
+use derive_more::Div;
+use derive_more::From;
+use derive_more::Into;
+use derive_more::Mul;
+use derive_more::Sub;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -37,3 +46,42 @@ pub struct EpochCounter(pub u32);
 #[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone)]
 #[serde(transparent)]
 pub struct MinDatapoints(pub i32);
+
+#[derive(
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Ord,
+    Debug,
+    Serialize,
+    Deserialize,
+    Copy,
+    Clone,
+    From,
+    Into,
+    Display,
+    Add,
+    Mul,
+    Div,
+    Sub,
+)]
+#[serde(transparent)]
+pub struct Rate(i64);
+
+impl Rate {
+    pub fn as_f32(&self) -> f32 {
+        self.0 as f32
+    }
+}
+
+impl Sum for Rate {
+    fn sum<I: Iterator<Item = Rate>>(iter: I) -> Rate {
+        iter.fold(Rate(0), |acc, x| acc + x)
+    }
+}
+
+impl PartialEq<i64> for Rate {
+    fn eq(&self, other: &i64) -> bool {
+        self.0 == *other
+    }
+}

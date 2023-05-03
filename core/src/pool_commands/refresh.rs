@@ -16,6 +16,7 @@ use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochCounter;
 use crate::oracle_types::MinDatapoints;
+use crate::oracle_types::Rate;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
@@ -187,16 +188,24 @@ pub fn build_refresh_action(
     Ok(RefreshAction { tx })
 }
 
-fn filtered_oracle_boxes_by_rate(
-    oracle_boxes: Vec<u64>,
+fn filtered_oracle_boxes_by_rate<T>(
+    oracle_boxes: Vec<T>,
     deviation_range: u32,
-) -> Result<Vec<u64>, RefreshActionError> {
+) -> Result<Vec<Rate>, RefreshActionError>
+where
+    T: Into<Rate>,
+    T: Clone,
+{
+    let oracle_boxes = oracle_boxes
+        .into_iter()
+        .map(|b| b.into())
+        .collect::<Vec<_>>();
     if oracle_boxes.is_empty() {
         return Ok(oracle_boxes);
     }
     let mut successful_boxes = oracle_boxes.clone();
     // The min oracle box's rate must be within deviation_range(5%) of that of the max
-    while !deviation_check(deviation_range, &successful_boxes) {
+    while !deviation_check(deviation_range, successful_boxes.clone()) {
         // Removing largest deviation outlier
         successful_boxes = remove_largest_local_deviation_datapoint(successful_boxes)?;
     }
@@ -204,10 +213,10 @@ fn filtered_oracle_boxes_by_rate(
     Ok(successful_boxes)
 }
 
-fn deviation_check(max_deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool {
-    let min_datapoint = datapoint_boxes.iter().min().unwrap();
-    let max_datapoint = datapoint_boxes.iter().max().unwrap();
-    let deviation_delta = max_datapoint * (max_deviation_range as u64) / 100;
+fn deviation_check(max_deviation_range: u32, datapoint_boxes: Vec<Rate>) -> bool {
+    let min_datapoint = datapoint_boxes.clone().into_iter().min().unwrap();
+    let max_datapoint = datapoint_boxes.into_iter().max().unwrap();
+    let deviation_delta = max_datapoint * (max_deviation_range as i64) / 100;
     max_datapoint - min_datapoint <= deviation_delta
 }
 
@@ -215,17 +224,18 @@ fn deviation_check(max_deviation_range: u32, datapoint_boxes: &Vec<u64>) -> bool
 /// deviates more compared to their adjacted datapoint, and then removes
 /// said datapoint which deviates further.
 fn remove_largest_local_deviation_datapoint(
-    datapoint_boxes: Vec<u64>,
-) -> Result<Vec<u64>, RefreshActionError> {
+    datapoint_boxes: Vec<Rate>,
+) -> Result<Vec<Rate>, RefreshActionError> {
     // Check if sufficient number of datapoint boxes to start removing
     if datapoint_boxes.len() <= 2 {
         Err(RefreshActionError::NotEnoughDatapoints)
     } else {
-        let mean = (datapoint_boxes.iter().sum::<u64>() as f32) / datapoint_boxes.len() as f32;
+        let mean = datapoint_boxes.clone().into_iter().sum::<Rate>().as_f32()
+            / datapoint_boxes.len() as f32;
         let min_datapoint = *datapoint_boxes.iter().min().unwrap();
         let max_datapoint = *datapoint_boxes.iter().max().unwrap();
-        let front_deviation = max_datapoint as f32 - mean;
-        let back_deviation = mean - min_datapoint as f32;
+        let front_deviation = max_datapoint.as_f32() - mean;
+        let back_deviation = mean - min_datapoint.as_f32();
         if front_deviation >= back_deviation {
             // Remove largest datapoint if front deviation is greater
             Ok(datapoint_boxes
@@ -242,30 +252,37 @@ fn remove_largest_local_deviation_datapoint(
     }
 }
 
-fn calc_pool_rate(oracle_boxes_rates: Vec<u64>) -> u64 {
-    let datapoints_sum: u64 = oracle_boxes_rates.iter().sum();
-    datapoints_sum / oracle_boxes_rates.len() as u64
+fn calc_pool_rate(oracle_boxes_rates: Vec<Rate>) -> Rate {
+    let datapoints_sum: i64 = oracle_boxes_rates.clone().into_iter().map(i64::from).sum();
+    (datapoints_sum / oracle_boxes_rates.len() as i64).into()
 }
 
 fn build_out_pool_box(
     in_pool_box: &PoolBoxWrapper,
     creation_height: BlockHeight,
-    rate: u64,
+    rate: Rate,
     reward_decrement: u64,
+    buyback_reward: Option<TokenAmount>,
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
     let new_epoch_counter = EpochCounter(in_pool_box.epoch_counter().0 + 1);
     let reward_token = in_pool_box.reward_token();
+    let decremented = reward_token
+        .amount
+        .checked_sub(&reward_decrement.try_into().unwrap())
+        .unwrap();
+    let new_reward_amount = if let Some(buyback_reward) = buyback_reward {
+        decremented.checked_add(&buyback_reward).unwrap()
+    } else {
+        decremented
+    };
     let new_reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: reward_token.token_id,
-        amount: reward_token
-            .amount
-            .checked_sub(&reward_decrement.try_into().unwrap())
-            .unwrap(),
+        amount: new_reward_amount,
     };
 
     make_pool_box_candidate(
         in_pool_box.contract(),
-        rate as i64,
+        rate.into(),
         new_epoch_counter,
         in_pool_box.pool_nft_token().clone(),
         new_reward_token,
@@ -539,6 +556,7 @@ mod tests {
             height,
             change_address.address(),
             &oracle_pub_key,
+            None,
         )
         .unwrap();
 
@@ -583,6 +601,7 @@ mod tests {
                 height,
                 change_address.address(),
                 &oracle_pub_key,
+                None
             )
             .is_err(),
             "oracle boxes with epoch id different from pool box epoch id should not be accepted"
