@@ -12,6 +12,8 @@
 #![deny(clippy::wildcard_enum_match_arm)]
 #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
+// #![allow(clippy::correctness)]
+// #![allow(clippy::almost_swapped)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -540,7 +542,7 @@ fn check_reward_token_opt(
     reward_token_id_str: Option<String>,
     reward_token_amount: Option<u64>,
 ) -> Option<SpecToken<RewardTokenId>> {
-    let reward_token_opt = match (reward_token_id_str, reward_token_amount) {
+    match (reward_token_id_str, reward_token_amount) {
         (None, None) => None,
         (None, Some(_)) => {
             panic!("reward_token_amount is set, but reward_token_id is not set")
@@ -555,6 +557,5 @@ fn check_reward_token_opt(
                 amount: TokenAmount::try_from(reward_token_amount).unwrap(),
             }
         }),
-    };
-    reward_token_opt
+    }
 }

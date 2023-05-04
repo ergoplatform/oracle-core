@@ -117,7 +117,8 @@ pub fn build_refresh_action(
 
     let in_buyback_box_opt = buyback_box_source
         .map(|s| s.get_buyback_box())
-        .transpose()?;
+        .transpose()?
+        .flatten();
 
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let box_selector = SimpleBoxSelector::new();
