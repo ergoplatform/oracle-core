@@ -269,6 +269,8 @@ fn main() {
     assert_wallet_unlocked(&node_api.node);
     wait_for_node_rescan(&node_api).unwrap();
 
+    let pool_config = &POOL_CONFIG;
+
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::GenerateOracleConfig => {
@@ -309,7 +311,7 @@ fn main() {
             let (_, repost_receiver) = bounded::<bool>(1);
 
             let node_scan_registry =
-                NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
+                NodeScanRegistry::ensure_node_registered_scans(&node_api, pool_config).unwrap();
             let op = OraclePool::new(&node_scan_registry).unwrap();
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
@@ -368,7 +370,6 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
         } => {
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
                 node_api,
-                &node_api.node,
                 &node_api.node,
                 op.get_local_datapoint_box_source(),
                 oracle_token_address,

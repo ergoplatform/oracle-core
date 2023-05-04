@@ -19,6 +19,7 @@ use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::contracts::update::UpdateContractError;
 use crate::spec_token::BallotTokenId;
+use crate::spec_token::BuybackTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
@@ -46,6 +47,7 @@ pub struct PoolConfig {
     pub update_box_wrapper_inputs: UpdateBoxWrapperInputs,
     pub ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
     pub token_ids: TokenIds,
+    pub buyback_token_id: Option<BuybackTokenId>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]

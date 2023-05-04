@@ -198,6 +198,7 @@ impl<'a> OraclePool<'a> {
 
         let pool_box_scan = PoolBoxScan {
             scan: node_scan_registry.pool_token_scan.clone(),
+
             pool_box_wrapper_inputs: &pool_config.pool_box_wrapper_inputs,
         };
 
