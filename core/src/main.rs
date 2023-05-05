@@ -371,6 +371,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
                 node_api,
                 &node_api.node,
+                &node_api.node,
                 op.get_local_datapoint_box_source(),
                 oracle_token_address,
                 height,

@@ -150,6 +150,7 @@ impl PoolConfig {
             ballot_box_wrapper_inputs,
             update_box_wrapper_inputs,
             token_ids,
+            buyback_token_id: None,
         })
     }
 

@@ -212,10 +212,14 @@ impl<'a> OraclePool<'a> {
             update_box_wrapper_inputs: &pool_config.update_box_wrapper_inputs,
         };
 
-        let buyback_box_scan = BuybackBoxScan {
-            scan: todo!(),
-            reward_token_id: pool_config.token_ids.reward_token_id,
-        };
+        let buyback_box_scan =
+            node_scan_registry
+                .buyback_token_scan
+                .clone()
+                .map(|scan| BuybackBoxScan {
+                    scan,
+                    reward_token_id: pool_config.token_ids.reward_token_id.clone(),
+                });
 
         log::debug!("Scans loaded");
 
@@ -227,7 +231,7 @@ impl<'a> OraclePool<'a> {
             pool_box_scan,
             refresh_box_scan,
             update_box_scan,
-            buyback_box_scan: Some(buyback_box_scan),
+            buyback_box_scan,
         })
     }
 

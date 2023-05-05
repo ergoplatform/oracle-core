@@ -13,7 +13,6 @@ use crate::spec_token::UpdateTokenId;
 use ::serde::Deserialize;
 use ::serde::Serialize;
 use once_cell::sync;
-use proptest::strategy::NoShrink;
 use thiserror::Error;
 
 use super::generic_token_scan::GenericTokenScan;
@@ -73,11 +72,12 @@ impl NodeScanRegistry {
             GenericTokenScan::register(node_api, &pool_config.token_ids.refresh_nft_token_id)?;
         let update_token_scan =
             GenericTokenScan::register(node_api, &pool_config.token_ids.update_nft_token_id)?;
-        let buyback_token_scan = if let Some(buyback_token_id) = pool_config.buyback_token_id {
-            Some(GenericTokenScan::register(node_api, &buyback_token_id)?)
-        } else {
-            None
-        };
+        let buyback_token_scan =
+            if let Some(buyback_token_id) = pool_config.buyback_token_id.clone() {
+                Some(GenericTokenScan::register(node_api, &buyback_token_id)?)
+            } else {
+                None
+            };
         let registry = Self {
             oracle_token_scan,
             pool_token_scan,
@@ -108,7 +108,7 @@ impl NodeScanRegistry {
         log::info!("Loading scan IDs from {}", path.display());
         let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
             let registry = Self::load_from_json_str(&json_str)?;
-            if let Some(buyback_token_id) = pool_config.buyback_token_id {
+            if let Some(buyback_token_id) = pool_config.buyback_token_id.clone() {
                 if registry.buyback_token_scan.is_none() {
                     let buyback_token_scan =
                         GenericTokenScan::register(node_api, &buyback_token_id)?;
@@ -221,7 +221,8 @@ mod tests {
                   "Pool Box Scan": "187",
                   "Ballot Box Scan": "191",
                   "Refresh Box Scan": "188",
-                  "Update Box Scan": "186"
+                  "Update Box Scan": "186",
+                  "buyback_token_scan": null
                 }"#]],
         );
     }
