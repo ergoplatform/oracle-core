@@ -351,6 +351,7 @@ fn build_out_oracle_boxes(
 mod tests {
     use std::convert::TryFrom;
     use std::convert::TryInto;
+    use std::vec;
 
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
@@ -365,6 +366,7 @@ mod tests {
     use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
+    use crate::box_kind::BuybackBoxWrapper;
     use crate::box_kind::OracleBoxWrapperInputs;
     use crate::box_kind::PostedOracleBox;
     use crate::box_kind::RefreshBoxWrapper;
@@ -378,6 +380,7 @@ mod tests {
     use crate::oracle_state::DataSourceError;
     use crate::oracle_types::EpochLength;
     use crate::pool_commands::test_utils::generate_token_ids;
+    use crate::pool_commands::test_utils::BuybackBoxSourceMock;
     use crate::pool_commands::test_utils::{
         find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
         WalletDataMock,
@@ -553,6 +556,7 @@ mod tests {
             unspent_boxes: vec![wallet_unspent_box],
             change_address: change_address.clone(),
         };
+
         let action = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
@@ -589,21 +593,23 @@ mod tests {
 
         let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
 
+        let wrong_epoch_id_datapoints_mock = DatapointSourceMock {
+            datapoints: make_datapoint_boxes(
+                oracle_pub_keys.clone(),
+                vec![199, 70, 196, 197, 198, 200],
+                EpochCounter(pool_box_epoch_id.0 + 1),
+                BASE_FEE.checked_mul_u32(100).unwrap(),
+                height - EpochLength(9),
+                &oracle_contract_parameters,
+                &token_ids,
+            ),
+        };
+
         assert!(
             build_refresh_action(
                 &pool_box_mock,
                 &refresh_box_mock,
-                &(DatapointSourceMock {
-                    datapoints: make_datapoint_boxes(
-                        oracle_pub_keys,
-                        vec![199, 70, 196, 197, 198, 200],
-                        EpochCounter(pool_box_epoch_id.0 + 1),
-                        BASE_FEE.checked_mul_u32(100).unwrap(),
-                        height - EpochLength(9),
-                        &oracle_contract_parameters,
-                        &token_ids,
-                    ),
-                }),
+                &wrong_epoch_id_datapoints_mock,
                 5,
                 MinDatapoints(4),
                 &wallet_mock,
@@ -615,6 +621,77 @@ mod tests {
             .is_err(),
             "oracle boxes with epoch id different from pool box epoch id should not be accepted"
         );
+
+        let buyback_token_id = force_any_val();
+
+        let buyback_box = make_wallet_unspent_box(
+            secret.public_image(),
+            *BASE_FEE,
+            Some(
+                vec![
+                    Token {
+                        token_id: buyback_token_id,
+                        amount: 1u64.try_into().unwrap(),
+                    },
+                    Token {
+                        token_id: token_ids.reward_token_id.token_id(),
+                        amount: 100u64.try_into().unwrap(),
+                    },
+                ]
+                .try_into()
+                .unwrap(),
+            ),
+        );
+
+        let buyback_source = BuybackBoxSourceMock {
+            buyback_box: BuybackBoxWrapper::new(buyback_box, token_ids.reward_token_id.clone()),
+        };
+
+        let action_with_buyback = build_refresh_action(
+            &pool_box_mock,
+            &refresh_box_mock,
+            &(DatapointSourceMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
+            5,
+            MinDatapoints(4),
+            &wallet_mock,
+            height,
+            change_address.address(),
+            &oracle_pub_key,
+            Some(&buyback_source),
+        )
+        .unwrap();
+
+        assert_eq!(
+            action_with_buyback
+                .tx
+                .output_candidates
+                .get(2)
+                .unwrap()
+                .tokens
+                .as_ref()
+                .unwrap()
+                .len(),
+            1,
+            "reward tokens should not be in output buyback box"
+        );
+        assert_eq!(
+            action_with_buyback
+                .tx
+                .output_candidates
+                .get(0)
+                .unwrap()
+                .tokens
+                .as_ref()
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .amount
+                .as_u64(),
+            &1,
+            "reward tokens should be added to the pool box"
+        )
     }
 
     #[test]

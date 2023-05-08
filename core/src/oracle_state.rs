@@ -396,11 +396,9 @@ impl<'a> DatapointBoxesSource for OracleDatapointScan<'a> {
 
 impl BuybackBoxSource for BuybackBoxScan {
     fn get_buyback_box(&self) -> Result<Option<BuybackBoxWrapper>> {
-        self.scan
+        Ok(self
+            .scan
             .get_box()?
-            .map(|ergo_box| {
-                BuybackBoxWrapper::new(ergo_box, self.reward_token_id.clone()).map_err(Into::into)
-            })
-            .transpose()
+            .map(|ergo_box| BuybackBoxWrapper::new(ergo_box, self.reward_token_id.clone())))
     }
 }
