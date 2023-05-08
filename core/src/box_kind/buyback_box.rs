@@ -30,7 +30,7 @@ impl BuybackBoxWrapper {
         todo!()
     }
 
-    pub fn without_reward_token(&self) -> ErgoBoxCandidate {
+    pub fn new_without_reward_token(&self) -> ErgoBoxCandidate {
         todo!()
     }
 }

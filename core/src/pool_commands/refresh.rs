@@ -162,7 +162,7 @@ pub fn build_refresh_action(
                 reward_decrement,
                 Some(buyback_reward_token.amount),
             )?;
-            let out_buyback_box = buyback_box.without_reward_token();
+            let out_buyback_box = buyback_box.new_without_reward_token();
             output_candidates.remove(0);
             output_candidates.insert(0, out_pool_box_w_buyback_rewards);
             output_candidates.push(out_buyback_box);
