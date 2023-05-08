@@ -139,6 +139,9 @@ impl NodeScanRegistry {
         node_api.deregister_scan(self.ballot_token_scan.scan_id())?;
         node_api.deregister_scan(self.refresh_token_scan.scan_id())?;
         node_api.deregister_scan(self.update_token_scan.scan_id())?;
+        if let Some(buy_back_token_scan) = self.buyback_token_scan {
+            node_api.deregister_scan(buy_back_token_scan.scan_id())?;
+        }
         Ok(())
     }
 }
@@ -236,6 +239,21 @@ mod tests {
             refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
             update_token_scan: GenericTokenScan::new(ScanId::from(186)),
             buyback_token_scan: None,
+        };
+        let json_str = registry.save_to_json_str();
+        let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
+        assert_eq!(registry, registry2);
+    }
+
+    #[test]
+    fn json_roundtrip_with_buyback() {
+        let registry = NodeScanRegistry {
+            oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
+            pool_token_scan: GenericTokenScan::new(ScanId::from(187)),
+            ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
+            refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
+            update_token_scan: GenericTokenScan::new(ScanId::from(186)),
+            buyback_token_scan: Some(GenericTokenScan::new(ScanId::from(192))),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
