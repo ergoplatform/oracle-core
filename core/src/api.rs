@@ -167,7 +167,7 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
     response_text
 }
 
-pub async fn start_rest_server(repost_receiver: Receiver<bool>) {
+pub async fn start_rest_server(repost_receiver: Receiver<bool>) -> Result<(), anyhow::Error> {
     let app = Router::new()
         .route("/", get(root))
         .route("/oracleInfo", get(oracle_info))
@@ -185,10 +185,10 @@ pub async fn start_rest_server(repost_receiver: Receiver<bool>) {
                 .allow_methods([axum::http::Method::GET]),
         );
     let addr = SocketAddr::from(([0, 0, 0, 0], get_core_api_port().parse().unwrap()));
-    axum::Server::bind(&addr)
+    axum::Server::try_bind(&addr)?
         .serve(app.into_make_service())
-        .await
-        .unwrap();
+        .await?;
+    Ok(())
 }
 
 struct ApiError(String);

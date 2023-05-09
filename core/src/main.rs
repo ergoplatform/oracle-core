@@ -321,7 +321,12 @@ fn main() {
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
-                tokio_runtime.spawn(start_rest_server(repost_receiver));
+                tokio_runtime.spawn(async {
+                    if let Err(e) = start_rest_server(repost_receiver).await {
+                        error!("An error occurred while starting the REST server: {}", e);
+                        std::process::exit(exitcode::SOFTWARE);
+                    }
+                });
             }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source, &node_api) {
