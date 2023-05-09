@@ -118,7 +118,7 @@ pub fn build_action(
             height,
             change_address,
             &oracle_public_key,
-            None,
+            op.get_buyback_box_source(),
         )
         .map_err(Into::into)
         .map(Into::into),
