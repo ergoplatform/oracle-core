@@ -145,10 +145,6 @@ pub fn build_refresh_action(
         valid_in_oracle_boxes.len()
     );
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
-    let box_selection = BoxSelection {
-        boxes: input_boxes.clone().try_into().unwrap(),
-        change_boxes: selection.change_boxes,
-    };
 
     let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
@@ -170,6 +166,10 @@ pub fn build_refresh_action(
     };
     output_candidates.append(&mut out_oracle_boxes);
 
+    let box_selection = BoxSelection {
+        boxes: input_boxes.clone().try_into().unwrap(),
+        change_boxes: selection.change_boxes,
+    };
     let mut b = TxBuilder::new(
         box_selection,
         output_candidates,
@@ -604,23 +604,27 @@ mod tests {
                 &token_ids,
             ),
         };
-
-        assert!(
-            build_refresh_action(
-                &pool_box_mock,
-                &refresh_box_mock,
-                &wrong_epoch_id_datapoints_mock,
-                5,
-                MinDatapoints(4),
-                &wallet_mock,
-                height,
-                change_address.address(),
-                &oracle_pub_key,
-                None
-            )
-            .is_err(),
-            "oracle boxes with epoch id different from pool box epoch id should not be accepted"
+        let wrong_epoch_res = build_refresh_action(
+            &pool_box_mock,
+            &refresh_box_mock,
+            &wrong_epoch_id_datapoints_mock,
+            5,
+            MinDatapoints(4),
+            &wallet_mock,
+            height,
+            change_address.address(),
+            &oracle_pub_key,
+            None,
         );
+        dbg!(&wrong_epoch_res);
+        assert!(matches!(
+            wrong_epoch_res.unwrap_err(),
+            RefreshActionError::FailedToReachConsensus {
+                found_public_keys: _,
+                found_num: _,
+                expected: _,
+            }
+        ));
 
         let buyback_token_id = force_any_val();
 
@@ -674,7 +678,22 @@ mod tests {
                 .unwrap()
                 .len(),
             1,
-            "reward tokens should not be in output buyback box"
+            "only one token should be in output buyback box"
+        );
+        assert_eq!(
+            action_with_buyback
+                .tx
+                .output_candidates
+                .get(2)
+                .unwrap()
+                .tokens
+                .as_ref()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .token_id,
+            buyback_token_id,
+            "only buyback nft should be in output buyback box"
         );
         assert_eq!(
             action_with_buyback
@@ -689,7 +708,7 @@ mod tests {
                 .unwrap()
                 .amount
                 .as_u64(),
-            &1,
+            &190,
             "reward tokens should be added to the pool box"
         )
     }
