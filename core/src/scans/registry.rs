@@ -109,7 +109,9 @@ impl NodeScanRegistry {
         let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
             let registry = Self::load_from_json_str(&json_str)?;
             if let Some(buyback_token_id) = pool_config.buyback_token_id.clone() {
+                log::info!("buyback token is found in pool config, checking if scan is registered");
                 if registry.buyback_token_scan.is_none() {
+                    log::info!("buyback token scan not found, registering");
                     let buyback_token_scan =
                         GenericTokenScan::register(node_api, &buyback_token_id)?;
                     node_api.rescan_from_height(0)?;

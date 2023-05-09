@@ -139,12 +139,10 @@ pub fn build_refresh_action(
         .into_iter()
         .map(|ob| ob.get_box().clone())
         .collect();
-    input_boxes.append(&mut valid_in_oracle_raw_boxes);
     log::info!(
         "Refresh: Found {} valid oracle boxes, next pool rate is {rate}",
         valid_in_oracle_boxes.len()
     );
-    input_boxes.append(selection.boxes.as_vec().clone().as_mut());
 
     let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
@@ -164,6 +162,8 @@ pub fn build_refresh_action(
             output_candidates.push(out_buyback_box);
         }
     };
+    input_boxes.append(&mut valid_in_oracle_raw_boxes);
+    input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     output_candidates.append(&mut out_oracle_boxes);
 
     let box_selection = BoxSelection {
