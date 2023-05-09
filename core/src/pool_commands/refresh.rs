@@ -159,6 +159,7 @@ pub fn build_refresh_action(
             let out_buyback_box = buyback_box.new_without_reward_token();
             output_candidates.remove(0);
             output_candidates.insert(0, out_pool_box_w_buyback_rewards);
+            // should be at index 2 (checked in the contract of the buyback input box)
             output_candidates.push(out_buyback_box);
         }
     };
