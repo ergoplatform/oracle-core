@@ -122,6 +122,7 @@ impl NodeScanRegistry {
                     node_scan_registry.save_to_json_file(&get_scans_file_path())?;
                     node_scan_registry
                 } else {
+                    log::info!("buyback token scan is already registered");
                     registry
                 }
             } else {

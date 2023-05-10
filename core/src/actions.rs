@@ -7,8 +7,10 @@ use derive_more::From;
 use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
+use crate::explorer_api::ergo_explorer_transaction_link;
 use crate::node_interface::node_api::NodeApi;
 use crate::node_interface::node_api::NodeApiError;
+use crate::oracle_config::ORACLE_CONFIG;
 
 mod collect;
 
@@ -60,7 +62,11 @@ fn execute_refresh_action(
     node_api: &NodeApi,
 ) -> Result<(), ActionExecError> {
     let tx_id = node_api.sign_and_submit_transaction(&action.tx)?;
-    log::info!("Refresh tx published successfully, tx id: {}", tx_id);
+    let network_prefix = &ORACLE_CONFIG.oracle_address.network();
+    log::info!(
+        "Refresh tx published. Check status: {}",
+        ergo_explorer_transaction_link(tx_id, *network_prefix)
+    );
     Ok(())
 }
 
@@ -69,6 +75,10 @@ fn execute_publish_datapoint_action(
     node_api: &NodeApi,
 ) -> Result<(), ActionExecError> {
     let tx_id = node_api.sign_and_submit_transaction(&action.tx)?;
-    log::info!("Datapoint published successfully, tx id: {}", tx_id);
+    let network_prefix = &ORACLE_CONFIG.oracle_address.network();
+    log::info!(
+        "Datapoint tx published. Check status: {}",
+        ergo_explorer_transaction_link(tx_id, *network_prefix)
+    );
     Ok(())
 }

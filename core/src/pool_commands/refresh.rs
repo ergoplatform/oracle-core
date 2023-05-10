@@ -147,7 +147,12 @@ pub fn build_refresh_action(
     let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
     let mut output_candidates = vec![out_pool_box, out_refresh_box];
     if let Some(buyback_box) = in_buyback_box_opt {
+        log::debug!("Found buyback box id {:?}", buyback_box.get_box().box_id());
         if let Some(buyback_reward_token) = buyback_box.reward_token() {
+            log::debug!(
+                "Found reward tokens in buyback box and including it in the tx. Amount: {:?}",
+                buyback_reward_token.amount
+            );
             input_boxes.push(buyback_box.get_box().clone());
             let out_pool_box_w_buyback_rewards = build_out_pool_box(
                 &in_pool_box,
@@ -161,6 +166,8 @@ pub fn build_refresh_action(
             output_candidates.insert(0, out_pool_box_w_buyback_rewards);
             // should be at index 2 (checked in the contract of the buyback input box)
             output_candidates.push(out_buyback_box);
+        } else {
+            log::debug!("No reward tokens in buyback box");
         }
     };
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
