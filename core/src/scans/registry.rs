@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use crate::node_interface::node_api::NodeApi;
 use crate::node_interface::node_api::NodeApiError;
-use crate::pool_config::POOL_CONFIG;
+use crate::pool_config::PoolConfig;
 use crate::spec_token::BallotTokenId;
+use crate::spec_token::BuybackTokenId;
 use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
@@ -36,6 +37,7 @@ pub struct NodeScanRegistry {
     pub refresh_token_scan: GenericTokenScan<RefreshTokenId>,
     #[serde(rename = "Update Box Scan")]
     pub update_token_scan: GenericTokenScan<UpdateTokenId>,
+    pub buyback_token_scan: Option<GenericTokenScan<BuybackTokenId>>,
 }
 
 impl NodeScanRegistry {
@@ -57,8 +59,8 @@ impl NodeScanRegistry {
 
     fn register_and_save_scans_inner(
         node_api: &NodeApi,
+        pool_config: &PoolConfig,
     ) -> std::result::Result<Self, anyhow::Error> {
-        let pool_config = &POOL_CONFIG;
         log::info!("Registering UTXO-Set Scans");
         let oracle_token_scan =
             GenericTokenScan::register(node_api, &pool_config.token_ids.oracle_token_id)?;
@@ -70,12 +72,19 @@ impl NodeScanRegistry {
             GenericTokenScan::register(node_api, &pool_config.token_ids.refresh_nft_token_id)?;
         let update_token_scan =
             GenericTokenScan::register(node_api, &pool_config.token_ids.update_nft_token_id)?;
+        let buyback_token_scan =
+            if let Some(buyback_token_id) = pool_config.buyback_token_id.clone() {
+                Some(GenericTokenScan::register(node_api, &buyback_token_id)?)
+            } else {
+                None
+            };
         let registry = Self {
             oracle_token_scan,
             pool_token_scan,
             ballot_token_scan,
             refresh_token_scan,
             update_token_scan,
+            buyback_token_scan,
         };
         registry.save_to_json_file(&get_scans_file_path())?;
         node_api.rescan_from_height(0)?;
@@ -93,14 +102,35 @@ impl NodeScanRegistry {
 
     pub fn ensure_node_registered_scans(
         node_api: &NodeApi,
+        pool_config: &PoolConfig,
     ) -> std::result::Result<Self, anyhow::Error> {
         let path = get_scans_file_path();
         log::info!("Loading scan IDs from {}", path.display());
         let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
-            Self::load_from_json_str(&json_str)?
+            let registry = Self::load_from_json_str(&json_str)?;
+            if let Some(buyback_token_id) = pool_config.buyback_token_id.clone() {
+                log::info!("buyback token is found in pool config, checking if scan is registered");
+                if registry.buyback_token_scan.is_none() {
+                    log::info!("buyback token scan not found, registering");
+                    let buyback_token_scan =
+                        GenericTokenScan::register(node_api, &buyback_token_id)?;
+                    node_api.rescan_from_height(0)?;
+                    let node_scan_registry = Self {
+                        buyback_token_scan: Some(buyback_token_scan),
+                        ..registry
+                    };
+                    node_scan_registry.save_to_json_file(&get_scans_file_path())?;
+                    node_scan_registry
+                } else {
+                    log::info!("buyback token scan is already registered");
+                    registry
+                }
+            } else {
+                registry
+            }
         } else {
             log::info!("scans not found");
-            Self::register_and_save_scans_inner(node_api)?
+            Self::register_and_save_scans_inner(node_api, pool_config)?
         };
         wait_for_node_rescan(node_api)?;
         Ok(registry)
@@ -112,6 +142,9 @@ impl NodeScanRegistry {
         node_api.deregister_scan(self.ballot_token_scan.scan_id())?;
         node_api.deregister_scan(self.refresh_token_scan.scan_id())?;
         node_api.deregister_scan(self.update_token_scan.scan_id())?;
+        if let Some(buy_back_token_scan) = self.buyback_token_scan {
+            node_api.deregister_scan(buy_back_token_scan.scan_id())?;
+        }
         Ok(())
     }
 }
@@ -183,6 +216,7 @@ mod tests {
             ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
             refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
             update_token_scan: GenericTokenScan::new(ScanId::from(186)),
+            buyback_token_scan: None,
         };
         let json_str = registry.save_to_json_str();
         expect_json(
@@ -193,7 +227,8 @@ mod tests {
                   "Pool Box Scan": "187",
                   "Ballot Box Scan": "191",
                   "Refresh Box Scan": "188",
-                  "Update Box Scan": "186"
+                  "Update Box Scan": "186",
+                  "buyback_token_scan": null
                 }"#]],
         );
     }
@@ -206,6 +241,22 @@ mod tests {
             ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
             refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
             update_token_scan: GenericTokenScan::new(ScanId::from(186)),
+            buyback_token_scan: None,
+        };
+        let json_str = registry.save_to_json_str();
+        let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
+        assert_eq!(registry, registry2);
+    }
+
+    #[test]
+    fn json_roundtrip_with_buyback() {
+        let registry = NodeScanRegistry {
+            oracle_token_scan: GenericTokenScan::new(ScanId::from(185)),
+            pool_token_scan: GenericTokenScan::new(ScanId::from(187)),
+            ballot_token_scan: GenericTokenScan::new(ScanId::from(191)),
+            refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
+            update_token_scan: GenericTokenScan::new(ScanId::from(186)),
+            buyback_token_scan: Some(GenericTokenScan::new(ScanId::from(192))),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();

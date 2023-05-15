@@ -128,7 +128,7 @@ fn build_transfer_oracle_token_tx(
                 make_oracle_box_candidate(
                     posted_oracle_box.contract(),
                     *p2pk_dest.h.clone(),
-                    posted_oracle_box.rate() as i64,
+                    posted_oracle_box.rate(),
                     posted_oracle_box.epoch_counter(),
                     posted_oracle_box.oracle_token(),
                     posted_oracle_box.reward_token(),

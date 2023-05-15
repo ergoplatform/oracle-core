@@ -134,7 +134,7 @@ fn build_extract_reward_tokens_tx(
                 make_oracle_box_candidate(
                     posted_oracle_box.contract(),
                     posted_oracle_box.public_key(),
-                    posted_oracle_box.rate() as i64,
+                    posted_oracle_box.rate(),
                     posted_oracle_box.epoch_counter(),
                     posted_oracle_box.oracle_token(),
                     single_reward_token,

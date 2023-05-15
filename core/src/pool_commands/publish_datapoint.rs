@@ -173,7 +173,7 @@ mod tests {
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::oracle_state::PoolBoxSource;
-    use crate::oracle_types::EpochLength;
+    use crate::oracle_types::{EpochLength, Rate};
     use crate::pool_commands::test_utils::{
         find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
         make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
@@ -194,11 +194,11 @@ mod tests {
 
     #[derive(Debug)]
     struct MockDatapointSource {
-        datapoint: i64,
+        datapoint: Rate,
     }
 
     impl DataPointSource for MockDatapointSource {
-        fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+        fn get_datapoint(&self) -> Result<Rate, DataPointSourceError> {
             Ok(self.datapoint)
         }
     }
@@ -261,7 +261,9 @@ mod tests {
             change_address: change_address.clone(),
         };
 
-        let datapoint_source = MockDatapointSource { datapoint: 201 };
+        let datapoint_source = MockDatapointSource {
+            datapoint: 201.into(),
+        };
         let action = build_subsequent_publish_datapoint_action(
             &oracle_box,
             &wallet_mock,
@@ -356,7 +358,9 @@ mod tests {
             change_address.address(),
             *secret.public_image().h,
             oracle_box_wrapper_inputs,
-            &MockDatapointSource { datapoint: 201 },
+            &MockDatapointSource {
+                datapoint: 201.into(),
+            },
         )
         .unwrap();
 
@@ -440,7 +444,9 @@ mod tests {
             change_address: change_address.clone(),
         };
 
-        let datapoint_source = MockDatapointSource { datapoint: 201 };
+        let datapoint_source = MockDatapointSource {
+            datapoint: 201.into(),
+        };
         let action = build_subsequent_publish_datapoint_action(
             &oracle_box,
             &wallet_mock,

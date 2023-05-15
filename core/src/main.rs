@@ -12,6 +12,8 @@
 #![deny(clippy::wildcard_enum_match_arm)]
 #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
+// #![allow(clippy::correctness)]
+// #![allow(clippy::almost_swapped)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -267,6 +269,8 @@ fn main() {
     assert_wallet_unlocked(&node_api.node);
     wait_for_node_rescan(&node_api).unwrap();
 
+    let pool_config = &POOL_CONFIG;
+
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::GenerateOracleConfig => {
@@ -307,7 +311,7 @@ fn main() {
             let (_, repost_receiver) = bounded::<bool>(1);
 
             let node_scan_registry =
-                NodeScanRegistry::ensure_node_registered_scans(&node_api).unwrap();
+                NodeScanRegistry::ensure_node_registered_scans(&node_api, pool_config).unwrap();
             let op = OraclePool::new(&node_scan_registry).unwrap();
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
@@ -317,7 +321,12 @@ fn main() {
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
-                tokio_runtime.spawn(start_rest_server(repost_receiver));
+                tokio_runtime.spawn(async {
+                    if let Err(e) = start_rest_server(repost_receiver).await {
+                        error!("An error occurred while starting the REST server: {}", e);
+                        std::process::exit(exitcode::SOFTWARE);
+                    }
+                });
             }
             loop {
                 if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source, &node_api) {
@@ -540,7 +549,7 @@ fn check_reward_token_opt(
     reward_token_id_str: Option<String>,
     reward_token_amount: Option<u64>,
 ) -> Option<SpecToken<RewardTokenId>> {
-    let reward_token_opt = match (reward_token_id_str, reward_token_amount) {
+    match (reward_token_id_str, reward_token_amount) {
         (None, None) => None,
         (None, Some(_)) => {
             panic!("reward_token_amount is set, but reward_token_id is not set")
@@ -555,6 +564,5 @@ fn check_reward_token_opt(
                 amount: TokenAmount::try_from(reward_token_amount).unwrap(),
             }
         }),
-    };
-    reward_token_opt
+    }
 }

@@ -10,6 +10,7 @@ mod erg_usd;
 mod erg_xau;
 mod predef;
 
+use crate::oracle_types::Rate;
 use crate::pool_config::PredefinedDataPointSource;
 
 use self::custom_ext_script::ExternalScript;
@@ -20,7 +21,7 @@ use anyhow::anyhow;
 use thiserror::Error;
 
 pub trait DataPointSource {
-    fn get_datapoint(&self) -> Result<i64, DataPointSourceError>;
+    fn get_datapoint(&self) -> Result<Rate, DataPointSourceError>;
 }
 
 #[derive(Debug, Error)]
@@ -63,7 +64,7 @@ impl RuntimeDataPointSource {
 }
 
 impl DataPointSource for RuntimeDataPointSource {
-    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+    fn get_datapoint(&self) -> Result<Rate, DataPointSourceError> {
         match self {
             RuntimeDataPointSource::Predefined(predef) => {
                 sync_fetch_predef_source_aggregated(predef)

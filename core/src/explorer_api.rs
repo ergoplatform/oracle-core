@@ -75,8 +75,8 @@ pub(crate) fn ergo_explorer_transaction_link(tx_id: TxId, prefix: NetworkPrefix)
     url.join("en/transactions/")
         .unwrap()
         .join(&tx_id_str)
-        .unwrap();
-    url.to_string()
+        .unwrap()
+        .to_string()
 }
 
 pub fn wait_for_tx_confirmation(tx_id: TxId) {

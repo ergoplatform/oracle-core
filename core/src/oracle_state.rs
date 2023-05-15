@@ -1,16 +1,19 @@
 use crate::box_kind::{
-    BallotBox, BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, OracleBox, OracleBoxError,
-    OracleBoxWrapper, OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper,
-    PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError, RefreshBoxWrapper,
-    RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper, UpdateBoxWrapperInputs,
-    VoteBallotBoxWrapper,
+    BallotBox, BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, BuybackBoxError,
+    BuybackBoxWrapper, OracleBox, OracleBoxError, OracleBoxWrapper, OracleBoxWrapperInputs,
+    PoolBox, PoolBoxError, PoolBoxWrapper, PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError,
+    RefreshBoxWrapper, RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper,
+    UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
 use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::{BlockHeight, EpochCounter};
 use crate::pool_config::POOL_CONFIG;
 use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
-use crate::spec_token::{BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, UpdateTokenId};
+use crate::spec_token::{
+    BallotTokenId, BuybackTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId,
+    UpdateTokenId,
+};
 use anyhow::Error;
 
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
@@ -43,6 +46,8 @@ pub enum DataSourceError {
     UpdateBoxError(#[from] UpdateBoxError),
     #[error("update box not found")]
     UpdateBoxNotFoundError,
+    #[error("buyback box error: {0}")]
+    BuybackBoxError(#[from] BuybackBoxError),
 }
 
 pub trait PoolBoxSource {
@@ -73,6 +78,10 @@ pub trait UpdateBoxSource {
     fn get_update_box(&self) -> Result<UpdateBoxWrapper>;
 }
 
+pub trait BuybackBoxSource {
+    fn get_buyback_box(&self) -> Result<Option<BuybackBoxWrapper>>;
+}
+
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug)]
 pub struct OraclePool<'a> {
@@ -83,6 +92,7 @@ pub struct OraclePool<'a> {
     refresh_box_scan: RefreshBoxScan<'a>,
     ballot_boxes_scan: BallotBoxesScan<'a>,
     update_box_scan: UpdateBoxScan<'a>,
+    buyback_box_scan: Option<BuybackBoxScan>,
 }
 
 #[derive(Debug)]
@@ -122,10 +132,17 @@ pub struct BallotBoxesScan<'a> {
     scan: GenericTokenScan<BallotTokenId>,
     ballot_box_wrapper_inputs: &'a BallotBoxWrapperInputs,
 }
+
 #[derive(Debug)]
 pub struct UpdateBoxScan<'a> {
     scan: GenericTokenScan<UpdateTokenId>,
     update_box_wrapper_inputs: &'a UpdateBoxWrapperInputs,
+}
+
+#[derive(Debug)]
+pub struct BuybackBoxScan {
+    scan: GenericTokenScan<BuybackTokenId>,
+    reward_token_id: RewardTokenId,
 }
 
 /// The state of the oracle pool when it is in the Live Epoch stage
@@ -181,6 +198,7 @@ impl<'a> OraclePool<'a> {
 
         let pool_box_scan = PoolBoxScan {
             scan: node_scan_registry.pool_token_scan.clone(),
+
             pool_box_wrapper_inputs: &pool_config.pool_box_wrapper_inputs,
         };
 
@@ -194,6 +212,15 @@ impl<'a> OraclePool<'a> {
             update_box_wrapper_inputs: &pool_config.update_box_wrapper_inputs,
         };
 
+        let buyback_box_scan =
+            node_scan_registry
+                .buyback_token_scan
+                .clone()
+                .map(|scan| BuybackBoxScan {
+                    scan,
+                    reward_token_id: pool_config.token_ids.reward_token_id.clone(),
+                });
+
         log::debug!("Scans loaded");
 
         Ok(OraclePool {
@@ -204,6 +231,7 @@ impl<'a> OraclePool<'a> {
             pool_box_scan,
             refresh_box_scan,
             update_box_scan,
+            buyback_box_scan,
         })
     }
 
@@ -270,6 +298,12 @@ impl<'a> OraclePool<'a> {
 
     pub fn get_update_box_source(&self) -> &dyn UpdateBoxSource {
         &self.update_box_scan as &dyn UpdateBoxSource
+    }
+
+    pub fn get_buyback_box_source(&self) -> Option<&dyn BuybackBoxSource> {
+        self.buyback_box_scan
+            .as_ref()
+            .map(|b| b as &dyn BuybackBoxSource)
     }
 }
 
@@ -357,5 +391,14 @@ impl<'a> DatapointBoxesSource for OracleDatapointScan<'a> {
             })
             .collect();
         Ok(posted_boxes)
+    }
+}
+
+impl BuybackBoxSource for BuybackBoxScan {
+    fn get_buyback_box(&self) -> Result<Option<BuybackBoxWrapper>> {
+        Ok(self
+            .scan
+            .get_box()?
+            .map(|ergo_box| BuybackBoxWrapper::new(ergo_box, self.reward_token_id.clone())))
     }
 }

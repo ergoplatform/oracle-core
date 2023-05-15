@@ -110,3 +110,15 @@ impl TokenIdKind for BallotTokenId {
         Self(token)
     }
 }
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
+#[serde(transparent)]
+pub struct BuybackTokenId(TokenId);
+impl TokenIdKind for BuybackTokenId {
+    fn token_id(&self) -> TokenId {
+        self.0
+    }
+    fn from_token_id_unchecked(token: TokenId) -> Self {
+        Self(token)
+    }
+}

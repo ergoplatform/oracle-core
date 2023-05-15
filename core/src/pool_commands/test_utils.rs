@@ -1,6 +1,7 @@
 //! This module contains common code used for testing the various commands
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::option::Option;
 
 use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
@@ -25,6 +26,7 @@ use ergo_node_interface::node_interface::NodeError;
 use sigma_test_util::force_any_val;
 
 use crate::box_kind::BallotBoxWrapper;
+use crate::box_kind::BuybackBoxWrapper;
 use crate::box_kind::OracleBoxWrapper;
 use crate::box_kind::OracleBoxWrapperInputs;
 use crate::box_kind::PoolBoxWrapper;
@@ -39,6 +41,7 @@ use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
 use crate::node_interface::SignTransactionWithInputs;
+use crate::oracle_state::BuybackBoxSource;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
 use crate::oracle_state::VoteBallotBoxesSource;
@@ -124,6 +127,17 @@ pub(crate) struct UpdateBoxMock {
 impl UpdateBoxSource for UpdateBoxMock {
     fn get_update_box(&self) -> crate::oracle_state::Result<crate::box_kind::UpdateBoxWrapper> {
         Ok(self.update_box.clone())
+    }
+}
+
+pub(crate) struct BuybackBoxSourceMock {
+    pub buyback_box: BuybackBoxWrapper,
+}
+impl BuybackBoxSource for BuybackBoxSourceMock {
+    fn get_buyback_box(
+        &self,
+    ) -> crate::oracle_state::Result<Option<crate::box_kind::BuybackBoxWrapper>> {
+        Ok(Some(self.buyback_box.clone()))
     }
 }
 

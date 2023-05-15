@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::oracle_types::Rate;
+
 use super::DataPointSource;
 use super::DataPointSourceError;
 
@@ -23,14 +25,15 @@ impl ExternalScript {
 }
 
 impl DataPointSource for ExternalScript {
-    fn get_datapoint(&self) -> Result<i64, DataPointSourceError> {
+    fn get_datapoint(&self) -> Result<Rate, DataPointSourceError> {
         let script_output = std::process::Command::new(&self.0)
             .output()
             .map_err(ExternalScriptError::from)?;
         let datapoint_str =
             String::from_utf8(script_output.stdout).map_err(ExternalScriptError::from)?;
         datapoint_str
-            .parse()
+            .parse::<i64>()
             .map_err(|e| DataPointSourceError::from(ExternalScriptError::from(e)))
+            .map(Into::into)
     }
 }
