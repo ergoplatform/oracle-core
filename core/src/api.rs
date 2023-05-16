@@ -1,6 +1,7 @@
 use std::convert::From;
 use std::net::SocketAddr;
 
+use crate::action_report::ActionReportStorage;
 use crate::box_kind::PoolBox;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
@@ -15,6 +16,7 @@ use crossbeam::channel::Receiver;
 use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder};
 use ergo_node_interface::scanning::NodeError;
 use serde_json::json;
+use tokio::sync::RwLock;
 use tokio::task;
 use tower_http::cors::CorsLayer;
 
@@ -108,7 +110,9 @@ async fn pool_info() -> impl IntoResponse {
 }
 
 /// Status of the oracle pool
-async fn pool_status() -> Result<Json<serde_json::Value>, ApiError> {
+async fn pool_status(
+    report_storage: &'static RwLock<ActionReportStorage>,
+) -> Result<Json<serde_json::Value>, ApiError> {
     let json = task::spawn_blocking(pool_status_sync).await.unwrap()?;
     Ok(json)
 }
@@ -167,13 +171,16 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
     response_text
 }
 
-pub async fn start_rest_server(repost_receiver: Receiver<bool>) -> Result<(), anyhow::Error> {
+pub async fn start_rest_server(
+    repost_receiver: Receiver<bool>,
+    report_storage: &'static RwLock<ActionReportStorage>,
+) -> Result<(), anyhow::Error> {
     let app = Router::new()
         .route("/", get(root))
         .route("/oracleInfo", get(oracle_info))
         .route("/oracleStatus", get(oracle_status))
         .route("/poolInfo", get(pool_info))
-        .route("/poolStatus", get(pool_status))
+        .route("/poolStatus", get(|| pool_status(report_storage)))
         .route("/blockHeight", get(block_height))
         .route(
             "/requireDatapointRepost",

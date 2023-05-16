@@ -18,3 +18,25 @@ pub enum PoolActionReport {
     Refresh(RefreshActionReport),
     PublishDatapoint(PublishDatapointActionReport),
 }
+
+#[derive(Debug)]
+pub struct ActionReportStorage {
+    refresh: Option<RefreshActionReport>,
+    publish_datapoint: Option<PublishDatapointActionReport>,
+}
+
+impl ActionReportStorage {
+    pub fn new() -> Self {
+        Self {
+            refresh: None,
+            publish_datapoint: None,
+        }
+    }
+
+    pub fn add(&mut self, report: PoolActionReport) {
+        match report {
+            PoolActionReport::Refresh(report) => self.refresh = Some(report),
+            PoolActionReport::PublishDatapoint(report) => self.publish_datapoint = Some(report),
+        }
+    }
+}

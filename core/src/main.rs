@@ -46,6 +46,7 @@ mod wallet;
 #[cfg(test)]
 mod tests;
 
+use action_report::ActionReportStorage;
 use action_report::PoolActionReport;
 use actions::PoolAction;
 use anyhow::anyhow;
@@ -86,6 +87,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
+use tokio::sync::RwLock;
 
 use crate::actions::execute_action;
 use crate::api::start_rest_server;
@@ -267,6 +269,9 @@ fn main() {
 
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
+    let action_report_storage: RwLock<ActionReportStorage> =
+        RwLock::new(ActionReportStorage::new());
+
     log_on_launch();
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     assert_wallet_unlocked(&node_api.node);
@@ -325,14 +330,15 @@ fn main() {
             // Start Oracle Core GET API Server
             if enable_rest_api {
                 tokio_runtime.spawn(async {
-                    if let Err(e) = start_rest_server(repost_receiver).await {
+                    if let Err(e) = start_rest_server(repost_receiver, &action_report_storage).await
+                    {
                         error!("An error occurred while starting the REST server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
                     }
                 });
             }
             loop {
-                if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source, &node_api) {
+                if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source, &node_api, &action_report_storage) {
                     error!("error: {:?}", e);
                 }
                 // Delay loop restart
@@ -465,6 +471,7 @@ fn main_loop_iteration(
     read_only: bool,
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
+    report_storage: &'static RwLock<ActionReportStorage>,
 ) -> std::result::Result<(), anyhow::Error> {
     if !node_api.node.wallet_status()?.unlocked {
         return Err(anyhow!("Wallet is locked!"));
@@ -503,7 +510,7 @@ fn main_loop_iteration(
         {
             if !read_only {
                 execute_action(action, node_api)?;
-                // TODO: store report
+                report_storage.get_mut().add(report);
             }
         };
     }
