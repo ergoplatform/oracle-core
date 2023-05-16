@@ -46,6 +46,7 @@ mod wallet;
 #[cfg(test)]
 mod tests;
 
+use action_report::PoolActionReport;
 use actions::PoolAction;
 use anyhow::anyhow;
 use anyhow::Context;
@@ -497,12 +498,12 @@ fn main_loop_iteration(
             network_change_address.address(),
             datapoint_source,
         );
-        if let Some(action) = log_and_continue_if_non_fatal(
-            network_change_address.network(),
-            build_action_tuple_res.map(|(action, _)| action),
-        )? {
+        if let Some((action, report)) =
+            log_and_continue_if_non_fatal(network_change_address.network(), build_action_tuple_res)?
+        {
             if !read_only {
                 execute_action(action, node_api)?;
+                // TODO: store report
             }
         };
     }
@@ -511,10 +512,10 @@ fn main_loop_iteration(
 
 fn log_and_continue_if_non_fatal(
     network_prefix: NetworkPrefix,
-    res: Result<PoolAction, PoolCommandError>,
-) -> Result<Option<PoolAction>, anyhow::Error> {
+    res: Result<(PoolAction, PoolActionReport), PoolCommandError>,
+) -> Result<Option<(PoolAction, PoolActionReport)>, anyhow::Error> {
     match res {
-        Ok(action) => Ok(Some(action)),
+        Ok(tuple) => Ok(Some(tuple)),
         Err(PoolCommandError::RefreshActionError(RefreshActionError::FailedToReachConsensus {
             expected,
             found_public_keys,
