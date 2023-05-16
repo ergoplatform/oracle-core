@@ -2,6 +2,7 @@ use ergo_lib::ergo_chain_types::DigestNError;
 use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoderError};
 use thiserror::Error;
 
+use crate::action_report::PoolActionReport;
 use crate::actions::PoolAction;
 use crate::box_kind::PoolBox;
 use crate::datapoint_source::RuntimeDataPointSource;
@@ -55,7 +56,7 @@ pub fn build_action(
     height: BlockHeight,
     change_address: Address,
     datapoint_source: &RuntimeDataPointSource,
-) -> Result<PoolAction, PoolCommandError> {
+) -> Result<(PoolAction, PoolActionReport), PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();
     let datapoint_boxes_source = op.get_datapoint_boxes_source();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
@@ -76,7 +77,7 @@ pub fn build_action(
             datapoint_source,
         )
         .map_err(Into::into)
-        .map(Into::into),
+        .map(|(action, report)| (action.into(), report.into())),
         PoolCommand::PublishSubsequentDataPoint { republish: _ } => {
             if let Some(local_datapoint_box) = op
                 .get_local_datapoint_box_source()
@@ -93,7 +94,7 @@ pub fn build_action(
                     &POOL_CONFIG.token_ids.reward_token_id,
                 )
                 .map_err(Into::into)
-                .map(Into::into)
+                .map(|(action, report)| (action.into(), report.into()))
             } else {
                 Err(PoolCommandError::Unexpected(
                     "{cmd} error: No local datapoint box found".to_string(),
@@ -121,6 +122,6 @@ pub fn build_action(
             op.get_buyback_box_source(),
         )
         .map_err(Into::into)
-        .map(|(action, report)| action.into()),
+        .map(|(action, report)| (action.into(), report.into())),
     }
 }

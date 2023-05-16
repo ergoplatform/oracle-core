@@ -489,7 +489,7 @@ fn main_loop_iteration(
         .epoch_length();
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
-        let build_action_res = build_action(
+        let build_action_tuple_res = build_action(
             cmd,
             op,
             node_api,
@@ -497,9 +497,10 @@ fn main_loop_iteration(
             network_change_address.address(),
             datapoint_source,
         );
-        if let Some(action) =
-            log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
-        {
+        if let Some(action) = log_and_continue_if_non_fatal(
+            network_change_address.network(),
+            build_action_tuple_res.map(|(action, _)| action),
+        )? {
             if !read_only {
                 execute_action(action, node_api)?;
             }

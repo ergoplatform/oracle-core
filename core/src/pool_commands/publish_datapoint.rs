@@ -13,6 +13,7 @@ use ergo_lib::{
 use thiserror::Error;
 
 use crate::{
+    action_report::PublishDatapointActionReport,
     actions::PublishDataPointAction,
     box_kind::{make_oracle_box_candidate, OracleBox, OracleBoxWrapper, OracleBoxWrapperInputs},
     contracts::oracle::{OracleContract, OracleContractError},
@@ -52,7 +53,7 @@ pub fn build_subsequent_publish_datapoint_action(
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: EpochCounter,
     reward_token_id: &RewardTokenId,
-) -> Result<PublishDataPointAction, PublishDatapointActionError> {
+) -> Result<(PublishDataPointAction, PublishDatapointActionReport), PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint()?;
     let in_oracle_box = local_datapoint_box;
 
@@ -100,7 +101,10 @@ pub fn build_subsequent_publish_datapoint_action(
     };
     tx_builder.set_context_extension(in_oracle_box.get_box().box_id(), ctx_ext);
     let tx = tx_builder.build()?;
-    Ok(PublishDataPointAction { tx })
+    let report = PublishDatapointActionReport {
+        posted_datapoint: new_datapoint,
+    };
+    Ok((PublishDataPointAction { tx }, report))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -111,7 +115,7 @@ pub fn build_publish_first_datapoint_action(
     public_key: EcPoint,
     inputs: OracleBoxWrapperInputs,
     datapoint_source: &dyn DataPointSource,
-) -> Result<PublishDataPointAction, PublishDatapointActionError> {
+) -> Result<(PublishDataPointAction, PublishDatapointActionReport), PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint()?;
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
@@ -161,7 +165,10 @@ pub fn build_publish_first_datapoint_action(
     };
     tx_builder.set_context_extension(box_id, ctx_ext);
     let tx = tx_builder.build()?;
-    Ok(PublishDataPointAction { tx })
+    let report = PublishDatapointActionReport {
+        posted_datapoint: new_datapoint,
+    };
+    Ok((PublishDataPointAction { tx }, report))
 }
 
 #[cfg(test)]
@@ -264,7 +271,7 @@ mod tests {
         let datapoint_source = MockDatapointSource {
             datapoint: 201.into(),
         };
-        let action = build_subsequent_publish_datapoint_action(
+        let (action, _) = build_subsequent_publish_datapoint_action(
             &oracle_box,
             &wallet_mock,
             height,
@@ -349,7 +356,7 @@ mod tests {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), &token_ids))
                 .unwrap();
-        let action = build_publish_first_datapoint_action(
+        let (action, _) = build_publish_first_datapoint_action(
             &WalletDataMock {
                 unspent_boxes: unspent_boxes.clone(),
                 change_address: change_address.clone(),
@@ -447,7 +454,7 @@ mod tests {
         let datapoint_source = MockDatapointSource {
             datapoint: 201.into(),
         };
-        let action = build_subsequent_publish_datapoint_action(
+        let (action, _) = build_subsequent_publish_datapoint_action(
             &oracle_box,
             &wallet_mock,
             height,
