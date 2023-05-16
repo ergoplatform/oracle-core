@@ -121,6 +121,6 @@ pub fn build_action(
             op.get_buyback_box_source(),
         )
         .map_err(Into::into)
-        .map(Into::into),
+        .map(|(action, report)| action.into()),
     }
 }

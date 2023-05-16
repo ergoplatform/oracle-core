@@ -18,6 +18,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod action_report;
 mod actions;
 mod address_util;
 mod api;
@@ -40,9 +41,10 @@ mod serde;
 mod spec_token;
 mod state;
 mod templates;
+mod wallet;
+
 #[cfg(test)]
 mod tests;
-mod wallet;
 
 use actions::PoolAction;
 use anyhow::anyhow;
