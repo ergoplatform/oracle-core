@@ -1,5 +1,6 @@
 use std::convert::From;
 use std::net::SocketAddr;
+use std::sync::{Arc, RwLock};
 
 use crate::action_report::ActionReportStorage;
 use crate::box_kind::PoolBox;
@@ -16,7 +17,6 @@ use crossbeam::channel::Receiver;
 use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoder};
 use ergo_node_interface::scanning::NodeError;
 use serde_json::json;
-use tokio::sync::RwLock;
 use tokio::task;
 use tower_http::cors::CorsLayer;
 
@@ -111,13 +111,17 @@ async fn pool_info() -> impl IntoResponse {
 
 /// Status of the oracle pool
 async fn pool_status(
-    report_storage: &'static RwLock<ActionReportStorage>,
+    report_storage: Arc<RwLock<ActionReportStorage>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(pool_status_sync).await.unwrap()?;
+    let json = task::spawn_blocking(|| pool_status_sync(report_storage))
+        .await
+        .unwrap()?;
     Ok(json)
 }
 
-fn pool_status_sync() -> Result<Json<serde_json::Value>, ApiError> {
+fn pool_status_sync(
+    report_storage: Arc<RwLock<ActionReportStorage>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = node_api.node.current_block_height()? as u32;
     let op = OraclePool::load().unwrap();
@@ -173,7 +177,7 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
 
 pub async fn start_rest_server(
     repost_receiver: Receiver<bool>,
-    report_storage: &'static RwLock<ActionReportStorage>,
+    report_storage: Arc<RwLock<ActionReportStorage>>,
 ) -> Result<(), anyhow::Error> {
     let app = Router::new()
         .route("/", get(root))
