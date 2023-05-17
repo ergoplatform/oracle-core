@@ -134,14 +134,14 @@ fn pool_status_sync(
     let latest_pool_box_height = pool_box.get_box().creation_height;
     let epoch_end_height = latest_pool_box_height + epoch_length.0 as u32;
 
-    let oracle_boxes = op
-        .get_datapoint_boxes_source()
-        .get_oracle_datapoint_boxes()?;
-    let min_oracle_box_height = current_height - epoch_length.0 as u32;
     let active_oracle_count =
         if let Some(report) = report_storage.read().unwrap().get_last_refresh_report() {
             report.oracle_boxes_collected.len()
         } else {
+            let oracle_boxes = op
+                .get_datapoint_boxes_source()
+                .get_oracle_datapoint_boxes()?;
+            let min_oracle_box_height = current_height - epoch_length.0 as u32;
             oracle_boxes
                 .into_iter()
                 .filter(|b| b.get_box().creation_height >= min_oracle_box_height)
