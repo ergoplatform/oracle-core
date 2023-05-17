@@ -39,4 +39,8 @@ impl ActionReportStorage {
             PoolActionReport::PublishDatapoint(report) => self.publish_datapoint = Some(report),
         }
     }
+
+    pub fn get_last_refresh_report(&self) -> Option<&RefreshActionReport> {
+        self.refresh.as_ref()
+    }
 }
