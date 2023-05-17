@@ -321,7 +321,7 @@ fn main() {
 
             let node_scan_registry =
                 NodeScanRegistry::ensure_node_registered_scans(&node_api, pool_config).unwrap();
-            let op = OraclePool::new(&node_scan_registry).unwrap();
+            let oracle_pool = Arc::new(OraclePool::new(&node_scan_registry).unwrap());
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
                 ORACLE_CONFIG.data_point_source_custom_script.clone(),
@@ -331,9 +331,11 @@ fn main() {
             // Start Oracle Core GET API Server
             if enable_rest_api {
                 let action_report_storage_read = action_report_storage.clone();
+                let op_clone = oracle_pool.clone();
                 tokio_runtime.spawn(async {
                     if let Err(e) =
-                        start_rest_server(repost_receiver, action_report_storage_read).await
+                        start_rest_server(repost_receiver, action_report_storage_read, op_clone)
+                            .await
                     {
                         error!("An error occurred while starting the REST server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
@@ -342,7 +344,7 @@ fn main() {
             }
             loop {
                 if let Err(e) = main_loop_iteration(
-                    &op,
+                    &oracle_pool,
                     read_only,
                     &datapoint_source,
                     &node_api,
@@ -476,7 +478,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
 }
 
 fn main_loop_iteration(
-    op: &OraclePool,
+    oracle_pool: &OraclePool,
     read_only: bool,
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
@@ -492,7 +494,7 @@ fn main_loop_iteration(
             .context("Failed to get the current height")? as u32,
     );
     let network_change_address = node_api.get_change_address()?;
-    let pool_state = match op.get_live_epoch_state() {
+    let pool_state = match oracle_pool.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
             log::error!("error getting live epoch state: {:?}", error);
@@ -508,7 +510,7 @@ fn main_loop_iteration(
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_tuple_res = build_action(
             cmd,
-            op,
+            oracle_pool,
             node_api,
             height,
             network_change_address.address(),
