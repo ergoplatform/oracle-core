@@ -1,3 +1,4 @@
+use crate::action_report::RefreshActionReport;
 use crate::actions::RefreshAction;
 use crate::box_kind::make_collected_oracle_box_candidate;
 use crate::box_kind::make_pool_box_candidate;
@@ -74,7 +75,7 @@ pub fn build_refresh_action(
     change_address: Address,
     my_oracle_pk: &EcPoint,
     buyback_box_source: Option<&dyn BuybackBoxSource>,
-) -> Result<RefreshAction, RefreshActionError> {
+) -> Result<(RefreshAction, RefreshActionReport), RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
     let in_refresh_box = refresh_box_source.get_refresh_box()?;
@@ -202,7 +203,13 @@ pub fn build_refresh_action(
             b.set_context_extension(ob.get_box().box_id(), ob_ctx_ext);
         });
     let tx = b.build()?;
-    Ok(RefreshAction { tx })
+    let report = RefreshActionReport {
+        oracle_boxes_collected: valid_in_oracle_boxes
+            .iter()
+            .map(|b| b.public_key())
+            .collect(),
+    };
+    Ok((RefreshAction { tx }, report))
 }
 
 fn filtered_oracle_boxes_by_rate<T>(
@@ -565,7 +572,7 @@ mod tests {
             change_address: change_address.clone(),
         };
 
-        let action = build_refresh_action(
+        let (action, report) = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
             &(DatapointSourceMock {
@@ -580,6 +587,8 @@ mod tests {
             None,
         )
         .unwrap();
+
+        assert_eq!(report.oracle_boxes_collected.len(), 5);
 
         let mut possible_input_boxes = vec![
             pool_box_mock.get_pool_box().unwrap().get_box().clone(),
@@ -659,7 +668,7 @@ mod tests {
             buyback_box: BuybackBoxWrapper::new(buyback_box, token_ids.reward_token_id.clone()),
         };
 
-        let action_with_buyback = build_refresh_action(
+        let (action_with_buyback, _) = build_refresh_action(
             &pool_box_mock,
             &refresh_box_mock,
             &(DatapointSourceMock {

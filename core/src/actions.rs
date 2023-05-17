@@ -12,7 +12,7 @@ use crate::node_interface::node_api::NodeApi;
 use crate::node_interface::node_api::NodeApiError;
 use crate::oracle_config::ORACLE_CONFIG;
 
-mod collect;
+mod action_result;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, From)]

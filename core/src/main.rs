@@ -18,6 +18,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod action_report;
 mod actions;
 mod address_util;
 mod api;
@@ -40,10 +41,13 @@ mod serde;
 mod spec_token;
 mod state;
 mod templates;
-#[cfg(test)]
-mod tests;
 mod wallet;
 
+#[cfg(test)]
+mod tests;
+
+use action_report::ActionReportStorage;
+use action_report::PoolActionReport;
 use actions::PoolAction;
 use anyhow::anyhow;
 use anyhow::Context;
@@ -81,6 +85,8 @@ use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
 
@@ -264,6 +270,9 @@ fn main() {
 
     scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
 
+    let action_report_storage: Arc<RwLock<ActionReportStorage>> =
+        Arc::new(RwLock::new(ActionReportStorage::new()));
+
     log_on_launch();
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     assert_wallet_unlocked(&node_api.node);
@@ -321,15 +330,24 @@ fn main() {
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
+                let action_report_storage_read = action_report_storage.clone();
                 tokio_runtime.spawn(async {
-                    if let Err(e) = start_rest_server(repost_receiver).await {
+                    if let Err(e) =
+                        start_rest_server(repost_receiver, action_report_storage_read).await
+                    {
                         error!("An error occurred while starting the REST server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
                     }
                 });
             }
             loop {
-                if let Err(e) = main_loop_iteration(&op, read_only, &datapoint_source, &node_api) {
+                if let Err(e) = main_loop_iteration(
+                    &op,
+                    read_only,
+                    &datapoint_source,
+                    &node_api,
+                    action_report_storage.clone(),
+                ) {
                     error!("error: {:?}", e);
                 }
                 // Delay loop restart
@@ -462,6 +480,7 @@ fn main_loop_iteration(
     read_only: bool,
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
+    report_storage: Arc<RwLock<ActionReportStorage>>,
 ) -> std::result::Result<(), anyhow::Error> {
     if !node_api.node.wallet_status()?.unlocked {
         return Err(anyhow!("Wallet is locked!"));
@@ -487,7 +506,7 @@ fn main_loop_iteration(
         .epoch_length();
     if let Some(cmd) = process(pool_state, epoch_length, height) {
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
-        let build_action_res = build_action(
+        let build_action_tuple_res = build_action(
             cmd,
             op,
             node_api,
@@ -495,11 +514,12 @@ fn main_loop_iteration(
             network_change_address.address(),
             datapoint_source,
         );
-        if let Some(action) =
-            log_and_continue_if_non_fatal(network_change_address.network(), build_action_res)?
+        if let Some((action, report)) =
+            log_and_continue_if_non_fatal(network_change_address.network(), build_action_tuple_res)?
         {
             if !read_only {
                 execute_action(action, node_api)?;
+                report_storage.write().unwrap().add(report);
             }
         };
     }
@@ -508,10 +528,10 @@ fn main_loop_iteration(
 
 fn log_and_continue_if_non_fatal(
     network_prefix: NetworkPrefix,
-    res: Result<PoolAction, PoolCommandError>,
-) -> Result<Option<PoolAction>, anyhow::Error> {
+    res: Result<(PoolAction, PoolActionReport), PoolCommandError>,
+) -> Result<Option<(PoolAction, PoolActionReport)>, anyhow::Error> {
     match res {
-        Ok(action) => Ok(Some(action)),
+        Ok(tuple) => Ok(Some(tuple)),
         Err(PoolCommandError::RefreshActionError(RefreshActionError::FailedToReachConsensus {
             expected,
             found_public_keys,
