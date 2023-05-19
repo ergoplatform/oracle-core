@@ -39,9 +39,8 @@ async fn oracle_info() -> impl IntoResponse {
 }
 
 /// Status of the oracle
-async fn oracle_status() -> Result<Json<serde_json::Value>, ApiError> {
-    let op = OraclePool::load().unwrap();
-    let live_epoch = task::spawn_blocking(move || op.get_live_epoch_state())
+async fn oracle_status(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
+    let live_epoch = task::spawn_blocking(move || oracle_pool.get_live_epoch_state())
         .await
         .unwrap()?;
     if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
@@ -112,8 +111,9 @@ async fn pool_info() -> impl IntoResponse {
 /// Status of the oracle pool
 async fn pool_status(
     report_storage: Arc<RwLock<ActionReportStorage>>,
+    oracle_pool: Arc<OraclePool>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(|| pool_status_sync(report_storage))
+    let json = task::spawn_blocking(|| pool_status_sync(report_storage, oracle_pool))
         .await
         .unwrap()?;
     Ok(json)
@@ -121,11 +121,11 @@ async fn pool_status(
 
 fn pool_status_sync(
     report_storage: Arc<RwLock<ActionReportStorage>>,
+    oracle_pool: Arc<OraclePool>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = node_api.node.current_block_height()? as u32;
-    let op = OraclePool::load().unwrap();
-    let pool_box = op.get_pool_box_source().get_pool_box()?;
+    let pool_box = oracle_pool.get_pool_box_source().get_pool_box()?;
     let epoch_length = POOL_CONFIG
         .refresh_box_wrapper_inputs
         .contract_inputs
@@ -138,7 +138,7 @@ fn pool_status_sync(
         if let Some(report) = report_storage.read().unwrap().get_last_refresh_report() {
             report.oracle_boxes_collected.len()
         } else {
-            let oracle_boxes = op
+            let oracle_boxes = oracle_pool
                 .get_datapoint_boxes_source()
                 .get_oracle_datapoint_boxes()?;
             let min_oracle_box_height = current_height - epoch_length.0 as u32;
@@ -183,13 +183,15 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
 pub async fn start_rest_server(
     repost_receiver: Receiver<bool>,
     report_storage: Arc<RwLock<ActionReportStorage>>,
+    oracle_pool: Arc<OraclePool>,
 ) -> Result<(), anyhow::Error> {
+    let op_clone = oracle_pool.clone();
     let app = Router::new()
         .route("/", get(root))
         .route("/oracleInfo", get(oracle_info))
-        .route("/oracleStatus", get(oracle_status))
+        .route("/oracleStatus", get(|| oracle_status(oracle_pool)))
         .route("/poolInfo", get(pool_info))
-        .route("/poolStatus", get(|| pool_status(report_storage)))
+        .route("/poolStatus", get(|| pool_status(report_storage, op_clone)))
         .route("/blockHeight", get(block_height))
         .route(
             "/requireDatapointRepost",
