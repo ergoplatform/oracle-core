@@ -110,14 +110,7 @@ impl NodeScanRegistry {
             let mut registry = Self::load_from_json_str(&json_str)?;
             if let Some(pool_config_buyback_token_id) = pool_config.buyback_token_id.clone() {
                 log::info!("buyback token is found in pool config, checking if scan is registered");
-                if let Some(buyback_token_scan) = registry.buyback_token_scan.clone() {
-                    // TODO: check buyback token id is the same in pool config and in registry scan
-                    // if differs - deregister old scan and register new one
-                    todo!("we don't have buyback token id for the registered scan");
-                    // OTOH, it might not be a problem for the following reasons:
-                    // 1. to change buyback token id, we can remove it from pool config, restart oracled (deregisters the scan),
-                    // add it back to pool config, restart oracled (registers the scan)
-                    // 2. buyback token id is not expected to change when pool is running
+                if registry.buyback_token_scan.is_some() {
                     log::info!("buyback token scan is already registered");
                     registry
                 } else {
