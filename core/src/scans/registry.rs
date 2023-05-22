@@ -107,34 +107,41 @@ impl NodeScanRegistry {
         let path = get_scans_file_path();
         log::info!("Loading scan IDs from {}", path.display());
         let registry = if let Ok(json_str) = std::fs::read_to_string(path) {
-            let mut registry = Self::load_from_json_str(&json_str)?;
+            let loaded_registry = Self::load_from_json_str(&json_str)?;
             if let Some(pool_config_buyback_token_id) = pool_config.buyback_token_id.clone() {
-                log::info!("buyback token is found in pool config, checking if scan is registered");
-                if registry.buyback_token_scan.is_some() {
-                    log::info!("buyback token scan is already registered");
-                    registry
+                log::info!("Buyback token is found in pool config, checking if scan is registered");
+                if loaded_registry.buyback_token_scan.is_some() {
+                    log::info!("Buyback token scan is already registered");
+                    loaded_registry
                 } else {
                     let buyback_token_scan =
                         GenericTokenScan::register(node_api, &pool_config_buyback_token_id)?;
                     node_api.rescan_from_height(0)?;
-                    let node_scan_registry = Self {
+                    let new_registry = Self {
                         buyback_token_scan: Some(buyback_token_scan),
-                        ..registry
+                        ..loaded_registry
                     };
-                    node_scan_registry.save_to_json_file(&get_scans_file_path())?;
-                    node_scan_registry
+                    new_registry.save_to_json_file(&get_scans_file_path())?;
+                    new_registry
                 }
             } else {
                 // no buyback token in pool config
-                if let Some(buy_back_token_scan) = registry.buyback_token_scan.clone() {
+                if let Some(buy_back_token_scan) = loaded_registry.buyback_token_scan.clone() {
+                    log::info!("No buyback token in the pool config but scan is registered. Deregistering it");
                     // but registry has buyback token scan, deregister it
                     node_api.deregister_scan(buy_back_token_scan.scan_id())?;
-                    registry.buyback_token_scan = None;
+                    let new_registry = Self {
+                        buyback_token_scan: None,
+                        ..loaded_registry
+                    };
+                    new_registry.save_to_json_file(&get_scans_file_path())?;
+                    new_registry
+                } else {
+                    loaded_registry
                 }
-                registry
             }
         } else {
-            log::info!("scans not found");
+            log::info!("Scans not found");
             Self::register_and_save_scans_inner(node_api, pool_config)?
         };
         wait_for_node_rescan(node_api)?;
