@@ -4,7 +4,7 @@
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 
 use derive_more::From;
-use ergo_node_interface::node_interface::NodeError;
+use ergo_node_interface::scanning::NodeError;
 use thiserror::Error;
 
 use crate::explorer_api::ergo_explorer_transaction_link;
@@ -37,23 +37,10 @@ pub enum ActionExecError {
     NodeError(#[from] NodeApiError),
 }
 
-pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), anyhow::Error> {
-    let exec_res = match action {
+pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), ActionExecError> {
+    match action {
         PoolAction::Refresh(action) => execute_refresh_action(action, node_api),
         PoolAction::PublishDatapoint(action) => execute_publish_datapoint_action(action, node_api),
-    };
-    match exec_res {
-        Ok(_) => Ok(()),
-        Err(ActionExecError::NodeError(NodeApiError::NodeInterfaceError(
-            NodeError::BadRequest(msg),
-        ))) if msg.as_str() == "Double spending attempt"
-            || msg.contains("it is invalidated earlier or the pool is full")
-            || msg.contains("it is already in the mempool") =>
-        {
-            log::debug!("Node rejected tx with error: {msg}");
-            Ok(())
-        }
-        Err(e) => Err(e.into()),
     }
 }
 
@@ -81,4 +68,19 @@ fn execute_publish_datapoint_action(
         ergo_explorer_transaction_link(tx_id, *network_prefix)
     );
     Ok(())
+}
+
+pub fn log_non_critical_error_and_continue(err: ActionExecError) -> Result<(), ActionExecError> {
+    match err {
+        ActionExecError::NodeError(NodeApiError::NodeInterfaceError(NodeError::BadRequest(
+            msg,
+        ))) if msg.as_str() == "Double spending attempt"
+            || msg.contains("it is invalidated earlier or the pool is full")
+            || msg.contains("it is already in the mempool") =>
+        {
+            log::debug!("Node rejected tx with error: {msg}");
+            Ok(())
+        }
+        e => Err(e),
+    }
 }

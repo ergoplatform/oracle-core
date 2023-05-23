@@ -91,6 +91,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::actions::execute_action;
+use crate::actions::log_non_critical_error_and_continue;
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
 use crate::migrate::check_migration_to_split_config;
@@ -520,8 +521,13 @@ fn main_loop_iteration(
             log_and_continue_if_non_fatal(network_change_address.network(), build_action_tuple_res)?
         {
             if !read_only {
-                execute_action(action, node_api)?;
-                report_storage.write().unwrap().add(report);
+                match execute_action(action, node_api) {
+                    Ok(()) => {
+                        report_storage.write().unwrap().add(report);
+                        Ok(())
+                    }
+                    Err(e) => log_non_critical_error_and_continue(e),
+                }?;
             }
         };
     }
