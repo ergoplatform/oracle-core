@@ -62,8 +62,8 @@ pub trait RefreshBoxSource {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper>;
 }
 
-pub trait DatapointBoxesSource {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>>;
+pub trait PostedDatapointBoxesSource {
+    fn get_posted_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>>;
 }
 
 pub trait LocalDatapointBoxSource {
@@ -285,8 +285,8 @@ impl OraclePool {
         &self.refresh_box_scan as &dyn RefreshBoxSource
     }
 
-    pub fn get_datapoint_boxes_source(&self) -> &dyn DatapointBoxesSource {
-        &self.oracle_datapoint_scan as &dyn DatapointBoxesSource
+    pub fn get_datapoint_boxes_source(&self) -> &dyn PostedDatapointBoxesSource {
+        &self.oracle_datapoint_scan as &dyn PostedDatapointBoxesSource
     }
 
     pub fn get_local_datapoint_box_source(&self) -> &dyn LocalDatapointBoxSource {
@@ -375,8 +375,8 @@ impl UpdateBoxSource for UpdateBoxScan {
     }
 }
 
-impl DatapointBoxesSource for OracleDatapointScan {
-    fn get_oracle_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
+impl PostedDatapointBoxesSource for OracleDatapointScan {
+    fn get_posted_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
         let posted_boxes = self
             .scan
             .get_boxes()?
