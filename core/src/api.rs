@@ -139,7 +139,7 @@ fn pool_status_sync(
             report.oracle_boxes_collected.len()
         } else {
             let oracle_boxes = oracle_pool
-                .get_datapoint_boxes_source()
+                .get_posted_datapoint_boxes_source()
                 .get_posted_datapoint_boxes()?;
             let min_oracle_box_height = current_height - epoch_length.0 as u32;
             oracle_boxes

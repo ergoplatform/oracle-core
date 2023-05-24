@@ -1,9 +1,9 @@
 use crate::box_kind::{
     BallotBox, BallotBoxError, BallotBoxWrapper, BallotBoxWrapperInputs, BuybackBoxError,
-    BuybackBoxWrapper, OracleBox, OracleBoxError, OracleBoxWrapper, OracleBoxWrapperInputs,
-    PoolBox, PoolBoxError, PoolBoxWrapper, PoolBoxWrapperInputs, PostedOracleBox, RefreshBoxError,
-    RefreshBoxWrapper, RefreshBoxWrapperInputs, UpdateBoxError, UpdateBoxWrapper,
-    UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
+    BuybackBoxWrapper, CollectedOracleBox, OracleBox, OracleBoxError, OracleBoxWrapper,
+    OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper, PoolBoxWrapperInputs,
+    PostedOracleBox, RefreshBoxError, RefreshBoxWrapper, RefreshBoxWrapperInputs, UpdateBoxError,
+    UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
 use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::ORACLE_CONFIG;
@@ -64,6 +64,10 @@ pub trait RefreshBoxSource {
 
 pub trait PostedDatapointBoxesSource {
     fn get_posted_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>>;
+}
+
+pub trait CollectedDatapointBoxesSource {
+    fn get_collected_datapoint_boxes(&self) -> Result<Vec<CollectedOracleBox>>;
 }
 
 pub trait LocalDatapointBoxSource {
@@ -285,8 +289,12 @@ impl OraclePool {
         &self.refresh_box_scan as &dyn RefreshBoxSource
     }
 
-    pub fn get_datapoint_boxes_source(&self) -> &dyn PostedDatapointBoxesSource {
+    pub fn get_posted_datapoint_boxes_source(&self) -> &dyn PostedDatapointBoxesSource {
         &self.oracle_datapoint_scan as &dyn PostedDatapointBoxesSource
+    }
+
+    pub fn get_collected_datapoint_boxes_source(&self) -> &dyn CollectedDatapointBoxesSource {
+        &self.oracle_datapoint_scan as &dyn CollectedDatapointBoxesSource
     }
 
     pub fn get_local_datapoint_box_source(&self) -> &dyn LocalDatapointBoxSource {
@@ -385,6 +393,22 @@ impl PostedDatapointBoxesSource for OracleDatapointScan {
             .filter_map(|b| match b {
                 OracleBoxWrapper::Posted(p) => Some(p),
                 OracleBoxWrapper::Collected(_) => None,
+            })
+            .collect();
+        Ok(posted_boxes)
+    }
+}
+
+impl CollectedDatapointBoxesSource for OracleDatapointScan {
+    fn get_collected_datapoint_boxes(&self) -> Result<Vec<CollectedOracleBox>> {
+        let posted_boxes = self
+            .scan
+            .get_boxes()?
+            .into_iter()
+            .filter_map(|b| OracleBoxWrapper::new(b, &self.oracle_box_wrapper_inputs).ok())
+            .filter_map(|b| match b {
+                OracleBoxWrapper::Posted(_) => None,
+                OracleBoxWrapper::Collected(p) => Some(p),
             })
             .collect();
         Ok(posted_boxes)
