@@ -272,6 +272,12 @@ impl PostedOracleBox {
     }
 }
 
+impl CollectedOracleBox {
+    pub fn get_box(&self) -> &ErgoBox {
+        &self.ergo_box
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct OracleBoxWrapperInputs {
     pub contract_inputs: OracleContractInputs,

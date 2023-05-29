@@ -1,8 +1,7 @@
 use std::convert::From;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
-use crate::action_report::ActionReportStorage;
 use crate::box_kind::PoolBox;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
@@ -109,20 +108,14 @@ async fn pool_info() -> impl IntoResponse {
 }
 
 /// Status of the oracle pool
-async fn pool_status(
-    report_storage: Arc<RwLock<ActionReportStorage>>,
-    oracle_pool: Arc<OraclePool>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(|| pool_status_sync(report_storage, oracle_pool))
+async fn pool_status(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
+    let json = task::spawn_blocking(|| pool_status_sync(oracle_pool))
         .await
         .unwrap()?;
     Ok(json)
 }
 
-fn pool_status_sync(
-    report_storage: Arc<RwLock<ActionReportStorage>>,
-    oracle_pool: Arc<OraclePool>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+fn pool_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = node_api.node.current_block_height()? as u32;
     let pool_box = oracle_pool.get_pool_box_source().get_pool_box()?;
@@ -131,26 +124,30 @@ fn pool_status_sync(
         .contract_inputs
         .contract_parameters()
         .epoch_length();
-    let latest_pool_box_height = pool_box.get_box().creation_height;
-    let epoch_end_height = latest_pool_box_height + epoch_length.0 as u32;
+    let pool_box_height = pool_box.get_box().creation_height;
+    let epoch_end_height = pool_box_height + epoch_length.0 as u32;
 
-    let active_oracle_count =
-        if let Some(report) = report_storage.read().unwrap().get_last_refresh_report() {
-            report.oracle_boxes_collected.len()
-        } else {
-            let oracle_boxes = oracle_pool
-                .get_posted_datapoint_boxes_source()
-                .get_posted_datapoint_boxes()?;
-            let min_oracle_box_height = current_height - epoch_length.0 as u32;
-            oracle_boxes
-                .into_iter()
-                .filter(|b| b.get_box().creation_height >= min_oracle_box_height)
-                .count()
-        };
+    let posted_boxes = oracle_pool
+        .get_posted_datapoint_boxes_source()
+        .get_posted_datapoint_boxes()?;
+    let posted_count_current_epoch = posted_boxes
+        .into_iter()
+        .filter(|b| b.get_box().creation_height >= pool_box_height)
+        .count();
+
+    let collected_boxes = oracle_pool
+        .get_collected_datapoint_boxes_source()
+        .get_collected_datapoint_boxes()?;
+    let collected_count_previous_epoch = collected_boxes
+        .into_iter()
+        .filter(|b| b.get_box().creation_height == pool_box_height)
+        .count();
+
+    let active_oracle_count = collected_count_previous_epoch + posted_count_current_epoch;
 
     let json = Json(json!({
         "latest_pool_datapoint": pool_box.rate(),
-        "latest_pool_box_height": latest_pool_box_height,
+        "latest_pool_box_height": pool_box_height,
         "pool_box_epoch_id" : pool_box.epoch_counter(),
         "current_block_height": current_height,
         "epoch_end_height": epoch_end_height,
@@ -182,7 +179,6 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
 
 pub async fn start_rest_server(
     repost_receiver: Receiver<bool>,
-    report_storage: Arc<RwLock<ActionReportStorage>>,
     oracle_pool: Arc<OraclePool>,
 ) -> Result<(), anyhow::Error> {
     let op_clone = oracle_pool.clone();
@@ -191,7 +187,7 @@ pub async fn start_rest_server(
         .route("/oracleInfo", get(oracle_info))
         .route("/oracleStatus", get(|| oracle_status(oracle_pool)))
         .route("/poolInfo", get(pool_info))
-        .route("/poolStatus", get(|| pool_status(report_storage, op_clone)))
+        .route("/poolStatus", get(|| pool_status(op_clone)))
         .route("/blockHeight", get(block_height))
         .route(
             "/requireDatapointRepost",
