@@ -11,8 +11,8 @@ use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
 use crate::oracle_state::BuybackBoxSource;
 use crate::oracle_state::DataSourceError;
-use crate::oracle_state::DatapointBoxesSource;
 use crate::oracle_state::PoolBoxSource;
+use crate::oracle_state::PostedDatapointBoxesSource;
 use crate::oracle_state::RefreshBoxSource;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochCounter;
@@ -67,7 +67,7 @@ pub enum RefreshActionError {
 pub fn build_refresh_action(
     pool_box_source: &dyn PoolBoxSource,
     refresh_box_source: &dyn RefreshBoxSource,
-    datapoint_src: &dyn DatapointBoxesSource,
+    datapoint_src: &dyn PostedDatapointBoxesSource,
     max_deviation_percent: u32,
     min_data_points: MinDatapoints,
     wallet: &dyn WalletDataSource,
@@ -82,7 +82,7 @@ pub fn build_refresh_action(
     let min_start_height = height - in_refresh_box.contract().epoch_length();
     let in_pool_box_epoch_id = in_pool_box.epoch_counter();
     let mut in_oracle_boxes: Vec<PostedOracleBox> = datapoint_src
-        .get_oracle_datapoint_boxes()?
+        .get_posted_datapoint_boxes()?
         .into_iter()
         .filter(|b| {
             b.get_box().creation_height > min_start_height.0
@@ -421,8 +421,8 @@ mod tests {
         datapoints: Vec<PostedOracleBox>,
     }
 
-    impl DatapointBoxesSource for DatapointSourceMock {
-        fn get_oracle_datapoint_boxes(
+    impl PostedDatapointBoxesSource for DatapointSourceMock {
+        fn get_posted_datapoint_boxes(
             &self,
         ) -> std::result::Result<Vec<PostedOracleBox>, DataSourceError> {
             Ok(self.datapoints.clone())

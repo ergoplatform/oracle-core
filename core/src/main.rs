@@ -330,13 +330,9 @@ fn main() {
 
             // Start Oracle Core GET API Server
             if enable_rest_api {
-                let action_report_storage_read = action_report_storage.clone();
                 let op_clone = oracle_pool.clone();
                 tokio_runtime.spawn(async {
-                    if let Err(e) =
-                        start_rest_server(repost_receiver, action_report_storage_read, op_clone)
-                            .await
-                    {
+                    if let Err(e) = start_rest_server(repost_receiver, op_clone).await {
                         error!("An error occurred while starting the REST server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
                     }

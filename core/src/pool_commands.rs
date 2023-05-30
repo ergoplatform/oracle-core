@@ -58,7 +58,7 @@ pub fn build_action(
     datapoint_source: &RuntimeDataPointSource,
 ) -> Result<(PoolAction, PoolActionReport), PoolCommandError> {
     let refresh_box_source = op.get_refresh_box_source();
-    let datapoint_boxes_source = op.get_datapoint_boxes_source();
+    let datapoint_boxes_source = op.get_posted_datapoint_boxes_source();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
     let current_epoch_counter = pool_box.epoch_counter();
     let oracle_public_key =

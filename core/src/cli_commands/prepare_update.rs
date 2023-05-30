@@ -143,8 +143,8 @@ fn print_hints_for_voting(height: BlockHeight) -> Result<(), PrepareUpdateError>
         .0 as u32;
     let op = OraclePool::load().unwrap();
     let oracle_boxes = op
-        .get_datapoint_boxes_source()
-        .get_oracle_datapoint_boxes()?;
+        .get_posted_datapoint_boxes_source()
+        .get_posted_datapoint_boxes()?;
     let min_oracle_box_height = height - epoch_length;
     let active_oracle_count = oracle_boxes
         .into_iter()
