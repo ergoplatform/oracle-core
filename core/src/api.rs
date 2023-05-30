@@ -25,7 +25,8 @@ async fn root() -> &'static str {
         /poolStatus - status of the oracle pool
         /oracleInfo - basic information about the oracle
         /oracleStatus - status of the oracle
-        /oracleHealth - returns true if the our collected datapoint box height is the same as the pool box height and our posted datapoint box height is greater than the pool box height "
+        /oracleHealth - returns OK if our collected datapoint box height is the same as the pool box height OR our posted datapoint box height is greater than the pool box height
+        "
 }
 
 /// Basic oracle information
