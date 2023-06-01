@@ -2,11 +2,10 @@ use std::convert::From;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::box_kind::PoolBox;
+use crate::box_kind::{OracleBoxWrapper, PoolBox};
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
-use crate::oracle_state::LocalDatapointState::{Collected, Posted};
-use crate::oracle_state::{DataSourceError, OraclePool};
+use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
 use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -25,7 +24,9 @@ async fn root() -> &'static str {
         /poolInfo - basic information about the oracle pool
         /poolStatus - status of the oracle pool
         /oracleInfo - basic information about the oracle
-        /oracleStatus - status of the oracle"
+        /oracleStatus - status of the oracle
+        /oracleHealth - returns OK if our collected datapoint box height is the same as the pool box height OR our posted datapoint box height is greater than the pool box height
+        "
 }
 
 /// Basic oracle information
@@ -39,23 +40,30 @@ async fn oracle_info() -> impl IntoResponse {
 
 /// Status of the oracle
 async fn oracle_status(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let live_epoch = task::spawn_blocking(move || oracle_pool.get_live_epoch_state())
+    let json = task::spawn_blocking(|| oracle_status_sync(oracle_pool))
         .await
         .unwrap()?;
+    Ok(json)
+}
+
+fn oracle_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
+    let live_epoch = oracle_pool.get_live_epoch_state()?;
     if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
         let json = match local_datapoint_box_state {
-            Collected { height } => json!( {
+            LocalDatapointState::Collected { height } => json!( {
                 "status": "collected",
                 "height": height,
             }),
-            Posted { epoch_id, height } => json!( {
+            LocalDatapointState::Posted { epoch_id, height } => json!( {
                 "status": "posted",
                 "epoch_id": epoch_id,
                 "height": height,
             }),
         };
+        let oracle_health = oracle_health_sync(oracle_pool)?;
         Ok(Json(json!({
                 "local_datapoint_box_state": json,
+                "oracle_health": oracle_health,
         })))
     } else {
         Ok(Json(json!({
@@ -177,11 +185,55 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
     response_text
 }
 
+/// Return true if the our collected datapoint box height is the same as the pool box height
+/// and our posted datapoint box height is greater than the pool box height
+async fn oracle_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
+    let json = task::spawn_blocking(|| oracle_health_sync(oracle_pool))
+        .await
+        .unwrap()?;
+    Ok(Json(json))
+}
+
+fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
+    let pool_box_height = oracle_pool
+        .get_pool_box_source()
+        .get_pool_box()?
+        .get_box()
+        .creation_height;
+    let mut check_details = json!({
+        "pool_box_height": pool_box_height,
+    });
+    let is_healthy = match oracle_pool
+        .get_local_datapoint_box_source()
+        .get_local_oracle_datapoint_box()?
+    {
+        Some(b) => match b {
+            OracleBoxWrapper::Posted(posted_box) => {
+                let creation_height = posted_box.get_box().creation_height;
+                check_details["posted_box_height"] = json!(creation_height);
+                creation_height > pool_box_height
+            }
+            OracleBoxWrapper::Collected(collected_box) => {
+                let creation_height = collected_box.get_box().creation_height;
+                check_details["collected_box_height"] = json!(creation_height);
+                creation_height == pool_box_height
+            }
+        },
+        None => false,
+    };
+    let json = json!({
+        "status": if is_healthy { "OK" } else { "DOWN" },
+        "details": check_details,
+    });
+    Ok(json)
+}
+
 pub async fn start_rest_server(
     repost_receiver: Receiver<bool>,
     oracle_pool: Arc<OraclePool>,
 ) -> Result<(), anyhow::Error> {
     let op_clone = oracle_pool.clone();
+    let op_clone2 = oracle_pool.clone();
     let app = Router::new()
         .route("/", get(root))
         .route("/oracleInfo", get(oracle_info))
@@ -189,6 +241,7 @@ pub async fn start_rest_server(
         .route("/poolInfo", get(pool_info))
         .route("/poolStatus", get(|| pool_status(op_clone)))
         .route("/blockHeight", get(block_height))
+        .route("/oracleHealth", get(|| oracle_health(op_clone2)))
         .route(
             "/requireDatapointRepost",
             get(|| require_datapoint_repost(repost_receiver)),
