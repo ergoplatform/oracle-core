@@ -40,9 +40,14 @@ async fn oracle_info() -> impl IntoResponse {
 
 /// Status of the oracle
 async fn oracle_status(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let live_epoch = task::spawn_blocking(move || oracle_pool.get_live_epoch_state())
+    let json = task::spawn_blocking(|| oracle_status_sync(oracle_pool))
         .await
         .unwrap()?;
+    Ok(json)
+}
+
+fn oracle_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
+    let live_epoch = oracle_pool.get_live_epoch_state()?;
     if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
         let json = match local_datapoint_box_state {
             LocalDatapointState::Collected { height } => json!( {
@@ -55,8 +60,10 @@ async fn oracle_status(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::
                 "height": height,
             }),
         };
+        let oracle_health = oracle_health_sync(oracle_pool)?;
         Ok(Json(json!({
                 "local_datapoint_box_state": json,
+                "oracle_health": oracle_health,
         })))
     } else {
         Ok(Json(json!({
@@ -184,10 +191,10 @@ async fn oracle_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::
     let json = task::spawn_blocking(|| oracle_health_sync(oracle_pool))
         .await
         .unwrap()?;
-    Ok(json)
+    Ok(Json(json))
 }
 
-fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
+fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
     let pool_box_height = oracle_pool
         .get_pool_box_source()
         .get_pool_box()?
@@ -214,10 +221,10 @@ fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::V
         },
         None => false,
     };
-    let json = Json(json!({
+    let json = json!({
         "status": if is_healthy { "OK" } else { "DOWN" },
         "details": check_details,
-    }));
+    });
     Ok(json)
 }
 
