@@ -29,6 +29,7 @@ mod datapoint_source;
 mod default_parameters;
 mod explorer_api;
 mod logging;
+mod metrics;
 mod migrate;
 mod node_interface;
 mod oracle_config;
