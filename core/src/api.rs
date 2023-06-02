@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::box_kind::{OracleBoxWrapper, PoolBox};
 use crate::node_interface::node_api::NodeApi;
-use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
 use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
@@ -268,6 +268,7 @@ fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, A
 pub async fn start_rest_server(
     repost_receiver: Receiver<bool>,
     oracle_pool: Arc<OraclePool>,
+    api_port: u16,
 ) -> Result<(), anyhow::Error> {
     let op_clone = oracle_pool.clone();
     let op_clone2 = oracle_pool.clone();
@@ -290,7 +291,7 @@ pub async fn start_rest_server(
                 .allow_origin(tower_http::cors::Any)
                 .allow_methods([axum::http::Method::GET]),
         );
-    let addr = SocketAddr::from(([0, 0, 0, 0], get_core_api_port().parse().unwrap()));
+    let addr = SocketAddr::from(([0, 0, 0, 0], api_port));
     axum::Server::try_bind(&addr)?
         .serve(app.into_make_service())
         .await?;

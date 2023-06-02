@@ -333,7 +333,7 @@ fn main() {
             if enable_rest_api {
                 let op_clone = oracle_pool.clone();
                 tokio_runtime.spawn(async {
-                    if let Err(e) = start_rest_server(repost_receiver, op_clone).await {
+                    if let Err(e) = start_rest_server(repost_receiver, op_clone, ORACLE_CONFIG.core_api_port).await {
                         error!("An error occurred while starting the REST server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
                     }

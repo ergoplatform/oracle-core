@@ -117,7 +117,3 @@ lazy_static! {
         .unwrap_or_else(|_| SUGGESTED_TX_FEE());
 }
 
-/// Returns "core_api_port" from the config file
-pub fn get_core_api_port() -> String {
-    ORACLE_CONFIG.core_api_port.to_string()
-}
