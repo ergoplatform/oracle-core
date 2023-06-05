@@ -31,6 +31,7 @@ mod explorer_api;
 mod logging;
 mod metrics;
 mod migrate;
+mod monitor;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
@@ -64,6 +65,7 @@ use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::error;
 use log::LevelFilter;
 use metrics::start_metrics_server;
+use metrics::update_metrics;
 use node_interface::assert_wallet_unlocked;
 use node_interface::node_api::NodeApi;
 use oracle_config::ORACLE_CONFIG;
@@ -75,7 +77,6 @@ use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
-use prometheus::Registry;
 use scans::get_scans_file_path;
 use scans::wait_for_node_rescan;
 use spec_token::RewardTokenId;
@@ -325,7 +326,6 @@ fn main() {
             let node_scan_registry =
                 NodeScanRegistry::ensure_node_registered_scans(&node_api, pool_config).unwrap();
             let oracle_pool = Arc::new(OraclePool::new(&node_scan_registry).unwrap());
-            let metrics_registry = Arc::new(Registry::new());
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
                 ORACLE_CONFIG.data_point_source_custom_script.clone(),
@@ -346,10 +346,8 @@ fn main() {
                 });
             }
             if let Some(metrics_port) = ORACLE_CONFIG.metrics_port {
-                let metrics_registry_clone = metrics_registry.clone();
                 tokio_runtime.spawn(async move {
-                    if let Err(e) = start_metrics_server(metrics_registry_clone, metrics_port).await
-                    {
+                    if let Err(e) = start_metrics_server(metrics_port).await {
                         error!("An error occurred while starting the metrics server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
                     }
@@ -357,12 +355,11 @@ fn main() {
             }
             loop {
                 if let Err(e) = main_loop_iteration(
-                    &oracle_pool,
+                    oracle_pool.clone(),
                     read_only,
                     &datapoint_source,
                     &node_api,
                     action_report_storage.clone(),
-                    &metrics_registry,
                 ) {
                     error!("error: {:?}", e);
                 }
@@ -492,12 +489,11 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
 }
 
 fn main_loop_iteration(
-    oracle_pool: &OraclePool,
+    oracle_pool: Arc<OraclePool>,
     read_only: bool,
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
     report_storage: Arc<RwLock<ActionReportStorage>>,
-    metrics_registry: &Registry,
 ) -> std::result::Result<(), anyhow::Error> {
     if !node_api.node.wallet_status()?.unlocked {
         return Err(anyhow!("Wallet is locked!"));
@@ -525,7 +521,7 @@ fn main_loop_iteration(
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_tuple_res = build_action(
             cmd,
-            oracle_pool,
+            &oracle_pool,
             node_api,
             height,
             network_change_address.address(),
@@ -540,6 +536,7 @@ fn main_loop_iteration(
             }
         };
     }
+    update_metrics(oracle_pool)?;
     Ok(())
 }
 

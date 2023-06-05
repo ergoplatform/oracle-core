@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::box_kind::{OracleBoxWrapper, PoolBox};
+use crate::monitor::check_pool_health;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
@@ -238,31 +239,10 @@ async fn pool_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Va
     Ok(Json(json))
 }
 fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
-    let pool_conf = &POOL_CONFIG;
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let current_height = node_api.node.current_block_height()? as u32;
-    let pool_box_height = oracle_pool
-        .get_pool_box_source()
-        .get_pool_box()?
-        .get_box()
-        .creation_height;
-    let epoch_length = pool_conf
-        .refresh_box_wrapper_inputs
-        .contract_inputs
-        .contract_parameters()
-        .epoch_length()
-        .0 as u32;
-    let check_details = json!({
-        "pool_box_height": pool_box_height,
-        "current_block_height": current_height,
-        "epoch_length": epoch_length,
-    });
-    let is_healthy = pool_box_height >= current_height - epoch_length;
-    let json = json!({
-        "status": if is_healthy { "OK" } else { "DOWN" },
-        "details": check_details,
-    });
-    Ok(json)
+    let current_height = (node_api.node.current_block_height()? as u32).into();
+    let pool_health = check_pool_health(oracle_pool, current_height)?;
+    Ok(serde_json::to_value(pool_health).unwrap())
 }
 
 pub async fn start_rest_server(
@@ -292,6 +272,7 @@ pub async fn start_rest_server(
                 .allow_methods([axum::http::Method::GET]),
         );
     let addr = SocketAddr::from(([0, 0, 0, 0], api_port));
+    log::info!("Starting REST server on {}", addr);
     axum::Server::try_bind(&addr)?
         .serve(app.into_make_service())
         .await?;

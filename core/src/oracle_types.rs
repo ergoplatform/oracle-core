@@ -10,7 +10,7 @@ use derive_more::Sub;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone, From)]
 #[serde(transparent)]
 pub struct BlockHeight(pub u32);
 
@@ -18,6 +18,21 @@ impl std::ops::Sub<EpochLength> for BlockHeight {
     type Output = BlockHeight;
     fn sub(self, other: EpochLength) -> BlockHeight {
         BlockHeight(self.0 - other.0 as u32)
+    }
+}
+
+impl std::ops::Add<EpochLength> for BlockHeight {
+    type Output = BlockHeight;
+    fn add(self, other: EpochLength) -> BlockHeight {
+        BlockHeight(self.0 + other.0 as u32)
+    }
+}
+
+impl std::ops::Add<u32> for BlockHeight {
+    type Output = BlockHeight;
+    fn add(self, other: u32) -> BlockHeight {
+        // Unwrap here to panic on overflow instead of wrapping around
+        BlockHeight(self.0.checked_add(other).unwrap())
     }
 }
 
@@ -29,21 +44,33 @@ impl std::ops::Sub<u32> for BlockHeight {
     }
 }
 
+impl From<BlockHeight> for i64 {
+    fn from(block_height: BlockHeight) -> Self {
+        block_height.0 as i64
+    }
+}
+
 impl std::fmt::Display for BlockHeight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone, From)]
 #[serde(transparent)]
 pub struct EpochLength(pub i32);
 
-#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone)]
+impl From<EpochLength> for i64 {
+    fn from(epoch_length: EpochLength) -> Self {
+        epoch_length.0 as i64
+    }
+}
+
+#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone, From)]
 #[serde(transparent)]
 pub struct EpochCounter(pub u32);
 
-#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Serialize, Deserialize, Copy, Clone, From)]
 #[serde(transparent)]
 pub struct MinDatapoints(pub i32);
 
