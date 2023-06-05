@@ -44,10 +44,10 @@ static EPOCH_LENGTH: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
-static POOL_STATUS: Lazy<IntGaugeVec> = Lazy::new(|| {
+static POOL_IS_HEALTHY: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
         Opts::new(
-            "pool_health_status",
+            "pool_is_healthy",
             "The health status of the pool, 1 for Ok and 0 for Down",
         ),
         &["pool"],
@@ -69,11 +69,11 @@ pub fn update_pool_health(pool_health: &PoolHealth) {
         .with_label_values(&[pool_name])
         .set(pool_health.details.epoch_length.into());
 
-    let status = match pool_health.status {
+    let health = match pool_health.status {
         PoolStatus::Ok => 1,
         PoolStatus::Down => 0,
     };
-    POOL_STATUS.with_label_values(&[pool_name]).set(status);
+    POOL_IS_HEALTHY.with_label_values(&[pool_name]).set(health);
 }
 
 pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
