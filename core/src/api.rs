@@ -224,7 +224,7 @@ fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, A
         .get_box()
         .creation_height
         .into();
-    let pool_health = check_pool_health( current_height, pool_box_height)?;
+    let pool_health = check_pool_health(current_height, pool_box_height)?;
     Ok(serde_json::to_value(pool_health).unwrap())
 }
 
