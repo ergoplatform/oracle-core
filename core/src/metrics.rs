@@ -15,9 +15,13 @@ use prometheus::TextEncoder;
 use reqwest::StatusCode;
 use tower_http::cors::CorsLayer;
 
+use crate::box_kind::PoolBox;
+use crate::monitor::check_oracle_health;
 use crate::monitor::check_pool_health;
+use crate::monitor::HealthStatus;
+use crate::monitor::OracleBoxDetails;
+use crate::monitor::OracleHealth;
 use crate::monitor::PoolHealth;
-use crate::monitor::PoolStatus;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::OraclePool;
@@ -73,6 +77,36 @@ static POOL_IS_HEALTHY: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
+static ORACLE_IS_HEALTHY: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "oracle_is_healthy",
+            "The health status of the oracle, 1 for Ok and 0 for Down",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
+static ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "oracle_box_height",
+            "The height of the posted/collected oracle box",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["pool", "box_type"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
 pub fn update_pool_health(pool_health: &PoolHealth) {
     let pool_name = "pool";
     POOL_BOX_HEIGHT
@@ -86,17 +120,44 @@ pub fn update_pool_health(pool_health: &PoolHealth) {
         .set(pool_health.details.epoch_length.into());
 
     let health = match pool_health.status {
-        PoolStatus::Ok => 1,
-        PoolStatus::Down => 0,
+        HealthStatus::Ok => 1,
+        HealthStatus::Down => 0,
     };
     POOL_IS_HEALTHY.with_label_values(&[pool_name]).set(health);
+}
+
+pub fn update_oracle_health(oracle_health: &OracleHealth) {
+    let pool_name = "pool";
+    let box_type = match oracle_health.details.box_details {
+        OracleBoxDetails::PostedBox(_) => "posted",
+        OracleBoxDetails::CollectedBox(_) => "collected",
+    };
+    ORACLE_BOX_HEIGHT
+        .with_label_values(&[pool_name, box_type])
+        .set(oracle_health.details.box_details.oracle_box_height().into());
+
+    let health = match oracle_health.status {
+        HealthStatus::Ok => 1,
+        HealthStatus::Down => 0,
+    };
+    ORACLE_IS_HEALTHY
+        .with_label_values(&[pool_name])
+        .set(health);
 }
 
 pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = (node_api.node.current_block_height()? as u32).into();
-    let pool_health = check_pool_health(oracle_pool, current_height)?;
+    let pool_box_height = oracle_pool
+        .get_pool_box_source()
+        .get_pool_box()?
+        .get_box()
+        .creation_height
+        .into();
+    let pool_health = check_pool_health(current_height, pool_box_height)?;
     update_pool_health(&pool_health);
+    let oracle_health = check_oracle_health(oracle_pool.clone(), pool_box_height)?;
+    update_oracle_health(&oracle_health);
     Ok(())
 }
 
