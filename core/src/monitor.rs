@@ -114,7 +114,7 @@ pub fn check_oracle_health(
                 },
                 details: OracleHealthDetails {
                     pool_box_height,
-                    box_details: OracleBoxDetails::PostedBox(creation_height),
+                    box_details: OracleBoxDetails::CollectedBox(creation_height),
                 },
             }
         }
