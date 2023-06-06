@@ -24,7 +24,9 @@ use crate::oracle_state::OraclePool;
 
 static POOL_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
-        Opts::new("pool_box_height", "The height of the pool box"),
+        Opts::new("pool_box_height", "The height of the pool box")
+            .namespace("ergo")
+            .subsystem("oracle"),
         &["pool"],
     )
     .unwrap();
@@ -33,13 +35,25 @@ static POOL_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
 });
 
 static CURRENT_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(Opts::new("current_height", "The current height"), &["pool"]).unwrap();
+    let m = IntGaugeVec::new(
+        Opts::new("current_height", "The current height")
+            .namespace("ergo")
+            .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
 static EPOCH_LENGTH: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(Opts::new("epoch_length", "The epoch length"), &["pool"]).unwrap();
+    let m = IntGaugeVec::new(
+        Opts::new("epoch_length", "The epoch length")
+            .namespace("ergo")
+            .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
@@ -49,7 +63,9 @@ static POOL_IS_HEALTHY: Lazy<IntGaugeVec> = Lazy::new(|| {
         Opts::new(
             "pool_is_healthy",
             "The health status of the pool, 1 for Ok and 0 for Down",
-        ),
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
         &["pool"],
     )
     .unwrap();
