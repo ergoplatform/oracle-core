@@ -120,6 +120,21 @@ static ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
+static ORACLE_NODE_WALLET_BALANCE: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "oracle_node_wallet_nano_erg",
+            "Coins in the oracle's node wallet",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
 pub fn update_pool_health(pool_health: &PoolHealth) {
     let pool_name = "pool";
     POOL_BOX_HEIGHT
@@ -175,6 +190,10 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     update_pool_health(&pool_health);
     let oracle_health = check_oracle_health(oracle_pool.clone(), pool_box_height)?;
     update_oracle_health(&oracle_health);
+    let wallet_balance: i64 = node_api.node.wallet_nano_ergs_balance()? as i64;
+    ORACLE_NODE_WALLET_BALANCE
+        .with_label_values(&["pool"])
+        .set(wallet_balance);
     Ok(())
 }
 
