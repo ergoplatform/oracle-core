@@ -25,10 +25,23 @@ use crate::monitor::PoolHealth;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::OraclePool;
+use crate::oracle_types::Rate;
 
 static POOL_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
         Opts::new("pool_box_height", "The height of the pool box")
+            .namespace("ergo")
+            .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
+static POOL_BOX_RATE: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new("pool_box_rate", "exchange rate from the pool box")
             .namespace("ergo")
             .subsystem("oracle"),
         &["pool"],
@@ -145,15 +158,19 @@ pub fn update_oracle_health(oracle_health: &OracleHealth) {
         .set(health);
 }
 
+pub fn update_pool_box_rate(rate: Rate) {
+    let pool_name = "pool";
+    POOL_BOX_RATE
+        .with_label_values(&[pool_name])
+        .set(rate.into());
+}
+
 pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = (node_api.node.current_block_height()? as u32).into();
-    let pool_box_height = oracle_pool
-        .get_pool_box_source()
-        .get_pool_box()?
-        .get_box()
-        .creation_height
-        .into();
+    let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;
+    update_pool_box_rate(pool_box.rate());
+    let pool_box_height = pool_box.get_box().creation_height.into();
     let pool_health = check_pool_health(current_height, pool_box_height)?;
     update_pool_health(&pool_health);
     let oracle_health = check_oracle_health(oracle_pool.clone(), pool_box_height)?;
