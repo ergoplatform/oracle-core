@@ -51,6 +51,21 @@ static POOL_BOX_RATE: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
+static POOL_BOX_REWARD_TOKEN_AMOUNT: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "pool_box_reward_token_amount",
+            "The amount of reward token in the pool box",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
 static CURRENT_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
         Opts::new("current_height", "The current height")
@@ -194,6 +209,9 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     ORACLE_NODE_WALLET_BALANCE
         .with_label_values(&["pool"])
         .set(wallet_balance);
+    POOL_BOX_REWARD_TOKEN_AMOUNT
+        .with_label_values(&["pool"])
+        .set(pool_box.reward_token().amount.into());
     Ok(())
 }
 
