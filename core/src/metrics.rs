@@ -150,7 +150,22 @@ static ORACLE_NODE_WALLET_BALANCE: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
-pub fn update_pool_health(pool_health: &PoolHealth) {
+static REWARD_TOKENS_IN_BUYBACK_BOX: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "reward_tokens_in_buyback_box",
+            "The amount of reward tokens in the buyback box",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["pool"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
+fn update_pool_health(pool_health: &PoolHealth) {
     let pool_name = "pool";
     POOL_BOX_HEIGHT
         .with_label_values(&[pool_name])
@@ -169,7 +184,7 @@ pub fn update_pool_health(pool_health: &PoolHealth) {
     POOL_IS_HEALTHY.with_label_values(&[pool_name]).set(health);
 }
 
-pub fn update_oracle_health(oracle_health: &OracleHealth) {
+fn update_oracle_health(oracle_health: &OracleHealth) {
     let pool_name = "pool";
     let box_type = match oracle_health.details.box_details {
         OracleBoxDetails::PostedBox(_) => "posted",
@@ -188,11 +203,31 @@ pub fn update_oracle_health(oracle_health: &OracleHealth) {
         .set(health);
 }
 
-pub fn update_pool_box_rate(rate: Rate) {
+fn update_pool_box_rate(rate: Rate) {
     let pool_name = "pool";
     POOL_BOX_RATE
         .with_label_values(&[pool_name])
         .set(rate.into());
+}
+
+fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {
+    if let Some(buyback_box) = oracle_pool
+        .get_buyback_box_source()
+        .map(|s| s.get_buyback_box())
+        .transpose()
+        .ok()
+        .flatten()
+        .flatten()
+    {
+        let reward_token_amount: i64 = buyback_box
+            .reward_token()
+            .map(|t| t.amount.into())
+            .unwrap_or(0);
+        let pool_name = "pool";
+        REWARD_TOKENS_IN_BUYBACK_BOX
+            .with_label_values(&[pool_name])
+            .set(reward_token_amount);
+    }
 }
 
 pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
@@ -212,6 +247,7 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     POOL_BOX_REWARD_TOKEN_AMOUNT
         .with_label_values(&["pool"])
         .set(pool_box.reward_token().amount.into());
+    update_reward_tokens_in_buyback_box(oracle_pool);
     Ok(())
 }
 
