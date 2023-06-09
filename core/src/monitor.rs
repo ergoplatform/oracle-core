@@ -24,10 +24,11 @@ pub struct PoolHealthDetails {
     pub pool_box_height: BlockHeight,
     pub current_height: BlockHeight,
     pub epoch_length: EpochLength,
-    pub oracles: Vec<OracleDetails>,
+    pub all_oracles: Vec<OracleDetails>,
+    pub active_oracles: Vec<OracleDetails>,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct OracleDetails {
     pub address: NetworkAddress,
     pub box_height: OracleBoxDetails,
@@ -56,6 +57,8 @@ pub fn check_pool_health(
     let acceptable_pool_box_delay_blocks = 3;
     let is_healthy =
         pool_box_height >= current_height - epoch_length - acceptable_pool_box_delay_blocks;
+    let all_oracles = get_all_oracle_boxes(oracle_pool, network_prefix)?;
+    let active_oracles = get_active_oracle_boxes(&all_oracles, pool_box_height);
     Ok(PoolHealth {
         status: if is_healthy {
             HealthStatus::Ok
@@ -66,12 +69,13 @@ pub fn check_pool_health(
             pool_box_height,
             current_height,
             epoch_length,
-            oracles: analyze_oracle_boxes(oracle_pool, network_prefix)?,
+            all_oracles,
+            active_oracles,
         },
     })
 }
 
-pub fn analyze_oracle_boxes(
+pub fn get_all_oracle_boxes(
     oracle_pool: Arc<OraclePool>,
     network_prefix: NetworkPrefix,
 ) -> Result<Vec<OracleDetails>, DataSourceError> {
@@ -99,13 +103,35 @@ pub fn analyze_oracle_boxes(
     Ok(oracle_details)
 }
 
+pub fn get_active_oracle_boxes(
+    all_oracle_boxes: &Vec<OracleDetails>,
+    pool_box_height: BlockHeight,
+) -> Vec<OracleDetails> {
+    let mut active_oracles: Vec<OracleDetails> = vec![];
+    for oracle_box in all_oracle_boxes {
+        match oracle_box.box_height {
+            OracleBoxDetails::PostedBox(posted_box_height) => {
+                if posted_box_height >= pool_box_height {
+                    active_oracles.push(oracle_box.clone());
+                }
+            }
+            OracleBoxDetails::CollectedBox(collected_box_height) => {
+                if collected_box_height == pool_box_height {
+                    active_oracles.push(oracle_box.clone());
+                }
+            }
+        }
+    }
+    active_oracles
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct OracleHealth {
     pub status: HealthStatus,
     pub details: OracleHealthDetails,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum OracleBoxDetails {
     PostedBox(BlockHeight),
     CollectedBox(BlockHeight),

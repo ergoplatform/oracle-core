@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::box_kind::PoolBox;
-use crate::monitor::{check_oracle_health, check_pool_health};
+use crate::monitor::{check_oracle_health, check_pool_health, PoolHealth};
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
@@ -136,26 +136,8 @@ fn pool_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Val
         .epoch_length();
     let pool_box_height = pool_box.get_box().creation_height;
     let epoch_end_height = pool_box_height + epoch_length.0 as u32;
-
-    let posted_boxes = oracle_pool
-        .get_posted_datapoint_boxes_source()
-        .get_posted_datapoint_boxes()?;
-    let posted_count_current_epoch = posted_boxes
-        .into_iter()
-        .filter(|b| b.get_box().creation_height >= pool_box_height)
-        .count();
-
-    let collected_boxes = oracle_pool
-        .get_collected_datapoint_boxes_source()
-        .get_collected_datapoint_boxes()?;
-    let collected_count_previous_epoch = collected_boxes
-        .into_iter()
-        .filter(|b| b.get_box().creation_height == pool_box_height)
-        .count();
-
-    let active_oracle_count = collected_count_previous_epoch + posted_count_current_epoch;
     let pool_health = pool_health_sync(oracle_pool)?;
-
+    let active_oracle_count = pool_health.details.active_oracles.len();
     let json = Json(json!({
         "latest_pool_datapoint": pool_box.rate(),
         "latest_pool_box_height": pool_box_height,
@@ -210,12 +192,13 @@ fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value,
 }
 
 async fn pool_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(|| pool_health_sync(oracle_pool))
+    let json = task::spawn_blocking(|| pool_health_sync_json(oracle_pool))
         .await
         .unwrap()?;
     Ok(Json(json))
 }
-fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
+
+fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<PoolHealth, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = (node_api.node.current_block_height()? as u32).into();
     let pool_box_height = oracle_pool
@@ -225,7 +208,13 @@ fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, A
         .creation_height
         .into();
     let network_prefix = node_api.get_change_address()?.network();
-    let pool_health = check_pool_health(current_height, pool_box_height, oracle_pool, network_prefix)?;
+    let pool_health =
+        check_pool_health(current_height, pool_box_height, oracle_pool, network_prefix)?;
+    Ok(pool_health)
+}
+
+fn pool_health_sync_json(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
+    let pool_health = pool_health_sync(oracle_pool)?;
     Ok(serde_json::to_value(pool_health).unwrap())
 }
 

@@ -149,6 +149,21 @@ static ALL_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
+static ACTIVE_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "active_oracle_box_height",
+            "The height of the posted/collected oracle box of active oracles",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["pool", "box_type", "oracle_address"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
 static ORACLE_NODE_WALLET_BALANCE: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
         Opts::new(
@@ -190,17 +205,22 @@ fn update_pool_health(pool_health: &PoolHealth) {
     EPOCH_LENGTH
         .with_label_values(&[pool_name])
         .set(pool_health.details.epoch_length.into());
-
     let health = match pool_health.status {
         HealthStatus::Ok => 1,
         HealthStatus::Down => 0,
     };
     POOL_IS_HEALTHY.with_label_values(&[pool_name]).set(health);
-
-    for oracle in &pool_health.details.oracles {
+    for oracle in &pool_health.details.all_oracles {
         let box_type = oracle.box_height.label_name();
         let box_height = oracle.box_height.oracle_box_height().into();
         ALL_ORACLE_BOX_HEIGHT
+            .with_label_values(&[pool_name, box_type, &oracle.address.to_base58()])
+            .set(box_height);
+    }
+    for oracle in &pool_health.details.active_oracles {
+        let box_type = oracle.box_height.label_name();
+        let box_height = oracle.box_height.oracle_box_height().into();
+        ACTIVE_ORACLE_BOX_HEIGHT
             .with_label_values(&[pool_name, box_type, &oracle.address.to_base58()])
             .set(box_height);
     }
@@ -256,8 +276,12 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;
     update_pool_box_rate(pool_box.rate());
     let pool_box_height = pool_box.get_box().creation_height.into();
-    let pool_health =
-        check_pool_health(current_height, pool_box_height, oracle_pool.clone(), network_prefix)?;
+    let pool_health = check_pool_health(
+        current_height,
+        pool_box_height,
+        oracle_pool.clone(),
+        network_prefix,
+    )?;
     update_pool_health(&pool_health);
     let oracle_health = check_oracle_health(oracle_pool.clone(), pool_box_height)?;
     update_oracle_health(&oracle_health);
