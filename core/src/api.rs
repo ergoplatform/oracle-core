@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::box_kind::PoolBox;
 use crate::monitor::{check_oracle_health, check_pool_health};
-use crate::node_interface::node_api::NodeApi;
+use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
 use crate::pool_config::POOL_CONFIG;
@@ -224,7 +224,8 @@ fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, A
         .get_box()
         .creation_height
         .into();
-    let pool_health = check_pool_health(current_height, pool_box_height)?;
+    let network_prefix = node_api.get_change_address()?.network();
+    let pool_health = check_pool_health(current_height, pool_box_height, oracle_pool, network_prefix)?;
     Ok(serde_json::to_value(pool_health).unwrap())
 }
 
@@ -285,5 +286,11 @@ impl IntoResponse for ApiError {
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
         ApiError(format!("Error: {:?}", err))
+    }
+}
+
+impl From<NodeApiError> for ApiError {
+    fn from(err: NodeApiError) -> Self {
+        ApiError(format!("NodeApiError: {:?}", err))
     }
 }

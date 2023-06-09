@@ -1,4 +1,3 @@
-use crate::address_util::AddressUtilError;
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
@@ -34,8 +33,6 @@ pub enum ScanError {
     RefreshContract(#[from] RefreshContractError),
     #[error("pool contract error: {0}")]
     PoolContract(#[from] PoolContractError),
-    #[error("address util error: {0}")]
-    AddressUtilError(#[from] AddressUtilError),
 }
 
 pub trait NodeScanId {

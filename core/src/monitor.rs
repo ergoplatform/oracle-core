@@ -1,6 +1,13 @@
 use std::sync::Arc;
 
+use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
+
+use crate::box_kind::CollectedOracleBox;
 use crate::box_kind::OracleBoxWrapper;
+use crate::box_kind::PostedOracleBox;
+use crate::oracle_state::DataSourceError;
 use crate::oracle_state::OraclePool;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochLength;
@@ -17,6 +24,13 @@ pub struct PoolHealthDetails {
     pub pool_box_height: BlockHeight,
     pub current_height: BlockHeight,
     pub epoch_length: EpochLength,
+    pub oracles: Vec<OracleDetails>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct OracleDetails {
+    pub address: NetworkAddress,
+    pub box_height: OracleBoxDetails,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -28,6 +42,8 @@ pub struct PoolHealth {
 pub fn check_pool_health(
     current_height: BlockHeight,
     pool_box_height: BlockHeight,
+    oracle_pool: Arc<OraclePool>,
+    network_prefix: NetworkPrefix,
 ) -> Result<PoolHealth, anyhow::Error> {
     let pool_conf = &POOL_CONFIG;
     let epoch_length = pool_conf
@@ -50,8 +66,37 @@ pub fn check_pool_health(
             pool_box_height,
             current_height,
             epoch_length,
+            oracles: analyze_oracle_boxes(oracle_pool, network_prefix)?,
         },
     })
+}
+
+pub fn analyze_oracle_boxes(
+    oracle_pool: Arc<OraclePool>,
+    network_prefix: NetworkPrefix,
+) -> Result<Vec<OracleDetails>, DataSourceError> {
+    let mut oracle_details = vec![];
+    let posted_boxes = oracle_pool
+        .get_posted_datapoint_boxes_source()
+        .get_posted_datapoint_boxes()?;
+    let collected_boxes = oracle_pool
+        .get_collected_datapoint_boxes_source()
+        .get_collected_datapoint_boxes()?;
+    for b in posted_boxes {
+        let detail = OracleDetails {
+            address: NetworkAddress::new(network_prefix, &Address::P2Pk(b.public_key().into())),
+            box_height: b.into(),
+        };
+        oracle_details.push(detail);
+    }
+    for b in collected_boxes {
+        let detail = OracleDetails {
+            address: NetworkAddress::new(network_prefix, &Address::P2Pk(b.public_key().into())),
+            box_height: b.into(),
+        };
+        oracle_details.push(detail);
+    }
+    Ok(oracle_details)
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -72,6 +117,25 @@ impl OracleBoxDetails {
             OracleBoxDetails::PostedBox(height) => *height,
             OracleBoxDetails::CollectedBox(height) => *height,
         }
+    }
+
+    pub fn label_name(&self) -> &'static str {
+        match self {
+            OracleBoxDetails::PostedBox(_) => "posted",
+            OracleBoxDetails::CollectedBox(_) => "collected",
+        }
+    }
+}
+
+impl From<PostedOracleBox> for OracleBoxDetails {
+    fn from(box_wrapper: PostedOracleBox) -> Self {
+        OracleBoxDetails::PostedBox(box_wrapper.get_box().creation_height.into())
+    }
+}
+
+impl From<CollectedOracleBox> for OracleBoxDetails {
+    fn from(box_wrapper: CollectedOracleBox) -> Self {
+        OracleBoxDetails::CollectedBox(box_wrapper.get_box().creation_height.into())
     }
 }
 

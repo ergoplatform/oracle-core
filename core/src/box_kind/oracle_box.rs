@@ -175,11 +175,10 @@ impl OracleBox for OracleBoxWrapper {
     }
 
     fn public_key(&self) -> EcPoint {
-        self.get_box()
-            .get_register(NonMandatoryRegisterId::R4.into())
-            .unwrap()
-            .try_extract_into::<EcPoint>()
-            .unwrap()
+        match self {
+            OracleBoxWrapper::Posted(p) => p.public_key().clone(),
+            OracleBoxWrapper::Collected(c) => c.public_key().clone(),
+        }
     }
 
     fn get_box(&self) -> &ErgoBox {
@@ -275,6 +274,14 @@ impl PostedOracleBox {
 impl CollectedOracleBox {
     pub fn get_box(&self) -> &ErgoBox {
         &self.ergo_box
+    }
+
+    pub fn public_key(&self) -> EcPoint {
+        self.ergo_box
+            .get_register(NonMandatoryRegisterId::R4.into())
+            .unwrap()
+            .try_extract_into::<EcPoint>()
+            .unwrap()
     }
 }
 
