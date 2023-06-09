@@ -9,6 +9,7 @@ use axum::Router;
 use ergo_node_interface::scanning::NodeError;
 use once_cell::sync::Lazy;
 use prometheus::Encoder;
+use prometheus::IntGauge;
 use prometheus::IntGaugeVec;
 use prometheus::Opts;
 use prometheus::TextEncoder;
@@ -153,11 +154,36 @@ static ACTIVE_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
         Opts::new(
             "active_oracle_box_height",
-            "The height of the posted/collected oracle box of active oracles",
+            "The height of the posted/collected oracle boxes of active oracles",
         )
         .namespace("ergo")
         .subsystem("oracle"),
         &["pool", "box_type", "oracle_address"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
+static ACTIVE_ORACLE_COUNT: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
+        Opts::new("active_oracle_count", "The number of active oracles")
+            .namespace("ergo")
+            .subsystem("oracle"),
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
+static REQUIRED_ORACLE_COUNT: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
+        Opts::new(
+            "required_oracle_count",
+            "The minimum number of active oracles",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -224,6 +250,8 @@ fn update_pool_health(pool_health: &PoolHealth) {
             .with_label_values(&[pool_name, box_type, &oracle.address.to_base58()])
             .set(box_height);
     }
+    ACTIVE_ORACLE_COUNT.set(pool_health.details.active_oracles.len() as i64);
+    REQUIRED_ORACLE_COUNT.set(pool_health.details.min_data_points.into());
 }
 
 fn update_oracle_health(oracle_health: &OracleHealth) {

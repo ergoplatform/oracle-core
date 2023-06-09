@@ -11,6 +11,7 @@ use crate::oracle_state::DataSourceError;
 use crate::oracle_state::OraclePool;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochLength;
+use crate::oracle_types::MinDatapoints;
 use crate::pool_config::POOL_CONFIG;
 
 #[derive(Debug, serde::Serialize)]
@@ -26,6 +27,7 @@ pub struct PoolHealthDetails {
     pub epoch_length: EpochLength,
     pub all_oracles: Vec<OracleDetails>,
     pub active_oracles: Vec<OracleDetails>,
+    pub min_data_points: MinDatapoints,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -71,6 +73,11 @@ pub fn check_pool_health(
             epoch_length,
             all_oracles,
             active_oracles,
+            min_data_points: pool_conf
+                .refresh_box_wrapper_inputs
+                .contract_inputs
+                .contract_parameters()
+                .min_data_points(),
         },
     })
 }

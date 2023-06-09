@@ -74,6 +74,12 @@ pub struct EpochCounter(pub u32);
 #[serde(transparent)]
 pub struct MinDatapoints(pub i32);
 
+impl From<MinDatapoints> for i64 {
+    fn from(min_datapoints: MinDatapoints) -> Self {
+        min_datapoints.0 as i64
+    }
+}
+
 #[derive(
     PartialEq,
     PartialOrd,
