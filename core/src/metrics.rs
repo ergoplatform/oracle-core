@@ -25,95 +25,87 @@ use crate::monitor::PoolHealth;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::OraclePool;
-use crate::oracle_types::Rate;
 
-static POOL_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static POOL_BOX_HEIGHT: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new("pool_box_height", "The height of the pool box")
             .namespace("ergo")
             .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static POOL_BOX_RATE: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static POOL_BOX_RATE: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new("pool_box_rate", "exchange rate from the pool box")
             .namespace("ergo")
             .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static POOL_BOX_REWARD_TOKEN_AMOUNT: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static POOL_BOX_REWARD_TOKEN_AMOUNT: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new(
             "pool_box_reward_token_amount",
             "The amount of reward token in the pool box",
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static CURRENT_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static CURRENT_HEIGHT: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new("current_height", "The current height")
             .namespace("ergo")
             .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static EPOCH_LENGTH: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static EPOCH_LENGTH: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new("epoch_length", "The epoch length")
             .namespace("ergo")
             .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static POOL_IS_HEALTHY: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static POOL_IS_HEALTHY: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new(
             "pool_is_healthy",
             "The health status of the pool, 1 for Ok and 0 for Down",
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static ORACLE_IS_HEALTHY: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static ORACLE_IS_HEALTHY: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new(
             "oracle_is_healthy",
             "The health status of the oracle, 1 for Ok and 0 for Down",
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -128,7 +120,7 @@ static MY_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool", "box_type"],
+        &["box_type"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -143,7 +135,7 @@ static ALL_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool", "box_type", "oracle_address"],
+        &["box_type", "oracle_address"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -158,7 +150,7 @@ static ACTIVE_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool", "box_type", "oracle_address"],
+        &["box_type", "oracle_address"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -190,30 +182,28 @@ static REQUIRED_ORACLE_COUNT: Lazy<IntGauge> = Lazy::new(|| {
     m
 });
 
-static ORACLE_NODE_WALLET_BALANCE: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static ORACLE_NODE_WALLET_BALANCE: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new(
             "oracle_node_wallet_nano_erg",
             "Coins in the oracle's node wallet",
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
     m
 });
 
-static REWARD_TOKENS_IN_BUYBACK_BOX: Lazy<IntGaugeVec> = Lazy::new(|| {
-    let m = IntGaugeVec::new(
+static REWARD_TOKENS_IN_BUYBACK_BOX: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
         Opts::new(
             "reward_tokens_in_buyback_box",
             "The amount of reward tokens in the buyback box",
         )
         .namespace("ergo")
         .subsystem("oracle"),
-        &["pool"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -221,33 +211,26 @@ static REWARD_TOKENS_IN_BUYBACK_BOX: Lazy<IntGaugeVec> = Lazy::new(|| {
 });
 
 fn update_pool_health(pool_health: &PoolHealth) {
-    let pool_name = "pool";
-    POOL_BOX_HEIGHT
-        .with_label_values(&[pool_name])
-        .set(pool_health.details.pool_box_height.into());
-    CURRENT_HEIGHT
-        .with_label_values(&[pool_name])
-        .set(pool_health.details.current_height.into());
-    EPOCH_LENGTH
-        .with_label_values(&[pool_name])
-        .set(pool_health.details.epoch_length.into());
+    POOL_BOX_HEIGHT.set(pool_health.details.pool_box_height.into());
+    CURRENT_HEIGHT.set(pool_health.details.current_height.into());
+    EPOCH_LENGTH.set(pool_health.details.epoch_length.into());
     let health = match pool_health.status {
         HealthStatus::Ok => 1,
         HealthStatus::Down => 0,
     };
-    POOL_IS_HEALTHY.with_label_values(&[pool_name]).set(health);
+    POOL_IS_HEALTHY.set(health);
     for oracle in &pool_health.details.all_oracles {
         let box_type = oracle.box_height.label_name();
         let box_height = oracle.box_height.oracle_box_height().into();
         ALL_ORACLE_BOX_HEIGHT
-            .with_label_values(&[pool_name, box_type, &oracle.address.to_base58()])
+            .with_label_values(&[box_type, &oracle.address.to_base58()])
             .set(box_height);
     }
     for oracle in &pool_health.details.active_oracles {
         let box_type = oracle.box_height.label_name();
         let box_height = oracle.box_height.oracle_box_height().into();
         ACTIVE_ORACLE_BOX_HEIGHT
-            .with_label_values(&[pool_name, box_type, &oracle.address.to_base58()])
+            .with_label_values(&[box_type, &oracle.address.to_base58()])
             .set(box_height);
     }
     ACTIVE_ORACLE_COUNT.set(pool_health.details.active_oracles.len() as i64);
@@ -255,26 +238,16 @@ fn update_pool_health(pool_health: &PoolHealth) {
 }
 
 fn update_oracle_health(oracle_health: &OracleHealth) {
-    let pool_name = "pool";
     let box_type = oracle_health.details.box_details.label_name();
     MY_ORACLE_BOX_HEIGHT
-        .with_label_values(&[pool_name, box_type])
+        .with_label_values(&[box_type])
         .set(oracle_health.details.box_details.oracle_box_height().into());
 
     let health = match oracle_health.status {
         HealthStatus::Ok => 1,
         HealthStatus::Down => 0,
     };
-    ORACLE_IS_HEALTHY
-        .with_label_values(&[pool_name])
-        .set(health);
-}
-
-fn update_pool_box_rate(rate: Rate) {
-    let pool_name = "pool";
-    POOL_BOX_RATE
-        .with_label_values(&[pool_name])
-        .set(rate.into());
+    ORACLE_IS_HEALTHY.set(health);
 }
 
 fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {
@@ -290,10 +263,7 @@ fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {
             .reward_token()
             .map(|t| t.amount.into())
             .unwrap_or(0);
-        let pool_name = "pool";
-        REWARD_TOKENS_IN_BUYBACK_BOX
-            .with_label_values(&[pool_name])
-            .set(reward_token_amount);
+        REWARD_TOKENS_IN_BUYBACK_BOX.set(reward_token_amount);
     }
 }
 
@@ -302,7 +272,10 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     let current_height = (node_api.node.current_block_height()? as u32).into();
     let network_prefix = node_api.get_change_address()?.network();
     let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;
-    update_pool_box_rate(pool_box.rate());
+    {
+        let rate = pool_box.rate();
+        POOL_BOX_RATE.set(rate.into());
+    };
     let pool_box_height = pool_box.get_box().creation_height.into();
     let pool_health = check_pool_health(
         current_height,
@@ -314,12 +287,8 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     let oracle_health = check_oracle_health(oracle_pool.clone(), pool_box_height)?;
     update_oracle_health(&oracle_health);
     let wallet_balance: i64 = node_api.node.wallet_nano_ergs_balance()? as i64;
-    ORACLE_NODE_WALLET_BALANCE
-        .with_label_values(&["pool"])
-        .set(wallet_balance);
-    POOL_BOX_REWARD_TOKEN_AMOUNT
-        .with_label_values(&["pool"])
-        .set(pool_box.reward_token().amount.into());
+    ORACLE_NODE_WALLET_BALANCE.set(wallet_balance);
+    POOL_BOX_REWARD_TOKEN_AMOUNT.set(pool_box.reward_token().amount.into());
     update_reward_tokens_in_buyback_box(oracle_pool);
     Ok(())
 }
