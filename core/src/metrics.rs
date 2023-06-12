@@ -19,7 +19,6 @@ use tower_http::cors::CorsLayer;
 use crate::box_kind::PoolBox;
 use crate::monitor::check_oracle_health;
 use crate::monitor::check_pool_health;
-use crate::monitor::HealthStatus;
 use crate::monitor::OracleHealth;
 use crate::monitor::PoolHealth;
 use crate::node_interface::node_api::NodeApi;
@@ -214,11 +213,7 @@ fn update_pool_health(pool_health: &PoolHealth) {
     POOL_BOX_HEIGHT.set(pool_health.details.pool_box_height.into());
     CURRENT_HEIGHT.set(pool_health.details.current_height.into());
     EPOCH_LENGTH.set(pool_health.details.epoch_length.into());
-    let health = match pool_health.status {
-        HealthStatus::Ok => 1,
-        HealthStatus::Down => 0,
-    };
-    POOL_IS_HEALTHY.set(health);
+    POOL_IS_HEALTHY.set(pool_health.status as i64);
     for oracle in &pool_health.details.all_oracles {
         let box_type = oracle.box_height.label_name();
         let box_height = oracle.box_height.oracle_box_height().into();
@@ -242,12 +237,7 @@ fn update_oracle_health(oracle_health: &OracleHealth) {
     MY_ORACLE_BOX_HEIGHT
         .with_label_values(&[box_type])
         .set(oracle_health.details.box_details.oracle_box_height().into());
-
-    let health = match oracle_health.status {
-        HealthStatus::Ok => 1,
-        HealthStatus::Down => 0,
-    };
-    ORACLE_IS_HEALTHY.set(health);
+    ORACLE_IS_HEALTHY.set(oracle_health.status as i64);
 }
 
 fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {

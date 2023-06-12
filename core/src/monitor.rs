@@ -14,10 +14,16 @@ use crate::oracle_types::EpochLength;
 use crate::oracle_types::MinDatapoints;
 use crate::pool_config::POOL_CONFIG;
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Copy, Clone)]
 pub enum HealthStatus {
-    Ok,
-    Down,
+    Ok = 1,
+    Down = 0,
+}
+
+impl HealthStatus {
+    pub fn get_integer_value(&self) -> i32 {
+        *self as i32
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
