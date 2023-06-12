@@ -29,7 +29,9 @@ mod datapoint_source;
 mod default_parameters;
 mod explorer_api;
 mod logging;
+mod metrics;
 mod migrate;
+mod monitor;
 mod node_interface;
 mod oracle_config;
 mod oracle_state;
@@ -55,13 +57,13 @@ use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use datapoint_source::RuntimeDataPointSource;
 use ergo_lib::ergo_chain_types::Digest32;
-use ergo_lib::ergotree_ir::chain::address::Address;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
 use log::error;
 use log::LevelFilter;
+use metrics::start_metrics_server;
+use metrics::update_metrics;
 use node_interface::assert_wallet_unlocked;
 use node_interface::node_api::NodeApi;
 use oracle_config::ORACLE_CONFIG;
@@ -91,6 +93,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::actions::execute_action;
+use crate::address_util::pks_to_network_addresses;
 use crate::api::start_rest_server;
 use crate::default_parameters::print_contract_hashes;
 use crate::migrate::check_migration_to_split_config;
@@ -332,15 +335,26 @@ fn main() {
             if enable_rest_api {
                 let op_clone = oracle_pool.clone();
                 tokio_runtime.spawn(async {
-                    if let Err(e) = start_rest_server(repost_receiver, op_clone).await {
+                    if let Err(e) =
+                        start_rest_server(repost_receiver, op_clone, ORACLE_CONFIG.core_api_port)
+                            .await
+                    {
                         error!("An error occurred while starting the REST server: {}", e);
+                        std::process::exit(exitcode::SOFTWARE);
+                    }
+                });
+            }
+            if let Some(metrics_port) = ORACLE_CONFIG.metrics_port {
+                tokio_runtime.spawn(async move {
+                    if let Err(e) = start_metrics_server(metrics_port).await {
+                        error!("An error occurred while starting the metrics server: {}", e);
                         std::process::exit(exitcode::SOFTWARE);
                     }
                 });
             }
             loop {
                 if let Err(e) = main_loop_iteration(
-                    &oracle_pool,
+                    oracle_pool.clone(),
                     read_only,
                     &datapoint_source,
                     &node_api,
@@ -474,7 +488,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
 }
 
 fn main_loop_iteration(
-    oracle_pool: &OraclePool,
+    oracle_pool: Arc<OraclePool>,
     read_only: bool,
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
@@ -506,7 +520,7 @@ fn main_loop_iteration(
         log::debug!("Height {height}. Building action for command: {:?}", cmd);
         let build_action_tuple_res = build_action(
             cmd,
-            oracle_pool,
+            &oracle_pool,
             node_api,
             height,
             network_change_address.address(),
@@ -521,6 +535,7 @@ fn main_loop_iteration(
             }
         };
     }
+    update_metrics(oracle_pool)?;
     Ok(())
 }
 
@@ -535,13 +550,12 @@ fn log_and_continue_if_non_fatal(
             found_public_keys,
             found_num,
         })) => {
-            let found_oracle_addresses: String = found_public_keys
-                .into_iter()
-                .map(|pk| {
-                    NetworkAddress::new(network_prefix, &Address::P2Pk(pk.into())).to_base58()
-                })
-                .collect::<Vec<String>>()
-                .join(", ");
+            let found_oracle_addresses: String =
+                pks_to_network_addresses(found_public_keys, network_prefix)
+                    .into_iter()
+                    .map(|net_addr| net_addr.to_base58())
+                    .collect::<Vec<String>>()
+                    .join(", ");
             log::error!("Refresh failed, not enough datapoints. The minimum number of datapoints within the deviation range: required minumum {expected}, found {found_num} from addresses {found_oracle_addresses},");
             Ok(None)
         }

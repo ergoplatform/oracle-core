@@ -13,6 +13,7 @@ use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochCounter;
+use crate::oracle_types::Rate;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
 use crate::spec_token::RewardTokenId;
@@ -25,7 +26,7 @@ pub trait PoolBox {
     fn pool_nft_token(&self) -> SpecToken<PoolTokenId>;
     fn reward_token(&self) -> SpecToken<RewardTokenId>;
     fn epoch_counter(&self) -> EpochCounter;
-    fn rate(&self) -> i64;
+    fn rate(&self) -> Rate;
     fn get_box(&self) -> &ErgoBox;
 }
 
@@ -124,12 +125,13 @@ impl PoolBox for PoolBoxWrapper {
         )
     }
 
-    fn rate(&self) -> i64 {
+    fn rate(&self) -> Rate {
         self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())
             .unwrap()
             .try_extract_into::<i64>()
             .unwrap()
+            .into()
     }
 
     fn reward_token(&self) -> SpecToken<RewardTokenId> {
@@ -225,7 +227,7 @@ pub fn make_pool_box_candidate(
 /// Make a pool box without type-checking reward token. Mainly used when updating the pool
 pub fn make_pool_box_candidate_unchecked(
     contract: &PoolContract,
-    datapoint: i64,
+    datapoint: Rate,
     epoch_counter: EpochCounter,
     pool_nft_token: SpecToken<PoolTokenId>,
     reward_token: SpecToken<RewardTokenId>,
@@ -233,6 +235,7 @@ pub fn make_pool_box_candidate_unchecked(
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
+    let datapoint: i64 = datapoint.into();
     builder.set_register_value(NonMandatoryRegisterId::R4, datapoint.into());
     builder.set_register_value(NonMandatoryRegisterId::R5, (epoch_counter.0 as i32).into());
     builder.add_token(pool_nft_token.into());

@@ -2,9 +2,10 @@ use std::convert::From;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::box_kind::{OracleBoxWrapper, PoolBox};
-use crate::node_interface::node_api::NodeApi;
-use crate::oracle_config::{get_core_api_port, ORACLE_CONFIG};
+use crate::box_kind::PoolBox;
+use crate::monitor::{check_oracle_health, check_pool_health, PoolHealth};
+use crate::node_interface::node_api::{NodeApi, NodeApiError};
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
 use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
@@ -135,26 +136,8 @@ fn pool_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Val
         .epoch_length();
     let pool_box_height = pool_box.get_box().creation_height;
     let epoch_end_height = pool_box_height + epoch_length.0 as u32;
-
-    let posted_boxes = oracle_pool
-        .get_posted_datapoint_boxes_source()
-        .get_posted_datapoint_boxes()?;
-    let posted_count_current_epoch = posted_boxes
-        .into_iter()
-        .filter(|b| b.get_box().creation_height >= pool_box_height)
-        .count();
-
-    let collected_boxes = oracle_pool
-        .get_collected_datapoint_boxes_source()
-        .get_collected_datapoint_boxes()?;
-    let collected_count_previous_epoch = collected_boxes
-        .into_iter()
-        .filter(|b| b.get_box().creation_height == pool_box_height)
-        .count();
-
-    let active_oracle_count = collected_count_previous_epoch + posted_count_current_epoch;
     let pool_health = pool_health_sync(oracle_pool)?;
-
+    let active_oracle_count = pool_health.details.active_oracles.len();
     let json = Json(json!({
         "latest_pool_datapoint": pool_box.rate(),
         "latest_pool_box_height": pool_box_height,
@@ -202,72 +185,43 @@ fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value,
         .get_pool_box_source()
         .get_pool_box()?
         .get_box()
-        .creation_height;
-    let mut check_details = json!({
-        "pool_box_height": pool_box_height,
-    });
-    let is_healthy = match oracle_pool
-        .get_local_datapoint_box_source()
-        .get_local_oracle_datapoint_box()?
-    {
-        Some(b) => match b {
-            OracleBoxWrapper::Posted(posted_box) => {
-                let creation_height = posted_box.get_box().creation_height;
-                check_details["posted_box_height"] = json!(creation_height);
-                creation_height > pool_box_height
-            }
-            OracleBoxWrapper::Collected(collected_box) => {
-                let creation_height = collected_box.get_box().creation_height;
-                check_details["collected_box_height"] = json!(creation_height);
-                creation_height == pool_box_height
-            }
-        },
-        None => false,
-    };
-    let json = json!({
-        "status": if is_healthy { "OK" } else { "DOWN" },
-        "details": check_details,
-    });
-    Ok(json)
+        .creation_height
+        .into();
+    let oracle_health = check_oracle_health(oracle_pool, pool_box_height)?;
+    Ok(serde_json::to_value(oracle_health).unwrap())
 }
 
 async fn pool_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(|| pool_health_sync(oracle_pool))
+    let json = task::spawn_blocking(|| pool_health_sync_json(oracle_pool))
         .await
         .unwrap()?;
     Ok(Json(json))
 }
-fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
-    let pool_conf = &POOL_CONFIG;
+
+fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<PoolHealth, ApiError> {
     let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
-    let current_height = node_api.node.current_block_height()? as u32;
+    let current_height = (node_api.node.current_block_height()? as u32).into();
     let pool_box_height = oracle_pool
         .get_pool_box_source()
         .get_pool_box()?
         .get_box()
-        .creation_height;
-    let epoch_length = pool_conf
-        .refresh_box_wrapper_inputs
-        .contract_inputs
-        .contract_parameters()
-        .epoch_length()
-        .0 as u32;
-    let check_details = json!({
-        "pool_box_height": pool_box_height,
-        "current_block_height": current_height,
-        "epoch_length": epoch_length,
-    });
-    let is_healthy = pool_box_height >= current_height - epoch_length;
-    let json = json!({
-        "status": if is_healthy { "OK" } else { "DOWN" },
-        "details": check_details,
-    });
-    Ok(json)
+        .creation_height
+        .into();
+    let network_prefix = node_api.get_change_address()?.network();
+    let pool_health =
+        check_pool_health(current_height, pool_box_height, oracle_pool, network_prefix)?;
+    Ok(pool_health)
+}
+
+fn pool_health_sync_json(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
+    let pool_health = pool_health_sync(oracle_pool)?;
+    Ok(serde_json::to_value(pool_health).unwrap())
 }
 
 pub async fn start_rest_server(
     repost_receiver: Receiver<bool>,
     oracle_pool: Arc<OraclePool>,
+    api_port: u16,
 ) -> Result<(), anyhow::Error> {
     let op_clone = oracle_pool.clone();
     let op_clone2 = oracle_pool.clone();
@@ -290,7 +244,8 @@ pub async fn start_rest_server(
                 .allow_origin(tower_http::cors::Any)
                 .allow_methods([axum::http::Method::GET]),
         );
-    let addr = SocketAddr::from(([0, 0, 0, 0], get_core_api_port().parse().unwrap()));
+    let addr = SocketAddr::from(([0, 0, 0, 0], api_port));
+    log::info!("Starting REST server on {}", addr);
     axum::Server::try_bind(&addr)?
         .serve(app.into_make_service())
         .await?;
@@ -320,5 +275,11 @@ impl IntoResponse for ApiError {
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
         ApiError(format!("Error: {:?}", err))
+    }
+}
+
+impl From<NodeApiError> for ApiError {
+    fn from(err: NodeApiError) -> Self {
+        ApiError(format!("NodeApiError: {:?}", err))
     }
 }

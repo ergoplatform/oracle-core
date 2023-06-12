@@ -7,7 +7,7 @@ use crate::box_kind::{
 };
 use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_types::{BlockHeight, EpochCounter};
+use crate::oracle_types::{BlockHeight, EpochCounter, Rate};
 use crate::pool_config::POOL_CONFIG;
 use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
 use crate::spec_token::{
@@ -154,7 +154,7 @@ pub struct BuybackBoxScan {
 pub struct LiveEpochState {
     pub pool_box_epoch_id: EpochCounter,
     pub local_datapoint_box_state: Option<LocalDatapointState>,
-    pub latest_pool_datapoint: u64,
+    pub latest_pool_datapoint: Rate,
     pub latest_pool_box_height: BlockHeight,
 }
 
@@ -261,7 +261,7 @@ impl OraclePool {
                 },
             });
 
-        let latest_pool_datapoint = pool_box.rate() as u64;
+        let latest_pool_datapoint = pool_box.rate();
 
         let epoch_state = LiveEpochState {
             pool_box_epoch_id: epoch_id,

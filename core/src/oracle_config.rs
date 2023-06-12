@@ -35,6 +35,7 @@ pub struct OracleConfig {
     pub oracle_address: NetworkAddress,
     pub data_point_source_custom_script: Option<String>,
     pub explorer_url: Option<Url>,
+    pub metrics_port: Option<u16>,
 }
 
 impl OracleConfig {
@@ -102,6 +103,7 @@ impl Default for OracleConfig {
             log_level: LevelFilter::Info.into(),
             node_url: Url::parse("http://127.0.0.1:9053").unwrap(),
             explorer_url: Some(default_explorer_api_url(address.network())),
+            metrics_port: None,
         }
     }
 }
@@ -115,9 +117,4 @@ lazy_static! {
         .as_ref()
         .map(|c| BoxValue::try_from(c.base_fee).unwrap())
         .unwrap_or_else(|_| SUGGESTED_TX_FEE());
-}
-
-/// Returns "core_api_port" from the config file
-pub fn get_core_api_port() -> String {
-    ORACLE_CONFIG.core_api_port.to_string()
 }
