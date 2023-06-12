@@ -247,7 +247,7 @@ fn update_oracle_health(oracle_health: &OracleHealth) {
         HealthStatus::Ok => 1,
         HealthStatus::Down => 0,
     };
-    ORACLE_IS_HEALTHY.set(0);
+    ORACLE_IS_HEALTHY.set(health);
 }
 
 fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {
