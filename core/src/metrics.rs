@@ -167,6 +167,17 @@ static ACTIVE_ORACLE_COUNT: Lazy<IntGauge> = Lazy::new(|| {
     m
 });
 
+static TOTAL_ORACLE_COUNT: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
+        Opts::new("total_oracle_count", "The total number of oracle tokens")
+            .namespace("ergo")
+            .subsystem("oracle"),
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
 static REQUIRED_ORACLE_COUNT: Lazy<IntGauge> = Lazy::new(|| {
     let m = IntGauge::with_opts(
         Opts::new(
@@ -230,6 +241,7 @@ fn update_pool_health(pool_health: &PoolHealth) {
     }
     ACTIVE_ORACLE_COUNT.set(pool_health.details.active_oracles.len() as i64);
     REQUIRED_ORACLE_COUNT.set(pool_health.details.min_data_points.into());
+    TOTAL_ORACLE_COUNT.set(pool_health.details.total_oracle_token_count as i64);
 }
 
 fn update_oracle_health(oracle_health: &OracleHealth) {

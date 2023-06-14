@@ -12,8 +12,9 @@ use crate::pool_config::POOL_CONFIG;
 use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
 use crate::spec_token::{
     BallotTokenId, BuybackTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId,
-    UpdateTokenId,
+    TokenIdKind, UpdateTokenId,
 };
+use crate::util::get_token_count;
 use anyhow::Error;
 
 use ergo_lib::ergotree_ir::mir::constant::TryExtractFromError;
@@ -309,6 +310,24 @@ impl OraclePool {
         self.buyback_box_scan
             .as_ref()
             .map(|b| b as &dyn BuybackBoxSource)
+    }
+
+    pub fn get_total_oracle_token_count(&self) -> Result<u64> {
+        Ok(self
+            .oracle_datapoint_scan
+            .scan
+            .get_boxes()?
+            .into_iter()
+            .map(|b| {
+                get_token_count(
+                    b,
+                    self.oracle_datapoint_scan
+                        .oracle_box_wrapper_inputs
+                        .oracle_token_id
+                        .token_id(),
+                )
+            })
+            .sum::<u64>())
     }
 }
 
