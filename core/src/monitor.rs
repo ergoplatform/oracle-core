@@ -31,8 +31,8 @@ pub struct PoolHealthDetails {
     pub pool_box_height: BlockHeight,
     pub current_height: BlockHeight,
     pub epoch_length: EpochLength,
-    pub all_oracles: Vec<OracleDetails>,
-    pub active_oracles: Vec<OracleDetails>,
+    pub all_oracle_boxes: Vec<OracleDetails>,
+    pub active_oracle_boxes: Vec<OracleDetails>,
     pub min_data_points: MinDatapoints,
     pub total_oracle_token_count: u64,
 }
@@ -79,8 +79,8 @@ pub fn check_pool_health(
             pool_box_height,
             current_height,
             epoch_length,
-            all_oracles,
-            active_oracles,
+            all_oracle_boxes: all_oracles,
+            active_oracle_boxes: active_oracles,
             min_data_points: pool_conf
                 .refresh_box_wrapper_inputs
                 .contract_inputs

@@ -225,21 +225,21 @@ fn update_pool_health(pool_health: &PoolHealth) {
     CURRENT_HEIGHT.set(pool_health.details.current_height.into());
     EPOCH_LENGTH.set(pool_health.details.epoch_length.into());
     POOL_IS_HEALTHY.set(pool_health.status as i64);
-    for oracle in &pool_health.details.all_oracles {
+    for oracle in &pool_health.details.all_oracle_boxes {
         let box_type = oracle.box_height.label_name();
         let box_height = oracle.box_height.oracle_box_height().into();
         ALL_ORACLE_BOX_HEIGHT
             .with_label_values(&[box_type, &oracle.address.to_base58()])
             .set(box_height);
     }
-    for oracle in &pool_health.details.active_oracles {
+    for oracle in &pool_health.details.active_oracle_boxes {
         let box_type = oracle.box_height.label_name();
         let box_height = oracle.box_height.oracle_box_height().into();
         ACTIVE_ORACLE_BOX_HEIGHT
             .with_label_values(&[box_type, &oracle.address.to_base58()])
             .set(box_height);
     }
-    ACTIVE_ORACLE_COUNT.set(pool_health.details.active_oracles.len() as i64);
+    ACTIVE_ORACLE_COUNT.set(pool_health.details.active_oracle_boxes.len() as i64);
     REQUIRED_ORACLE_COUNT.set(pool_health.details.min_data_points.into());
     TOTAL_ORACLE_COUNT.set(pool_health.details.total_oracle_token_count as i64);
 }

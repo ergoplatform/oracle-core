@@ -137,7 +137,7 @@ fn pool_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Val
     let pool_box_height = pool_box.get_box().creation_height;
     let epoch_end_height = pool_box_height + epoch_length.0 as u32;
     let pool_health = pool_health_sync(oracle_pool)?;
-    let active_oracle_count = pool_health.details.active_oracles.len();
+    let active_oracle_count = pool_health.details.active_oracle_boxes.len();
     let json = Json(json!({
         "latest_pool_datapoint": pool_box.rate(),
         "latest_pool_box_height": pool_box_height,
