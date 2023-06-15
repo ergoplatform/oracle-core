@@ -43,6 +43,7 @@ mod serde;
 mod spec_token;
 mod state;
 mod templates;
+mod util;
 mod wallet;
 
 #[cfg(test)]
