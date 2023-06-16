@@ -48,7 +48,9 @@ pub fn execute_action(action: PoolAction, node_api: &NodeApi) -> Result<(), anyh
             NodeError::BadRequest(msg),
         ))) if msg.as_str() == "Double spending attempt"
             || msg.contains("it is invalidated earlier or the pool is full")
-            || msg.contains("it is already in the mempool") =>
+            || msg.contains("it is already in the mempool")
+            || msg.contains("Not enough boxes to spend") // node cannot find all the input boxes due to them being spent in previous tx (last main loop iteration), see https://github.com/ergoplatform/oracle-core/issues/220
+            =>
         {
             log::debug!("Node rejected tx with error: {msg}");
             Ok(())
