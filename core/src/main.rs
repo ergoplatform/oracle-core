@@ -68,6 +68,7 @@ use metrics::update_metrics;
 use node_interface::assert_wallet_unlocked;
 use node_interface::node_api::NodeApi;
 use oracle_config::ORACLE_CONFIG;
+use oracle_config::ORACLE_SECRETS;
 use oracle_state::OraclePool;
 use oracle_types::BlockHeight;
 use pool_commands::build_action;
@@ -278,7 +279,7 @@ fn main() {
         Arc::new(RwLock::new(ActionReportStorage::new()));
 
     log_on_launch();
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     assert_wallet_unlocked(&node_api.node);
     wait_for_node_rescan(&node_api).unwrap();
 

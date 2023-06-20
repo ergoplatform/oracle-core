@@ -23,6 +23,7 @@ use crate::monitor::OracleHealth;
 use crate::monitor::PoolHealth;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::ORACLE_SECRETS;
 use crate::oracle_state::OraclePool;
 
 static POOL_BOX_HEIGHT: Lazy<IntGauge> = Lazy::new(|| {
@@ -270,7 +271,7 @@ fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {
 }
 
 pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = (node_api.node.current_block_height()? as u32).into();
     let network_prefix = node_api.get_change_address()?.network();
     let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;

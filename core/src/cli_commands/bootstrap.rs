@@ -47,7 +47,7 @@ use crate::{
         node_api::{NodeApi, NodeApiError},
         SignTransactionWithInputs, SubmitTransaction,
     },
-    oracle_config::{BASE_FEE, ORACLE_CONFIG},
+    oracle_config::{BASE_FEE, ORACLE_CONFIG, ORACLE_SECRETS},
     oracle_types::{BlockHeight, EpochCounter},
     pool_config::{
         PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds,
@@ -69,7 +69,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), anyhow::Error> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
-    let node_api = NodeApi::new(oracle_config.node_api_key.clone(), &oracle_config.node_url);
+    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &oracle_config.node_url);
     assert_wallet_unlocked(&node_api.node);
     let change_address = node_api.get_change_address()?;
     debug!("Change address: {:?}", change_address);
