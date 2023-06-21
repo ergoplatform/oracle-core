@@ -49,19 +49,15 @@ The new pool contract hash is printed along with current reward token amount and
 Run
 
 ```console
-oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> <UPDATE_BOX_CREATION_HEIGHT>
+oracle-core vote-update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <UPDATE_BOX_CREATION_HEIGHT>
 ```
 
 Where:
 
 - <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
-- <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
-- <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
 - <UPDATE_BOX_CREATION_HEIGHT> - The creation height of the existing update box.
 
 and are printed in the output of the `prepare-update` command.
-
-Keep in mind the REWARD_TOKEN_AMOUNT depends on when(in which epoch) the final `update-pool` command will be run.
 
 ## Commit the update to the pool box contract with `update-pool` command
 
@@ -69,17 +65,18 @@ Make sure the `oracle_config_updated.yaml` config file generated during the `pre
 Run
 
 ```console
-oracle-core update-pool <NEW_POOL_BOX_ADDRESS_HASH_STR> <REWARD_TOKEN_ID_STR> <REWARD_TOKEN_AMOUNT> 
+oracle-core update-pool
 ```
 
-Where:
-  <NEW_POOL_BOX_ADDRESS_HASH_STR> - base16-encoded blake2b hash of the serialized pool box contract for the new pool box
-  <REWARD_TOKEN_ID_STR> - base16-encoded reward token id in the new pool box (use existing if unchanged)
-  <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed
-
-were printed at the end of the `prepare-update` command.
-
 This will submit an update tx.
-After the update tx is confirmed, remove `scanIds.json` and use `oracle_config_updated.yaml` to run the oracle (i.e., rename it to `oracle_config.yaml` and restart the oracle).
-Distribute the new oracle config file to all the oracles. Run `oracle-core print-safe-config`, send it, and instruct the invited oracle to set  `node_ip`, `node_api_key` and `oracle_address` to their liking.
-Be sure they delete `scanIds.json` before restart.
+
+Make sure the `pool_config_updated.yaml` config file generated during the `prepare-update` command is at hand.
+Run
+
+```console
+oracle-core import-update-pool pool_config_updated.yaml
+```
+
+This will update the pool_config.yaml, removes `scanIds.json`. Restart the oracle afterwards.
+
+Distribute the `pool_config_updated.yaml` file to all the oracles and instruct them to run the above `import-update-pool` command.

@@ -194,7 +194,7 @@ Make sure the `pool_config_updated.yaml` config file generated during the `prepa
 Run
 
 ```console
-oracle-core update-pool pool_config_updated.yaml
+oracle-core import-update-pool pool_config_updated.yaml
 ```
 
 This will update the pool_config.yaml, removes `scanIds.json`. Restart the oracle afterwards.
