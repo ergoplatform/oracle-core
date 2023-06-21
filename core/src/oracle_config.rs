@@ -28,7 +28,6 @@ pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OracleConfig {
     pub node_url: Url,
-    pub node_api_key: String,
     pub base_fee: u64,
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
@@ -36,6 +35,20 @@ pub struct OracleConfig {
     pub data_point_source_custom_script: Option<String>,
     pub explorer_url: Option<Url>,
     pub metrics_port: Option<u16>,
+}
+
+pub struct OracleSecrets {
+    pub node_api_key: String,
+}
+
+impl OracleSecrets {
+    pub fn load() -> Self {
+        std::env::var("ORACLE_NODE_API_KEY")
+            .map(|node_api_key| Self { node_api_key })
+            .unwrap_or_else(|_| {
+                panic!("ORACLE_NODE_API_KEY environment variable for node API key is not set")
+            })
+    }
 }
 
 impl OracleConfig {
@@ -96,7 +109,6 @@ impl Default for OracleConfig {
         .unwrap();
         Self {
             oracle_address: address.clone(),
-            node_api_key: "hello".into(),
             core_api_port: 9010,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
@@ -111,6 +123,7 @@ impl Default for OracleConfig {
 pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
+    pub static ref ORACLE_SECRETS: OracleSecrets = OracleSecrets::load();
     pub static ref ORACLE_CONFIG_OPT: Result<OracleConfig, OracleConfigFileError> =
         OracleConfig::load();
     pub static ref BASE_FEE: BoxValue = ORACLE_CONFIG_OPT

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::box_kind::PoolBox;
 use crate::monitor::{check_oracle_health, check_pool_health, PoolHealth};
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
-use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::{ORACLE_CONFIG, ORACLE_SECRETS};
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
 use crate::pool_config::POOL_CONFIG;
 use axum::http::StatusCode;
@@ -126,7 +126,7 @@ async fn pool_status(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Va
 }
 
 fn pool_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = node_api.node.current_block_height()? as u32;
     let pool_box = oracle_pool.get_pool_box_source().get_pool_box()?;
     let epoch_length = POOL_CONFIG
@@ -154,7 +154,7 @@ fn pool_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Val
 /// Block height of the Ergo blockchain
 async fn block_height() -> Result<impl IntoResponse, ApiError> {
     let current_height = task::spawn_blocking(move || {
-        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+        let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
         node_api.node.current_block_height()
     })
     .await
@@ -199,7 +199,7 @@ async fn pool_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Va
 }
 
 fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<PoolHealth, ApiError> {
-    let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
     let current_height = (node_api.node.current_block_height()? as u32).into();
     let pool_box_height = oracle_pool
         .get_pool_box_source()

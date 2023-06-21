@@ -1,7 +1,7 @@
 use crate::contracts::pool::PoolContractError;
 use crate::contracts::refresh::RefreshContractError;
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
-use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_config::{ORACLE_CONFIG, ORACLE_SECRETS};
 
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_node_interface::node_interface::NodeError;
@@ -41,7 +41,7 @@ pub trait NodeScanId {
 
 pub trait ScanGetBoxes: NodeScanId {
     fn get_boxes(&self) -> Result<Vec<ErgoBox>, ScanError> {
-        let node_api = NodeApi::new(ORACLE_CONFIG.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+        let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
         let boxes = node_api.node.scan_boxes(self.scan_id())?;
         Ok(boxes)
     }
