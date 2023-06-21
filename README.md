@@ -39,7 +39,9 @@ oracle-core generate-oracle-config
 and set the required parameters:
 
 - `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
-- `node_url`, `node_api_key` - node connection parameters;
+- `node_url`  node URL;
+
+Set the environment variable `ORACLE_NODE_API_KEY` to the node's API key. You can put it in the `.secrets` file and then run `source .secrets` to load it into the environment. This way, the key does not get stored in the shell history.
 
 ## Bootstrapping a new oracle pool
 
