@@ -200,7 +200,10 @@ impl VoteBallotBoxWrapper {
     }
 
     pub fn ballot_token_owner_address(&self, network_prefix: NetworkPrefix) -> NetworkAddress {
-        NetworkAddress::new(network_prefix, &Address::P2Pk(self.ballot_token_owner().into()))
+        NetworkAddress::new(
+            network_prefix,
+            &Address::P2Pk(self.ballot_token_owner().into()),
+        )
     }
 }
 
