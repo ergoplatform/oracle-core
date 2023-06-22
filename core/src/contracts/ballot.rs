@@ -99,7 +99,7 @@ impl BallotContract {
         let parameters = inputs.contract_parameters.clone();
         let ergo_tree_orig =
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
-        log::debug!("ballot contract ergo_tree_orig: {:#?}", ergo_tree_orig);
+        // log::debug!("ballot contract ergo_tree_orig: {:#?}", ergo_tree_orig);
         let ergo_tree = ergo_tree_orig
             .with_constant(
                 parameters.min_storage_rent_index,
