@@ -10,7 +10,7 @@ use ergo_lib::{
     ergo_chain_types::{Digest32, EcPoint},
     ergotree_ir::{
         chain::{
-            address::AddressEncoderError,
+            address::{Address, AddressEncoderError, NetworkAddress, NetworkPrefix},
             ergo_box::{box_value::BoxValue, ErgoBox, ErgoBoxCandidate, NonMandatoryRegisterId},
             token::TokenId,
         },
@@ -197,6 +197,10 @@ impl VoteBallotBoxWrapper {
 
     pub fn vote_parameters(&self) -> &CastBallotBoxVoteParameters {
         &self.vote_parameters
+    }
+
+    pub fn ballot_token_owner_address(&self, network_prefix: NetworkPrefix) -> NetworkAddress {
+        NetworkAddress::new(network_prefix, &Address::P2Pk(self.ballot_token_owner().into()))
     }
 }
 

@@ -58,6 +58,7 @@ use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
 use datapoint_source::RuntimeDataPointSource;
 use ergo_lib::ergo_chain_types::Digest32;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::ergotree_ir::chain::token::TokenId;
@@ -97,6 +98,7 @@ use std::time::Duration;
 use crate::actions::execute_action;
 use crate::address_util::pks_to_network_addresses;
 use crate::api::start_rest_server;
+use crate::box_kind::BallotBox;
 use crate::default_parameters::print_contract_hashes;
 use crate::migrate::check_migration_to_split_config;
 use crate::oracle_config::OracleConfig;
@@ -285,6 +287,11 @@ fn main() {
 
     let pool_config = &POOL_CONFIG;
 
+    let change_address = node_api
+        .get_change_address()
+        .expect("failed to get change address from the node");
+    let network_prefix = change_address.network();
+
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
         Command::GenerateOracleConfig => {
@@ -361,6 +368,7 @@ fn main() {
                     &datapoint_source,
                     &node_api,
                     action_report_storage.clone(),
+                    &change_address,
                 ) {
                     error!("error: {:?}", e);
                 }
@@ -368,12 +376,12 @@ fn main() {
                 thread::sleep(Duration::new(30, 0));
             }
         }
-        oracle_command => handle_pool_command(oracle_command, &node_api),
+        oracle_command => handle_pool_command(oracle_command, &node_api, network_prefix),
     }
 }
 
 /// Handle all other commands
-fn handle_pool_command(command: Command, node_api: &NodeApi) {
+fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: NetworkPrefix) {
     let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
     let node_scan_registry = NodeScanRegistry::load().unwrap();
     let op = OraclePool::new(&node_scan_registry).unwrap();
@@ -425,6 +433,18 @@ fn handle_pool_command(command: Command, node_api: &NodeApi) {
             update_box_creation_height,
         } => {
             let reward_token_opt = check_reward_token_opt(reward_token_id_str, reward_token_amount);
+            log::debug!(
+                "found ballot boxes: {:?}",
+                op.get_ballot_boxes_source()
+                    .get_ballot_boxes()
+                    .unwrap()
+                    .into_iter()
+                    .map(|b| (
+                        b.get_box().box_id(),
+                        b.ballot_token_owner_address(network_prefix).to_base58()
+                    ))
+                    .collect::<Vec<_>>()
+            );
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 node_api,
                 &node_api.node,
@@ -495,6 +515,7 @@ fn main_loop_iteration(
     datapoint_source: &RuntimeDataPointSource,
     node_api: &NodeApi,
     report_storage: Arc<RwLock<ActionReportStorage>>,
+    change_address: &NetworkAddress,
 ) -> std::result::Result<(), anyhow::Error> {
     if !node_api.node.wallet_status()?.unlocked {
         return Err(anyhow!("Wallet is locked!"));
@@ -505,7 +526,6 @@ fn main_loop_iteration(
             .current_block_height()
             .context("Failed to get the current height")? as u32,
     );
-    let network_change_address = node_api.get_change_address()?;
     let pool_state = match oracle_pool.get_live_epoch_state() {
         Ok(live_epoch_state) => PoolState::LiveEpoch(live_epoch_state),
         Err(error) => {
@@ -525,11 +545,11 @@ fn main_loop_iteration(
             &oracle_pool,
             node_api,
             height,
-            network_change_address.address(),
+            change_address.address(),
             datapoint_source,
         );
         if let Some((action, report)) =
-            log_and_continue_if_non_fatal(network_change_address.network(), build_action_tuple_res)?
+            log_and_continue_if_non_fatal(change_address.network(), build_action_tuple_res)?
         {
             if !read_only {
                 execute_action(action, node_api)?;

@@ -72,6 +72,7 @@ pub fn vote_update_pool(
     let network_prefix = change_network_address.network();
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
     let unsigned_tx = if let Some(local_ballot_box) = local_ballot_box_source.get_ballot_box()? {
+        log::debug!("Found local ballot box");
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // which stipulates that the address in R4 is the 'owner' of the token
         build_tx_with_existing_ballot_box(
@@ -84,6 +85,8 @@ pub fn vote_update_pool(
             change_network_address.address(),
         )?
     } else {
+        log::debug!("Not found local ballot box, looking for a ballot token in the wallet");
+        // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // Ballot token is assumed to be in some unspent box of the node's wallet.
         build_tx_for_first_ballot_box(
             wallet,
