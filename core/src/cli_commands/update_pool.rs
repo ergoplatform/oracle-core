@@ -26,7 +26,7 @@ use crate::{
         make_pool_box_candidate_unchecked, BallotBox, CastBallotBoxVoteParameters, PoolBox,
         PoolBoxWrapper, VoteBallotBoxWrapper,
     },
-    contracts::pool::PoolContract,
+    contracts::{ballot::BallotContract, pool::PoolContract},
     explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
@@ -97,6 +97,8 @@ pub fn update_pool(
 
     let new_pool_contract =
         PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)?;
+    let new_ballot_contract =
+        BallotContract::checked_load(&new_pool_config.ballot_box_wrapper_inputs.contract_inputs)?;
     let new_pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -120,6 +122,7 @@ pub fn update_pool(
         new_reward_tokens.clone(),
         height,
         change_address,
+        new_ballot_contract,
     )?;
 
     log::debug!("Signing update pool box tx: {:#?}", tx);
@@ -273,6 +276,7 @@ fn build_update_pool_box_tx(
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
     change_address: Address,
+    new_ballot_contract: BallotContract,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
     let update_box = update_box.get_update_box()?;
     let min_votes = update_box.min_votes();
@@ -383,7 +387,7 @@ fn build_update_pool_box_tx(
     for ballot_box in vote_ballot_boxes.iter() {
         let mut ballot_box_candidate = ErgoBoxCandidateBuilder::new(
             ballot_box.get_box().value, // value must be preserved or increased
-            ballot_box.contract().ergo_tree(),
+            new_ballot_contract.ergo_tree(),
             height.0,
         );
         ballot_box_candidate.add_token(ballot_box.ballot_token().into());
@@ -647,6 +651,7 @@ mod tests {
             Some(new_reward_tokens),
             BlockHeight(height.0 + 1),
             change_address.address(),
+            ballot_contract
         )
         .unwrap();
 
