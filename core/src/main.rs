@@ -448,7 +448,8 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
             );
             let ballot_contract = BallotContract::checked_load(
                 &POOL_CONFIG.ballot_box_wrapper_inputs.contract_inputs,
-            ).unwrap();
+            )
+            .unwrap();
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 node_api,
                 &node_api.node,
@@ -458,7 +459,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
                 reward_token_opt,
                 BlockHeight(update_box_creation_height),
                 height,
-                &ballot_contract
+                &ballot_contract,
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
