@@ -45,9 +45,7 @@ pub enum BallotBoxError {
 }
 
 pub trait BallotBox {
-    fn contract(&self) -> &BallotContract;
     fn ballot_token(&self) -> SpecToken<BallotTokenId>;
-    fn min_storage_rent(&self) -> BoxValue;
     fn ballot_token_owner(&self) -> EcPoint;
     fn get_box(&self) -> &ErgoBox;
 }
@@ -55,7 +53,6 @@ pub trait BallotBox {
 #[derive(Clone, Debug)]
 pub struct BallotBoxWrapper {
     ergo_box: ErgoBox,
-    contract: BallotContract,
 }
 
 impl BallotBoxWrapper {
@@ -74,9 +71,7 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        let contract =
-            BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), &inputs.contract_inputs)?;
-        Ok(Self { ergo_box, contract })
+        Ok(Self { ergo_box })
     }
 }
 
@@ -208,10 +203,6 @@ impl VoteBallotBoxWrapper {
 }
 
 impl BallotBox for BallotBoxWrapper {
-    fn contract(&self) -> &BallotContract {
-        &self.contract
-    }
-
     fn ballot_token(&self) -> SpecToken<BallotTokenId> {
         let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
         SpecToken {
@@ -219,10 +210,6 @@ impl BallotBox for BallotBoxWrapper {
             token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
             amount: ballot_token.amount,
         }
-    }
-
-    fn min_storage_rent(&self) -> BoxValue {
-        self.contract.min_storage_rent()
     }
 
     fn ballot_token_owner(&self) -> EcPoint {
@@ -239,10 +226,6 @@ impl BallotBox for BallotBoxWrapper {
 }
 
 impl BallotBox for VoteBallotBoxWrapper {
-    fn contract(&self) -> &BallotContract {
-        &self.contract
-    }
-
     fn ballot_token(&self) -> SpecToken<BallotTokenId> {
         let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
         SpecToken {
@@ -250,10 +233,6 @@ impl BallotBox for VoteBallotBoxWrapper {
             token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
             amount: ballot_token.amount,
         }
-    }
-
-    fn min_storage_rent(&self) -> BoxValue {
-        self.contract.min_storage_rent()
     }
 
     fn ballot_token_owner(&self) -> EcPoint {

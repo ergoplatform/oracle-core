@@ -99,6 +99,7 @@ use crate::actions::execute_action;
 use crate::address_util::pks_to_network_addresses;
 use crate::api::start_rest_server;
 use crate::box_kind::BallotBox;
+use crate::contracts::ballot::BallotContract;
 use crate::default_parameters::print_contract_hashes;
 use crate::migrate::check_migration_to_split_config;
 use crate::oracle_config::OracleConfig;
@@ -445,6 +446,9 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
                     ))
                     .collect::<Vec<_>>()
             );
+            let ballot_contract = BallotContract::checked_load(
+                &POOL_CONFIG.ballot_box_wrapper_inputs.contract_inputs,
+            ).unwrap();
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 node_api,
                 &node_api.node,
@@ -454,6 +458,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
                 reward_token_opt,
                 BlockHeight(update_box_creation_height),
                 height,
+                &ballot_contract
             ) {
                 error!("Fatal vote-update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);

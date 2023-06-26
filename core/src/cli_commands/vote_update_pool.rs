@@ -67,6 +67,7 @@ pub fn vote_update_pool(
     reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     height: BlockHeight,
+    ballot_contract: &BallotContract,
 ) -> Result<(), anyhow::Error> {
     let change_network_address = wallet.get_change_address()?;
     let network_prefix = change_network_address.network();
@@ -76,7 +77,8 @@ pub fn vote_update_pool(
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // which stipulates that the address in R4 is the 'owner' of the token
         build_tx_with_existing_ballot_box(
-            local_ballot_box,
+            &local_ballot_box,
+            ballot_contract,
             wallet,
             new_pool_box_address_hash,
             reward_token_opt.clone(),
@@ -135,7 +137,8 @@ pub fn vote_update_pool(
 
 #[allow(clippy::too_many_arguments)]
 fn build_tx_with_existing_ballot_box(
-    in_ballot_box: BallotBoxWrapper,
+    in_ballot_box: &BallotBoxWrapper,
+    ballot_contract: &BallotContract,
     wallet: &dyn WalletDataSource,
     new_pool_box_address_hash: Digest32,
     reward_token_opt: Option<SpecToken<RewardTokenId>>,
@@ -144,8 +147,9 @@ fn build_tx_with_existing_ballot_box(
     change_address: Address,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    #[allow(clippy::todo)]
     let ballot_box_candidate = make_local_ballot_box_candidate(
-        in_ballot_box.contract(),
+        ballot_contract,
         in_ballot_box.ballot_token_owner(),
         update_box_creation_height,
         in_ballot_box.ballot_token(),
@@ -361,9 +365,10 @@ mod tests {
             )
             .unwrap(),
         };
+        let ballot_contract = BallotContract::checked_load(&inputs.contract_inputs).unwrap();
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::checked_load(&inputs.contract_inputs).unwrap(),
+                &ballot_contract,
                 *secret.public_image().h,
                 height - EpochLength(2),
                 ballot_token,
@@ -391,7 +396,8 @@ mod tests {
             change_address: change_address.clone(),
         };
         let unsigned_tx = build_tx_with_existing_ballot_box(
-            ballot_box,
+            &ballot_box,
+            &ballot_contract,
             &wallet_mock,
             new_pool_box_address_hash,
             Some(SpecToken {

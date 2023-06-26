@@ -26,7 +26,7 @@ use crate::{
         make_pool_box_candidate_unchecked, BallotBox, CastBallotBoxVoteParameters, PoolBox,
         PoolBoxWrapper, VoteBallotBoxWrapper,
     },
-    contracts::{ballot::BallotContract, pool::PoolContract},
+    contracts::{ballot::BallotContract, pool::PoolContract, update::UpdateContract},
     explorer_api::ergo_explorer_transaction_link,
     node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
@@ -99,6 +99,8 @@ pub fn update_pool(
         PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)?;
     let new_ballot_contract =
         BallotContract::checked_load(&new_pool_config.ballot_box_wrapper_inputs.contract_inputs)?;
+    let new_update_contract =
+        UpdateContract::checked_load(&new_pool_config.update_box_wrapper_inputs.contract_inputs)?;
     let new_pool_box_hash = blake2b256_hash(
         &new_pool_contract
             .ergo_tree()
@@ -118,11 +120,12 @@ pub fn update_pool(
         op.get_ballot_boxes_source(),
         wallet,
         op.get_update_box_source(),
-        new_pool_contract,
         new_reward_tokens.clone(),
         height,
         change_address,
+        new_pool_contract,
         new_ballot_contract,
+        new_update_contract,
     )?;
 
     log::debug!("Signing update pool box tx: {:#?}", tx);
@@ -272,11 +275,12 @@ fn build_update_pool_box_tx(
     ballot_boxes: &dyn VoteBallotBoxesSource,
     wallet: &dyn WalletDataSource,
     update_box: &dyn UpdateBoxSource,
-    new_pool_contract: PoolContract,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
     change_address: Address,
+    new_pool_contract: PoolContract,
     new_ballot_contract: BallotContract,
+    new_update_contract: UpdateContract,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
     let update_box = update_box.get_update_box()?;
     let min_votes = update_box.min_votes();
@@ -335,8 +339,11 @@ fn build_update_pool_box_tx(
         old_pool_box.get_box().value,
         height,
     )?;
-    let mut update_box_candidate =
-        ErgoBoxCandidateBuilder::new(update_box.get_box().value, update_box.ergo_tree(), height.0);
+    let mut update_box_candidate = ErgoBoxCandidateBuilder::new(
+        update_box.get_box().value,
+        new_update_contract.ergo_tree(),
+        height.0,
+    );
     update_box_candidate.add_token(update_box.update_nft());
     let update_box_candidate = update_box_candidate.build()?;
 
@@ -555,6 +562,7 @@ mod tests {
         new_pool_contract_inputs.refresh_nft_token_id =
             RefreshTokenId::from_token_id_unchecked(new_refresh_token_id);
         let new_pool_contract = PoolContract::build_with(&new_pool_contract_inputs).unwrap();
+        let new_update_contract = UpdateContract::build_with(&update_contract_inputs).unwrap();
 
         let pool_box_bytes = new_pool_contract
             .ergo_tree()
@@ -568,14 +576,14 @@ mod tests {
             token_ids.update_nft_token_id.clone(),
         )
         .unwrap();
-        let ballot_contract = BallotContract::checked_load(&ballot_contract_inputs).unwrap();
+        let new_ballot_contract = BallotContract::checked_load(&ballot_contract_inputs).unwrap();
 
         let mut ballot_boxes = vec![];
 
         for _ in 0..6 {
             let secret = DlogProverInput::random();
             let ballot_box_candidate = make_local_ballot_box_candidate(
-                &ballot_contract,
+                &new_ballot_contract,
                 *secret.public_image().h,
                 BlockHeight(update_box.creation_height),
                 SpecToken {
@@ -584,7 +592,7 @@ mod tests {
                 },
                 pool_box_hash,
                 Some(new_reward_tokens.clone()),
-                ballot_contract.min_storage_rent(),
+                new_ballot_contract.min_storage_rent(),
                 height,
             )
             .unwrap();
@@ -647,11 +655,12 @@ mod tests {
             &ballot_boxes_mock,
             &wallet_mock,
             &update_mock,
-            new_pool_contract,
             Some(new_reward_tokens),
             BlockHeight(height.0 + 1),
             change_address.address(),
-            ballot_contract
+            new_pool_contract,
+            new_ballot_contract,
+            new_update_contract,
         )
         .unwrap();
 
