@@ -584,7 +584,7 @@ mod tests {
             let secret = DlogProverInput::random();
             let ballot_box_candidate = make_local_ballot_box_candidate(
                 &new_ballot_contract,
-                *secret.public_image().h,
+                secret.public_image().h.as_ref(),
                 BlockHeight(update_box.creation_height),
                 SpecToken {
                     token_id: token_ids.ballot_token_id.clone(),

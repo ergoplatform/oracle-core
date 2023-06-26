@@ -251,7 +251,7 @@ impl BallotBox for VoteBallotBoxWrapper {
 #[allow(clippy::too_many_arguments)]
 pub fn make_local_ballot_box_candidate(
     contract: &BallotContract,
-    ballot_token_owner: EcPoint,
+    ballot_token_owner: &EcPoint,
     update_box_creation_height: BlockHeight,
     ballot_token: SpecToken<BallotTokenId>,
     pool_box_address_hash: Digest32,
@@ -260,7 +260,7 @@ pub fn make_local_ballot_box_candidate(
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
     let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
-    builder.set_register_value(NonMandatoryRegisterId::R4, ballot_token_owner.into());
+    builder.set_register_value(NonMandatoryRegisterId::R4, ballot_token_owner.clone().into());
     builder.set_register_value(
         NonMandatoryRegisterId::R5,
         (update_box_creation_height.0 as i32).into(),
