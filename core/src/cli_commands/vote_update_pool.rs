@@ -129,7 +129,9 @@ pub fn vote_update_pool(
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim_end() == "YES" {
+        log::debug!("Signing vote tx: {:?} ", unsigned_tx);
         let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
+        log::debug!("Submitting signed vote tx: {:?} ", signed_tx);
         let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
         crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
         println!(
