@@ -131,12 +131,12 @@ pub fn vote_update_pool(
     if input.trim_end() == "YES" {
         log::debug!(
             "Signing vote tx: {:?} ",
-            &serde_json::to_string(&unsigned_tx)
+            &serde_json::to_string_pretty(&unsigned_tx)
         );
         let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
         log::debug!(
             "Submitting signed vote tx: {:?} ",
-            &serde_json::to_string(&signed_tx)
+            &serde_json::to_string_pretty(&signed_tx)
         );
         let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
         crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
