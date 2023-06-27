@@ -165,7 +165,7 @@ fn build_tx_with_existing_ballot_box(
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     #[allow(clippy::todo)]
     let ballot_box_candidate = make_local_ballot_box_candidate(
-        ballot_contract,
+        ballot_contract.ergo_tree(),
         ballot_token_owner_pk,
         update_box_creation_height,
         in_ballot_box.ballot_token(),
@@ -222,7 +222,7 @@ fn build_tx_for_first_ballot_box(
         amount: 1.try_into().unwrap(),
     };
     let ballot_box_candidate = make_local_ballot_box_candidate(
-        &contract,
+        contract.ergo_tree(),
         ballot_token_owner,
         update_box_creation_height,
         ballot_token.clone(),
@@ -387,7 +387,7 @@ mod tests {
         let ballot_contract = BallotContract::checked_load(&inputs.contract_inputs).unwrap();
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &ballot_contract,
+                ballot_contract.ergo_tree(),
                 secret.public_image().h.as_ref(),
                 height - EpochLength(2),
                 ballot_token,

@@ -14,6 +14,7 @@ use ergo_lib::{
             ergo_box::{box_value::BoxValue, ErgoBox, ErgoBoxCandidate, NonMandatoryRegisterId},
             token::TokenId,
         },
+        ergo_tree::ErgoTree,
         mir::constant::{TryExtractFromError, TryExtractInto},
         serialization::SigmaSerializationError,
     },
@@ -250,7 +251,7 @@ impl BallotBox for VoteBallotBoxWrapper {
 
 #[allow(clippy::too_many_arguments)]
 pub fn make_local_ballot_box_candidate(
-    contract: &BallotContract,
+    contract: ErgoTree,
     ballot_token_owner: &EcPoint,
     update_box_creation_height: BlockHeight,
     ballot_token: SpecToken<BallotTokenId>,
@@ -259,7 +260,7 @@ pub fn make_local_ballot_box_candidate(
     value: BoxValue,
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract, creation_height.0);
     builder.set_register_value(
         NonMandatoryRegisterId::R4,
         ballot_token_owner.clone().into(),
