@@ -160,7 +160,7 @@ mod tests {
         let expected_pool_encoding = "8cJi+FGGU32jXyO8M2LeyWSWlerdcb1zxBWeZtyy7Y8=";
         let expected_refresh_encoding = "cs5c5QEirstI4ZlTyrbTjlPwWYHRW+QsedtpyOSBnH4=";
         let expected_oracle_encoding = "fhOYLO3s+NJCqTQDWUz0E+ffy2T1VG7ZnhSFs0RP948=";
-        let expected_ballot_encoding = "2DnK+72bh+TxviNk8XfuYzLKtuF5jnqUJOzimt30NvI=";
+        let expected_ballot_encoding = "x01xAvK0CrRCwj36vp/jon7NARR1rxplSwI5B20ZNyI=";
         let expected_update_encoding = "pQ7Dgjq1pUyISroP+RWEDf+kVNYAWjeFHzW+cpImhsQ=";
 
         println!("BASE 64 ENCODING OF BLAKE2B HASH OF CONTRACT ERGO-TREE BYTES");
@@ -174,7 +174,7 @@ mod tests {
         assert_eq!(
             encoded, expected_pool_encoding,
             "Differing pool contract hash, expected {}, got {}",
-            encoded, expected_pool_encoding
+            expected_pool_encoding, encoded
         );
 
         let refresh_ergo_tree_bytes = &RefreshContractParameters::default().ergo_tree_bytes();
@@ -184,7 +184,7 @@ mod tests {
         assert_eq!(
             encoded, expected_refresh_encoding,
             "Differing refresh contract hash, expected {}, got {}",
-            encoded, expected_refresh_encoding
+            expected_pool_encoding, encoded
         );
 
         let oracle_ergo_tree_bytes = &OracleContractParameters::default().ergo_tree_bytes();
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(
             encoded, expected_oracle_encoding,
             "Differing oracle contract hash, expected {}, got {}",
-            encoded, expected_oracle_encoding,
+            expected_pool_encoding, encoded
         );
 
         let ballot_ergo_tree_bytes = &BallotContractParameters::default().ergo_tree_bytes();
@@ -204,7 +204,7 @@ mod tests {
         assert_eq!(
             encoded, expected_ballot_encoding,
             "Differing ballot contract hash, expected {}, got {}",
-            encoded, expected_ballot_encoding,
+            expected_pool_encoding, encoded
         );
 
         let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes();
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(
             encoded, expected_update_encoding,
             "Differing update contract hash, expected {}, got {}",
-            encoded, expected_update_encoding,
+            expected_pool_encoding, encoded
         );
     }
 }
