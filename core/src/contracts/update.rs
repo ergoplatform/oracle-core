@@ -94,7 +94,7 @@ impl UpdateContractInputs {
 }
 
 impl UpdateContract {
-    fn build_with(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
+    pub fn build_with(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
         let ergo_tree =
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?
                 .with_constant(

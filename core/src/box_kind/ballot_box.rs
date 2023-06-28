@@ -10,10 +10,11 @@ use ergo_lib::{
     ergo_chain_types::{Digest32, EcPoint},
     ergotree_ir::{
         chain::{
-            address::AddressEncoderError,
+            address::{Address, AddressEncoderError, NetworkAddress, NetworkPrefix},
             ergo_box::{box_value::BoxValue, ErgoBox, ErgoBoxCandidate, NonMandatoryRegisterId},
             token::TokenId,
         },
+        ergo_tree::ErgoTree,
         mir::constant::{TryExtractFromError, TryExtractInto},
         serialization::SigmaSerializationError,
     },
@@ -45,9 +46,7 @@ pub enum BallotBoxError {
 }
 
 pub trait BallotBox {
-    fn contract(&self) -> &BallotContract;
     fn ballot_token(&self) -> SpecToken<BallotTokenId>;
-    fn min_storage_rent(&self) -> BoxValue;
     fn ballot_token_owner(&self) -> EcPoint;
     fn get_box(&self) -> &ErgoBox;
 }
@@ -55,7 +54,6 @@ pub trait BallotBox {
 #[derive(Clone, Debug)]
 pub struct BallotBoxWrapper {
     ergo_box: ErgoBox,
-    contract: BallotContract,
 }
 
 impl BallotBoxWrapper {
@@ -74,9 +72,7 @@ impl BallotBoxWrapper {
             .get_register(NonMandatoryRegisterId::R4.into())
             .ok_or(BallotBoxError::NoGroupElementInR4)?
             .try_extract_into::<EcPoint>()?;
-        let contract =
-            BallotContract::from_ergo_tree(ergo_box.ergo_tree.clone(), &inputs.contract_inputs)?;
-        Ok(Self { ergo_box, contract })
+        Ok(Self { ergo_box })
     }
 }
 
@@ -198,13 +194,16 @@ impl VoteBallotBoxWrapper {
     pub fn vote_parameters(&self) -> &CastBallotBoxVoteParameters {
         &self.vote_parameters
     }
+
+    pub fn ballot_token_owner_address(&self, network_prefix: NetworkPrefix) -> NetworkAddress {
+        NetworkAddress::new(
+            network_prefix,
+            &Address::P2Pk(self.ballot_token_owner().into()),
+        )
+    }
 }
 
 impl BallotBox for BallotBoxWrapper {
-    fn contract(&self) -> &BallotContract {
-        &self.contract
-    }
-
     fn ballot_token(&self) -> SpecToken<BallotTokenId> {
         let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
         SpecToken {
@@ -212,10 +211,6 @@ impl BallotBox for BallotBoxWrapper {
             token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
             amount: ballot_token.amount,
         }
-    }
-
-    fn min_storage_rent(&self) -> BoxValue {
-        self.contract.min_storage_rent()
     }
 
     fn ballot_token_owner(&self) -> EcPoint {
@@ -232,10 +227,6 @@ impl BallotBox for BallotBoxWrapper {
 }
 
 impl BallotBox for VoteBallotBoxWrapper {
-    fn contract(&self) -> &BallotContract {
-        &self.contract
-    }
-
     fn ballot_token(&self) -> SpecToken<BallotTokenId> {
         let ballot_token = self.ergo_box.tokens.as_ref().unwrap().get(0).unwrap();
         SpecToken {
@@ -243,10 +234,6 @@ impl BallotBox for VoteBallotBoxWrapper {
             token_id: BallotTokenId::from_token_id_unchecked(ballot_token.token_id),
             amount: ballot_token.amount,
         }
-    }
-
-    fn min_storage_rent(&self) -> BoxValue {
-        self.contract.min_storage_rent()
     }
 
     fn ballot_token_owner(&self) -> EcPoint {
@@ -264,8 +251,8 @@ impl BallotBox for VoteBallotBoxWrapper {
 
 #[allow(clippy::too_many_arguments)]
 pub fn make_local_ballot_box_candidate(
-    contract: &BallotContract,
-    ballot_token_owner: EcPoint,
+    contract: ErgoTree,
+    ballot_token_owner: &EcPoint,
     update_box_creation_height: BlockHeight,
     ballot_token: SpecToken<BallotTokenId>,
     pool_box_address_hash: Digest32,
@@ -273,8 +260,11 @@ pub fn make_local_ballot_box_candidate(
     value: BoxValue,
     creation_height: BlockHeight,
 ) -> Result<ErgoBoxCandidate, ErgoBoxCandidateBuilderError> {
-    let mut builder = ErgoBoxCandidateBuilder::new(value, contract.ergo_tree(), creation_height.0);
-    builder.set_register_value(NonMandatoryRegisterId::R4, ballot_token_owner.into());
+    let mut builder = ErgoBoxCandidateBuilder::new(value, contract, creation_height.0);
+    builder.set_register_value(
+        NonMandatoryRegisterId::R4,
+        ballot_token_owner.clone().into(),
+    );
     builder.set_register_value(
         NonMandatoryRegisterId::R5,
         (update_box_creation_height.0 as i32).into(),

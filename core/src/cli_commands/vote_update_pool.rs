@@ -5,7 +5,7 @@ use ergo_lib::{
         ergo_box::box_builder::ErgoBoxCandidateBuilderError,
         transaction::unsigned::UnsignedTransaction,
     },
-    ergo_chain_types::{Digest32, DigestNError},
+    ergo_chain_types::{Digest32, DigestNError, EcPoint},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::address::Address,
     wallet::{
@@ -67,30 +67,42 @@ pub fn vote_update_pool(
     reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     height: BlockHeight,
+    ballot_contract: &BallotContract,
 ) -> Result<(), anyhow::Error> {
     let change_network_address = wallet.get_change_address()?;
     let network_prefix = change_network_address.network();
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
+    let ballot_token_owner =
+        if let Address::P2Pk(ballot_token_owner) = ORACLE_CONFIG.oracle_address.address() {
+            ballot_token_owner.h
+        } else {
+            return Err(VoteUpdatePoolError::IncorrectBallotTokenOwnerAddress.into());
+        };
     let unsigned_tx = if let Some(local_ballot_box) = local_ballot_box_source.get_ballot_box()? {
+        log::debug!("Found local ballot box");
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // which stipulates that the address in R4 is the 'owner' of the token
         build_tx_with_existing_ballot_box(
-            local_ballot_box,
+            &local_ballot_box,
+            ballot_contract,
             wallet,
             new_pool_box_address_hash,
             reward_token_opt.clone(),
             update_box_creation_height,
             height,
             change_network_address.address(),
+            ballot_token_owner.as_ref(),
         )?
     } else {
+        log::debug!("Not found local ballot box, looking for a ballot token in the wallet");
+        // Note: the ballot box contains the ballot token, but the box is guarded by the contract,
         // Ballot token is assumed to be in some unspent box of the node's wallet.
         build_tx_for_first_ballot_box(
             wallet,
             new_pool_box_address_hash,
             reward_token_opt.clone(),
             update_box_creation_height,
-            ORACLE_CONFIG.oracle_address.address(),
+            ballot_token_owner.as_ref(),
             POOL_CONFIG
                 .ballot_box_wrapper_inputs
                 .contract_inputs
@@ -117,7 +129,15 @@ pub fn vote_update_pool(
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim_end() == "YES" {
+        log::debug!(
+            "Signing vote tx: {:?} ",
+            &serde_json::to_string_pretty(&unsigned_tx)
+        );
         let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
+        log::debug!(
+            "Submitting signed vote tx: {:?} ",
+            &serde_json::to_string_pretty(&signed_tx)
+        );
         let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
         crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
         println!(
@@ -132,18 +152,21 @@ pub fn vote_update_pool(
 
 #[allow(clippy::too_many_arguments)]
 fn build_tx_with_existing_ballot_box(
-    in_ballot_box: BallotBoxWrapper,
+    in_ballot_box: &BallotBoxWrapper,
+    ballot_contract: &BallotContract,
     wallet: &dyn WalletDataSource,
     new_pool_box_address_hash: Digest32,
     reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
     height: BlockHeight,
     change_address: Address,
+    ballot_token_owner_pk: &EcPoint,
 ) -> Result<UnsignedTransaction, VoteUpdatePoolError> {
     let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    #[allow(clippy::todo)]
     let ballot_box_candidate = make_local_ballot_box_candidate(
-        in_ballot_box.contract(),
-        in_ballot_box.ballot_token_owner(),
+        ballot_contract.ergo_tree(),
+        ballot_token_owner_pk,
         update_box_creation_height,
         in_ballot_box.ballot_token(),
         new_pool_box_address_hash,
@@ -181,7 +204,7 @@ fn build_tx_for_first_ballot_box(
     new_pool_box_address_hash: Digest32,
     reward_token_opt: Option<SpecToken<RewardTokenId>>,
     update_box_creation_height: BlockHeight,
-    ballot_token_owner_address: Address,
+    ballot_token_owner: &EcPoint,
     ballot_contract_parameters: &BallotContractParameters,
     token_ids: &TokenIds,
     height: BlockHeight,
@@ -198,45 +221,41 @@ fn build_tx_for_first_ballot_box(
         token_id: token_ids.ballot_token_id.clone(),
         amount: 1.try_into().unwrap(),
     };
-    if let Address::P2Pk(ballot_token_owner) = &ballot_token_owner_address {
-        let ballot_box_candidate = make_local_ballot_box_candidate(
-            &contract,
-            *ballot_token_owner.h.clone(),
-            update_box_creation_height,
-            ballot_token.clone(),
-            new_pool_box_address_hash,
-            reward_token_opt,
-            out_ballot_box_value,
-            height,
-        )?;
-        let box_selector = SimpleBoxSelector::new();
-        let selection_target_balance = out_ballot_box_value.checked_add(&BASE_FEE).unwrap();
-        let selection = box_selector.select(
-            unspent_boxes,
-            selection_target_balance,
-            &[ballot_token.into()],
-        )?;
-        let box_selection = BoxSelection {
-            boxes: selection.boxes.as_vec().clone().try_into().unwrap(),
-            change_boxes: selection.change_boxes,
-        };
-        let mut tx_builder = TxBuilder::new(
-            box_selection,
-            vec![ballot_box_candidate],
-            height.0,
-            *BASE_FEE,
-            change_address,
-        );
-        // The following context value ensures that `outIndex` in the ballot contract is properly set.
-        let ctx_ext = ContextExtension {
-            values: vec![(0, 0i32.into())].into_iter().collect(),
-        };
-        tx_builder.set_context_extension(selection.boxes.first().box_id(), ctx_ext);
-        let tx = tx_builder.build()?;
-        Ok(tx)
-    } else {
-        Err(VoteUpdatePoolError::IncorrectBallotTokenOwnerAddress)
-    }
+    let ballot_box_candidate = make_local_ballot_box_candidate(
+        contract.ergo_tree(),
+        ballot_token_owner,
+        update_box_creation_height,
+        ballot_token.clone(),
+        new_pool_box_address_hash,
+        reward_token_opt,
+        out_ballot_box_value,
+        height,
+    )?;
+    let box_selector = SimpleBoxSelector::new();
+    let selection_target_balance = out_ballot_box_value.checked_add(&BASE_FEE).unwrap();
+    let selection = box_selector.select(
+        unspent_boxes,
+        selection_target_balance,
+        &[ballot_token.into()],
+    )?;
+    let box_selection = BoxSelection {
+        boxes: selection.boxes.as_vec().clone().try_into().unwrap(),
+        change_boxes: selection.change_boxes,
+    };
+    let mut tx_builder = TxBuilder::new(
+        box_selection,
+        vec![ballot_box_candidate],
+        height.0,
+        *BASE_FEE,
+        change_address,
+    );
+    // The following context value ensures that `outIndex` in the ballot contract is properly set.
+    let ctx_ext = ContextExtension {
+        values: vec![(0, 0i32.into())].into_iter().collect(),
+    };
+    tx_builder.set_context_extension(selection.boxes.first().box_id(), ctx_ext);
+    let tx = tx_builder.build()?;
+    Ok(tx)
 }
 
 #[cfg(test)]
@@ -248,7 +267,7 @@ mod tests {
         ergo_chain_types::Digest32,
         ergotree_interpreter::sigma_protocol::private_input::DlogProverInput,
         ergotree_ir::chain::{
-            address::AddressEncoder,
+            address::{Address, AddressEncoder},
             ergo_box::{box_value::BoxValue, BoxTokens, ErgoBox},
             token::{Token, TokenId},
         },
@@ -308,12 +327,19 @@ mod tests {
             token_id: RewardTokenId::from_token_id_unchecked(force_any_val::<TokenId>()),
             amount: 100_000.try_into().unwrap(),
         };
+
+        let ballot_token_owner = if let Address::P2Pk(ballot_token_owner) = change_address.address()
+        {
+            ballot_token_owner.h
+        } else {
+            panic!("Expected P2PK address");
+        };
         let unsigned_tx = build_tx_for_first_ballot_box(
             &wallet_mock,
             new_pool_box_address_hash,
             Some(new_reward_token),
             BlockHeight(height.0) - 3,
-            change_address.address(),
+            &ballot_token_owner,
             ballot_contract_inputs.contract_parameters(),
             &token_ids,
             height,
@@ -358,10 +384,11 @@ mod tests {
             )
             .unwrap(),
         };
+        let ballot_contract = BallotContract::checked_load(&inputs.contract_inputs).unwrap();
         let in_ballot_box = ErgoBox::from_box_candidate(
             &make_local_ballot_box_candidate(
-                &BallotContract::checked_load(&inputs.contract_inputs).unwrap(),
-                *secret.public_image().h,
+                ballot_contract.ergo_tree(),
+                secret.public_image().h.as_ref(),
                 height - EpochLength(2),
                 ballot_token,
                 new_pool_box_address_hash,
@@ -388,7 +415,8 @@ mod tests {
             change_address: change_address.clone(),
         };
         let unsigned_tx = build_tx_with_existing_ballot_box(
-            ballot_box,
+            &ballot_box,
+            &ballot_contract,
             &wallet_mock,
             new_pool_box_address_hash,
             Some(SpecToken {
@@ -398,6 +426,7 @@ mod tests {
             height - EpochLength(3),
             height,
             change_address.address(),
+            secret.public_image().h.as_ref(),
         )
         .unwrap();
 

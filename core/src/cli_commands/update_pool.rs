@@ -116,10 +116,10 @@ pub fn update_pool(
         op.get_ballot_boxes_source(),
         wallet,
         op.get_update_box_source(),
-        new_pool_contract,
         new_reward_tokens.clone(),
         height,
         change_address,
+        new_pool_contract,
     )?;
 
     log::debug!("Signing update pool box tx: {:#?}", tx);
@@ -269,10 +269,10 @@ fn build_update_pool_box_tx(
     ballot_boxes: &dyn VoteBallotBoxesSource,
     wallet: &dyn WalletDataSource,
     update_box: &dyn UpdateBoxSource,
-    new_pool_contract: PoolContract,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
     change_address: Address,
+    new_pool_contract: PoolContract,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
     let update_box = update_box.get_update_box()?;
     let min_votes = update_box.min_votes();
@@ -383,7 +383,7 @@ fn build_update_pool_box_tx(
     for ballot_box in vote_ballot_boxes.iter() {
         let mut ballot_box_candidate = ErgoBoxCandidateBuilder::new(
             ballot_box.get_box().value, // value must be preserved or increased
-            ballot_box.contract().ergo_tree(),
+            ballot_box.get_box().ergo_tree.clone(),
             height.0,
         );
         ballot_box_candidate.add_token(ballot_box.ballot_token().into());
@@ -564,15 +564,16 @@ mod tests {
             token_ids.update_nft_token_id.clone(),
         )
         .unwrap();
-        let ballot_contract = BallotContract::checked_load(&ballot_contract_inputs).unwrap();
 
         let mut ballot_boxes = vec![];
 
         for _ in 0..6 {
             let secret = DlogProverInput::random();
             let ballot_box_candidate = make_local_ballot_box_candidate(
-                &ballot_contract,
-                *secret.public_image().h,
+                BallotContract::checked_load(&ballot_contract_inputs)
+                    .unwrap()
+                    .ergo_tree(),
+                secret.public_image().h.as_ref(),
                 BlockHeight(update_box.creation_height),
                 SpecToken {
                     token_id: token_ids.ballot_token_id.clone(),
@@ -580,7 +581,7 @@ mod tests {
                 },
                 pool_box_hash,
                 Some(new_reward_tokens.clone()),
-                ballot_contract.min_storage_rent(),
+                ballot_contract_parameters.min_storage_rent(),
                 height,
             )
             .unwrap();
@@ -643,10 +644,10 @@ mod tests {
             &ballot_boxes_mock,
             &wallet_mock,
             &update_mock,
-            new_pool_contract,
             Some(new_reward_tokens),
             BlockHeight(height.0 + 1),
             change_address.address(),
+            new_pool_contract,
         )
         .unwrap();
 

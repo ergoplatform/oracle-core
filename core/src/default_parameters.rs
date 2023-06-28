@@ -20,8 +20,8 @@ use crate::{
 impl Default for BallotContractParameters {
     fn default() -> Self {
         // compiled via
-        // https://scastie.scala-lang.org/P977Sr4qTKylV427dIP75Q
-        let ergo_tree_bytes = base16::decode("10070580dac409040204020400040204000e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d803d601b2a5e4e3000400d602c672010407d603e4c6a70407ea02d1ededede6720293c27201c2a793db63087201db6308a792c172017300eb02cd7203d1ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47202720392c17201c1a7efe6c672010561").unwrap();
+        // https://scastie.scala-lang.org/W1KaudPGT2WBmJfHDsjlaw
+        let ergo_tree_bytes = base16::decode("10070580dac409040204020400040204000e206251655468576d5a7134743777217a25432a462d4a404e635266556a586e3272d803d601e4c6a70407d602b2a5e4e3000400d603c672020407eb02cd7201d1edededede6720393c27202c2a793db63087202db6308a792c172027300ededededed91b1a4730191b1db6308b2a47302007303938cb2db6308b2a473040073050001730693e47203720192c17202c1a7efe6c672020561").unwrap();
         let min_storage_rent_index = 0;
         let min_storage_rent: BoxValue = 10000000u64.try_into().unwrap();
         let update_nft_index = 6;
@@ -160,7 +160,7 @@ mod tests {
         let expected_pool_encoding = "8cJi+FGGU32jXyO8M2LeyWSWlerdcb1zxBWeZtyy7Y8=";
         let expected_refresh_encoding = "cs5c5QEirstI4ZlTyrbTjlPwWYHRW+QsedtpyOSBnH4=";
         let expected_oracle_encoding = "fhOYLO3s+NJCqTQDWUz0E+ffy2T1VG7ZnhSFs0RP948=";
-        let expected_ballot_encoding = "2DnK+72bh+TxviNk8XfuYzLKtuF5jnqUJOzimt30NvI=";
+        let expected_ballot_encoding = "x01xAvK0CrRCwj36vp/jon7NARR1rxplSwI5B20ZNyI=";
         let expected_update_encoding = "pQ7Dgjq1pUyISroP+RWEDf+kVNYAWjeFHzW+cpImhsQ=";
 
         println!("BASE 64 ENCODING OF BLAKE2B HASH OF CONTRACT ERGO-TREE BYTES");
@@ -174,7 +174,7 @@ mod tests {
         assert_eq!(
             encoded, expected_pool_encoding,
             "Differing pool contract hash, expected {}, got {}",
-            encoded, expected_pool_encoding
+            expected_pool_encoding, encoded
         );
 
         let refresh_ergo_tree_bytes = &RefreshContractParameters::default().ergo_tree_bytes();
@@ -184,7 +184,7 @@ mod tests {
         assert_eq!(
             encoded, expected_refresh_encoding,
             "Differing refresh contract hash, expected {}, got {}",
-            encoded, expected_refresh_encoding
+            expected_pool_encoding, encoded
         );
 
         let oracle_ergo_tree_bytes = &OracleContractParameters::default().ergo_tree_bytes();
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(
             encoded, expected_oracle_encoding,
             "Differing oracle contract hash, expected {}, got {}",
-            encoded, expected_oracle_encoding,
+            expected_pool_encoding, encoded
         );
 
         let ballot_ergo_tree_bytes = &BallotContractParameters::default().ergo_tree_bytes();
@@ -204,7 +204,7 @@ mod tests {
         assert_eq!(
             encoded, expected_ballot_encoding,
             "Differing ballot contract hash, expected {}, got {}",
-            encoded, expected_ballot_encoding,
+            expected_pool_encoding, encoded
         );
 
         let update_ergo_tree_bytes = &UpdateContractParameters::default().ergo_tree_bytes();
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(
             encoded, expected_update_encoding,
             "Differing update contract hash, expected {}, got {}",
-            encoded, expected_update_encoding,
+            expected_pool_encoding, encoded
         );
     }
 }
