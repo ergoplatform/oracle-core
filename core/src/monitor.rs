@@ -12,6 +12,7 @@ use crate::oracle_state::OraclePool;
 use crate::oracle_types::BlockHeight;
 use crate::oracle_types::EpochLength;
 use crate::oracle_types::MinDatapoints;
+use crate::oracle_types::Rate;
 use crate::pool_config::POOL_CONFIG;
 
 #[derive(Debug, serde::Serialize, Copy, Clone)]
@@ -52,6 +53,7 @@ pub struct PoolHealth {
 pub fn check_pool_health(
     current_height: BlockHeight,
     pool_box_height: BlockHeight,
+    pool_box_rate: Rate,
     oracle_pool: Arc<OraclePool>,
     network_prefix: NetworkPrefix,
 ) -> Result<PoolHealth, anyhow::Error> {
@@ -64,8 +66,9 @@ pub fn check_pool_health(
         .0
         .into();
     let acceptable_pool_box_delay_blocks = 3;
-    let is_healthy =
-        pool_box_height >= current_height - epoch_length - acceptable_pool_box_delay_blocks;
+    let is_healthy = pool_box_height >= current_height - epoch_length - acceptable_pool_box_delay_blocks
+        // on bootstrap pool box created with rate 0
+        && pool_box_rate != 0;
     let total_oracle_token_count = oracle_pool.get_total_oracle_token_count()?;
     let all_oracles = get_all_oracle_boxes(oracle_pool, network_prefix)?;
     let active_oracles = get_active_oracle_boxes(&all_oracles, pool_box_height);
