@@ -283,6 +283,7 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     let pool_health = check_pool_health(
         current_height,
         pool_box_height,
+        pool_box.rate(),
         oracle_pool.clone(),
         network_prefix,
     )?;
