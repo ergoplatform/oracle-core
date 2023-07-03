@@ -89,22 +89,6 @@ impl OracleBoxWrapper {
             return Err(OracleBoxError::UnknownOracleTokenId);
         }
 
-        let reward_token_id = b
-            .tokens
-            .as_ref()
-            .ok_or(OracleBoxError::NoTokens)?
-            .get(1)
-            .ok_or(OracleBoxError::NoRewardToken)?
-            .token_id;
-
-        if reward_token_id != inputs.reward_token_id.token_id() {
-            log::error!(
-                "found reward token id {reward_token_id:?} in oracle box but expected {expected_reward_token_id:?}",
-                reward_token_id = reward_token_id,
-                expected_reward_token_id = inputs.reward_token_id.token_id()
-            );
-        }
-
         // We won't be analysing the actual address since there exists multiple oracle boxes that
         // will be inputs for the 'refresh pool' operation.
         let _ = b
@@ -127,6 +111,22 @@ impl OracleBoxWrapper {
             ergo_box: b.clone(),
             contract: contract.clone(),
         });
+
+        let reward_token_id = b
+            .tokens
+            .as_ref()
+            .ok_or(OracleBoxError::NoTokens)?
+            .get(1)
+            .ok_or(OracleBoxError::NoRewardToken)?
+            .token_id;
+
+        if reward_token_id != inputs.reward_token_id.token_id() {
+            log::error!(
+                "found reward token id {reward_token_id:?} in oracle box but expected {expected_reward_token_id:?}",
+                reward_token_id = reward_token_id,
+                expected_reward_token_id = inputs.reward_token_id.token_id()
+            );
+        }
 
         let posted_oracle_box = OracleBoxWrapper::Posted(PostedOracleBox {
             ergo_box: b,
