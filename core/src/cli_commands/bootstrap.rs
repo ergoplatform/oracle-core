@@ -109,6 +109,10 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
     let s = serde_yaml::to_string(&config_serde)?;
     let mut file = std::fs::File::create(&config_file_name)?;
     file.write_all(s.as_bytes())?;
+    log::info!(
+        "Bootstrap configuration file template created: {}",
+        config_file_name
+    );
     Ok(())
 }
 
