@@ -86,7 +86,6 @@ pub fn bootstrap(config_file_name: String) -> Result<(), anyhow::Error> {
         height: BlockHeight(node_api.node.current_block_height()? as u32),
     };
     let (oracle_config, submitted_tx_ids) = perform_bootstrap_chained_transaction(input)?;
-    wait_for_txs_confirmation(submitted_tx_ids);
     info!("Bootstrap chain-transaction complete");
     let s = serde_yaml::to_string(&oracle_config)?;
     let mut file = std::fs::File::create(DEFAULT_POOL_CONFIG_FILE_NAME)?;
@@ -95,6 +94,7 @@ pub fn bootstrap(config_file_name: String) -> Result<(), anyhow::Error> {
         "Pool configuration file created: {}",
         DEFAULT_POOL_CONFIG_FILE_NAME
     );
+    wait_for_txs_confirmation(submitted_tx_ids);
     Ok(())
 }
 
