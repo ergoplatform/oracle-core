@@ -23,8 +23,8 @@ pub struct PoolContract {
 pub enum PoolContractError {
     #[error("pool contract: parameter error: {0}")]
     ParametersError(#[from] PoolContractParametersError),
-    #[error("pool contract: unknown refresh NFT in box")]
-    UnknownRefreshNftId,
+    #[error("pool contract: unknown refresh NFT in box: expected {expected}, actual {actual}")]
+    UnknownRefreshNftId { expected: String, actual: String },
     #[error("pool contract: unknown update NFT in box")]
     UnknownUpdateNftId,
     #[error("pool contract: sigma parsing error {0}")]
@@ -129,7 +129,10 @@ impl PoolContract {
             ))?
             .try_extract_into::<TokenId>()?;
         if refresh_nft_token_id != inputs.refresh_nft_token_id.token_id() {
-            return Err(PoolContractError::UnknownRefreshNftId);
+            return Err(PoolContractError::UnknownRefreshNftId {
+                expected: inputs.refresh_nft_token_id.token_id().into(),
+                actual: refresh_nft_token_id.into(),
+            });
         }
 
         let update_nft_token_id = ergo_tree
