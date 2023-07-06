@@ -491,6 +491,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
             }
         }
         Command::ImportPoolUpdate { pool_config_file } => {
+            /// TODO: check that update-pool called before this (pool box should not be found?).
             if let Err(e) = cli_commands::import_pool_update::import_pool_update(
                 pool_config_file,
                 &POOL_CONFIG.token_ids.oracle_token_id,
