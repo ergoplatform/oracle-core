@@ -492,7 +492,7 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
         }
         Command::ImportPoolUpdate { pool_config_file } => {
             if op.get_pool_box_source().get_pool_box().is_ok() {
-                error!("Seems like update-pool is not called yet(pool box is found).");
+                error!("Seems like update-pool command is missing (pool box is found).");
                 std::process::exit(exitcode::SOFTWARE);
             }
             if let Err(e) = cli_commands::import_pool_update::import_pool_update(
