@@ -6,6 +6,7 @@ mod bitpanda;
 mod coincap;
 mod coingecko;
 mod custom_ext_script;
+mod erg_btc;
 mod erg_usd;
 mod erg_xau;
 mod predef;
