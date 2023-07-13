@@ -15,7 +15,7 @@ use crate::oracle_types::MinDatapoints;
 use crate::oracle_types::Rate;
 use crate::pool_config::POOL_CONFIG;
 
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum HealthStatus {
     Ok = 1,
     Down = 0,

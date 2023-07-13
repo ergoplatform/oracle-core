@@ -3,7 +3,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::box_kind::PoolBox;
-use crate::monitor::{check_oracle_health, check_pool_health, PoolHealth};
+use crate::monitor::{
+    check_oracle_health, check_pool_health, HealthStatus, OracleHealth, PoolHealth,
+};
 use crate::node_interface::node_api::{NodeApi, NodeApiError};
 use crate::oracle_config::{ORACLE_CONFIG, ORACLE_SECRETS};
 use crate::oracle_state::{DataSourceError, LocalDatapointState, OraclePool};
@@ -21,7 +23,7 @@ use tower_http::cors::CorsLayer;
 
 /// Basic welcome endpoint
 async fn root() -> &'static str {
-    "This is an Oracle Core. Please use one of the endpoints to interact with it: 
+    "This is an Oracle Core. Please use one of the endpoints to interact with it:
         /poolInfo - basic information about the oracle pool
         /poolStatus - status of the oracle pool
         /oracleInfo - basic information about the oracle
@@ -173,14 +175,28 @@ async fn require_datapoint_repost(repost_receiver: Receiver<bool>) -> impl IntoR
 
 /// Return true if the our collected datapoint box height is the same as the pool box height
 /// and our posted datapoint box height is greater than the pool box height
-async fn oracle_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(|| oracle_health_sync(oracle_pool))
+async fn oracle_health(oracle_pool: Arc<OraclePool>) -> impl IntoResponse {
+    let pool_health = match task::spawn_blocking(|| oracle_health_sync(oracle_pool))
         .await
-        .unwrap()?;
-    Ok(Json(json))
+        .unwrap()
+    {
+        Ok(v) => v,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(e.0))),
+    };
+    // return 503 http error if pool_health.status is not ok
+    if pool_health.status != HealthStatus::Ok {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::to_value(pool_health).unwrap()),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(pool_health).unwrap()),
+    )
 }
 
-fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
+fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<OracleHealth, ApiError> {
     let pool_box_height = oracle_pool
         .get_pool_box_source()
         .get_pool_box()?
@@ -188,14 +204,28 @@ fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value,
         .creation_height
         .into();
     let oracle_health = check_oracle_health(oracle_pool, pool_box_height)?;
-    Ok(serde_json::to_value(oracle_health).unwrap())
+    Ok(oracle_health)
 }
 
-async fn pool_health(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::Value>, ApiError> {
-    let json = task::spawn_blocking(|| pool_health_sync_json(oracle_pool))
+async fn pool_health(oracle_pool: Arc<OraclePool>) -> impl IntoResponse {
+    let pool_health = match task::spawn_blocking(|| pool_health_sync(oracle_pool))
         .await
-        .unwrap()?;
-    Ok(Json(json))
+        .unwrap()
+    {
+        Ok(v) => v,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(e.0))),
+    };
+    // return 503 http error if pool_health.status is not ok
+    if pool_health.status != HealthStatus::Ok {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::to_value(pool_health).unwrap()),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(pool_health).unwrap()),
+    )
 }
 
 fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<PoolHealth, ApiError> {
@@ -212,11 +242,6 @@ fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<PoolHealth, ApiError
         network_prefix,
     )?;
     Ok(pool_health)
-}
-
-fn pool_health_sync_json(oracle_pool: Arc<OraclePool>) -> Result<serde_json::Value, ApiError> {
-    let pool_health = pool_health_sync(oracle_pool)?;
-    Ok(serde_json::to_value(pool_health).unwrap())
 }
 
 pub async fn start_rest_server(
