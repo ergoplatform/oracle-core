@@ -270,7 +270,7 @@ fn main() {
     };
 
     let config_log_level = ORACLE_CONFIG_OPT
-        .clone()
+        .as_ref()
         .map(|c| c.log_level)
         .ok()
         .flatten();
@@ -603,9 +603,10 @@ fn log_and_continue_if_non_fatal(
 
 fn log_on_launch() {
     log::info!("{}", APP_VERSION);
-    if let Ok(config) = ORACLE_CONFIG_OPT.clone() {
+    let oracle_address_opt = ORACLE_CONFIG_OPT.as_ref().map(|c| c.oracle_address.clone());
+    if let Ok(oracle_address) = oracle_address_opt {
         // log::info!("Token ids: {:?}", config.token_ids);
-        log::info!("Oracle address: {}", config.oracle_address.to_base58());
+        log::info!("Oracle address: {}", oracle_address.to_base58());
     }
 }
 

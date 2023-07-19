@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
 use ergo_lib::{
     ergotree_ir::chain::address::NetworkAddress,
     ergotree_ir::{
@@ -59,14 +60,20 @@ impl OracleConfig {
         file.write_all(yaml_str.as_bytes()).unwrap();
     }
 
-    fn load() -> Result<Self, OracleConfigFileError> {
+    fn load() -> Result<Self, anyhow::Error> {
         let config_file_path = ORACLE_CONFIG_FILE_PATH.get().ok_or_else(|| {
             OracleConfigFileError::IoError("ORACLE_CONFIG_FILE_PATH not set".to_string())
         })?;
-        let config_str: &str = &std::fs::read_to_string(config_file_path)
-            .map_err(|e| OracleConfigFileError::IoError(e.to_string()))?;
-        let config = Self::load_from_str(config_str)?;
-        let _ = config.oracle_address_p2pk()?;
+        log::info!("Loading oracle config from {}", config_file_path.display());
+        let config_str = std::fs::read_to_string(config_file_path).context(format!(
+            "failed to load oracle config file from {}",
+            config_file_path.display()
+        ))?;
+        let config =
+            Self::load_from_str(&config_str).context("failed to parse oracle config file")?;
+        let _ = config
+            .oracle_address_p2pk()
+            .context("failed to parse oracle address")?;
         Ok(config)
     }
 
@@ -124,8 +131,7 @@ pub static ORACLE_CONFIG_FILE_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::ne
 lazy_static! {
     pub static ref ORACLE_CONFIG: OracleConfig = OracleConfig::load().unwrap();
     pub static ref ORACLE_SECRETS: OracleSecrets = OracleSecrets::load();
-    pub static ref ORACLE_CONFIG_OPT: Result<OracleConfig, OracleConfigFileError> =
-        OracleConfig::load();
+    pub static ref ORACLE_CONFIG_OPT: Result<OracleConfig, anyhow::Error> = OracleConfig::load();
     pub static ref BASE_FEE: BoxValue = ORACLE_CONFIG_OPT
         .as_ref()
         .map(|c| BoxValue::try_from(c.base_fee).unwrap())

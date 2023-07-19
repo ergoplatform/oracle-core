@@ -2,6 +2,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
+use anyhow::Context;
 use once_cell::sync;
 use serde::Deserialize;
 use serde::Serialize;
@@ -158,7 +159,12 @@ impl PoolConfig {
         let config_file_path = POOL_CONFIG_FILE_PATH
             .get()
             .ok_or_else(|| anyhow!("Pool config file path not set"))?;
-        Self::load_from_str(&std::fs::read_to_string(config_file_path)?)
+        log::info!("Loading pool config from {}", config_file_path.display());
+        let config_str = std::fs::read_to_string(config_file_path).context(format!(
+            "failed to load pool config file from {}",
+            config_file_path.display()
+        ))?;
+        Self::load_from_str(&config_str)
     }
 
     pub fn save(&self, path: &Path) -> Result<(), anyhow::Error> {
@@ -168,7 +174,7 @@ impl PoolConfig {
     }
 
     pub fn load_from_str(config_str: &str) -> Result<PoolConfig, anyhow::Error> {
-        serde_yaml::from_str(config_str).map_err(|e| anyhow!(e))
+        serde_yaml::from_str(config_str).context("failed to parse pool config file")
     }
 }
 
