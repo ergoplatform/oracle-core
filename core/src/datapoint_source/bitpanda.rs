@@ -1,5 +1,4 @@
 use super::assets_exchange_rate::AssetsExchangeRate;
-#[cfg(test)]
 use super::assets_exchange_rate::Btc;
 use super::assets_exchange_rate::Usd;
 use super::erg_xau::KgAu;
@@ -35,8 +34,6 @@ pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSo
     }
 }
 
-// Currently only used for testing
-#[cfg(test)]
 // Get USD/BTC. Can be used as a redundant source for ERG/BTC through ERG/USD and USD/BTC
 pub(crate) async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSourceError> {
     let url = "https://api.bitpanda.com/v1/ticker";
