@@ -3,7 +3,7 @@ use std::pin::Pin;
 use futures::Future;
 
 use super::{
-    assets_exchange_rate::{convert, AssetsExchangeRate, Btc, NanoErg},
+    assets_exchange_rate::{convert_rate, AssetsExchangeRate, Btc, NanoErg},
     coincap, coingecko, DataPointSourceError,
 };
 
@@ -20,7 +20,7 @@ pub fn nanoerg_btc_sources() -> Vec<
 // Calculate ERG/BTC through ERG/USD and USD/BTC
 async fn get_btc_nanoerg_coincap() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError>
 {
-    Ok(convert(
+    Ok(convert_rate(
         coincap::get_usd_nanoerg().await?,
         coincap::get_btc_usd().await?,
     ))

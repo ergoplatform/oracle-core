@@ -38,7 +38,7 @@ pub struct AssetsExchangeRate<PER1: Asset, GET: Asset> {
 }
 
 // Calculates an Exchange Rate of GET/PER2 based on GET/PER1 and PER1/PER2
-pub fn convert<GET: Asset, PER1: Asset, PER2: Asset>(
+pub fn convert_rate<GET: Asset, PER1: Asset, PER2: Asset>(
     a: AssetsExchangeRate<PER1, GET>,
     b: AssetsExchangeRate<PER2, PER1>,
 ) -> AssetsExchangeRate<PER2, GET> {

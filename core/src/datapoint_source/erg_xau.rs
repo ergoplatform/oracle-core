@@ -5,7 +5,7 @@ use std::pin::Pin;
 use futures::Future;
 
 use super::aggregator::fetch_aggregated;
-use super::assets_exchange_rate::convert;
+use super::assets_exchange_rate::convert_rate;
 use super::assets_exchange_rate::Asset;
 use super::assets_exchange_rate::AssetsExchangeRate;
 use super::assets_exchange_rate::NanoErg;
@@ -49,7 +49,7 @@ pub async fn combined_kgau_nanoerg(
 ) -> Result<AssetsExchangeRate<KgAu, NanoErg>, DataPointSourceError> {
     let kgau_usd_rate = bitpanda::get_kgau_usd().await?;
     let aggregated_usd_nanoerg_rate = fetch_aggregated(nanoerg_usd_sources()).await?;
-    Ok(convert(aggregated_usd_nanoerg_rate, kgau_usd_rate))
+    Ok(convert_rate(aggregated_usd_nanoerg_rate, kgau_usd_rate))
 }
 
 #[cfg(test)]
