@@ -3,6 +3,7 @@ use crate::datapoint_source::assets_exchange_rate::NanoErg;
 use crate::datapoint_source::DataPointSourceError;
 
 use super::ada_usd::Lovelace;
+use super::assets_exchange_rate::Btc;
 use super::assets_exchange_rate::Usd;
 use super::erg_xau::KgAu;
 
@@ -70,6 +71,27 @@ pub async fn get_usd_lovelace() -> Result<AssetsExchangeRate<Usd, Lovelace>, Dat
     }
 }
 
+pub async fn get_btc_nanoerg() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError> {
+    let url = "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=BTC";
+    let resp = reqwest::get(url).await?;
+    let price_json = json::parse(&resp.text().await?)?;
+    if let Some(p) = price_json["ergo"]["btc"].as_f64() {
+        // Convert from price BTC/ERG to nanoERG/BTC
+        let erg_per_usd = NanoErg::from_erg(1.0 / p);
+        let rate = AssetsExchangeRate {
+            per1: Btc {},
+            get: NanoErg {},
+            rate: erg_per_usd,
+        };
+        Ok(rate)
+    } else {
+        Err(DataPointSourceError::JsonMissingField {
+            field: "ergo.btc as f64".to_string(),
+            json: price_json.dump(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,6 +114,12 @@ mod tests {
     fn test_ada_usd_price() {
         let pair: AssetsExchangeRate<Usd, Lovelace> =
             tokio_test::block_on(get_usd_lovelace()).unwrap();
+        assert!(pair.rate > 0.0);
+    }
+    #[test]
+    fn test_erg_btc_price() {
+        let pair: AssetsExchangeRate<Btc, NanoErg> =
+            tokio_test::block_on(get_btc_nanoerg()).unwrap();
         assert!(pair.rate > 0.0);
     }
 }

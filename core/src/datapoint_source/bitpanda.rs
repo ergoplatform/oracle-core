@@ -1,4 +1,5 @@
 use super::assets_exchange_rate::AssetsExchangeRate;
+use super::assets_exchange_rate::Btc;
 use super::assets_exchange_rate::Usd;
 use super::erg_xau::KgAu;
 use super::DataPointSourceError;
@@ -33,6 +34,33 @@ pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSo
     }
 }
 
+// Get USD/BTC. Can be used as a redundant source for ERG/BTC through ERG/USD and USD/BTC
+pub(crate) async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSourceError> {
+    let url = "https://api.bitpanda.com/v1/ticker";
+    let resp = reqwest::get(url).await?;
+    let json = json::parse(&resp.text().await?)?;
+    if let Some(p) = json["BTC"]["USD"].as_str() {
+        // USD price of BTC
+        let usd_per_btc = p
+            .parse::<f64>()
+            .map_err(|_| DataPointSourceError::JsonMissingField {
+                field: "BTC.USD as f64".to_string(),
+                json: json.dump(),
+            })?;
+        let rate = AssetsExchangeRate {
+            per1: Btc {},
+            get: Usd {},
+            rate: usd_per_btc,
+        };
+        Ok(rate)
+    } else {
+        Err(DataPointSourceError::JsonMissingField {
+            field: "BTC.USD".to_string(),
+            json: json.dump(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -40,6 +68,11 @@ mod tests {
     #[test]
     fn test_kgau_usd_price() {
         let pair: AssetsExchangeRate<KgAu, Usd> = tokio_test::block_on(get_kgau_usd()).unwrap();
+        assert!(pair.rate > 0.0);
+    }
+    #[test]
+    fn test_btc_usd_price() {
+        let pair: AssetsExchangeRate<Btc, Usd> = tokio_test::block_on(get_btc_usd()).unwrap();
         assert!(pair.rate > 0.0);
     }
 }

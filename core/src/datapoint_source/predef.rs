@@ -2,6 +2,7 @@ use crate::oracle_types::Rate;
 
 use super::ada_usd::usd_lovelace_sources;
 use super::aggregator::fetch_aggregated;
+use super::erg_btc::nanoerg_btc_sources;
 use super::erg_usd::nanoerg_usd_sources;
 use super::erg_xau::nanoerg_kgau_sources;
 use super::DataPointSourceError;
@@ -27,6 +28,9 @@ async fn fetch_predef_source_aggregated(
         }
         PredefinedDataPointSource::NanoAdaUsd => {
             fetch_aggregated(usd_lovelace_sources()).await?.rate
+        }
+        PredefinedDataPointSource::NanoErgBTC => {
+            fetch_aggregated(nanoerg_btc_sources()).await?.rate
         }
     };
     Ok((rate_float as i64).into())
