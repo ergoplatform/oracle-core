@@ -22,6 +22,16 @@ pub enum HealthStatus {
 }
 
 impl HealthStatus {
+    fn from_bool(b: bool) -> Self {
+        if b {
+            HealthStatus::Ok
+        } else {
+            HealthStatus::Down
+        }
+    }
+}
+
+impl HealthStatus {
     pub fn get_integer_value(&self) -> i32 {
         *self as i32
     }
@@ -202,7 +212,10 @@ pub struct OracleHealthDetails {
 pub fn check_oracle_health(
     oracle_pool: Arc<OraclePool>,
     pool_box_height: BlockHeight,
+    current_height: BlockHeight,
+    epoch_length: EpochLength,
 ) -> Result<OracleHealth, anyhow::Error> {
+    let min_healthy_height = current_height - epoch_length;
     let health = match oracle_pool
         .get_local_datapoint_box_source()
         .get_local_oracle_datapoint_box()?
@@ -210,12 +223,9 @@ pub fn check_oracle_health(
     {
         OracleBoxWrapper::Posted(posted_box) => {
             let posted_box_height = posted_box.get_box().creation_height.into();
+            let is_healthy = posted_box_height > min_healthy_height;
             OracleHealth {
-                status: if posted_box_height > pool_box_height {
-                    HealthStatus::Ok
-                } else {
-                    HealthStatus::Down
-                },
+                status: HealthStatus::from_bool(is_healthy),
                 details: OracleHealthDetails {
                     pool_box_height,
                     box_details: OracleBoxDetails::PostedBox(posted_box_height),
@@ -223,16 +233,13 @@ pub fn check_oracle_health(
             }
         }
         OracleBoxWrapper::Collected(collected_box) => {
-            let creation_height = collected_box.get_box().creation_height.into();
+            let collected_box_height = collected_box.get_box().creation_height.into();
+            let is_healthy = collected_box_height > min_healthy_height;
             OracleHealth {
-                status: if creation_height == pool_box_height {
-                    HealthStatus::Ok
-                } else {
-                    HealthStatus::Down
-                },
+                status: HealthStatus::from_bool(is_healthy),
                 details: OracleHealthDetails {
                     pool_box_height,
-                    box_details: OracleBoxDetails::CollectedBox(creation_height),
+                    box_details: OracleBoxDetails::CollectedBox(collected_box_height),
                 },
             }
         }
