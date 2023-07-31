@@ -197,13 +197,23 @@ async fn oracle_health(oracle_pool: Arc<OraclePool>) -> impl IntoResponse {
 }
 
 fn oracle_health_sync(oracle_pool: Arc<OraclePool>) -> Result<OracleHealth, ApiError> {
+    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+    let current_height = (node_api.node.current_block_height()? as u32).into();
+    let epoch_length = POOL_CONFIG
+        .refresh_box_wrapper_inputs
+        .contract_inputs
+        .contract_parameters()
+        .epoch_length()
+        .0
+        .into();
     let pool_box_height = oracle_pool
         .get_pool_box_source()
         .get_pool_box()?
         .get_box()
         .creation_height
         .into();
-    let oracle_health = check_oracle_health(oracle_pool, pool_box_height)?;
+    let oracle_health =
+        check_oracle_health(oracle_pool, pool_box_height, current_height, epoch_length)?;
     Ok(oracle_health)
 }
 

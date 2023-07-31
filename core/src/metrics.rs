@@ -288,7 +288,12 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
         network_prefix,
     )?;
     update_pool_health(&pool_health);
-    let oracle_health = check_oracle_health(oracle_pool.clone(), pool_box_height)?;
+    let oracle_health = check_oracle_health(
+        oracle_pool.clone(),
+        pool_box_height,
+        current_height,
+        pool_health.details.epoch_length,
+    )?;
     update_oracle_health(&oracle_health);
     let wallet_balance: i64 = node_api.node.wallet_nano_ergs_balance()? as i64;
     ORACLE_NODE_WALLET_BALANCE.set(wallet_balance);
