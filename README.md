@@ -224,3 +224,8 @@ cargo test check_contract_hashes -- --nocapture
 ```
 
 Check these values against those described in EIP-23.
+
+## Metrics
+
+Prometheus metrics are disabled by default and can be enabled by setting `metrics_port` parameter in the oracle config file.
+The dashboard for Grafana is available in the `scripts` folder.
