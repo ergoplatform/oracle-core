@@ -1,0 +1,42 @@
+name: Cross-Compile Docker Build and Push
+
+on:
+ push:
+   tags:
+     - '*'
+
+jobs:
+ build-amd64:
+   runs-on: ubuntu-latest
+   steps:
+     - name: Checkout code
+       uses: actions/checkout@v2
+
+     - name: Build Docker image for amd64
+       run: |
+         docker build --build-arg TARGETPLATFORM=linux/amd64 --build-arg CCARCH=x86_64 -t ergoplatform/oracle-core:amd64 .
+ build-arm64:
+   runs-on: ubuntu-latest
+   steps:
+     - name: Checkout code
+       uses: actions/checkout@v2
+
+     - name: Build Docker image for arm64
+       run: |
+         docker build --build-arg TARGETPLATFORM=linux/arm64 --build-arg CCARCH=aarch64 -t ergoplatform/oracle-core:arm64 .
+ manifest-and-push:
+   needs: [build-amd64, build-arm64]
+   runs-on: ubuntu-latest
+   steps:
+     - name: Login to DockerHub
+       run: |
+         echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+     - name: Create and push Docker manifest
+       run: |
+         TAG_NAME=${GITHUB_REF/refs\/tags\//}
+         docker manifest create ergoplatform/oracle-core:$TAG_NAME ergoplatform/oracle-core:amd64 ergoplatform/oracle-core:arm64
+         docker manifest push ergoplatform/oracle-core:$TAG_NAME
+     - name: Update latest tag
+       run: |
+         docker tag ergoplatform/oracle-core:$TAG_NAME ergoplatform/oracle-core:latest
+         docker push ergoplatform/oracle-core:latest
