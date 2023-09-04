@@ -35,7 +35,9 @@ jobs:
          context: .
          platforms: ${{ matrix.platform }}
          tags: ${{ steps.metadata.outputs.tags }}
-         build-args: TARGETPLATFORM=${{ matrix.platform }},CCARCH=${{ matrix.ccarch }}
+         build-args: |
+           TARGETPLATFORM=${{ matrix.platform }}
+           CCARCH=${{ matrix.ccarch }}
          push: false
          load: true
 
