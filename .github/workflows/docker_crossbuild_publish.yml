@@ -5,6 +5,7 @@ on:
     types:
       - opened
       - synchronize
+      - closed
 
 jobs:
  build:
@@ -28,7 +29,7 @@ jobs:
        id: metadata
        uses: docker/metadata-action@v3
        with:
-         images: reqlez/oracle-core
+         images: greenden/oracle-core
          tags: |
            type=ref,event=tag
      - name: Build images
@@ -61,6 +62,6 @@ jobs:
        with:
          context: .
          platforms: linux/amd64,linux/arm64
-         tags: reqlez/oracle-core:${{ github.ref_name }}, reqlez/oracle-core:latest
+         tags: greenden/oracle-core:${{ github.ref_name }}, greenden/oracle-core:latest
          push: true
          
