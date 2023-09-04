@@ -16,6 +16,29 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 
 ## Getting started
 
+### Docker Image
+
+AMD64 and ARM64 images are available from [Docker Hub Repo](https://hub.docker.com/r/ergoplatform/oracle-core)
+
+The container runs under oracle-core user ( 9010 uid ), if using bind mount for container's /data folder ( where config files and other data lives ), set the container's uid for the host's folder ownership ( ex: chown 9010:9010 oracle_data ).
+
+An example docker run command:
+
+``` console
+docker run -d \
+ -v /path/on/host:/data \
+ -p 9010:9010 \
+ -p 9011:9011 \
+ -e ORACLE_NODE_API_KEY=CHANGE_ME_KEY \
+ ergoplatform/oracle-core:latest
+```
+
+To enter container shell for debugging or pool modifications:
+
+``` console
+docker exec -it -u oracle-core <container id> /bin/sh
+```
+
 ### Download
 
 Get the latest release binary from [Releases](https://github.com/ergoplatform/oracle-core/releases)
