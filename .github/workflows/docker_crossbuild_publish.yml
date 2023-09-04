@@ -28,7 +28,7 @@ jobs:
        id: metadata
        uses: docker/metadata-action@v3
        with:
-         images: greenden/oracle-core
+         images: reqlez/oracle-core
          tags: |
            type=ref,event=tag
      - name: Build images
@@ -61,6 +61,6 @@ jobs:
        with:
          context: .
          platforms: linux/amd64,linux/arm64
-         tags: greenden/oracle-core:${{ github.ref_name }}, greenden/oracle-core:latest
+         tags: reqlez/oracle-core:${{ github.ref_name }}, reqlez/oracle-core:latest
          push: true
          
