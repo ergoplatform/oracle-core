@@ -1,8 +1,10 @@
 name: Cross-Compile Docker Build and Push
 
 on:
- release:
-   types: [published]
+  pull_request:
+    types:
+      - opened
+      - synchronize
 
 jobs:
  build:
