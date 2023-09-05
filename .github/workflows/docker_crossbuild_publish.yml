@@ -25,7 +25,15 @@ jobs:
 
      - name: Set up Docker Buildx
        uses: docker/setup-buildx-action@v1
-
+     
+     - name: Cache Docker layers
+       uses: actions/cache@v2
+       with:
+         path: /tmp/.buildx-cache
+         key: ${{ runner.os }}-buildx-${{ github.sha }}
+         restore-keys: |
+           ${{ runner.os }}-buildx-
+    
      - name: Generate Docker metadata
        id: metadata
        uses: docker/metadata-action@v3
@@ -42,6 +50,8 @@ jobs:
          build-args: |
            TARGETPLATFORM=${{ matrix.platform }}
            CCARCH=${{ matrix.ccarch }}
+         cache-from: type=local,src=/tmp/.buildx-cache
+         cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
          push: false
          load: true
 
@@ -64,4 +74,5 @@ jobs:
          context: .
          platforms: linux/amd64,linux/arm64
          tags: greenden/oracle-core:${{ github.sha }}, greenden/oracle-core:latest
+         cache-from: type=local,src=/tmp/.buildx-cache
          push: true
