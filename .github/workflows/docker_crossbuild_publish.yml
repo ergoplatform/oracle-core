@@ -6,6 +6,7 @@ on:
       - opened
       - synchronize
       - closed
+  workflow_dispatch:
 
 jobs:
  build:
@@ -64,4 +65,3 @@ jobs:
          platforms: linux/amd64,linux/arm64
          tags: greenden/oracle-core:${{ github.ref_name }}, greenden/oracle-core:latest
          push: true
-         
