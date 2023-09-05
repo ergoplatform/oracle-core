@@ -32,7 +32,7 @@ jobs:
        with:
          images: greenden/oracle-core
          tags: |
-           type=ref,event=tag
+           type=sha
      - name: Build images
        uses: docker/build-push-action@v3
        with:
