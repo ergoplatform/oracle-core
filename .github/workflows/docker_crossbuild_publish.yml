@@ -1,15 +1,12 @@
 name: Cross-Compile Docker Build and Push
 
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - closed
+  release:
+    types: [published]
   workflow_dispatch:
 
 env:
-  REGISTRY_IMAGE: greenden/oracle-core
+  REGISTRY_IMAGE: ergoplatform/oracle-core
 
 jobs:
  build:
