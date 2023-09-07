@@ -42,7 +42,8 @@ jobs:
          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
      - name: Build and push by digest
-       uses: docker/build-push-action@v3
+       id: build
+       uses: docker/build-push-action@v4
        with:
          context: .
          platforms: ${{ matrix.platform }}
