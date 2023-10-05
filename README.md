@@ -1,18 +1,8 @@
 # Oracle Core v2.0
 
-The oracle core requires that the user has access to a full node wallet in order to create txs & perform UTXO-set scanning. Furthermore each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools then a single full node can be used, but several instances of oracle cores must be run (and set with different api ports).
+The oracle core requires that the user has access to a full node wallet in order to create txs & perform UTXO-set scanning. Furthermore, each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools then a single full node can be used, but several instances of oracle cores must be run (and set with different API ports).
 
 The current oracle core is built to run the protocol specified in the [EIP-0023 PR](https://github.com/ergoplatform/eips/pull/41).
-
-## Roadmap
-
-### In progress
-
-- v2.0-beta. Run a public oracle pool on testnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/5)
-
-### Next
-
-- v2.0-RC. Launch on the mainnet. See [planned tasks](https://github.com/ergoplatform/oracle-core/milestone/4)
 
 ## Getting started
 
@@ -20,7 +10,7 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 
 AMD64 and ARM64 images are available from [Docker Hub Repo](https://hub.docker.com/r/ergoplatform/oracle-core)
 
-The container runs under oracle-core user ( 9010 uid ), if using bind mount for container's /data folder ( where config files and other data lives ), set the container's uid for the host's folder ownership ( ex: chown -R 9010:9010 oracle_data ).
+The container runs under oracle-core user (9010 uid), if using bind mount for container's /data folder (where config files and other data lives), set the container's uid for the host's folder ownership ( ex: chown -R 9010:9010 oracle_data ).
 
 An example docker run command:
 
@@ -62,7 +52,7 @@ oracle-core generate-oracle-config
 and set the required parameters:
 
 - `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
-- `node_url`  node URL;
+- `node_url` node URL;
 
 Set the environment variable `ORACLE_NODE_API_KEY` to the node's API key. You can put it in the `.secrets` file and then run `source .secrets` to load it into the environment. This way, the key does not get stored in the shell history.
 
