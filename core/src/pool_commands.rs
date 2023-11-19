@@ -120,6 +120,7 @@ pub fn build_action(
             change_address,
             &oracle_public_key,
             op.get_buyback_box_source(),
+            POOL_CONFIG.dev_reward_ergo_tree_bytes.clone(),
         )
         .map_err(Into::into)
         .map(|(action, report)| (action.into(), report.into())),
