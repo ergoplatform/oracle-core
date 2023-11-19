@@ -43,6 +43,7 @@ pub(crate) struct PoolConfigSerde {
     ballot_contract_parameters: BallotContractParametersSerde,
     token_ids: TokenIds,
     buyback_token_id: Option<BuybackTokenId>,
+    dev_reward_ergo_tree_bytes: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -109,6 +110,7 @@ impl From<PoolConfig> for PoolConfigSerde {
             token_ids: c.token_ids,
             data_point_source: c.data_point_source,
             buyback_token_id: c.buyback_token_id,
+            dev_reward_ergo_tree_bytes: c.dev_reward_ergo_tree_bytes,
         }
     }
 }
@@ -212,6 +214,7 @@ impl TryFrom<PoolConfigSerde> for PoolConfig {
             ballot_box_wrapper_inputs,
             token_ids: c.token_ids,
             buyback_token_id: c.buyback_token_id,
+            dev_reward_ergo_tree_bytes: c.dev_reward_ergo_tree_bytes,
         })
     }
 }

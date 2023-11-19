@@ -49,6 +49,7 @@ pub struct PoolConfig {
     pub ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
     pub token_ids: TokenIds,
     pub buyback_token_id: Option<BuybackTokenId>,
+    pub dev_reward_ergo_tree_bytes: Option<String>
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
@@ -153,6 +154,7 @@ impl PoolConfig {
             update_box_wrapper_inputs,
             token_ids,
             buyback_token_id: None,
+            dev_reward_ergo_tree_bytes: None,
         })
     }
 
