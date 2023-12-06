@@ -21,3 +21,4 @@ oracle-config.yaml
 /.vim/
 /oracles/
 /.vscode/
+/.idea/
