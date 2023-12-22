@@ -10,6 +10,7 @@ use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
 use crate::spec_token::UpdateTokenId;
 
+use crate::oracle_config::ORACLE_CONFIG;
 use ::serde::Deserialize;
 use ::serde::Serialize;
 use once_cell::sync;
@@ -87,7 +88,7 @@ impl NodeScanRegistry {
             buyback_token_scan,
         };
         registry.save_to_json_file(&get_scans_file_path())?;
-        node_api.rescan_from_height(0)?;
+        node_api.rescan_from_height(ORACLE_CONFIG.scan_start_height)?;
         Ok(registry)
     }
 
@@ -116,7 +117,7 @@ impl NodeScanRegistry {
                 } else {
                     let buyback_token_scan =
                         GenericTokenScan::register(node_api, &pool_config_buyback_token_id)?;
-                    node_api.rescan_from_height(0)?;
+                    node_api.rescan_from_height(ORACLE_CONFIG.scan_start_height)?;
                     let new_registry = Self {
                         buyback_token_scan: Some(buyback_token_scan),
                         ..loaded_registry
