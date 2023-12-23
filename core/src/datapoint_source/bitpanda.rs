@@ -7,6 +7,7 @@ use super::DataPointSourceError;
 #[derive(Debug, Clone)]
 pub struct BitPanda {}
 
+#[cfg(not(test))]
 pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError> {
     let url = "https://api.bitpanda.com/v1/ticker";
     let resp = reqwest::get(url).await?;
@@ -34,6 +35,20 @@ pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSo
     }
 }
 
+#[cfg(test)]
+pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError> {
+    // USD price of 1 gram of gold
+    let p_float = 66.10;
+    let usd_per_kgau = KgAu::from_gram(p_float);
+    let rate = AssetsExchangeRate {
+        per1: KgAu {},
+        get: Usd {},
+        rate: usd_per_kgau,
+    };
+    Ok(rate)
+}
+
+#[cfg(not(test))]
 // Get USD/BTC. Can be used as a redundant source for ERG/BTC through ERG/USD and USD/BTC
 pub(crate) async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSourceError> {
     let url = "https://api.bitpanda.com/v1/ticker";
@@ -59,6 +74,18 @@ pub(crate) async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPo
             json: json.dump(),
         })
     }
+}
+
+#[cfg(test)]
+pub(crate) async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSourceError> {
+    // USD price of BTC
+    let usd_per_btc = 43827.02;
+    let rate = AssetsExchangeRate {
+        per1: Btc {},
+        get: Usd {},
+        rate: usd_per_btc,
+    };
+    Ok(rate)
 }
 
 #[cfg(test)]
