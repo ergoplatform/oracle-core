@@ -628,6 +628,7 @@ rescan_height: 141887
 node_url: http://10.94.77.47:9052
 node_api_key: hello
 base_fee: 1100000
+scan_start_height: 0
 log_level: ~
 core_api_port: 9010
 oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW

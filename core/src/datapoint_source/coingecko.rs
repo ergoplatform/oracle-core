@@ -29,6 +29,7 @@ pub async fn get_kgau_nanoerg() -> Result<AssetsExchangeRate<KgAu, NanoErg>, Dat
     }
 }
 
+#[cfg(not(test))]
 pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
     let resp = reqwest::get(url).await?;
@@ -50,6 +51,19 @@ pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataP
     }
 }
 
+#[cfg(test)]
+pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
+    // Convert from price Erg/USD to nanoErgs per 1 USD
+    let nanoerg_per_usd = NanoErg::from_erg(1.0 / 1.67);
+    let rate = AssetsExchangeRate {
+        per1: Usd {},
+        get: NanoErg {},
+        rate: nanoerg_per_usd,
+    };
+    Ok(rate)
+}
+
+#[cfg(not(test))]
 pub async fn get_usd_lovelace() -> Result<AssetsExchangeRate<Usd, Lovelace>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=cardano&vs_currencies=USD";
     let resp = reqwest::get(url).await?;
@@ -71,6 +85,19 @@ pub async fn get_usd_lovelace() -> Result<AssetsExchangeRate<Usd, Lovelace>, Dat
     }
 }
 
+#[cfg(test)]
+pub async fn get_usd_lovelace() -> Result<AssetsExchangeRate<Usd, Lovelace>, DataPointSourceError> {
+    // Convert from price Erg/USD to nanoErgs per 1 USD
+    let lovelace_price = Lovelace::from_ada(1.0 / 0.606545);
+    let rate = AssetsExchangeRate {
+        per1: Usd {},
+        get: Lovelace {},
+        rate: lovelace_price,
+    };
+    Ok(rate)
+}
+
+#[cfg(not(test))]
 pub async fn get_btc_nanoerg() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=BTC";
     let resp = reqwest::get(url).await?;
@@ -90,6 +117,18 @@ pub async fn get_btc_nanoerg() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataP
             json: price_json.dump(),
         })
     }
+}
+
+#[cfg(test)]
+pub async fn get_btc_nanoerg() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError> {
+    // Convert from price BTC/ERG to nanoERG/BTC
+    let erg_per_usd = NanoErg::from_erg(1.0 / 0.00003791);
+    let rate = AssetsExchangeRate {
+        per1: Btc {},
+        get: NanoErg {},
+        rate: erg_per_usd,
+    };
+    Ok(rate)
 }
 
 #[cfg(test)]

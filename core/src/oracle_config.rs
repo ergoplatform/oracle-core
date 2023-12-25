@@ -30,6 +30,7 @@ pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 pub struct OracleConfig {
     pub node_url: Url,
     pub base_fee: u64,
+    pub scan_start_height: u32,
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: NetworkAddress,
@@ -117,6 +118,7 @@ impl Default for OracleConfig {
         Self {
             oracle_address: address.clone(),
             core_api_port: 9010,
+            scan_start_height: 0,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
