@@ -41,7 +41,11 @@ pub trait NodeScanId {
 
 pub trait ScanGetBoxes: NodeScanId {
     fn get_boxes(&self) -> Result<Vec<ErgoBox>, ScanError> {
-        let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &ORACLE_CONFIG.node_url);
+        let node_api = NodeApi::new(
+            ORACLE_SECRETS.node_api_key.clone(),
+            ORACLE_SECRETS.wallet_password.clone(),
+            &ORACLE_CONFIG.node_url,
+        );
         let boxes = node_api.node.scan_boxes(self.scan_id())?;
         Ok(boxes)
     }

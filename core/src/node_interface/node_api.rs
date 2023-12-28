@@ -18,12 +18,13 @@ use crate::wallet::WalletDataSource;
 
 pub struct NodeApi {
     pub node: NodeInterface,
+    pub wallet_pass: Option<String>,
 }
 
 impl NodeApi {
-    pub fn new(api_key: String, node_url: &Url) -> Self {
+    pub fn new(api_key: String, wallet_pass: Option<String>, node_url: &Url) -> Self {
         let node = NodeInterface::from_url(&api_key, node_url.clone());
-        Self { node }
+        Self { node, wallet_pass }
     }
 
     pub fn get_change_address(&self) -> Result<NetworkAddress, NodeApiError> {
@@ -94,6 +95,25 @@ impl NodeApi {
             serde_json::to_string_pretty(&signed_tx).unwrap()
         );
         Ok(self.node.submit_transaction(&signed_tx)?)
+    }
+
+    /// Unlock wallet
+    pub fn wallet_unlock(&self, password: &str) -> Result<bool, NodeApiError> {
+        let endpoint = "/wallet/unlock";
+        let body = json! ({
+            "pass": password,
+        });
+
+        let res = self.node.send_post_req(endpoint, body.to_string())?;
+
+        if res.status().is_success() {
+            Ok(true)
+        } else {
+            let json = self.node.parse_response_to_json(Ok(res))?;
+            Err(NodeApiError::NodeInterfaceError(NodeError::BadRequest(
+                json["error"].to_string(),
+            )))
+        }
     }
 }
 

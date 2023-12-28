@@ -1,3 +1,4 @@
+use crate::node_interface::node_api::NodeApi;
 use ergo_lib::{
     chain::transaction::{unsigned::UnsignedTransaction, Transaction, TxId, TxIoVec},
     ergotree_ir::chain::ergo_box::ErgoBox,
@@ -62,11 +63,19 @@ impl SignTransactionWithInputs for NodeInterface {
     }
 }
 
-pub fn assert_wallet_unlocked(node: &NodeInterface) {
-    let unlocked = node.wallet_status().unwrap().unlocked;
+pub fn try_ensure_wallet_unlocked(node: &NodeApi) {
+    let unlocked = node.node.wallet_status().unwrap().unlocked;
+
     if !unlocked {
-        error!("Wallet must be unlocked for node operations");
-        std::process::exit(exitcode::SOFTWARE);
+        if let Some(wallet_pass) = &node.wallet_pass {
+            if let Err(e) = node.wallet_unlock(wallet_pass) {
+                error!("Failed to unlock wallet. Wallet must be unlocked for node operations. error: {:?}", e);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        } else {
+            error!("Wallet must be unlocked for node operations");
+            std::process::exit(exitcode::SOFTWARE);
+        }
     } else {
         debug!("Wallet unlocked");
     }
