@@ -16,7 +16,7 @@ use prometheus::TextEncoder;
 use reqwest::StatusCode;
 use tower_http::cors::CorsLayer;
 
-use crate::box_kind::PoolBox;
+use crate::box_kind::{OracleBox, PoolBox};
 use crate::monitor::check_oracle_health;
 use crate::monitor::check_pool_health;
 use crate::monitor::OracleHealth;
@@ -127,6 +127,21 @@ static MY_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     m
 });
 
+static MY_ORACLE_CLAIMABLE_REWARDS: Lazy<IntGauge> = Lazy::new(|| {
+    let m = IntGauge::with_opts(
+        Opts::new(
+            "oracle_claimable_rewards",
+            "The amount of claimable rewards for this oracle",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+    )
+    .unwrap();
+
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
 static ALL_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
     let m = IntGaugeVec::new(
         Opts::new(
@@ -136,6 +151,21 @@ static ALL_ORACLE_BOX_HEIGHT: Lazy<IntGaugeVec> = Lazy::new(|| {
         .namespace("ergo")
         .subsystem("oracle"),
         &["box_type", "oracle_address"],
+    )
+    .unwrap();
+    prometheus::register(Box::new(m.clone())).expect("Failed to register");
+    m
+});
+
+static ALL_ORACLE_CLAIMABLE_REWARDS: Lazy<IntGaugeVec> = Lazy::new(|| {
+    let m = IntGaugeVec::new(
+        Opts::new(
+            "all_oracle_claimable_rewards",
+            "The amount of claimable rewards for all oracles",
+        )
+        .namespace("ergo")
+        .subsystem("oracle"),
+        &["oracle_address"],
     )
     .unwrap();
     prometheus::register(Box::new(m.clone())).expect("Failed to register");
@@ -270,6 +300,40 @@ fn update_reward_tokens_in_buyback_box(oracle_pool: Arc<OraclePool>) {
     }
 }
 
+fn update_oracle_claimable_reward_tokens(pool_health: &PoolHealth) {
+    for oracle in &pool_health.details.all_oracle_boxes {
+        let reward_tokens = oracle.reward_tokens;
+
+        if reward_tokens > 0 {
+            let claimable_tokens = reward_tokens - 1;
+            ALL_ORACLE_CLAIMABLE_REWARDS
+                .with_label_values(&[&oracle.address.to_base58()])
+                .set(claimable_tokens as i64);
+        } else {
+            ALL_ORACLE_CLAIMABLE_REWARDS
+                .with_label_values(&[&oracle.address.to_base58()])
+                .set(0);
+        }
+    }
+}
+
+fn update_my_claimable_reward_tokens(oracle_pool: Arc<OraclePool>) {
+    if let Some(oracle_box) = oracle_pool
+        .get_local_datapoint_box_source()
+        .get_local_oracle_datapoint_box()
+        .ok()
+        .flatten()
+    {
+        let num_tokens = *oracle_box.reward_token().amount.as_u64();
+        if num_tokens == 0 {
+            MY_ORACLE_CLAIMABLE_REWARDS.set(num_tokens as i64)
+        } else {
+            let claimable_tokens = num_tokens - 1;
+            MY_ORACLE_CLAIMABLE_REWARDS.set(claimable_tokens as i64)
+        }
+    }
+}
+
 pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
     let node_api = NodeApi::new(
         ORACLE_SECRETS.node_api_key.clone(),
@@ -302,7 +366,9 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
     let wallet_balance: i64 = node_api.node.wallet_nano_ergs_balance()? as i64;
     ORACLE_NODE_WALLET_BALANCE.set(wallet_balance);
     POOL_BOX_REWARD_TOKEN_AMOUNT.set(pool_box.reward_token().amount.into());
-    update_reward_tokens_in_buyback_box(oracle_pool);
+    update_reward_tokens_in_buyback_box(oracle_pool.clone());
+    update_my_claimable_reward_tokens(oracle_pool);
+    update_oracle_claimable_reward_tokens(&pool_health);
     Ok(())
 }
 
