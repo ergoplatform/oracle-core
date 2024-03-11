@@ -23,7 +23,10 @@ use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
+use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
+use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
+use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
@@ -75,6 +78,7 @@ pub fn build_refresh_action(
     change_address: Address,
     my_oracle_pk: &EcPoint,
     buyback_box_source: Option<&dyn BuybackBoxSource>,
+    dev_reward_ergo_tree_bytes: Option<String>,
 ) -> Result<(RefreshAction, RefreshActionReport), RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
@@ -174,6 +178,23 @@ pub fn build_refresh_action(
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     output_candidates.append(&mut out_oracle_boxes);
+
+    match dev_reward_ergo_tree_bytes {
+        // The division was valid
+        Some(tbs) => {
+            let tb = base16::decode(tbs.as_str()).unwrap();
+            let t: ErgoTree = ErgoTree::sigma_parse_bytes(tb.as_slice()).unwrap();
+            let mut builder = ErgoBoxCandidateBuilder::new(*BASE_FEE, t, height.0);
+            let mut dev_reward_token = in_pool_box.reward_token();
+            dev_reward_token.amount = TokenAmount::try_from((valid_in_oracle_boxes.len() as u64) - (1 as u64)).unwrap();
+            builder.add_token(dev_reward_token.into());
+            let devout = builder.build().unwrap();
+            output_candidates.push(devout);
+        },
+
+        // The division was invalid
+        None    => {}
+    }
 
     let box_selection = BoxSelection {
         boxes: input_boxes.clone().try_into().unwrap(),
@@ -339,9 +360,8 @@ fn build_out_oracle_boxes(
         .map(|in_ob| {
             let mut reward_token_new = in_ob.reward_token();
             reward_token_new.amount = if &in_ob.public_key() == my_public_key {
-                let increment: TokenAmount =
-                // additional 1 reward token per collected oracle box goes to the collector
-                    (1 + valid_oracle_boxes.len() as u64).try_into().unwrap();
+                // 2 reward tokens per collected oracle box goes to the collector
+                let increment: TokenAmount = (2 as u64).try_into().unwrap();
                 reward_token_new.amount.checked_add(&increment).unwrap()
             } else {
                 reward_token_new
@@ -585,6 +605,7 @@ mod tests {
             change_address.address(),
             &oracle_pub_key,
             None,
+            None,
         )
         .unwrap();
 
@@ -631,6 +652,7 @@ mod tests {
             height,
             change_address.address(),
             &oracle_pub_key,
+            None,
             None,
         );
         dbg!(&wrong_epoch_res);
@@ -681,6 +703,7 @@ mod tests {
             change_address.address(),
             &oracle_pub_key,
             Some(&buyback_source),
+            None,
         )
         .unwrap();
 
