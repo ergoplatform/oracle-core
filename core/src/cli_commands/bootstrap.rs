@@ -43,9 +43,8 @@ use crate::{
     },
     explorer_api::wait_for_txs_confirmation,
     node_interface::{
-        assert_wallet_unlocked,
         node_api::{NodeApi, NodeApiError},
-        SignTransactionWithInputs, SubmitTransaction,
+        try_ensure_wallet_unlocked, SignTransactionWithInputs, SubmitTransaction,
     },
     oracle_config::{BASE_FEE, ORACLE_CONFIG, ORACLE_SECRETS},
     oracle_types::{BlockHeight, EpochCounter},
@@ -69,8 +68,12 @@ pub fn bootstrap(config_file_name: String) -> Result<(), anyhow::Error> {
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
 
-    let node_api = NodeApi::new(ORACLE_SECRETS.node_api_key.clone(), &oracle_config.node_url);
-    assert_wallet_unlocked(&node_api.node);
+    let node_api = NodeApi::new(
+        ORACLE_SECRETS.node_api_key.clone(),
+        ORACLE_SECRETS.wallet_password.clone(),
+        &oracle_config.node_url,
+    );
+    try_ensure_wallet_unlocked(&node_api);
     let change_address = node_api.get_change_address()?;
     debug!("Change address: {:?}", change_address);
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;

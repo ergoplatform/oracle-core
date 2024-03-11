@@ -276,6 +276,21 @@ impl CollectedOracleBox {
         &self.ergo_box
     }
 
+    pub fn reward_token(&self) -> SpecToken<RewardTokenId> {
+        let token = self
+            .get_box()
+            .tokens
+            .as_ref()
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .clone();
+        SpecToken {
+            token_id: RewardTokenId::from_token_id_unchecked(token.token_id),
+            amount: token.amount,
+        }
+    }
+
     pub fn public_key(&self) -> EcPoint {
         self.ergo_box
             .get_register(NonMandatoryRegisterId::R4.into())

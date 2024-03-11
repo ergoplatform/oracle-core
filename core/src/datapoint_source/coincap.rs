@@ -7,6 +7,7 @@ use super::DataPointSourceError;
 #[derive(Debug, Clone)]
 pub struct CoinCap;
 
+#[cfg(not(test))]
 pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
     // see https://coincap.io/assets/ergo
     let url = "https://api.coincap.io/v2/assets/ergo";
@@ -34,6 +35,19 @@ pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataP
     }
 }
 
+#[cfg(test)]
+pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
+    let p_float = 1.661_923_469_67;
+    let nanoerg_per_usd = NanoErg::from_erg(1.0 / p_float);
+    let rate = AssetsExchangeRate {
+        per1: Usd {},
+        get: NanoErg {},
+        rate: nanoerg_per_usd,
+    };
+    Ok(rate)
+}
+
+#[cfg(not(test))]
 // Get USD/BTC. Can be used as a redundant source for ERG/BTC through ERG/USD and USD/BTC
 pub async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSourceError> {
     // see https://coincap.io/assets/ergo
@@ -59,6 +73,17 @@ pub async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSour
             json: price_json.dump(),
         })
     }
+}
+
+#[cfg(test)]
+pub async fn get_btc_usd() -> Result<AssetsExchangeRate<Btc, Usd>, DataPointSourceError> {
+    let usd_per_btc = 43_712.768_005_075_37;
+    let rate = AssetsExchangeRate {
+        per1: Btc {},
+        get: Usd {},
+        rate: usd_per_btc,
+    };
+    Ok(rate)
 }
 
 #[cfg(test)]

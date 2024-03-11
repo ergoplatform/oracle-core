@@ -52,6 +52,7 @@ pub struct PoolHealthDetails {
 pub struct OracleDetails {
     pub address: NetworkAddress,
     pub box_height: OracleBoxDetails,
+    pub reward_tokens: u64,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -124,14 +125,16 @@ pub fn get_all_oracle_boxes(
     for b in posted_boxes {
         let detail = OracleDetails {
             address: NetworkAddress::new(network_prefix, &Address::P2Pk(b.public_key().into())),
-            box_height: b.into(),
+            box_height: b.clone().into(),
+            reward_tokens: *b.reward_token().amount.as_u64(),
         };
         oracle_details.push(detail);
     }
     for b in collected_boxes {
         let detail = OracleDetails {
             address: NetworkAddress::new(network_prefix, &Address::P2Pk(b.public_key().into())),
-            box_height: b.into(),
+            box_height: b.clone().into(),
+            reward_tokens: *b.reward_token().amount.as_u64(),
         };
         oracle_details.push(detail);
     }

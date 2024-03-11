@@ -16,7 +16,7 @@ use ergo_lib::{
     },
     wallet::tx_builder::{self, SUGGESTED_TX_FEE},
 };
-use log::LevelFilter;
+use log::{warn, LevelFilter};
 use once_cell::sync;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,7 @@ pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 pub struct OracleConfig {
     pub node_url: Url,
     pub base_fee: u64,
+    pub scan_start_height: u32,
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: NetworkAddress,
@@ -40,15 +41,24 @@ pub struct OracleConfig {
 
 pub struct OracleSecrets {
     pub node_api_key: String,
+    pub wallet_password: Option<String>,
 }
 
 impl OracleSecrets {
     pub fn load() -> Self {
-        std::env::var("ORACLE_NODE_API_KEY")
-            .map(|node_api_key| Self { node_api_key })
-            .unwrap_or_else(|_| {
-                panic!("ORACLE_NODE_API_KEY environment variable for node API key is not set")
-            })
+        let api_key = std::env::var("ORACLE_NODE_API_KEY").unwrap_or_else(|_| {
+            panic!("ORACLE_NODE_API_KEY environment variable for node API key is not set")
+        });
+
+        let wallet_pass = std::env::var("ORACLE_NODE_WALLET_PASSWORD").ok();
+        if wallet_pass.is_none() {
+            warn!("ORACLE_NODE_WALLET_PASSWORD environment variable for automatic unlock of node wallet is not set");
+        }
+
+        Self {
+            node_api_key: api_key,
+            wallet_password: wallet_pass,
+        }
     }
 }
 
@@ -117,6 +127,7 @@ impl Default for OracleConfig {
         Self {
             oracle_address: address.clone(),
             core_api_port: 9010,
+            scan_start_height: 0,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
