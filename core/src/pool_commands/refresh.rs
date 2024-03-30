@@ -10,6 +10,7 @@ use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
 use crate::oracle_state::BuybackBoxSource;
+use crate::oracle_state::DevRewardBoxSource;
 use crate::oracle_state::DataSourceError;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::PostedDatapointBoxesSource;
@@ -23,10 +24,7 @@ use crate::spec_token::SpecToken;
 use crate::wallet::WalletDataError;
 use crate::wallet::WalletDataSource;
 
-use ergo_lib::ergotree_ir::serialization::SigmaSerializable;
-use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilder;
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
-use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
 use ergo_lib::ergotree_ir::chain::address::Address;
@@ -78,7 +76,7 @@ pub fn build_refresh_action(
     change_address: Address,
     my_oracle_pk: &EcPoint,
     buyback_box_source: Option<&dyn BuybackBoxSource>,
-    dev_reward_ergo_tree_bytes: Option<String>,
+    dev_reward_box_source: Option<&dyn DevRewardBoxSource>
 ) -> Result<(RefreshAction, RefreshActionReport), RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
@@ -122,6 +120,11 @@ pub fn build_refresh_action(
 
     let in_buyback_box_opt = buyback_box_source
         .map(|s| s.get_buyback_box())
+        .transpose()?
+        .flatten();
+
+    let in_dev_reward_box_opt = dev_reward_box_source
+        .map(|s| s.get_dev_reward_box())
         .transpose()?
         .flatten();
 
@@ -175,26 +178,26 @@ pub fn build_refresh_action(
             log::debug!("No reward tokens in buyback box");
         }
     };
+
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     output_candidates.append(&mut out_oracle_boxes);
 
-    match dev_reward_ergo_tree_bytes {
-        // The division was valid
-        Some(tbs) => {
-            let tb = base16::decode(tbs.as_str()).unwrap();
-            let t: ErgoTree = ErgoTree::sigma_parse_bytes(tb.as_slice()).unwrap();
-            let mut builder = ErgoBoxCandidateBuilder::new(*BASE_FEE, t, height.0);
-            let mut dev_reward_token = in_pool_box.reward_token();
-            dev_reward_token.amount = TokenAmount::try_from((valid_in_oracle_boxes.len() as u64) - (1 as u64)).unwrap();
-            builder.add_token(dev_reward_token.into());
-            let devout = builder.build().unwrap();
-            output_candidates.push(devout);
-        },
 
-        // The division was invalid
-        None    => {}
-    }
+    let mut dev_reward_in_position: i16 = -1;
+    let mut dev_reward_out_position: i16 = -1;
+
+    if let Some(dev_reward_box) = in_dev_reward_box_opt {
+        log::info!("Found dev reward box id {:?}", dev_reward_box.get_box().box_id());
+        println!("here 1");
+        input_boxes.push(dev_reward_box.get_box().clone());
+        dev_reward_in_position = (input_boxes.len() as i16) - 1;
+        let dev_reward_amount = TokenAmount::try_from((valid_in_oracle_boxes.len() as u64) - (1 as u64)).unwrap();
+        let out_dev_reward_box = dev_reward_box.add_reward_tokens(dev_reward_amount, height.0);
+        output_candidates.push(out_dev_reward_box);
+        dev_reward_out_position = (output_candidates.len() as i16) - 1;
+        println!("here 2");
+    };
 
     let box_selection = BoxSelection {
         boxes: input_boxes.clone().try_into().unwrap(),
@@ -217,12 +220,22 @@ pub fn build_refresh_action(
         .iter()
         .enumerate()
         .for_each(|(idx, ob)| {
-            let outindex = (idx as i32 + 2).into(); // first two output boxes are pool box and refresh box
+            let outindex = (idx as i32 + 2).into(); // first two output boxes are pool box and refresh box // todo: buyback fix
             let ob_ctx_ext = ContextExtension {
                 values: vec![(0, outindex)].into_iter().collect(),
             };
             b.set_context_extension(ob.get_box().box_id(), ob_ctx_ext);
         });
+
+    if (dev_reward_in_position > -1) {
+      let box_id = input_boxes.get(dev_reward_in_position as usize).unwrap().box_id();
+      let ctx_ext = ContextExtension {
+        values: vec![(0 as u8, dev_reward_out_position.into()),
+                     (1 as u8, (0 as i8).into())].into_iter().collect(),
+      };
+      b.set_context_extension(box_id, ctx_ext);
+    }
+
     let tx = b.build()?;
     let report = RefreshActionReport {
         oracle_boxes_collected: valid_in_oracle_boxes
@@ -703,7 +716,7 @@ mod tests {
             change_address.address(),
             &oracle_pub_key,
             Some(&buyback_source),
-            None,
+            None
         )
         .unwrap();
 

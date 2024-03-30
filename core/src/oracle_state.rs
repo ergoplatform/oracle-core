@@ -3,7 +3,7 @@ use crate::box_kind::{
     BuybackBoxWrapper, CollectedOracleBox, OracleBox, OracleBoxError, OracleBoxWrapper,
     OracleBoxWrapperInputs, PoolBox, PoolBoxError, PoolBoxWrapper, PoolBoxWrapperInputs,
     PostedOracleBox, RefreshBoxError, RefreshBoxWrapper, RefreshBoxWrapperInputs, UpdateBoxError,
-    UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
+    UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper, DevRewardBoxWrapper,
 };
 use crate::datapoint_source::DataPointSourceError;
 use crate::oracle_config::ORACLE_CONFIG;
@@ -12,7 +12,7 @@ use crate::pool_config::POOL_CONFIG;
 use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
 use crate::spec_token::{
     BallotTokenId, BuybackTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId,
-    TokenIdKind, UpdateTokenId,
+    TokenIdKind, UpdateTokenId, DevRewardTokenId
 };
 use crate::util::get_token_count;
 use anyhow::Error;
@@ -87,6 +87,11 @@ pub trait BuybackBoxSource {
     fn get_buyback_box(&self) -> Result<Option<BuybackBoxWrapper>>;
 }
 
+pub trait DevRewardBoxSource {
+    fn get_dev_reward_box(&self) -> Result<Option<DevRewardBoxWrapper>>;
+}
+
+
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug)]
 pub struct OraclePool {
@@ -98,6 +103,7 @@ pub struct OraclePool {
     ballot_boxes_scan: BallotBoxesScan,
     update_box_scan: UpdateBoxScan,
     buyback_box_scan: Option<BuybackBoxScan>,
+    dev_reward_box_scan: Option<DevRewardBoxScan>,
 }
 
 #[derive(Debug)]
@@ -149,6 +155,13 @@ pub struct BuybackBoxScan {
     scan: GenericTokenScan<BuybackTokenId>,
     reward_token_id: RewardTokenId,
 }
+
+#[derive(Debug)]
+pub struct DevRewardBoxScan {
+    scan: GenericTokenScan<DevRewardTokenId>,
+    reward_token_id: RewardTokenId,
+}
+
 
 /// The state of the oracle pool when it is in the Live Epoch stage
 #[derive(Debug, Clone)]
@@ -223,6 +236,15 @@ impl OraclePool {
                     reward_token_id: pool_config.token_ids.reward_token_id.clone(),
                 });
 
+        let dev_reward_box_scan =
+            node_scan_registry
+                .dev_reward_token_scan
+                .clone()
+                .map(|scan| DevRewardBoxScan {
+                    scan,
+                    reward_token_id: pool_config.token_ids.reward_token_id.clone(),
+                });
+
         log::debug!("Scans loaded");
 
         Ok(OraclePool {
@@ -234,6 +256,7 @@ impl OraclePool {
             refresh_box_scan,
             update_box_scan,
             buyback_box_scan,
+            dev_reward_box_scan,
         })
     }
 
@@ -310,6 +333,12 @@ impl OraclePool {
         self.buyback_box_scan
             .as_ref()
             .map(|b| b as &dyn BuybackBoxSource)
+    }
+
+    pub fn get_dev_reward_box_source(&self) -> Option<&dyn DevRewardBoxSource> {
+        self.dev_reward_box_scan
+            .as_ref()
+            .map(|b| b as &dyn DevRewardBoxSource)
     }
 
     pub fn get_total_oracle_token_count(&self) -> Result<u64> {
@@ -440,5 +469,14 @@ impl BuybackBoxSource for BuybackBoxScan {
             .scan
             .get_box()?
             .map(|ergo_box| BuybackBoxWrapper::new(ergo_box, self.reward_token_id.clone())))
+    }
+}
+
+impl DevRewardBoxSource for DevRewardBoxScan {
+    fn get_dev_reward_box(&self) -> Result<Option<DevRewardBoxWrapper>> {
+        Ok(self
+            .scan
+            .get_box()?
+            .map(|ergo_box| DevRewardBoxWrapper::new(ergo_box, self.reward_token_id.clone())))
     }
 }

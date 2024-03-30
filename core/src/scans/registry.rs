@@ -9,6 +9,7 @@ use crate::spec_token::OracleTokenId;
 use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
 use crate::spec_token::UpdateTokenId;
+use crate::spec_token::DevRewardTokenId;
 
 use crate::oracle_config::ORACLE_CONFIG;
 use ::serde::Deserialize;
@@ -39,6 +40,7 @@ pub struct NodeScanRegistry {
     #[serde(rename = "Update Box Scan")]
     pub update_token_scan: GenericTokenScan<UpdateTokenId>,
     pub buyback_token_scan: Option<GenericTokenScan<BuybackTokenId>>,
+    pub dev_reward_token_scan: Option<GenericTokenScan<DevRewardTokenId>>,
 }
 
 impl NodeScanRegistry {
@@ -79,6 +81,12 @@ impl NodeScanRegistry {
             } else {
                 None
             };
+        let dev_reward_token_scan =
+            if let Some(dev_reward_token_id) = pool_config.dev_reward_token_id.clone() {
+                Some(GenericTokenScan::register(node_api, &dev_reward_token_id)?)
+            } else {
+                None
+            };
         let registry = Self {
             oracle_token_scan,
             pool_token_scan,
@@ -86,6 +94,7 @@ impl NodeScanRegistry {
             refresh_token_scan,
             update_token_scan,
             buyback_token_scan,
+            dev_reward_token_scan
         };
         registry.save_to_json_file(&get_scans_file_path())?;
         node_api.rescan_from_height(ORACLE_CONFIG.scan_start_height)?;
@@ -230,6 +239,7 @@ mod tests {
             refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
             update_token_scan: GenericTokenScan::new(ScanId::from(186)),
             buyback_token_scan: None,
+            dev_reward_token_scan: None
         };
         let json_str = registry.save_to_json_str();
         expect_json(
@@ -241,7 +251,8 @@ mod tests {
                   "Ballot Box Scan": "191",
                   "Refresh Box Scan": "188",
                   "Update Box Scan": "186",
-                  "buyback_token_scan": null
+                  "buyback_token_scan": null,
+                  "dev_reward_token_scan": null
                 }"#]],
         );
     }
@@ -255,6 +266,7 @@ mod tests {
             refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
             update_token_scan: GenericTokenScan::new(ScanId::from(186)),
             buyback_token_scan: None,
+            dev_reward_token_scan: None
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();
@@ -270,6 +282,7 @@ mod tests {
             refresh_token_scan: GenericTokenScan::new(ScanId::from(188)),
             update_token_scan: GenericTokenScan::new(ScanId::from(186)),
             buyback_token_scan: Some(GenericTokenScan::new(ScanId::from(192))),
+            dev_reward_token_scan: Some(GenericTokenScan::new(ScanId::from(194))),
         };
         let json_str = registry.save_to_json_str();
         let registry2 = NodeScanRegistry::load_from_json_str(&json_str).unwrap();

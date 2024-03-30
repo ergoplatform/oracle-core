@@ -122,3 +122,15 @@ impl TokenIdKind for BuybackTokenId {
         Self(token)
     }
 }
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
+#[serde(transparent)]
+pub struct DevRewardTokenId(TokenId);
+impl TokenIdKind for DevRewardTokenId {
+    fn token_id(&self) -> TokenId {
+        self.0
+    }
+    fn from_token_id_unchecked(token: TokenId) -> Self {
+        Self(token)
+    }
+}
