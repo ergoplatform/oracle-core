@@ -22,3 +22,11 @@ oracle-config.yaml
 /oracles/
 /.vscode/
 /.idea/
+/bootstrap.yaml
+/oracle_config.yaml
+/pool_config.yaml
+/pool_config_updated.yaml
+/prepare_update_conf.yaml
+/prepare_update_conf.yaml.bk
+/rustup
+/send.sh

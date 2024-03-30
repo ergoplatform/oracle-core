@@ -10,6 +10,7 @@ use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
 use crate::oracle_config::BASE_FEE;
 use crate::oracle_state::BuybackBoxSource;
+use crate::oracle_state::DevRewardBoxSource;
 use crate::oracle_state::DataSourceError;
 use crate::oracle_state::PoolBoxSource;
 use crate::oracle_state::PostedDatapointBoxesSource;
@@ -75,6 +76,7 @@ pub fn build_refresh_action(
     change_address: Address,
     my_oracle_pk: &EcPoint,
     buyback_box_source: Option<&dyn BuybackBoxSource>,
+    dev_reward_box_source: Option<&dyn DevRewardBoxSource>
 ) -> Result<(RefreshAction, RefreshActionReport), RefreshActionError> {
     let tx_fee = *BASE_FEE;
     let in_pool_box = pool_box_source.get_pool_box()?;
@@ -118,6 +120,11 @@ pub fn build_refresh_action(
 
     let in_buyback_box_opt = buyback_box_source
         .map(|s| s.get_buyback_box())
+        .transpose()?
+        .flatten();
+
+    let in_dev_reward_box_opt = dev_reward_box_source
+        .map(|s| s.get_dev_reward_box())
         .transpose()?
         .flatten();
 
@@ -171,9 +178,26 @@ pub fn build_refresh_action(
             log::debug!("No reward tokens in buyback box");
         }
     };
+
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
     output_candidates.append(&mut out_oracle_boxes);
+
+
+    let mut dev_reward_in_position: i16 = -1;
+    let mut dev_reward_out_position: i16 = -1;
+
+    if let Some(dev_reward_box) = in_dev_reward_box_opt {
+        log::info!("Found dev reward box id {:?}", dev_reward_box.get_box().box_id());
+        println!("here 1");
+        input_boxes.push(dev_reward_box.get_box().clone());
+        dev_reward_in_position = (input_boxes.len() as i16) - 1;
+        let dev_reward_amount = TokenAmount::try_from((valid_in_oracle_boxes.len() as u64) - (1 as u64)).unwrap();
+        let out_dev_reward_box = dev_reward_box.add_reward_tokens(dev_reward_amount, height.0);
+        output_candidates.push(out_dev_reward_box);
+        dev_reward_out_position = (output_candidates.len() as i16) - 1;
+        println!("here 2");
+    };
 
     let box_selection = BoxSelection {
         boxes: input_boxes.clone().try_into().unwrap(),
@@ -196,12 +220,22 @@ pub fn build_refresh_action(
         .iter()
         .enumerate()
         .for_each(|(idx, ob)| {
-            let outindex = (idx as i32 + 2).into(); // first two output boxes are pool box and refresh box
+            let outindex = (idx as i32 + 2).into(); // first two output boxes are pool box and refresh box // todo: buyback fix
             let ob_ctx_ext = ContextExtension {
                 values: vec![(0, outindex)].into_iter().collect(),
             };
             b.set_context_extension(ob.get_box().box_id(), ob_ctx_ext);
         });
+
+    if (dev_reward_in_position > -1) {
+      let box_id = input_boxes.get(dev_reward_in_position as usize).unwrap().box_id();
+      let ctx_ext = ContextExtension {
+        values: vec![(0 as u8, dev_reward_out_position.into()),
+                     (1 as u8, (0 as i8).into())].into_iter().collect(),
+      };
+      b.set_context_extension(box_id, ctx_ext);
+    }
+
     let tx = b.build()?;
     let report = RefreshActionReport {
         oracle_boxes_collected: valid_in_oracle_boxes
@@ -339,9 +373,8 @@ fn build_out_oracle_boxes(
         .map(|in_ob| {
             let mut reward_token_new = in_ob.reward_token();
             reward_token_new.amount = if &in_ob.public_key() == my_public_key {
-                let increment: TokenAmount =
-                // additional 1 reward token per collected oracle box goes to the collector
-                    (1 + valid_oracle_boxes.len() as u64).try_into().unwrap();
+                // 2 reward tokens per collected oracle box goes to the collector
+                let increment: TokenAmount = (2 as u64).try_into().unwrap();
                 reward_token_new.amount.checked_add(&increment).unwrap()
             } else {
                 reward_token_new
@@ -585,6 +618,7 @@ mod tests {
             change_address.address(),
             &oracle_pub_key,
             None,
+            None,
         )
         .unwrap();
 
@@ -631,6 +665,7 @@ mod tests {
             height,
             change_address.address(),
             &oracle_pub_key,
+            None,
             None,
         );
         dbg!(&wrong_epoch_res);
@@ -681,6 +716,7 @@ mod tests {
             change_address.address(),
             &oracle_pub_key,
             Some(&buyback_source),
+            None
         )
         .unwrap();
 

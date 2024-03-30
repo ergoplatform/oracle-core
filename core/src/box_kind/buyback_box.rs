@@ -43,23 +43,22 @@ impl BuybackBoxWrapper {
     }
 
     pub fn new_without_reward_token(&self) -> ErgoBoxCandidate {
-        // take only buyback nft
-        let tokens = vec![self
+        // take only buyback nft - todo: 1 gort should remain as well
+        let tokens_vec = vec![self
             .ergo_box
             .tokens
             .as_ref()
             .unwrap()
             .get(0)
             .unwrap()
-            .clone()]
-        .try_into()
-        .unwrap();
+            .clone()];
+        let tokens = tokens_vec.try_into().unwrap();
         ErgoBoxCandidate {
             value: self.ergo_box.value,
             ergo_tree: self.ergo_box.ergo_tree.clone(),
             tokens: Some(tokens),
             additional_registers: self.ergo_box.additional_registers.clone(),
-            creation_height: self.ergo_box.creation_height,
+            creation_height: self.ergo_box.creation_height,  // todo: should be increased!!!
         }
     }
 }

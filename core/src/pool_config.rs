@@ -26,6 +26,7 @@ use crate::spec_token::PoolTokenId;
 use crate::spec_token::RefreshTokenId;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::UpdateTokenId;
+use crate::spec_token::DevRewardTokenId;
 
 pub const DEFAULT_POOL_CONFIG_FILE_NAME: &str = "pool_config.yaml";
 pub static POOL_CONFIG_FILE_PATH: sync::OnceCell<PathBuf> = sync::OnceCell::new();
@@ -49,6 +50,7 @@ pub struct PoolConfig {
     pub ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
     pub token_ids: TokenIds,
     pub buyback_token_id: Option<BuybackTokenId>,
+    pub dev_reward_token_id: Option<DevRewardTokenId>
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
@@ -153,6 +155,7 @@ impl PoolConfig {
             update_box_wrapper_inputs,
             token_ids,
             buyback_token_id: None,
+            dev_reward_token_id: None,
         })
     }
 

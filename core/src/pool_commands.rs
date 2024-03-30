@@ -120,6 +120,7 @@ pub fn build_action(
             change_address,
             &oracle_public_key,
             op.get_buyback_box_source(),
+            op.get_dev_reward_box_source()
         )
         .map_err(Into::into)
         .map(|(action, report)| (action.into(), report.into())),

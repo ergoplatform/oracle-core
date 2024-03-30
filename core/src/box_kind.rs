@@ -4,6 +4,7 @@ mod oracle_box;
 mod pool_box;
 mod refresh_box;
 mod update_box;
+mod devreward_box;
 
 pub use ballot_box::*;
 pub use buyback_box::*;
@@ -11,3 +12,4 @@ pub use oracle_box::*;
 pub use pool_box::*;
 pub use refresh_box::*;
 pub use update_box::*;
+pub use devreward_box::*;
