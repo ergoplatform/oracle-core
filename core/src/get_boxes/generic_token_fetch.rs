@@ -46,8 +46,8 @@ impl<T: TokenIdKind + Clone> TryFrom<String> for GenericTokenFetch<T> {
 }
 
 impl<T: TokenIdKind + Clone> From<GenericTokenFetch<T>> for String {
-    fn from(token_fech: GenericTokenFetch<T>) -> Self {
-        token_fech.token_id.into()
+    fn from(token_fetch: GenericTokenFetch<T>) -> Self {
+        token_fetch.token_id.into()
     }
 }
 
