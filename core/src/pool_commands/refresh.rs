@@ -133,7 +133,7 @@ pub fn build_refresh_action(
     ];
     let my_input_oracle_box_index: i32 = valid_in_oracle_boxes
         .iter()
-        .position(|b| &b.public_key() == &my_oracle_pk)
+        .position(|b| b.public_key() == my_oracle_pk)
         .ok_or(RefreshActionError::MyOracleBoxNoFound)?
         as i32;
 

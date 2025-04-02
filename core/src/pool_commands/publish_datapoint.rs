@@ -48,6 +48,7 @@ pub enum PublishDatapointActionError {
     OracleContract(#[from] OracleContractError),
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_subsequent_publish_datapoint_action(
     local_datapoint_box: &OracleBoxWrapper,
     node_api: &dyn NodeApiTrait,
