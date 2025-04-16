@@ -23,7 +23,6 @@ use crate::monitor::OracleHealth;
 use crate::monitor::PoolHealth;
 use crate::node_interface::node_api::NodeApi;
 use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_config::ORACLE_SECRETS;
 use crate::oracle_state::OraclePool;
 
 static POOL_BOX_HEIGHT: Lazy<IntGauge> = Lazy::new(|| {
@@ -334,14 +333,12 @@ fn update_my_claimable_reward_tokens(oracle_pool: Arc<OraclePool>) {
     }
 }
 
-pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error> {
-    let node_api = NodeApi::new(
-        ORACLE_SECRETS.node_api_key.clone(),
-        ORACLE_SECRETS.wallet_password.clone(),
-        &ORACLE_CONFIG.node_url,
-    );
+pub fn update_metrics(
+    oracle_pool: Arc<OraclePool>,
+    node_api: &NodeApi,
+) -> Result<(), anyhow::Error> {
     let current_height = (node_api.node.current_block_height()? as u32).into();
-    let network_prefix = node_api.get_change_address()?.network();
+    let network_prefix = ORACLE_CONFIG.change_address.clone().unwrap().network();
     let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;
     {
         let rate = pool_box.rate();
@@ -363,7 +360,10 @@ pub fn update_metrics(oracle_pool: Arc<OraclePool>) -> Result<(), anyhow::Error>
         pool_health.details.epoch_length,
     )?;
     update_oracle_health(&oracle_health);
-    let wallet_balance: i64 = node_api.node.wallet_nano_ergs_balance()? as i64;
+    let wallet_balance: i64 = node_api
+        .node
+        .nano_ergs_balance(&ORACLE_CONFIG.oracle_address.to_base58())?
+        as i64;
     ORACLE_NODE_WALLET_BALANCE.set(wallet_balance);
     POOL_BOX_REWARD_TOKEN_AMOUNT.set(pool_box.reward_token().amount.into());
     update_reward_tokens_in_buyback_box(oracle_pool.clone());

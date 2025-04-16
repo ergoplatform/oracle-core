@@ -1,6 +1,7 @@
 //! Bootstrap a new oracle pool
 use std::{convert::TryInto, io::Write, path::Path};
 
+use ergo_lib::wallet::signing::{TransactionContext, TxSigningError};
 use ergo_lib::{
     chain::{
         ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
@@ -42,11 +43,8 @@ use crate::{
         },
     },
     explorer_api::wait_for_txs_confirmation,
-    node_interface::{
-        node_api::{NodeApi, NodeApiError},
-        try_ensure_wallet_unlocked, SignTransactionWithInputs, SubmitTransaction,
-    },
-    oracle_config::{BASE_FEE, ORACLE_CONFIG, ORACLE_SECRETS},
+    node_interface::node_api::{NodeApi, NodeApiError, NodeApiTrait},
+    oracle_config::{BASE_FEE, ORACLE_CONFIG},
     oracle_types::{BlockHeight, EpochCounter},
     pool_config::{
         PoolConfig, PoolConfigError, PredefinedDataPointSource, TokenIds,
@@ -57,32 +55,22 @@ use crate::{
         BallotTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId, SpecToken,
         TokenIdKind, UpdateTokenId,
     },
-    wallet::{WalletDataError, WalletDataSource},
 };
 
 /// Loads bootstrap configuration file and performs the chain-transactions for minting of tokens and
 /// box creations. An oracle configuration file is then created which contains the `TokenId`s of the
 /// minted tokens.
-pub fn bootstrap(config_file_name: String) -> Result<(), anyhow::Error> {
+pub fn bootstrap(config_file_name: String, node_api: &NodeApi) -> Result<(), anyhow::Error> {
     let oracle_config = &ORACLE_CONFIG;
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
-
-    let node_api = NodeApi::new(
-        ORACLE_SECRETS.node_api_key.clone(),
-        ORACLE_SECRETS.wallet_password.clone(),
-        &oracle_config.node_url,
-    );
-    try_ensure_wallet_unlocked(&node_api);
-    let change_address = node_api.get_change_address()?;
+    let change_address = ORACLE_CONFIG.change_address.clone().unwrap();
     debug!("Change address: {:?}", change_address);
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
         oracle_address: oracle_config.oracle_address.clone(),
         config,
-        wallet: &node_api as &dyn WalletDataSource,
-        tx_signer: &node_api.node as &dyn SignTransactionWithInputs,
-        submit_tx: &node_api.node as &dyn SubmitTransaction,
+        node_api,
         tx_fee: *BASE_FEE,
         erg_value_per_box,
         change_address: change_address.address(),
@@ -122,9 +110,7 @@ pub fn generate_bootstrap_config_template(config_file_name: String) -> Result<()
 pub struct BootstrapInput<'a> {
     pub oracle_address: NetworkAddress,
     pub config: BootstrapConfig,
-    pub wallet: &'a dyn WalletDataSource,
-    pub tx_signer: &'a dyn SignTransactionWithInputs,
-    pub submit_tx: &'a dyn SubmitTransaction,
+    pub node_api: &'a dyn NodeApiTrait,
     pub tx_fee: BoxValue,
     pub erg_value_per_box: BoxValue,
     pub change_address: Address,
@@ -140,9 +126,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     let BootstrapInput {
         oracle_address,
         config,
-        wallet,
-        tx_signer: wallet_sign,
-        submit_tx,
+        node_api,
         tx_fee,
         erg_value_per_box,
         change_address,
@@ -232,7 +216,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         .build()?;
         output_candidates.push(remaining_funds.clone());
 
-        let inputs = box_selection.boxes.clone();
+        let inputs = box_selection.boxes.clone().to_vec();
         let tx_builder = TxBuilder::new(
             box_selection,
             output_candidates,
@@ -242,17 +226,25 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         );
         let mint_token_tx = tx_builder.build()?;
         debug!("Mint token unsigned transaction: {:?}", mint_token_tx);
-        let signed_tx = wallet_sign.sign_transaction_with_inputs(&mint_token_tx, inputs, None)?;
+        let context = match TransactionContext::new(mint_token_tx, inputs, vec![]) {
+            Ok(ctx) => ctx,
+            Err(e) => return Err(BootstrapError::TxSigningError(e)),
+        };
+        let signed_tx = node_api.sign_transaction(context)?;
         *num_transactions_left -= 1;
         Ok((token, signed_tx))
     };
 
     // Mint pool NFT token --------------------------------------------------------------------------
     info!("Creating and signing minting pool NFT tx");
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    debug!("unspent boxes: {:?}", unspent_boxes);
     let target_balance = calc_target_balance(num_transactions_left)?;
     debug!("target_balance: {:?}", target_balance);
+    let unspent_boxes = node_api.get_unspent_boxes_by_address(
+        &oracle_address.to_base58(),
+        target_balance,
+        [].into(),
+    )?;
+    debug!("unspent boxes: {:?}", unspent_boxes);
     let box_selector = SimpleBoxSelector::new();
     let box_selection = box_selector.select(unspent_boxes.clone(), target_balance, &[])?;
     debug!("box selection: {:?}", box_selection);
@@ -446,7 +438,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
         target_balance,
         &[pool_nft_token.clone(), reward_tokens_for_pool_box.clone()],
     )?;
-    let inputs = box_selection.boxes.clone();
+    let inputs = box_selection.boxes.clone().to_vec();
     let tx_builder = TxBuilder::new(
         box_selection,
         output_candidates,
@@ -456,8 +448,11 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     );
     let pool_box_tx = tx_builder.build()?;
     debug!("unsigned pool_box_tx: {:?}", pool_box_tx);
-    let signed_pool_box_tx =
-        wallet_sign.sign_transaction_with_inputs(&pool_box_tx, inputs, None)?;
+    let context = match TransactionContext::new(pool_box_tx, inputs, vec![]) {
+        Ok(ctx) => ctx,
+        Err(e) => return Err(BootstrapError::TxSigningError(e)),
+    };
+    let signed_pool_box_tx = node_api.sign_transaction(context)?;
     num_transactions_left -= 1;
 
     // Create refresh box --------------------------------------------------------------------------
@@ -502,7 +497,7 @@ pub(crate) fn perform_bootstrap_chained_transaction(
 
     let box_selection =
         box_selector.select(inputs, target_balance, &[refresh_nft_token.clone()])?;
-    let inputs = box_selection.boxes.clone();
+    let inputs = box_selection.boxes.clone().to_vec();
     let tx_builder = TxBuilder::new(
         box_selection,
         output_candidates,
@@ -512,33 +507,37 @@ pub(crate) fn perform_bootstrap_chained_transaction(
     );
     let refresh_box_tx = tx_builder.build()?;
     debug!("unsigned refresh_box_tx: {:?}", refresh_box_tx);
-    let signed_refresh_box_tx =
-        wallet_sign.sign_transaction_with_inputs(&refresh_box_tx, inputs, None)?;
+    let context = match TransactionContext::new(refresh_box_tx, inputs, vec![]) {
+        Ok(ctx) => ctx,
+        Err(e) => return Err(BootstrapError::TxSigningError(e)),
+    };
+
+    let signed_refresh_box_tx = node_api.sign_transaction(context)?;
 
     // ---------------------------------------------------------------------------------------------
     let mut submitted_tx_ids = vec![];
-    let tx_id = submit_tx.submit_transaction(&signed_mint_pool_nft_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_mint_pool_nft_tx)?;
     submitted_tx_ids.push(signed_mint_pool_nft_tx.id());
     info!("Minted pool NFT TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_refresh_nft_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_mint_refresh_nft_tx)?;
     submitted_tx_ids.push(signed_mint_refresh_nft_tx.id());
     info!("Minted refresh NFT TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_ballot_tokens_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_mint_ballot_tokens_tx)?;
     submitted_tx_ids.push(signed_mint_ballot_tokens_tx.id());
     info!("Minted ballot tokens TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_update_nft_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_mint_update_nft_tx)?;
     submitted_tx_ids.push(signed_mint_update_nft_tx.id());
     info!("Minted update NFT TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_oracle_tokens_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_mint_oracle_tokens_tx)?;
     submitted_tx_ids.push(signed_mint_oracle_tokens_tx.id());
     info!("Minted oracle tokens TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_mint_reward_tokens_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_mint_reward_tokens_tx)?;
     submitted_tx_ids.push(signed_mint_reward_tokens_tx.id());
     info!("Minted reward tokens TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_pool_box_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_pool_box_tx)?;
     submitted_tx_ids.push(signed_pool_box_tx.id());
     info!("Created initial pool box TxId: {}", tx_id);
-    let tx_id = submit_tx.submit_transaction(&signed_refresh_box_tx)?;
+    let tx_id = node_api.submit_transaction(&signed_refresh_box_tx)?;
     submitted_tx_ids.push(signed_refresh_box_tx.id());
     info!("Created initial refresh box TxId: {}", tx_id);
 
@@ -637,6 +636,8 @@ pub enum BootstrapError {
     NodeApiError(#[from] NodeApiError),
     #[error("box selector error: {0}")]
     BoxSelector(#[from] BoxSelectorError),
+    #[error("tx signing error: {0}")]
+    TxSigningError(#[from] TxSigningError),
     #[error("box value error: {0}")]
     BoxValue(#[from] BoxValueError),
     #[error("IO error: {0}")]
@@ -663,8 +664,6 @@ pub enum BootstrapError {
     PoolConfigError(#[from] PoolConfigError),
     #[error("Pool contract error: {0}")]
     PoolContractError(#[from] PoolContractError),
-    #[error("WalletData error: {0}")]
-    WalletData(#[from] WalletDataError),
 }
 
 #[cfg(test)]
@@ -676,27 +675,11 @@ pub(crate) mod tests {
             address::{AddressEncoder, NetworkAddress, NetworkPrefix},
             ergo_box::{ErgoBox, NonMandatoryRegisters},
         },
-        wallet::Wallet,
     };
     use sigma_test_util::force_any_val;
 
     use super::*;
-    use crate::pool_commands::test_utils::{LocalTxSigner, WalletDataMock};
-    use std::cell::RefCell;
-    #[derive(Default)]
-    pub(crate) struct SubmitTxMock {
-        transactions: RefCell<Vec<ergo_lib::chain::transaction::Transaction>>,
-    }
-
-    impl SubmitTransaction for SubmitTxMock {
-        fn submit_transaction(
-            &self,
-            tx: &ergo_lib::chain::transaction::Transaction,
-        ) -> crate::node_interface::Result<TxId> {
-            self.transactions.borrow_mut().push(tx.clone());
-            Ok(tx.id())
-        }
-    }
+    use crate::node_interface::test_utils::{MockNodeApi, SubmitTxMock};
 
     #[test]
     fn test_bootstrap() {
@@ -707,7 +690,6 @@ pub(crate) mod tests {
             NetworkPrefix::Mainnet,
             &Address::P2Pk(secret.public_image()),
         );
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let ergo_tree = address.address().script().unwrap();
 
         let value = BASE_FEE.checked_mul_u32(10000).unwrap();
@@ -733,15 +715,13 @@ pub(crate) mod tests {
         let oracle_config = perform_bootstrap_chained_transaction(BootstrapInput {
             oracle_address: address,
             config: bootstrap_config.clone(),
-            wallet: &WalletDataMock {
+            node_api: &MockNodeApi {
                 unspent_boxes: unspent_boxes.clone(),
-                change_address: change_address.clone(),
+                ctx: ctx.clone(),
+                secrets: vec![secret.clone().into()],
+                submitted_txs: &submit_tx.transactions,
+                chain_submit_tx: None,
             },
-            tx_signer: &mut LocalTxSigner {
-                ctx: &ctx,
-                wallet: &wallet,
-            },
-            submit_tx: &submit_tx,
             tx_fee: *BASE_FEE,
             erg_value_per_box: *BASE_FEE,
             change_address: change_address.address(),
@@ -901,7 +881,6 @@ tokens_to_mint:
     quantity: 100000000
 node_ip: 10.94.77.47
 node_port: 9052
-node_api_key: hello
 core_api_port: 9010
 data_point_source: NanoErgUsd
 data_point_source_custom_script: ~

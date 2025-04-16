@@ -1,10 +1,11 @@
 use std::convert::TryInto;
 
+use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::wallet::box_selector::{BoxSelector, SimpleBoxSelector};
+use ergo_lib::wallet::signing::{TransactionContext, TxSigningError};
 use ergo_lib::{
-    chain::{
-        ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
-        transaction::unsigned::UnsignedTransaction,
-    },
+    chain::ergo_box::box_builder::{ErgoBoxCandidateBuilder, ErgoBoxCandidateBuilderError},
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::{
         chain::{
@@ -14,24 +15,24 @@ use ergo_lib::{
         serialization::SigmaParsingError,
     },
     wallet::{
-        box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
+        box_selector::{BoxSelection, BoxSelectorError},
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
 use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
+use crate::node_interface::node_api::NodeApiTrait;
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::{
     box_kind::{
         make_collected_oracle_box_candidate, make_oracle_box_candidate, OracleBox, OracleBoxWrapper,
     },
     explorer_api::ergo_explorer_transaction_link,
-    node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{DataSourceError, LocalDatapointBoxSource},
     oracle_types::BlockHeight,
     spec_token::SpecToken,
-    wallet::{WalletDataError, WalletDataSource},
 };
 
 #[derive(Debug, Error)]
@@ -48,6 +49,8 @@ pub enum ExtractRewardTokensActionError {
     Node(#[from] NodeError),
     #[error("box selector error: {0}")]
     BoxSelector(#[from] BoxSelectorError),
+    #[error("tx signing error: {0}")]
+    TxSigningError(#[from] TxSigningError),
     #[error("Sigma parsing error: {0}")]
     SigmaParse(#[from] SigmaParsingError),
     #[error("tx builder error: {0}")]
@@ -60,14 +63,10 @@ pub enum ExtractRewardTokensActionError {
     NoChangeAddressSetInNode,
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("WalletData error: {0}")]
-    WalletData(#[from] WalletDataError),
 }
 
 pub fn extract_reward_tokens(
-    wallet: &dyn WalletDataSource,
-    tx_signer: &dyn SignTransaction,
-    tx_submit: &dyn SubmitTransaction,
+    node_api: &dyn NodeApiTrait,
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
     rewards_destination_str: String,
     height: BlockHeight,
@@ -75,15 +74,15 @@ pub fn extract_reward_tokens(
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
     let network_prefix = rewards_destination.network();
-    let change_address = wallet
-        .get_change_address()
-        .map_err(ExtractRewardTokensActionError::WalletData)?;
-    let (unsigned_tx, num_reward_tokens) = build_extract_reward_tokens_tx(
+    let oracle_address = ORACLE_CONFIG.oracle_address.clone();
+    let change_address = ORACLE_CONFIG.change_address.clone();
+    let (context, num_reward_tokens) = build_extract_reward_tokens_tx(
         local_datapoint_box_source,
-        wallet,
+        node_api,
         rewards_destination.address(),
         height,
-        change_address.address(),
+        oracle_address,
+        change_address.unwrap().address(),
     )?;
 
     println!(
@@ -93,8 +92,8 @@ pub fn extract_reward_tokens(
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim() == "YES" {
-        let signed_tx = tx_signer.sign_transaction(&unsigned_tx)?;
-        let tx_id = tx_submit.submit_transaction(&signed_tx)?;
+        let signed_tx = node_api.sign_transaction(context)?;
+        let tx_id = node_api.submit_transaction(&signed_tx)?;
         crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
         println!(
             "Transaction made. Check status here: {}",
@@ -108,11 +107,12 @@ pub fn extract_reward_tokens(
 
 fn build_extract_reward_tokens_tx(
     local_datapoint_box_source: &dyn LocalDatapointBoxSource,
-    wallet: &dyn WalletDataSource,
+    node_api: &dyn NodeApiTrait,
     rewards_destination: Address,
     height: BlockHeight,
+    oracle_address: NetworkAddress,
     change_address: Address,
-) -> Result<(UnsignedTransaction, u64), ExtractRewardTokensActionError> {
+) -> Result<(TransactionContext<UnsignedTransaction>, u64), ExtractRewardTokensActionError> {
     let in_oracle_box = local_datapoint_box_source
         .get_local_oracle_datapoint_box()?
         .ok_or(ExtractRewardTokensActionError::NoLocalDatapointBox)?;
@@ -164,10 +164,13 @@ fn build_extract_reward_tokens_tx(
         builder.add_token(extracted_reward_tokens);
         let reward_box_candidate = builder.build()?;
 
-        let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-
         // `BASE_FEE` each for the fee and the box holding the extracted reward tokens.
         let target_balance = BASE_FEE.checked_mul_u32(2).unwrap();
+        let unspent_boxes = node_api.get_unspent_boxes_by_address(
+            &oracle_address.to_base58(),
+            target_balance,
+            [].into(),
+        )?;
 
         let box_selector = SimpleBoxSelector::new();
         let selection = box_selector.select(unspent_boxes, target_balance, &[])?;
@@ -177,6 +180,7 @@ fn build_extract_reward_tokens_tx(
             boxes: input_boxes.try_into().unwrap(),
             change_boxes: selection.change_boxes,
         };
+        let inputs = box_selection.boxes.clone().to_vec();
         let mut tx_builder = TxBuilder::new(
             box_selection,
             vec![oracle_box_candidate, reward_box_candidate],
@@ -190,7 +194,11 @@ fn build_extract_reward_tokens_tx(
         };
         tx_builder.set_context_extension(in_oracle_box.get_box().box_id(), ctx_ext);
         let tx = tx_builder.build()?;
-        Ok((tx, num_reward_tokens - 1))
+        let context = match TransactionContext::new(tx, inputs, vec![]) {
+            Ok(ctx) => ctx,
+            Err(e) => return Err(ExtractRewardTokensActionError::TxSigningError(e)),
+        };
+        Ok((context, num_reward_tokens - 1))
     } else {
         Err(ExtractRewardTokensActionError::IncorrectDestinationAddress)
     }
@@ -204,16 +212,14 @@ mod tests {
     use super::*;
     use crate::box_kind::{OracleBoxWrapper, OracleBoxWrapperInputs};
     use crate::contracts::oracle::OracleContractParameters;
+    use crate::node_interface::test_utils::{MockNodeApi, SubmitTxMock};
     use crate::oracle_types::EpochCounter;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
-        OracleBoxMock, WalletDataMock,
+        generate_token_ids, make_datapoint_box, make_wallet_unspent_box, OracleBoxMock,
     };
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
     use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
-    use ergo_lib::wallet::signing::TransactionContext;
-    use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
     #[test]
@@ -222,7 +228,6 @@ mod tests {
         let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let secret = force_any_val::<DlogProverInput>();
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let oracle_pub_key = secret.public_image().h;
 
         let num_reward_tokens_in_box = 2;
@@ -245,7 +250,7 @@ mod tests {
         .unwrap();
         let local_datapoint_box_source = OracleBoxMock { oracle_box };
 
-        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+        let address = AddressEncoder::unchecked_parse_network_address_from_str(
             "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
         )
         .unwrap();
@@ -255,35 +260,25 @@ mod tests {
             BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
-        let wallet_mock = WalletDataMock {
+        let mock_node_api = &MockNodeApi {
             unspent_boxes: vec![wallet_unspent_box],
-            change_address: change_address.clone(),
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
         };
-        let (tx, num_reward_tokens) = build_extract_reward_tokens_tx(
+        let (tx_context, num_reward_tokens) = build_extract_reward_tokens_tx(
             &local_datapoint_box_source,
-            &wallet_mock,
-            change_address.address(),
+            mock_node_api,
+            address.address(),
             height,
-            change_address.address(),
+            address.clone(),
+            address.address(),
         )
         .unwrap();
 
         assert_eq!(num_reward_tokens, num_reward_tokens_in_box - 1);
-        let mut possible_input_boxes = vec![local_datapoint_box_source
-            .get_local_oracle_datapoint_box()
-            .unwrap()
-            .unwrap()
-            .get_box()
-            .clone()];
-        possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
 
-        let tx_context = TransactionContext::new(
-            tx.clone(),
-            find_input_boxes(tx, possible_input_boxes),
-            Vec::new(),
-        )
-        .unwrap();
-
-        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        let _signed_tx = mock_node_api.sign_transaction(tx_context).unwrap();
     }
 }

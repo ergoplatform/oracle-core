@@ -1,17 +1,21 @@
 use std::convert::TryFrom;
 
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::wallet::box_selector::{BoxSelector, SimpleBoxSelector};
+use ergo_lib::wallet::signing::{TransactionContext, TxSigningError};
 use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
-    ergo_chain_types::EcPoint,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
     ergotree_ir::chain::{address::Address, token::TokenAmount},
     wallet::{
-        box_selector::{BoxSelector, BoxSelectorError, SimpleBoxSelector},
+        box_selector::BoxSelectorError,
         tx_builder::{TxBuilder, TxBuilderError},
     },
 };
 use thiserror::Error;
 
+use crate::address_util::address_to_p2pk;
+use crate::node_interface::node_api::NodeApiTrait;
 use crate::{
     action_report::PublishDatapointActionReport,
     actions::PublishDataPointAction,
@@ -22,7 +26,6 @@ use crate::{
     oracle_state::DataSourceError,
     oracle_types::{BlockHeight, EpochCounter},
     spec_token::{OracleTokenId, RewardTokenId, SpecToken},
-    wallet::{WalletDataError, WalletDataSource},
 };
 
 #[derive(Debug, Error)]
@@ -35,8 +38,8 @@ pub enum PublishDatapointActionError {
     TxBuilder(#[from] TxBuilderError),
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilder(#[from] ErgoBoxCandidateBuilderError),
-    #[error("WalletData error: {0}")]
-    WalletData(#[from] WalletDataError),
+    #[error("tx signing error: {0}")]
+    TxSigningError(#[from] TxSigningError),
     #[error("box selector error: {0}")]
     BoxSelector(#[from] BoxSelectorError),
     #[error("datapoint source error: {0}")]
@@ -45,10 +48,12 @@ pub enum PublishDatapointActionError {
     OracleContract(#[from] OracleContractError),
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_subsequent_publish_datapoint_action(
     local_datapoint_box: &OracleBoxWrapper,
-    wallet: &dyn WalletDataSource,
+    node_api: &dyn NodeApiTrait,
     height: BlockHeight,
+    oracle_address: NetworkAddress,
     change_address: Address,
     datapoint_source: &dyn DataPointSource,
     new_epoch_counter: EpochCounter,
@@ -76,17 +81,18 @@ pub fn build_subsequent_publish_datapoint_action(
         in_oracle_box.get_box().value,
         height,
     )?;
-
-    let mut unspent_boxes = wallet.get_unspent_wallet_boxes()?;
-    let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
+    let tx_fee = *BASE_FEE;
+    let mut unspent_boxes =
+        node_api.get_unspent_boxes_by_address(&oracle_address.to_base58(), tx_fee, vec![])?;
     let target_tokens = vec![
         in_oracle_box.oracle_token().into(),
         outbox_reward_tokens.into(),
     ];
-    let target_balace = in_oracle_box.get_box().value.checked_add(&tx_fee).unwrap();
+    let target_balance = in_oracle_box.get_box().value.checked_add(&tx_fee).unwrap();
     unspent_boxes.push(in_oracle_box.get_box().clone());
-    let selection = box_selector.select(unspent_boxes, target_balace, target_tokens.as_slice())?;
+    let selection = box_selector.select(unspent_boxes, target_balance, target_tokens.as_slice())?;
+    let inputs = selection.boxes.clone().to_vec();
     let mut tx_builder = TxBuilder::new(
         selection,
         vec![output_candidate],
@@ -104,20 +110,28 @@ pub fn build_subsequent_publish_datapoint_action(
     let report = PublishDatapointActionReport {
         posted_datapoint: new_datapoint,
     };
-    Ok((PublishDataPointAction { tx }, report))
+    let context = match TransactionContext::new(tx, inputs, vec![]) {
+        Ok(ctx) => ctx,
+        Err(e) => return Err(PublishDatapointActionError::TxSigningError(e)),
+    };
+    Ok((
+        PublishDataPointAction {
+            transaction_context: context,
+        },
+        report,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_publish_first_datapoint_action(
-    wallet: &dyn WalletDataSource,
+    node_api: &dyn NodeApiTrait,
     height: BlockHeight,
+    oracle_address: NetworkAddress,
     change_address: Address,
-    public_key: EcPoint,
     inputs: OracleBoxWrapperInputs,
     datapoint_source: &dyn DataPointSource,
 ) -> Result<(PublishDataPointAction, PublishDatapointActionReport), PublishDatapointActionError> {
     let new_datapoint = datapoint_source.get_datapoint()?;
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
     let tx_fee = *BASE_FEE;
     let box_selector = SimpleBoxSelector::new();
     let oracle_token: SpecToken<OracleTokenId> = SpecToken {
@@ -132,16 +146,22 @@ pub fn build_publish_first_datapoint_action(
     let contract = OracleContract::checked_load(&inputs.contract_inputs)?;
     let min_storage_rent = contract.parameters().min_storage_rent;
     let target_balance = min_storage_rent.checked_add(&tx_fee).unwrap();
+    let target_tokens = vec![oracle_token.clone().into(), reward_token.clone().into()];
 
-    let wallet_boxes_selection = box_selector.select(
+    let unspent_boxes = node_api.get_unspent_boxes_by_address(
+        &oracle_address.to_base58(),
+        target_balance,
+        target_tokens.clone(),
+    )?;
+    let box_selection = box_selector.select(
         unspent_boxes.clone(),
         target_balance,
-        &[oracle_token.clone().into(), reward_token.clone().into()],
+        target_tokens.as_slice(),
     )?;
-
+    let oracle_pk = address_to_p2pk(&oracle_address.address()).unwrap();
     let output_candidate = make_oracle_box_candidate(
         &contract,
-        public_key,
+        *oracle_pk.h,
         new_datapoint,
         EpochCounter(1),
         oracle_token,
@@ -150,9 +170,10 @@ pub fn build_publish_first_datapoint_action(
         height,
     )?;
 
-    let box_id = wallet_boxes_selection.boxes.first().box_id();
+    let box_id = box_selection.boxes.first().box_id();
+    let inputs = box_selection.boxes.clone().to_vec();
     let mut tx_builder = TxBuilder::new(
-        wallet_boxes_selection,
+        box_selection,
         vec![output_candidate],
         height.0,
         tx_fee,
@@ -168,7 +189,16 @@ pub fn build_publish_first_datapoint_action(
     let report = PublishDatapointActionReport {
         posted_datapoint: new_datapoint,
     };
-    Ok((PublishDataPointAction { tx }, report))
+    let context = match TransactionContext::new(tx, inputs, vec![]) {
+        Ok(ctx) => ctx,
+        Err(e) => return Err(PublishDatapointActionError::TxSigningError(e)),
+    };
+    Ok((
+        PublishDataPointAction {
+            transaction_context: context,
+        },
+        report,
+    ))
 }
 
 #[cfg(test)]
@@ -176,27 +206,22 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::box_kind::PoolBox;
     use crate::contracts::oracle::OracleContractParameters;
-    use crate::contracts::pool::PoolContractParameters;
-    use crate::oracle_state::PoolBoxSource;
+    use crate::node_interface::test_utils::{MockNodeApi, SubmitTxMock};
     use crate::oracle_types::{EpochLength, Rate};
     use crate::pool_commands::test_utils::{
-        find_input_boxes, generate_token_ids, make_datapoint_box, make_pool_box,
-        make_wallet_unspent_box, PoolBoxMock, WalletDataMock,
+        generate_token_ids, make_datapoint_box, make_wallet_unspent_box,
     };
     use crate::spec_token::TokenIdKind;
     use ergo_lib::chain::ergo_state_context::ErgoStateContext;
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
-    use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+    use ergo_lib::ergotree_ir::chain::address::{AddressEncoder, NetworkPrefix};
     use ergo_lib::ergotree_ir::chain::ergo_box::{BoxTokens, ErgoBox, NonMandatoryRegisters};
     use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
     use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
     use ergo_lib::ergotree_ir::mir::constant::Constant;
     use ergo_lib::ergotree_ir::mir::expr::Expr;
-    use ergo_lib::wallet::signing::TransactionContext;
-    use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
     #[derive(Debug)]
@@ -216,24 +241,13 @@ mod tests {
         let height = BlockHeight(ctx.pre_header.height);
         let token_ids = generate_token_ids();
         let oracle_contract_parameters = OracleContractParameters::default();
-        let pool_contract_parameters = PoolContractParameters::default();
         let pool_box_epoch_id = EpochCounter(1);
-        let in_pool_box = make_pool_box(
-            200,
-            pool_box_epoch_id,
-            *BASE_FEE,
-            height - EpochLength(32), // from previous epoch
-            &pool_contract_parameters,
-            &token_ids,
-        );
         let secret = force_any_val::<DlogProverInput>();
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let oracle_address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image().clone()),
+        );
         let oracle_pub_key = secret.public_image().h;
-
-        let pool_box_mock = PoolBoxMock {
-            pool_box: in_pool_box,
-        };
-
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
         let oracle_box = OracleBoxWrapper::new(
@@ -263,9 +277,12 @@ mod tests {
             BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
-        let wallet_mock = WalletDataMock {
+        let mock_node_api = MockNodeApi {
             unspent_boxes: vec![wallet_unspent_box],
-            change_address: change_address.clone(),
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
         };
 
         let datapoint_source = MockDatapointSource {
@@ -273,8 +290,9 @@ mod tests {
         };
         let (action, _) = build_subsequent_publish_datapoint_action(
             &oracle_box,
-            &wallet_mock,
+            &mock_node_api,
             height,
+            oracle_address,
             change_address.address(),
             &datapoint_source,
             pool_box_epoch_id,
@@ -282,20 +300,9 @@ mod tests {
         )
         .unwrap();
 
-        let mut possible_input_boxes = vec![
-            pool_box_mock.get_pool_box().unwrap().get_box().clone(),
-            oracle_box.get_box().clone(),
-        ];
-        possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
-
-        let tx_context = TransactionContext::new(
-            action.tx.clone(),
-            find_input_boxes(action.tx, possible_input_boxes.clone()),
-            Vec::new(),
-        )
-        .unwrap();
-
-        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        let _signed_tx = mock_node_api
+            .sign_transaction(action.transaction_context)
+            .unwrap();
     }
 
     #[test]
@@ -317,7 +324,10 @@ mod tests {
         .unwrap();
 
         let secret = force_any_val::<DlogProverInput>();
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let oracle_address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image().clone()),
+        );
         let c: Constant = secret.public_image().into();
         let expr: Expr = c.into();
         let ergo_tree = ErgoTree::try_from(expr).unwrap();
@@ -356,14 +366,19 @@ mod tests {
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), &token_ids))
                 .unwrap();
+        let mock_node_api = MockNodeApi {
+            unspent_boxes: unspent_boxes.clone(),
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
+        };
+
         let (action, _) = build_publish_first_datapoint_action(
-            &WalletDataMock {
-                unspent_boxes: unspent_boxes.clone(),
-                change_address: change_address.clone(),
-            },
+            &mock_node_api,
             height,
+            oracle_address,
             change_address.address(),
-            *secret.public_image().h,
             oracle_box_wrapper_inputs,
             &MockDatapointSource {
                 datapoint: 201.into(),
@@ -372,14 +387,18 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            action.tx.output_candidates.first().value,
+            action
+                .transaction_context
+                .spending_tx
+                .output_candidates
+                .first()
+                .value,
             oracle_contract_parameters.min_storage_rent
         );
 
-        let tx_context =
-            TransactionContext::new(action.tx.clone(), unspent_boxes, Vec::new()).unwrap();
-
-        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        let _signed_tx = mock_node_api
+            .sign_transaction(action.transaction_context)
+            .unwrap();
     }
 
     #[test]
@@ -390,25 +409,15 @@ mod tests {
         let minted_reward_token_id =
             RewardTokenId::from_token_id_unchecked(force_any_val::<TokenId>());
         let oracle_contract_parameters = OracleContractParameters::default();
-        let pool_contract_parameters = PoolContractParameters::default();
         let pool_box_epoch_id = EpochCounter(1);
         dbg!(&token_ids);
         dbg!(&minted_reward_token_id);
-        let in_pool_box = make_pool_box(
-            200,
-            pool_box_epoch_id,
-            *BASE_FEE,
-            height - EpochLength(32), // from previous epoch
-            &pool_contract_parameters,
-            &token_ids,
-        );
         let secret = force_any_val::<DlogProverInput>();
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let oracle_address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image().clone()),
+        );
         let oracle_pub_key = secret.public_image().h;
-
-        let pool_box_mock = PoolBoxMock {
-            pool_box: in_pool_box,
-        };
 
         let oracle_box_wrapper_inputs =
             OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
@@ -446,9 +455,12 @@ mod tests {
                 .unwrap(),
             ),
         );
-        let wallet_mock = WalletDataMock {
+        let mock_node_api = MockNodeApi {
             unspent_boxes: vec![wallet_unspent_box],
-            change_address: change_address.clone(),
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
         };
 
         let datapoint_source = MockDatapointSource {
@@ -456,8 +468,9 @@ mod tests {
         };
         let (action, _) = build_subsequent_publish_datapoint_action(
             &oracle_box,
-            &wallet_mock,
+            &mock_node_api,
             height,
+            oracle_address,
             change_address.address(),
             &datapoint_source,
             pool_box_epoch_id,
@@ -465,19 +478,8 @@ mod tests {
         )
         .unwrap();
 
-        let mut possible_input_boxes = vec![
-            pool_box_mock.get_pool_box().unwrap().get_box().clone(),
-            oracle_box.get_box().clone(),
-        ];
-        possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
-
-        let tx_context = TransactionContext::new(
-            action.tx.clone(),
-            find_input_boxes(action.tx, possible_input_boxes.clone()),
-            Vec::new(),
-        )
-        .unwrap();
-
-        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        let _signed_tx = mock_node_api
+            .sign_transaction(action.transaction_context)
+            .unwrap();
     }
 }

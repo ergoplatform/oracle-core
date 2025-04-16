@@ -1,9 +1,9 @@
 /// This file holds all the actions which can be performed
 /// by an oracle part of the oracle pool. These actions
 /// are implemented on the `OraclePool` struct.
-use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
-
 use derive_more::From;
+use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+use ergo_lib::wallet::signing::TransactionContext;
 use ergo_node_interface::node_interface::NodeError;
 use thiserror::Error;
 
@@ -23,12 +23,12 @@ pub enum PoolAction {
 
 #[derive(Debug)]
 pub struct RefreshAction {
-    pub tx: UnsignedTransaction,
+    pub transaction_context: TransactionContext<UnsignedTransaction>,
 }
 
 #[derive(Debug)]
 pub struct PublishDataPointAction {
-    pub tx: UnsignedTransaction,
+    pub transaction_context: TransactionContext<UnsignedTransaction>,
 }
 
 #[derive(Error, Debug)]
@@ -63,7 +63,7 @@ fn execute_refresh_action(
     action: RefreshAction,
     node_api: &NodeApi,
 ) -> Result<(), ActionExecError> {
-    let tx_id = node_api.sign_and_submit_transaction(&action.tx)?;
+    let tx_id = node_api.sign_and_submit_transaction(action.transaction_context)?;
     let network_prefix = &ORACLE_CONFIG.oracle_address.network();
     log::info!(
         "Refresh tx published. Check status: {}",
@@ -76,7 +76,7 @@ fn execute_publish_datapoint_action(
     action: PublishDataPointAction,
     node_api: &NodeApi,
 ) -> Result<(), ActionExecError> {
-    let tx_id = node_api.sign_and_submit_transaction(&action.tx)?;
+    let tx_id = node_api.sign_and_submit_transaction(action.transaction_context)?;
     let network_prefix = &ORACLE_CONFIG.oracle_address.network();
     log::info!(
         "Datapoint tx published. Check status: {}",

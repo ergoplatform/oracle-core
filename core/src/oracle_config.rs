@@ -5,6 +5,9 @@ use std::{
 };
 
 use anyhow::Context;
+use ergo_lib::wallet::ext_secret_key::ExtSecretKey;
+use ergo_lib::wallet::mnemonic::Mnemonic;
+use ergo_lib::wallet::secret_key::SecretKey;
 use ergo_lib::{
     ergotree_ir::chain::address::NetworkAddress,
     ergotree_ir::{
@@ -16,7 +19,7 @@ use ergo_lib::{
     },
     wallet::tx_builder::{self, SUGGESTED_TX_FEE},
 };
-use log::{warn, LevelFilter};
+use log::LevelFilter;
 use once_cell::sync;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -30,35 +33,32 @@ pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
 pub struct OracleConfig {
     pub node_url: Url,
     pub base_fee: u64,
-    pub scan_start_height: u32,
     pub log_level: Option<LevelFilter>,
     pub core_api_port: u16,
     pub oracle_address: NetworkAddress,
+    pub change_address: Option<NetworkAddress>,
     pub data_point_source_custom_script: Option<String>,
     pub explorer_url: Option<Url>,
     pub metrics_port: Option<u16>,
 }
 
 pub struct OracleSecrets {
-    pub node_api_key: String,
-    pub wallet_password: Option<String>,
+    pub secret_key: SecretKey,
 }
 
 impl OracleSecrets {
     pub fn load() -> Self {
-        let api_key = std::env::var("ORACLE_NODE_API_KEY").unwrap_or_else(|_| {
-            panic!("ORACLE_NODE_API_KEY environment variable for node API key is not set")
+        let mnemonic = std::env::var("ORACLE_WALLET_MNEMONIC").unwrap_or_else(|_| {
+            panic!("ORACLE_WALLET_MNEMONIC environment variable for sign transactions is not set")
         });
 
-        let wallet_pass = std::env::var("ORACLE_NODE_WALLET_PASSWORD").ok();
-        if wallet_pass.is_none() {
-            warn!("ORACLE_NODE_WALLET_PASSWORD environment variable for automatic unlock of node wallet is not set");
-        }
+        let seed = Mnemonic::to_seed(&mnemonic, "");
+        let ext_sk = ExtSecretKey::derive_master(seed).unwrap();
+        // bip-32 path for the first key
+        let path = "m/44'/429'/0'/0/0";
+        let secret = ext_sk.derive(path.parse().unwrap()).unwrap().secret_key();
 
-        Self {
-            node_api_key: api_key,
-            wallet_password: wallet_pass,
-        }
+        Self { secret_key: secret }
     }
 }
 
@@ -79,12 +79,20 @@ impl OracleConfig {
             "failed to load oracle config file from {}",
             config_file_path.display()
         ))?;
-        let config =
+        let mut config =
             Self::load_from_str(&config_str).context("failed to parse oracle config file")?;
+        if config.change_address.is_none() {
+            config.change_address = Some(config.oracle_address.clone());
+            log::info!("Set oracle address as change address");
+        }
         let _ = config
             .oracle_address_p2pk()
             .context("failed to parse oracle address")?;
-        Ok(config)
+
+        let _ = config
+            .change_address_p2pk()
+            .context("failed to parse change address")?;
+        Ok(config.clone())
     }
 
     pub fn load_from_str(config_str: &str) -> Result<Self, OracleConfigFileError> {
@@ -106,6 +114,14 @@ impl OracleConfig {
             Err(OracleConfigFileError::InvalidOracleAddress)
         }
     }
+
+    pub fn change_address_p2pk(&self) -> Result<ProveDlog, OracleConfigFileError> {
+        if let Address::P2Pk(public_key) = self.change_address.clone().unwrap().address() {
+            Ok(public_key.clone())
+        } else {
+            Err(OracleConfigFileError::InvalidChangeAddress)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Error)]
@@ -116,6 +132,8 @@ pub enum OracleConfigFileError {
     ParseError(String),
     #[error("Invalid oracle address, must be P2PK")]
     InvalidOracleAddress,
+    #[error("Invalid change address, must be P2PK")]
+    InvalidChangeAddress,
 }
 
 impl Default for OracleConfig {
@@ -126,8 +144,8 @@ impl Default for OracleConfig {
         .unwrap();
         Self {
             oracle_address: address.clone(),
+            change_address: None,
             core_api_port: 9010,
-            scan_start_height: 0,
             data_point_source_custom_script: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),

@@ -6,10 +6,10 @@ use crate::box_kind::{
     UpdateBoxWrapper, UpdateBoxWrapperInputs, VoteBallotBoxWrapper,
 };
 use crate::datapoint_source::DataPointSourceError;
+use crate::get_boxes::{GenericTokenFetch, GetBoxes, GetBoxesError, TokenFetchRegistry};
 use crate::oracle_config::ORACLE_CONFIG;
 use crate::oracle_types::{BlockHeight, EpochCounter, Rate};
 use crate::pool_config::POOL_CONFIG;
-use crate::scans::{GenericTokenScan, NodeScanRegistry, ScanError, ScanGetBoxes};
 use crate::spec_token::{
     BallotTokenId, BuybackTokenId, OracleTokenId, PoolTokenId, RefreshTokenId, RewardTokenId,
     TokenIdKind, UpdateTokenId,
@@ -27,8 +27,8 @@ pub type Result<T> = std::result::Result<T, DataSourceError>;
 pub enum DataSourceError {
     #[error("unexpected data error: {0}")]
     UnexpectedData(#[from] TryExtractFromError),
-    #[error("scan error: {0}")]
-    ScanError(#[from] ScanError),
+    #[error("get boxes error: {0}")]
+    GetBoxesError(#[from] GetBoxesError),
     #[error("pool box error: {0}")]
     PoolBoxError(#[from] PoolBoxError),
     #[error("pool box not found")]
@@ -90,63 +90,63 @@ pub trait BuybackBoxSource {
 /// Overarching struct which allows for acquiring the state of the whole oracle pool protocol
 #[derive(Debug)]
 pub struct OraclePool {
-    oracle_datapoint_scan: OracleDatapointScan,
-    local_oracle_datapoint_scan: LocalOracleDatapointScan,
-    local_ballot_box_scan: LocalBallotBoxScan,
-    pool_box_scan: PoolBoxScan,
-    refresh_box_scan: RefreshBoxScan,
-    ballot_boxes_scan: BallotBoxesScan,
-    update_box_scan: UpdateBoxScan,
-    buyback_box_scan: Option<BuybackBoxScan>,
+    oracle_datapoint_fetch: OracleDatapointFetch,
+    local_oracle_datapoint_fetch: LocalOracleDatapointFetch,
+    local_ballot_box_fetch: LocalBallotBoxFetch,
+    pool_box_fetch: PoolBoxFetch,
+    refresh_box_fetch: RefreshBoxFetch,
+    ballot_boxes_fetch: BallotBoxesFetch,
+    update_box_fetch: UpdateBoxFetch,
+    buyback_box_fetch: Option<BuybackBoxFetch>,
 }
 
 #[derive(Debug)]
-pub struct OracleDatapointScan {
-    scan: GenericTokenScan<OracleTokenId>,
+pub struct OracleDatapointFetch {
+    token_fetch: GenericTokenFetch<OracleTokenId>,
     oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct LocalOracleDatapointScan {
-    scan: GenericTokenScan<OracleTokenId>,
+pub struct LocalOracleDatapointFetch {
+    token_fetch: GenericTokenFetch<OracleTokenId>,
     oracle_box_wrapper_inputs: OracleBoxWrapperInputs,
     oracle_pk: ProveDlog,
 }
 
 #[derive(Debug)]
-pub struct LocalBallotBoxScan {
-    scan: GenericTokenScan<BallotTokenId>,
+pub struct LocalBallotBoxFetch {
+    token_fetch: GenericTokenFetch<BallotTokenId>,
     ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
     ballot_token_owner_pk: ProveDlog,
 }
 
 #[derive(Debug)]
-pub struct PoolBoxScan {
-    scan: GenericTokenScan<PoolTokenId>,
+pub struct PoolBoxFetch {
+    token_fetch: GenericTokenFetch<PoolTokenId>,
     pool_box_wrapper_inputs: PoolBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct RefreshBoxScan {
-    scan: GenericTokenScan<RefreshTokenId>,
+pub struct RefreshBoxFetch {
+    token_fetch: GenericTokenFetch<RefreshTokenId>,
     refresh_box_wrapper_inputs: RefreshBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct BallotBoxesScan {
-    scan: GenericTokenScan<BallotTokenId>,
+pub struct BallotBoxesFetch {
+    token_fetch: GenericTokenFetch<BallotTokenId>,
     ballot_box_wrapper_inputs: BallotBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct UpdateBoxScan {
-    scan: GenericTokenScan<UpdateTokenId>,
+pub struct UpdateBoxFetch {
+    token_fetch: GenericTokenFetch<UpdateTokenId>,
     update_box_wrapper_inputs: UpdateBoxWrapperInputs,
 }
 
 #[derive(Debug)]
-pub struct BuybackBoxScan {
-    scan: GenericTokenScan<BuybackTokenId>,
+pub struct BuybackBoxFetch {
+    token_fetch: GenericTokenFetch<BuybackTokenId>,
     reward_token_id: RewardTokenId,
 }
 
@@ -172,75 +172,77 @@ pub enum LocalDatapointState {
 }
 
 impl OraclePool {
-    pub fn new(node_scan_registry: &NodeScanRegistry) -> std::result::Result<OraclePool, Error> {
+    pub fn new(
+        token_fetch_registry: &TokenFetchRegistry,
+    ) -> std::result::Result<OraclePool, Error> {
         let pool_config = &POOL_CONFIG;
         let oracle_config = &ORACLE_CONFIG;
         let oracle_pk = oracle_config.oracle_address_p2pk()?;
 
-        // Create all `Scan` structs for protocol
-        let oracle_datapoint_scan = OracleDatapointScan {
-            scan: node_scan_registry.oracle_token_scan.clone(),
+        // Create all tokens structs for protocol
+        let oracle_datapoint_fetch = OracleDatapointFetch {
+            token_fetch: token_fetch_registry.oracle_token_fetch.clone(),
             oracle_box_wrapper_inputs: pool_config.oracle_box_wrapper_inputs.clone(),
         };
-        let local_oracle_datapoint_scan = LocalOracleDatapointScan {
-            scan: node_scan_registry.oracle_token_scan.clone(),
+        let local_oracle_datapoint_fetch = LocalOracleDatapointFetch {
+            token_fetch: token_fetch_registry.oracle_token_fetch.clone(),
             oracle_box_wrapper_inputs: pool_config.oracle_box_wrapper_inputs.clone(),
             oracle_pk: oracle_pk.clone(),
         };
 
-        let local_ballot_box_scan = LocalBallotBoxScan {
-            scan: node_scan_registry.ballot_token_scan.clone(),
+        let local_ballot_box_fetch = LocalBallotBoxFetch {
+            token_fetch: token_fetch_registry.ballot_token_fetch.clone(),
             ballot_box_wrapper_inputs: pool_config.ballot_box_wrapper_inputs.clone(),
             ballot_token_owner_pk: oracle_pk.clone(),
         };
 
-        let ballot_boxes_scan = BallotBoxesScan {
-            scan: node_scan_registry.ballot_token_scan.clone(),
+        let ballot_boxes_fetch = BallotBoxesFetch {
+            token_fetch: token_fetch_registry.ballot_token_fetch.clone(),
             ballot_box_wrapper_inputs: pool_config.ballot_box_wrapper_inputs.clone(),
         };
 
-        let pool_box_scan = PoolBoxScan {
-            scan: node_scan_registry.pool_token_scan.clone(),
+        let pool_box_fetch = PoolBoxFetch {
+            token_fetch: token_fetch_registry.pool_token_fetch.clone(),
             pool_box_wrapper_inputs: pool_config.pool_box_wrapper_inputs.clone(),
         };
 
-        let refresh_box_scan = RefreshBoxScan {
-            scan: node_scan_registry.refresh_token_scan.clone(),
+        let refresh_box_fetch = RefreshBoxFetch {
+            token_fetch: token_fetch_registry.refresh_token_fetch.clone(),
             refresh_box_wrapper_inputs: pool_config.refresh_box_wrapper_inputs.clone(),
         };
 
-        let update_box_scan = UpdateBoxScan {
-            scan: node_scan_registry.update_token_scan.clone(),
+        let update_box_fetch = UpdateBoxFetch {
+            token_fetch: token_fetch_registry.update_token_fetch.clone(),
             update_box_wrapper_inputs: pool_config.update_box_wrapper_inputs.clone(),
         };
 
-        let buyback_box_scan =
-            node_scan_registry
-                .buyback_token_scan
+        let buyback_box_fetch =
+            token_fetch_registry
+                .buyback_token_fetch
                 .clone()
-                .map(|scan| BuybackBoxScan {
-                    scan,
+                .map(|token_fetch| BuybackBoxFetch {
+                    token_fetch,
                     reward_token_id: pool_config.token_ids.reward_token_id.clone(),
                 });
 
-        log::debug!("Scans loaded");
+        log::debug!("Tokens loaded");
 
         Ok(OraclePool {
-            oracle_datapoint_scan,
-            local_oracle_datapoint_scan,
-            local_ballot_box_scan,
-            ballot_boxes_scan,
-            pool_box_scan,
-            refresh_box_scan,
-            update_box_scan,
-            buyback_box_scan,
+            oracle_datapoint_fetch,
+            local_oracle_datapoint_fetch,
+            local_ballot_box_fetch,
+            ballot_boxes_fetch,
+            pool_box_fetch,
+            refresh_box_fetch,
+            update_box_fetch,
+            buyback_box_fetch,
         })
     }
 
-    /// Create a new `OraclePool` struct with loaded scans
+    /// Create a new `OraclePool` struct with loaded get_boxes
     pub fn load() -> std::result::Result<OraclePool, Error> {
-        let node_scan_registry = NodeScanRegistry::load()?;
-        Self::new(&node_scan_registry)
+        let token_fetch_registry = TokenFetchRegistry::load()?;
+        Self::new(&token_fetch_registry)
     }
 
     /// Get the state of the current oracle pool epoch
@@ -275,53 +277,53 @@ impl OraclePool {
     }
 
     pub fn get_pool_box_source(&self) -> &dyn PoolBoxSource {
-        &self.pool_box_scan as &dyn PoolBoxSource
+        &self.pool_box_fetch as &dyn PoolBoxSource
     }
 
     pub fn get_local_ballot_box_source(&self) -> &dyn LocalBallotBoxSource {
-        &self.local_ballot_box_scan as &dyn LocalBallotBoxSource
+        &self.local_ballot_box_fetch as &dyn LocalBallotBoxSource
     }
 
     pub fn get_ballot_boxes_source(&self) -> &dyn VoteBallotBoxesSource {
-        &self.ballot_boxes_scan as &dyn VoteBallotBoxesSource
+        &self.ballot_boxes_fetch as &dyn VoteBallotBoxesSource
     }
 
     pub fn get_refresh_box_source(&self) -> &dyn RefreshBoxSource {
-        &self.refresh_box_scan as &dyn RefreshBoxSource
+        &self.refresh_box_fetch as &dyn RefreshBoxSource
     }
 
     pub fn get_posted_datapoint_boxes_source(&self) -> &dyn PostedDatapointBoxesSource {
-        &self.oracle_datapoint_scan as &dyn PostedDatapointBoxesSource
+        &self.oracle_datapoint_fetch as &dyn PostedDatapointBoxesSource
     }
 
     pub fn get_collected_datapoint_boxes_source(&self) -> &dyn CollectedDatapointBoxesSource {
-        &self.oracle_datapoint_scan as &dyn CollectedDatapointBoxesSource
+        &self.oracle_datapoint_fetch as &dyn CollectedDatapointBoxesSource
     }
 
     pub fn get_local_datapoint_box_source(&self) -> &dyn LocalDatapointBoxSource {
-        &self.local_oracle_datapoint_scan as &dyn LocalDatapointBoxSource
+        &self.local_oracle_datapoint_fetch as &dyn LocalDatapointBoxSource
     }
 
     pub fn get_update_box_source(&self) -> &dyn UpdateBoxSource {
-        &self.update_box_scan as &dyn UpdateBoxSource
+        &self.update_box_fetch as &dyn UpdateBoxSource
     }
 
     pub fn get_buyback_box_source(&self) -> Option<&dyn BuybackBoxSource> {
-        self.buyback_box_scan
+        self.buyback_box_fetch
             .as_ref()
             .map(|b| b as &dyn BuybackBoxSource)
     }
 
     pub fn get_total_oracle_token_count(&self) -> Result<u64> {
         Ok(self
-            .oracle_datapoint_scan
-            .scan
+            .oracle_datapoint_fetch
+            .token_fetch
             .get_boxes()?
             .into_iter()
             .map(|b| {
                 get_token_count(
                     b,
-                    self.oracle_datapoint_scan
+                    self.oracle_datapoint_fetch
                         .oracle_box_wrapper_inputs
                         .oracle_token_id
                         .token_id(),
@@ -331,10 +333,10 @@ impl OraclePool {
     }
 }
 
-impl PoolBoxSource for PoolBoxScan {
+impl PoolBoxSource for PoolBoxFetch {
     fn get_pool_box(&self) -> Result<PoolBoxWrapper> {
         let box_wrapper = PoolBoxWrapper::new(
-            self.scan
+            self.token_fetch
                 .get_box()?
                 .ok_or(DataSourceError::PoolBoxNotFoundError)?,
             &self.pool_box_wrapper_inputs,
@@ -343,10 +345,10 @@ impl PoolBoxSource for PoolBoxScan {
     }
 }
 
-impl LocalBallotBoxSource for LocalBallotBoxScan {
+impl LocalBallotBoxSource for LocalBallotBoxFetch {
     fn get_ballot_box(&self) -> Result<Option<BallotBoxWrapper>> {
         Ok(self
-            .scan
+            .token_fetch
             .get_boxes()?
             .into_iter()
             .filter_map(|b| BallotBoxWrapper::new(b, &self.ballot_box_wrapper_inputs).ok())
@@ -354,10 +356,10 @@ impl LocalBallotBoxSource for LocalBallotBoxScan {
     }
 }
 
-impl RefreshBoxSource for RefreshBoxScan {
+impl RefreshBoxSource for RefreshBoxFetch {
     fn get_refresh_box(&self) -> Result<RefreshBoxWrapper> {
         let box_wrapper = RefreshBoxWrapper::new(
-            self.scan
+            self.token_fetch
                 .get_box()?
                 .ok_or(DataSourceError::RefreshBoxNotFoundError)?,
             &self.refresh_box_wrapper_inputs,
@@ -366,10 +368,10 @@ impl RefreshBoxSource for RefreshBoxScan {
     }
 }
 
-impl LocalDatapointBoxSource for LocalOracleDatapointScan {
+impl LocalDatapointBoxSource for LocalOracleDatapointFetch {
     fn get_local_oracle_datapoint_box(&self) -> Result<Option<OracleBoxWrapper>> {
         Ok(self
-            .scan
+            .token_fetch
             .get_boxes()?
             .into_iter()
             .filter_map(|b| OracleBoxWrapper::new(b, &self.oracle_box_wrapper_inputs).ok())
@@ -377,10 +379,10 @@ impl LocalDatapointBoxSource for LocalOracleDatapointScan {
     }
 }
 
-impl VoteBallotBoxesSource for BallotBoxesScan {
+impl VoteBallotBoxesSource for BallotBoxesFetch {
     fn get_ballot_boxes(&self) -> Result<Vec<VoteBallotBoxWrapper>> {
         Ok(self
-            .scan
+            .token_fetch
             .get_boxes()?
             .into_iter()
             .filter_map(|ballot_box| {
@@ -390,10 +392,10 @@ impl VoteBallotBoxesSource for BallotBoxesScan {
     }
 }
 
-impl UpdateBoxSource for UpdateBoxScan {
+impl UpdateBoxSource for UpdateBoxFetch {
     fn get_update_box(&self) -> Result<UpdateBoxWrapper> {
         let box_wrapper = UpdateBoxWrapper::new(
-            self.scan
+            self.token_fetch
                 .get_box()?
                 .ok_or(DataSourceError::UpdateBoxNotFoundError)?,
             &self.update_box_wrapper_inputs,
@@ -402,10 +404,10 @@ impl UpdateBoxSource for UpdateBoxScan {
     }
 }
 
-impl PostedDatapointBoxesSource for OracleDatapointScan {
+impl PostedDatapointBoxesSource for OracleDatapointFetch {
     fn get_posted_datapoint_boxes(&self) -> Result<Vec<PostedOracleBox>> {
         let posted_boxes = self
-            .scan
+            .token_fetch
             .get_boxes()?
             .into_iter()
             .filter_map(|b| OracleBoxWrapper::new(b, &self.oracle_box_wrapper_inputs).ok())
@@ -418,10 +420,10 @@ impl PostedDatapointBoxesSource for OracleDatapointScan {
     }
 }
 
-impl CollectedDatapointBoxesSource for OracleDatapointScan {
+impl CollectedDatapointBoxesSource for OracleDatapointFetch {
     fn get_collected_datapoint_boxes(&self) -> Result<Vec<CollectedOracleBox>> {
         let posted_boxes = self
-            .scan
+            .token_fetch
             .get_boxes()?
             .into_iter()
             .filter_map(|b| OracleBoxWrapper::new(b, &self.oracle_box_wrapper_inputs).ok())
@@ -434,10 +436,10 @@ impl CollectedDatapointBoxesSource for OracleDatapointScan {
     }
 }
 
-impl BuybackBoxSource for BuybackBoxScan {
+impl BuybackBoxSource for BuybackBoxFetch {
     fn get_buyback_box(&self) -> Result<Option<BuybackBoxWrapper>> {
         Ok(self
-            .scan
+            .token_fetch
             .get_box()?
             .map(|ergo_box| BuybackBoxWrapper::new(ergo_box, self.reward_token_id.clone())))
     }

@@ -28,6 +28,7 @@ mod contracts;
 mod datapoint_source;
 mod default_parameters;
 mod explorer_api;
+mod get_boxes;
 mod logging;
 mod metrics;
 mod migrate;
@@ -38,21 +39,30 @@ mod oracle_state;
 mod oracle_types;
 mod pool_commands;
 mod pool_config;
-mod scans;
 mod serde;
 mod spec_token;
 mod state;
-mod templates;
 mod util;
-mod wallet;
 
 #[cfg(test)]
 mod tests;
 
+use crate::actions::execute_action;
+use crate::address_util::pks_to_network_addresses;
+use crate::api::start_rest_server;
+use crate::box_kind::BallotBox;
+use crate::contracts::ballot::BallotContract;
+use crate::default_parameters::print_contract_hashes;
+use crate::get_boxes::TokenFetchRegistry;
+use crate::migrate::check_migration_to_split_config;
+use crate::oracle_config::OracleConfig;
+use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
+use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
+use crate::oracle_config::ORACLE_CONFIG_OPT;
+use crate::pool_config::POOL_CONFIG_FILE_PATH;
 use action_report::ActionReportStorage;
 use action_report::PoolActionReport;
 use actions::PoolAction;
-use anyhow::anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use crossbeam::channel::bounded;
@@ -67,9 +77,7 @@ use log::LevelFilter;
 use metrics::start_metrics_server;
 use metrics::update_metrics;
 use node_interface::node_api::NodeApi;
-use node_interface::try_ensure_wallet_unlocked;
 use oracle_config::ORACLE_CONFIG;
-use oracle_config::ORACLE_SECRETS;
 use oracle_state::OraclePool;
 use oracle_types::BlockHeight;
 use pool_commands::build_action;
@@ -78,8 +86,6 @@ use pool_commands::refresh::RefreshActionError;
 use pool_commands::PoolCommandError;
 use pool_config::DEFAULT_POOL_CONFIG_FILE_NAME;
 use pool_config::POOL_CONFIG;
-use scans::get_scans_file_path;
-use scans::wait_for_node_rescan;
 use spec_token::RewardTokenId;
 use spec_token::SpecToken;
 use spec_token::TokenIdKind;
@@ -94,20 +100,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
-
-use crate::actions::execute_action;
-use crate::address_util::pks_to_network_addresses;
-use crate::api::start_rest_server;
-use crate::box_kind::BallotBox;
-use crate::contracts::ballot::BallotContract;
-use crate::default_parameters::print_contract_hashes;
-use crate::migrate::check_migration_to_split_config;
-use crate::oracle_config::OracleConfig;
-use crate::oracle_config::DEFAULT_ORACLE_CONFIG_FILE_NAME;
-use crate::oracle_config::ORACLE_CONFIG_FILE_PATH;
-use crate::oracle_config::ORACLE_CONFIG_OPT;
-use crate::pool_config::POOL_CONFIG_FILE_PATH;
-use crate::scans::NodeScanRegistry;
 
 const APP_VERSION: &str = concat!(
     "v",
@@ -132,7 +124,7 @@ struct Args {
     /// Set path of pool configuration file to use. Default is ./pool_config.yaml
     #[clap(long)]
     pool_config_file: Option<String>,
-    /// Set folder path for the data files (scanIDs.json, logs). Default is the current folder.
+    /// Set folder path for the data files (logs). Default is the current folder.
     #[clap(short, long)]
     data_dir: Option<String>,
 }
@@ -276,25 +268,19 @@ fn main() {
         .flatten();
     logging::setup_log(cmdline_log_level, config_log_level, &data_dir_path);
 
-    scans::SCANS_DIR_PATH.set(data_dir_path).unwrap();
-
     let action_report_storage: Arc<RwLock<ActionReportStorage>> =
         Arc::new(RwLock::new(ActionReportStorage::new()));
 
     log_on_launch();
-    let node_api = NodeApi::new(
-        ORACLE_SECRETS.node_api_key.clone(),
-        ORACLE_SECRETS.wallet_password.clone(),
-        &ORACLE_CONFIG.node_url,
-    );
-    try_ensure_wallet_unlocked(&node_api);
-    wait_for_node_rescan(&node_api).unwrap();
+    let node_api = NodeApi::new(&ORACLE_CONFIG.node_url);
 
-    let pool_config = &POOL_CONFIG;
+    if !node_api.node.indexer_status().unwrap().is_active {
+        error!("Blockchain indexer is not active on the node");
+        std::process::exit(exitcode::SOFTWARE);
+    }
+    let _ = node_api.wait_for_indexer_sync();
 
-    let change_address = node_api
-        .get_change_address()
-        .expect("failed to get change address from the node");
+    let change_address = ORACLE_CONFIG.change_address.clone().unwrap();
     let network_prefix = change_address.network();
 
     #[allow(clippy::wildcard_enum_match_arm)]
@@ -316,7 +302,7 @@ fn main() {
                 if generate_config_template {
                     cli_commands::bootstrap::generate_bootstrap_config_template(yaml_config_name)?;
                 } else {
-                    cli_commands::bootstrap::bootstrap(yaml_config_name)?;
+                    cli_commands::bootstrap::bootstrap(yaml_config_name, &node_api)?;
                 }
                 Ok(())
             })() {
@@ -336,9 +322,8 @@ fn main() {
             let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
             let (_, repost_receiver) = bounded::<bool>(1);
 
-            let node_scan_registry =
-                NodeScanRegistry::ensure_node_registered_scans(&node_api, pool_config).unwrap();
-            let oracle_pool = Arc::new(OraclePool::new(&node_scan_registry).unwrap());
+            let token_fetch_registry = TokenFetchRegistry::load().unwrap();
+            let oracle_pool = Arc::new(OraclePool::new(&token_fetch_registry).unwrap());
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
                 ORACLE_CONFIG.data_point_source_custom_script.clone(),
@@ -388,15 +373,12 @@ fn main() {
 /// Handle all other commands
 fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: NetworkPrefix) {
     let height = BlockHeight(node_api.node.current_block_height().unwrap() as u32);
-    let node_scan_registry = NodeScanRegistry::load().unwrap();
-    let op = OraclePool::new(&node_scan_registry).unwrap();
+    let token_fetch_registry = TokenFetchRegistry::load().unwrap();
+    let op = OraclePool::new(&token_fetch_registry).unwrap();
     match command {
         Command::ExtractRewardTokens { rewards_address } => {
             if let Err(e) = cli_commands::extract_reward_tokens::extract_reward_tokens(
-                // TODO: pass the NodeApi instance instead of these three
                 node_api,
-                &node_api.node,
-                &node_api.node,
                 op.get_local_datapoint_box_source(),
                 rewards_address,
                 height,
@@ -420,8 +402,6 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
         } => {
             if let Err(e) = cli_commands::transfer_oracle_token::transfer_oracle_token(
                 node_api,
-                &node_api.node,
-                &node_api.node,
                 op.get_local_datapoint_box_source(),
                 oracle_token_address,
                 height,
@@ -456,8 +436,6 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
             .unwrap();
             if let Err(e) = cli_commands::vote_update_pool::vote_update_pool(
                 node_api,
-                &node_api.node,
-                &node_api.node,
                 op.get_local_ballot_box_source(),
                 new_pool_box_address_hash_str,
                 reward_token_opt,
@@ -474,14 +452,9 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
             reward_token_amount,
         } => {
             let reward_token_opt = check_reward_token_opt(reward_token_id, reward_token_amount);
-            if let Err(e) = cli_commands::update_pool::update_pool(
-                &op,
-                node_api,
-                &node_api.node,
-                &node_api.node,
-                reward_token_opt,
-                height,
-            ) {
+            if let Err(e) =
+                cli_commands::update_pool::update_pool(&op, node_api, reward_token_opt, height)
+            {
                 error!("Fatal update-pool error: {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
             }
@@ -505,9 +478,6 @@ fn handle_pool_command(command: Command, node_api: &NodeApi, network_prefix: Net
                 &POOL_CONFIG.token_ids.reward_token_id,
                 POOL_CONFIG_FILE_PATH.get().unwrap(),
                 op.get_local_datapoint_box_source(),
-                &get_scans_file_path(),
-                node_scan_registry,
-                node_api,
             ) {
                 error!("Fatal import pool update error : {:?}", e);
                 std::process::exit(exitcode::SOFTWARE);
@@ -531,9 +501,6 @@ fn main_loop_iteration(
     report_storage: Arc<RwLock<ActionReportStorage>>,
     change_address: &NetworkAddress,
 ) -> std::result::Result<(), anyhow::Error> {
-    if !node_api.node.wallet_status()?.unlocked {
-        return Err(anyhow!("Wallet is locked!"));
-    }
     let height = BlockHeight(
         node_api
             .node
@@ -571,7 +538,7 @@ fn main_loop_iteration(
             }
         };
     }
-    update_metrics(oracle_pool)?;
+    update_metrics(oracle_pool, node_api)?;
     Ok(())
 }
 

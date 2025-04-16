@@ -5,6 +5,7 @@ use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::ergotree_ir::serialization::SigmaParsingError;
 use ergo_lib::ergotree_ir::serialization::SigmaSerializationError;
+use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,4 +31,12 @@ pub fn pks_to_network_addresses(
     pks.into_iter()
         .map(|pk| NetworkAddress::new(network_prefix, &Address::P2Pk(pk.into())))
         .collect()
+}
+
+pub fn address_to_p2pk(addr: &Address) -> Result<ProveDlog, AddressUtilError> {
+    if let Address::P2Pk(public_key) = addr {
+        Ok(public_key.clone())
+    } else {
+        Err(AddressUtilError::ExpectedP2PK)
+    }
 }

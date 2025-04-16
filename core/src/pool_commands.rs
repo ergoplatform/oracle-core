@@ -2,22 +2,21 @@ use ergo_lib::ergo_chain_types::DigestNError;
 use ergo_lib::ergotree_ir::chain::address::{Address, AddressEncoderError};
 use thiserror::Error;
 
-use crate::action_report::PoolActionReport;
-use crate::actions::PoolAction;
-use crate::box_kind::PoolBox;
-use crate::datapoint_source::RuntimeDataPointSource;
-use crate::oracle_config::ORACLE_CONFIG;
-use crate::oracle_state::{DataSourceError, OraclePool};
-use crate::oracle_types::BlockHeight;
-use crate::pool_config::POOL_CONFIG;
-use crate::wallet::WalletDataSource;
-
 use self::publish_datapoint::build_publish_first_datapoint_action;
 use self::publish_datapoint::{
     build_subsequent_publish_datapoint_action, PublishDatapointActionError,
 };
 use self::refresh::build_refresh_action;
 use self::refresh::RefreshActionError;
+use crate::action_report::PoolActionReport;
+use crate::actions::PoolAction;
+use crate::box_kind::PoolBox;
+use crate::datapoint_source::RuntimeDataPointSource;
+use crate::node_interface::node_api::NodeApi;
+use crate::oracle_config::ORACLE_CONFIG;
+use crate::oracle_state::{DataSourceError, OraclePool};
+use crate::oracle_types::BlockHeight;
+use crate::pool_config::POOL_CONFIG;
 
 pub mod publish_datapoint;
 pub mod refresh;
@@ -52,7 +51,7 @@ pub enum PoolCommandError {
 pub fn build_action(
     cmd: PoolCommand,
     op: &OraclePool,
-    wallet: &dyn WalletDataSource,
+    node_api: &NodeApi,
     height: BlockHeight,
     change_address: Address,
     datapoint_source: &RuntimeDataPointSource,
@@ -61,18 +60,13 @@ pub fn build_action(
     let datapoint_boxes_source = op.get_posted_datapoint_boxes_source();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
     let current_epoch_counter = pool_box.epoch_counter();
-    let oracle_public_key =
-        if let Address::P2Pk(public_key) = ORACLE_CONFIG.oracle_address.address() {
-            *public_key.h
-        } else {
-            return Err(PoolCommandError::WrongOracleAddressType);
-        };
+    let oracle_address = &ORACLE_CONFIG.oracle_address;
     match cmd {
         PoolCommand::PublishFirstDataPoint => build_publish_first_datapoint_action(
-            wallet,
+            node_api,
             height,
+            oracle_address.clone(),
             change_address,
-            oracle_public_key,
             POOL_CONFIG.oracle_box_wrapper_inputs.clone(),
             datapoint_source,
         )
@@ -86,8 +80,9 @@ pub fn build_action(
                 let new_epoch_counter = current_epoch_counter;
                 build_subsequent_publish_datapoint_action(
                     &local_datapoint_box,
-                    wallet,
+                    node_api,
                     height,
+                    oracle_address.clone(),
                     change_address,
                     datapoint_source,
                     new_epoch_counter,
@@ -115,10 +110,10 @@ pub fn build_action(
                 .contract_inputs
                 .contract_parameters()
                 .min_data_points(),
-            wallet,
+            node_api,
             height,
+            oracle_address.clone(),
             change_address,
-            &oracle_public_key,
             op.get_buyback_box_source(),
         )
         .map_err(Into::into)

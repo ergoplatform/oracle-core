@@ -1,26 +1,5 @@
-use ergo_lib::{
-    chain::{
-        ergo_box::box_builder::ErgoBoxCandidateBuilder,
-        ergo_box::box_builder::ErgoBoxCandidateBuilderError,
-        transaction::unsigned::UnsignedTransaction,
-    },
-    ergo_chain_types::blake2b256_hash,
-    ergotree_interpreter::sigma_protocol::prover::ContextExtension,
-    ergotree_ir::chain::{
-        address::Address,
-        ergo_box::{ErgoBox, NonMandatoryRegisterId},
-    },
-    ergotree_ir::serialization::SigmaSerializable,
-    wallet::{
-        box_selector::{BoxSelection, BoxSelector, BoxSelectorError, SimpleBoxSelector},
-        signing::{TransactionContext, TxSigningError},
-        tx_builder::{TxBuilder, TxBuilderError},
-    },
-};
-use ergo_node_interface::node_interface::NodeError;
-use log::{error, info};
-use std::convert::TryInto;
-
+use crate::node_interface::node_api::NodeApiTrait;
+use crate::oracle_config::ORACLE_CONFIG;
 use crate::{
     box_kind::{
         make_pool_box_candidate_unchecked, BallotBox, CastBallotBoxVoteParameters, PoolBox,
@@ -28,7 +7,6 @@ use crate::{
     },
     contracts::pool::PoolContract,
     explorer_api::ergo_explorer_transaction_link,
-    node_interface::{SignTransaction, SubmitTransaction},
     oracle_config::BASE_FEE,
     oracle_state::{
         DataSourceError, OraclePool, PoolBoxSource, UpdateBoxSource, VoteBallotBoxesSource,
@@ -36,8 +14,29 @@ use crate::{
     oracle_types::BlockHeight,
     pool_config::{PoolConfig, POOL_CONFIG},
     spec_token::{RewardTokenId, SpecToken, TokenIdKind},
-    wallet::{WalletDataError, WalletDataSource},
 };
+use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
+use ergo_lib::wallet::box_selector::{BoxSelector, SimpleBoxSelector};
+use ergo_lib::wallet::signing::TransactionContext;
+use ergo_lib::{
+    chain::{
+        ergo_box::box_builder::ErgoBoxCandidateBuilder,
+        ergo_box::box_builder::ErgoBoxCandidateBuilderError,
+    },
+    ergo_chain_types::blake2b256_hash,
+    ergotree_interpreter::sigma_protocol::prover::ContextExtension,
+    ergotree_ir::chain::{address::Address, ergo_box::NonMandatoryRegisterId},
+    ergotree_ir::serialization::SigmaSerializable,
+    wallet::{
+        box_selector::{BoxSelection, BoxSelectorError},
+        signing::TxSigningError,
+        tx_builder::{TxBuilder, TxBuilderError},
+    },
+};
+use ergo_node_interface::node_interface::NodeError;
+use log::{error, info};
+use std::convert::TryInto;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -68,15 +67,11 @@ pub enum UpdatePoolError {
     YamlError(#[from] serde_yaml::Error),
     #[error("Update pool: could not find unspent wallot boxes that do not contain ballot tokens")]
     NoUsableWalletBoxes,
-    #[error("WalletData error: {0}")]
-    WalletData(#[from] WalletDataError),
 }
 
 pub fn update_pool(
     op: &OraclePool,
-    wallet: &dyn WalletDataSource,
-    tx_signer: &dyn SignTransaction,
-    tx_submit: &dyn SubmitTransaction,
+    node_api: &dyn NodeApiTrait,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
 ) -> Result<(), anyhow::Error> {
@@ -90,8 +85,9 @@ pub fn update_pool(
             "Reward token id in pool_config_updated.yaml does not match the one from the command line"
         );
     }
+    let oracle_address = ORACLE_CONFIG.oracle_address.clone();
     let (change_address, network_prefix) = {
-        let net_addr = wallet.get_change_address()?;
+        let net_addr = ORACLE_CONFIG.change_address.clone().unwrap();
         (net_addr.address(), net_addr.network())
     };
 
@@ -111,19 +107,20 @@ pub fn update_pool(
         new_reward_tokens.clone(),
     );
 
-    let tx = build_update_pool_box_tx(
+    let context = build_update_pool_box_tx(
         op.get_pool_box_source(),
         op.get_ballot_boxes_source(),
-        wallet,
+        node_api,
         op.get_update_box_source(),
         new_reward_tokens.clone(),
         height,
+        oracle_address,
         change_address,
         new_pool_contract,
     )?;
 
-    log::debug!("Signing update pool box tx: {:#?}", tx);
-    let signed_tx = tx_signer.sign_transaction(&tx.spending_tx)?;
+    log::debug!("Signing update pool box tx: {:#?}", context);
+    let signed_tx = node_api.sign_transaction(context)?;
 
     println!(
         "YOU WILL BE SUBMITTING AN UPDATE TO THE POOL CONTRACT:\
@@ -142,7 +139,7 @@ pub fn update_pool(
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim_end() == "YES" {
-        let tx_id_str = tx_submit.submit_transaction(&signed_tx)?;
+        let tx_id_str = node_api.submit_transaction(&signed_tx)?;
         crate::explorer_api::wait_for_tx_confirmation(signed_tx.id());
         println!(
             "Update pool box transaction submitted: view here, {}",
@@ -267,10 +264,11 @@ fn remind_send_minted_tokens_to_oracles(
 fn build_update_pool_box_tx(
     pool_box_source: &dyn PoolBoxSource,
     ballot_boxes: &dyn VoteBallotBoxesSource,
-    wallet: &dyn WalletDataSource,
+    node_api: &dyn NodeApiTrait,
     update_box: &dyn UpdateBoxSource,
     new_reward_tokens: Option<SpecToken<RewardTokenId>>,
     height: BlockHeight,
+    oracle_address: NetworkAddress,
     change_address: Address,
     new_pool_contract: PoolContract,
 ) -> Result<TransactionContext<UnsignedTransaction>, UpdatePoolError> {
@@ -336,27 +334,6 @@ fn build_update_pool_box_tx(
     update_box_candidate.add_token(update_box.update_nft());
     let update_box_candidate = update_box_candidate.build()?;
 
-    // Find unspent boxes without ballot token, see: https://github.com/ergoplatform/oracle-core/pull/80#issuecomment-1200258458
-    let unspent_boxes: Vec<ErgoBox> = wallet
-        .get_unspent_wallet_boxes()?
-        .into_iter()
-        .filter(|wallet_box| {
-            wallet_box
-                .tokens
-                .as_ref()
-                .and_then(|tokens| {
-                    tokens
-                        .iter()
-                        .find(|token| token.token_id == update_box.ballot_token_id())
-                })
-                .is_none()
-        })
-        .collect();
-    if unspent_boxes.is_empty() {
-        error!("Could not find unspent wallet boxes that do not contain ballot token. Please move ballot tokens to another address");
-        return Err(UpdatePoolError::NoUsableWalletBoxes);
-    }
-
     let target_balance = *BASE_FEE;
     let target_tokens =
         if reward_tokens.token_id.token_id() != old_pool_box.reward_token().token_id() {
@@ -364,6 +341,20 @@ fn build_update_pool_box_tx(
         } else {
             vec![]
         };
+
+    // Find unspent boxes without ballot token, see: https://github.com/ergoplatform/oracle-core/pull/80#issuecomment-1200258458
+    let unspent_boxes = node_api.get_unspent_boxes_by_address_with_token_filter_option(
+        &oracle_address.to_base58(),
+        target_balance,
+        target_tokens.clone(),
+        vec![update_box.ballot_token_id()],
+    )?;
+
+    if unspent_boxes.is_empty() {
+        error!("Could not find unspent wallet boxes that do not contain ballot token. Please move ballot tokens to another address");
+        return Err(UpdatePoolError::NoUsableWalletBoxes);
+    }
+
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, target_balance, &target_tokens)?;
     let mut input_boxes = vec![old_pool_box.get_box().clone(), update_box.get_box().clone()];
@@ -375,7 +366,7 @@ fn build_update_pool_box_tx(
     );
     input_boxes.extend_from_slice(selection.boxes.as_vec());
     let box_selection = BoxSelection {
-        boxes: input_boxes.try_into().unwrap(),
+        boxes: input_boxes.clone().try_into().unwrap(),
         change_boxes: selection.change_boxes,
     };
 
@@ -395,7 +386,7 @@ fn build_update_pool_box_tx(
     }
 
     let mut tx_builder = TxBuilder::new(
-        box_selection.clone(),
+        box_selection,
         outputs.clone(),
         height.0,
         *BASE_FEE,
@@ -415,11 +406,11 @@ fn build_update_pool_box_tx(
         )
     }
     let unsigned_tx = tx_builder.build()?;
-    Ok(TransactionContext::new(
-        unsigned_tx,
-        box_selection.boxes.into(),
-        vec![],
-    )?)
+    let context = match TransactionContext::new(unsigned_tx, input_boxes, vec![]) {
+        Ok(ctx) => ctx,
+        Err(e) => return Err(UpdatePoolError::TxSigningError(e)),
+    };
+    Ok(context)
 }
 
 #[cfg(test)]
@@ -439,11 +430,13 @@ mod tests {
             },
             serialization::SigmaSerializable,
         },
-        wallet::Wallet,
     };
     use sigma_test_util::force_any_val;
     use std::convert::TryInto;
 
+    use super::build_update_pool_box_tx;
+    use crate::node_interface::node_api::NodeApiTrait;
+    use crate::node_interface::test_utils::{MockNodeApi, SubmitTxMock};
     use crate::{
         box_kind::{
             make_local_ballot_box_candidate, make_pool_box_candidate, PoolBoxWrapper,
@@ -458,12 +451,10 @@ mod tests {
         oracle_types::{BlockHeight, EpochCounter},
         pool_commands::test_utils::{
             generate_token_ids, make_wallet_unspent_box, BallotBoxesMock, PoolBoxMock,
-            UpdateBoxMock, WalletDataMock,
+            UpdateBoxMock,
         },
         spec_token::{RefreshTokenId, RewardTokenId, SpecToken, TokenIdKind},
     };
-
-    use super::build_update_pool_box_tx;
 
     fn force_any_tokenid() -> TokenId {
         use proptest::strategy::Strategy;
@@ -608,15 +599,17 @@ mod tests {
             BASE_FEE.checked_mul_u32(4_000_000_000).unwrap(),
             Some(vec![new_reward_tokens.clone().into()].try_into().unwrap()),
         );
-        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+        let address = AddressEncoder::unchecked_parse_network_address_from_str(
             "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
         )
         .unwrap();
-        let wallet_mock = WalletDataMock {
+        let mock_node_api = &MockNodeApi {
             unspent_boxes: vec![wallet_unspent_box],
-            change_address: change_address.clone(),
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
         };
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
         let update_mock = UpdateBoxMock {
             update_box: UpdateBoxWrapper::new(
                 update_box,
@@ -639,18 +632,19 @@ mod tests {
             .unwrap(),
         };
 
-        let update_tx = build_update_pool_box_tx(
+        let tx_context = build_update_pool_box_tx(
             &pool_mock,
             &ballot_boxes_mock,
-            &wallet_mock,
+            mock_node_api,
             &update_mock,
             Some(new_reward_tokens),
             BlockHeight(height.0 + 1),
-            change_address.address(),
+            address.clone(),
+            address.address(),
             new_pool_contract,
         )
         .unwrap();
 
-        wallet.sign_transaction(update_tx, &ctx, None).unwrap();
+        mock_node_api.sign_transaction(tx_context).unwrap();
     }
 }

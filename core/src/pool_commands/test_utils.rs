@@ -3,13 +3,10 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::option::Option;
 
-use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::TxId;
-use ergo_lib::chain::transaction::TxIoVec;
 use ergo_lib::ergo_chain_types::Digest32;
 use ergo_lib::ergo_chain_types::EcPoint;
-use ergo_lib::ergotree_ir::chain::address::NetworkAddress;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::BoxTokens;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
@@ -20,9 +17,6 @@ use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
 use ergo_lib::ergotree_ir::mir::constant::Constant;
 use ergo_lib::ergotree_ir::mir::expr::Expr;
 use ergo_lib::ergotree_ir::sigma_protocol::sigma_boolean::ProveDlog;
-use ergo_lib::wallet::signing::TransactionContext;
-use ergo_lib::wallet::Wallet;
-use ergo_node_interface::node_interface::NodeError;
 use sigma_test_util::force_any_val;
 
 use crate::box_kind::BallotBoxWrapper;
@@ -40,7 +34,6 @@ use crate::contracts::oracle::OracleContractParameters;
 use crate::contracts::pool::PoolContract;
 use crate::contracts::pool::PoolContractInputs;
 use crate::contracts::pool::PoolContractParameters;
-use crate::node_interface::SignTransactionWithInputs;
 use crate::oracle_state::BuybackBoxSource;
 use crate::oracle_state::LocalBallotBoxSource;
 use crate::oracle_state::UpdateBoxSource;
@@ -55,7 +48,6 @@ use crate::spec_token::RefreshTokenId;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::TokenIdKind;
 use crate::spec_token::UpdateTokenId;
-use crate::wallet::WalletDataError;
 
 use super::*;
 
@@ -101,22 +93,6 @@ pub struct BallotBoxesMock {
 impl VoteBallotBoxesSource for BallotBoxesMock {
     fn get_ballot_boxes(&self) -> std::result::Result<Vec<VoteBallotBoxWrapper>, DataSourceError> {
         Ok(self.ballot_boxes.clone())
-    }
-}
-
-#[derive(Clone)]
-pub(crate) struct WalletDataMock {
-    pub unspent_boxes: Vec<ErgoBox>,
-    pub change_address: NetworkAddress,
-}
-
-impl WalletDataSource for WalletDataMock {
-    fn get_unspent_wallet_boxes(&self) -> Result<Vec<ErgoBox>, WalletDataError> {
-        Ok(self.unspent_boxes.clone())
-    }
-
-    fn get_change_address(&self) -> Result<NetworkAddress, WalletDataError> {
-        Ok(self.change_address.clone())
     }
 }
 
@@ -285,35 +261,6 @@ pub(crate) fn find_input_boxes(
         })
         .as_vec()
         .clone()
-}
-
-pub struct LocalTxSigner<'a> {
-    pub ctx: &'a ErgoStateContext,
-    pub wallet: &'a Wallet,
-}
-
-impl<'a> SignTransactionWithInputs for LocalTxSigner<'a> {
-    fn sign_transaction_with_inputs(
-        &self,
-        unsigned_tx: &UnsignedTransaction,
-        inputs: TxIoVec<ErgoBox>,
-        data_boxes: Option<TxIoVec<ErgoBox>>,
-    ) -> Result<ergo_lib::chain::transaction::Transaction, NodeError> {
-        let tx = self
-            .wallet
-            .sign_transaction(
-                TransactionContext::new(
-                    unsigned_tx.clone(),
-                    inputs.as_vec().clone(),
-                    data_boxes.map(|bs| bs.as_vec().clone()).unwrap_or_default(),
-                )
-                .unwrap(),
-                self.ctx,
-                None,
-            )
-            .unwrap();
-        Ok(tx)
-    }
 }
 
 pub fn init_log_tests() {

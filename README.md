@@ -1,6 +1,6 @@
 # Oracle Core v2.0
 
-The oracle core requires that the user has access to a full node wallet in order to create txs & perform UTXO-set scanning. Furthermore, each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools then a single full node can be used, but several instances of oracle cores must be run (and set with different API ports).
+The oracle core requires that the user has access to a public node with activated extra option to create txs. Furthermore, each oracle core is designed to work with only a single oracle pool. If an operator runs several oracles in several oracle pools then a single full node can be used, but several instances of oracle cores must be run (and set with different API ports).
 
 The current oracle core is built to run the protocol specified in the [EIP-0023 PR](https://github.com/ergoplatform/eips/pull/41).
 
@@ -19,7 +19,7 @@ docker run -d \
  -v /path/on/host:/data \
  -p 9010:9010 \
  -p 9011:9011 \
- -e ORACLE_NODE_API_KEY=CHANGE_ME_KEY \
+ -e ORACLE_WALLET_MNEMONIC=CHANGE_ME \
  ergoplatform/oracle-core:latest
 ```
 
@@ -54,7 +54,7 @@ and set the required parameters:
 - `oracle_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has coins;
 - `node_url` node URL;
 
-Set the environment variable `ORACLE_NODE_API_KEY` to the node's API key. You can put it in the `.secrets` file and then run `source .secrets` to load it into the environment. This way, the key does not get stored in the shell history.
+Set the environment variable `ORACLE_WALLET_MNEMONIC` to the oracle's mnemonic. You can put it in the `.secrets` file and then run `source .secrets` to load it into the environment. This way, the key does not get stored in the shell history.
 
 ## Bootstrapping a new oracle pool
 
@@ -198,8 +198,8 @@ With optional(only if minted) parameters:
   <REWARD_TOKEN_AMOUNT> - reward token amount in the pool box at the time of update transaction is committed (only if minted)
 
 This will submit an update tx.
-After the update tx is confirmed, remove `scanIds.json` and use `pool_config_updated.yaml` to run the oracle (i.e., rename it to `pool_config.yaml` and restart the oracle).
-Distribute the `pool_config.yaml` file to all the oracles. Be sure they delete `scanIds.json` before restart.
+After the update tx is confirmed and use `pool_config_updated.yaml` to run the oracle (i.e., rename it to `pool_config.yaml` and restart the oracle).
+Distribute the `pool_config.yaml` file to all the oracles.
 
 ### Import update pool config with `import-pool-update` command
 
@@ -210,7 +210,7 @@ Run
 oracle-core import-update-pool pool_config_updated.yaml
 ```
 
-This will update the pool_config.yaml, removes `scanIds.json`. Restart the oracle afterwards.
+This will update the pool_config.yaml. Restart the oracle afterwards.
 
 ## How to run as systemd daemon
 

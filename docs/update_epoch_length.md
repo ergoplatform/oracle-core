@@ -77,6 +77,6 @@ Run
 oracle-core import-update-pool pool_config_updated.yaml
 ```
 
-This will update the pool_config.yaml, removes `scanIds.json`. Restart the oracle afterwards.
+This will update the pool_config.yaml. Restart the oracle afterwards.
 
 Distribute the `pool_config_updated.yaml` file to all the oracles and instruct them to run the above `import-update-pool` command.

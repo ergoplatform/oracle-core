@@ -8,6 +8,7 @@ use crate::box_kind::PoolBoxWrapper;
 use crate::box_kind::PostedOracleBox;
 use crate::box_kind::RefreshBox;
 use crate::box_kind::RefreshBoxWrapper;
+use crate::node_interface::node_api::NodeApiTrait;
 use crate::oracle_config::BASE_FEE;
 use crate::oracle_state::BuybackBoxSource;
 use crate::oracle_state::DataSourceError;
@@ -20,13 +21,11 @@ use crate::oracle_types::MinDatapoints;
 use crate::oracle_types::Rate;
 use crate::spec_token::RewardTokenId;
 use crate::spec_token::SpecToken;
-use crate::wallet::WalletDataError;
-use crate::wallet::WalletDataSource;
 
 use ergo_lib::chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError;
 use ergo_lib::ergo_chain_types::EcPoint;
 use ergo_lib::ergotree_interpreter::sigma_protocol::prover::ContextExtension;
-use ergo_lib::ergotree_ir::chain::address::Address;
+use ergo_lib::ergotree_ir::chain::address::{Address, NetworkAddress};
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBoxCandidate;
 use ergo_lib::ergotree_ir::chain::token::TokenAmount;
 use ergo_lib::wallet::box_selector::BoxSelection;
@@ -37,6 +36,8 @@ use ergo_lib::wallet::tx_builder::TxBuilder;
 use ergo_lib::wallet::tx_builder::TxBuilderError;
 use thiserror::Error;
 
+use crate::address_util::address_to_p2pk;
+use ergo_lib::wallet::signing::{TransactionContext, TxSigningError};
 use std::convert::TryInto;
 
 #[derive(Debug, Error)]
@@ -51,12 +52,12 @@ pub enum RefreshActionError {
     NotEnoughDatapoints,
     #[error("data source error: {0}")]
     DataSourceError(#[from] DataSourceError),
-    #[error("WalletData error: {0}")]
-    WalletData(#[from] WalletDataError),
     #[error("box selector error: {0}")]
     BoxSelectorError(#[from] BoxSelectorError),
     #[error("tx builder error: {0}")]
     TxBuilderError(#[from] TxBuilderError),
+    #[error("tx signing error: {0}")]
+    TxSigningError(#[from] TxSigningError),
     #[error("box builder error: {0}")]
     ErgoBoxCandidateBuilderError(#[from] ErgoBoxCandidateBuilderError),
     #[error("failed to found my own oracle box in the filtered posted oracle boxes")]
@@ -70,10 +71,10 @@ pub fn build_refresh_action(
     datapoint_src: &dyn PostedDatapointBoxesSource,
     max_deviation_percent: u32,
     min_data_points: MinDatapoints,
-    wallet: &dyn WalletDataSource,
+    node_api: &dyn NodeApiTrait,
     height: BlockHeight,
+    oracle_address: NetworkAddress,
     change_address: Address,
-    my_oracle_pk: &EcPoint,
     buyback_box_source: Option<&dyn BuybackBoxSource>,
 ) -> Result<(RefreshAction, RefreshActionReport), RefreshActionError> {
     let tx_fee = *BASE_FEE;
@@ -89,7 +90,6 @@ pub fn build_refresh_action(
                 && b.epoch_counter() == in_pool_box_epoch_id
         })
         .collect();
-    // log::info!("Building refresh action {:?}", in_oracle_boxes);
     let deviation_range = max_deviation_percent;
     in_oracle_boxes.sort_by_key(|b| b.rate());
     let valid_in_oracle_boxes_datapoints = filtered_oracle_boxes_by_rate(
@@ -113,15 +113,17 @@ pub fn build_refresh_action(
     let rate = calc_pool_rate(valid_in_oracle_boxes.iter().map(|b| b.rate()).collect());
     let reward_decrement = valid_in_oracle_boxes.len() as u64 * 2;
     let out_refresh_box = build_out_refresh_box(&in_refresh_box, height)?;
+    let my_oracle_pk = *address_to_p2pk(&oracle_address.address()).unwrap().h;
     let mut out_oracle_boxes =
-        build_out_oracle_boxes(&valid_in_oracle_boxes, height, my_oracle_pk)?;
+        build_out_oracle_boxes(&valid_in_oracle_boxes, height, &my_oracle_pk)?;
 
     let in_buyback_box_opt = buyback_box_source
         .map(|s| s.get_buyback_box())
         .transpose()?
         .flatten();
 
-    let unspent_boxes = wallet.get_unspent_wallet_boxes()?;
+    let unspent_boxes =
+        node_api.get_unspent_boxes_by_address(&oracle_address.to_base58(), tx_fee, vec![])?;
     let box_selector = SimpleBoxSelector::new();
     let selection = box_selector.select(unspent_boxes, tx_fee, &[])?;
 
@@ -131,7 +133,7 @@ pub fn build_refresh_action(
     ];
     let my_input_oracle_box_index: i32 = valid_in_oracle_boxes
         .iter()
-        .position(|b| &b.public_key() == my_oracle_pk)
+        .position(|b| b.public_key() == my_oracle_pk)
         .ok_or(RefreshActionError::MyOracleBoxNoFound)?
         as i32;
 
@@ -206,14 +208,25 @@ pub fn build_refresh_action(
             };
             b.set_context_extension(ob.get_box().box_id(), ob_ctx_ext);
         });
-    let tx = b.build()?;
+    let tx = b.clone().build()?;
     let report = RefreshActionReport {
         oracle_boxes_collected: valid_in_oracle_boxes
             .iter()
             .map(|b| b.public_key())
             .collect(),
     };
-    Ok((RefreshAction { tx }, report))
+    let binding = b.box_selection();
+    let ins = binding.boxes.as_vec().clone();
+    let context = match TransactionContext::new(tx, ins, vec![]) {
+        Ok(ctx) => ctx,
+        Err(e) => return Err(RefreshActionError::TxSigningError(e)),
+    };
+    Ok((
+        RefreshAction {
+            transaction_context: context,
+        },
+        report,
+    ))
 }
 
 fn filtered_oracle_boxes_by_rate<T>(
@@ -376,13 +389,11 @@ mod tests {
     use ergo_lib::chain::transaction::TxId;
     use ergo_lib::ergo_chain_types::EcPoint;
     use ergo_lib::ergotree_interpreter::sigma_protocol::private_input::DlogProverInput;
-    use ergo_lib::ergotree_ir::chain::address::AddressEncoder;
+    use ergo_lib::ergotree_ir::chain::address::{AddressEncoder, NetworkPrefix};
     use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
     use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
     use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisters;
     use ergo_lib::ergotree_ir::chain::token::Token;
-    use ergo_lib::wallet::signing::TransactionContext;
-    use ergo_lib::wallet::Wallet;
     use sigma_test_util::force_any_val;
 
     use crate::box_kind::BuybackBoxWrapper;
@@ -395,14 +406,14 @@ mod tests {
     use crate::contracts::refresh::RefreshContract;
     use crate::contracts::refresh::RefreshContractInputs;
     use crate::contracts::refresh::RefreshContractParameters;
+    use crate::node_interface::test_utils::{MockNodeApi, SubmitTxMock};
     use crate::oracle_config::BASE_FEE;
     use crate::oracle_state::DataSourceError;
     use crate::oracle_types::EpochLength;
     use crate::pool_commands::test_utils::generate_token_ids;
     use crate::pool_commands::test_utils::BuybackBoxSourceMock;
     use crate::pool_commands::test_utils::{
-        find_input_boxes, make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
-        WalletDataMock,
+        make_datapoint_box, make_pool_box, make_wallet_unspent_box, PoolBoxMock,
     };
     use crate::pool_config::TokenIds;
     use crate::spec_token::TokenIdKind;
@@ -528,7 +539,10 @@ mod tests {
             &token_ids,
         );
         let secret = force_any_val::<DlogProverInput>();
-        let wallet = Wallet::from_secrets(vec![secret.clone().into()]);
+        let oracle_address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image().clone()),
+        );
         let oracle_pub_key = secret.public_image().h;
 
         let oracle_pub_keys = vec![
@@ -549,11 +563,6 @@ mod tests {
             &oracle_contract_parameters,
             &token_ids,
         );
-        let mut in_oracle_boxes_raw: Vec<ErgoBox> = in_oracle_boxes
-            .clone()
-            .into_iter()
-            .map(Into::into)
-            .collect();
 
         let pool_box_mock = PoolBoxMock {
             pool_box: in_pool_box,
@@ -571,9 +580,12 @@ mod tests {
             BASE_FEE.checked_mul_u32(10000).unwrap(),
             None,
         );
-        let wallet_mock = WalletDataMock {
+        let mock_node_api = &MockNodeApi {
             unspent_boxes: vec![wallet_unspent_box],
-            change_address: change_address.clone(),
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
         };
 
         let (action, report) = build_refresh_action(
@@ -584,35 +596,19 @@ mod tests {
             }),
             5,
             MinDatapoints(4),
-            &wallet_mock,
+            mock_node_api,
             height,
+            oracle_address.clone(),
             change_address.address(),
-            &oracle_pub_key,
             None,
         )
         .unwrap();
 
         assert_eq!(report.oracle_boxes_collected.len(), 5);
 
-        let mut possible_input_boxes = vec![
-            pool_box_mock.get_pool_box().unwrap().get_box().clone(),
-            refresh_box_mock
-                .get_refresh_box()
-                .unwrap()
-                .get_box()
-                .clone(),
-        ];
-        possible_input_boxes.append(&mut in_oracle_boxes_raw);
-        possible_input_boxes.append(&mut wallet_mock.get_unspent_wallet_boxes().unwrap());
-
-        let tx_context = TransactionContext::new(
-            action.tx.clone(),
-            find_input_boxes(action.tx, possible_input_boxes),
-            Vec::new(),
-        )
-        .unwrap();
-
-        let _signed_tx = wallet.sign_transaction(tx_context, &ctx, None).unwrap();
+        let _signed_tx = mock_node_api
+            .sign_transaction(action.transaction_context)
+            .unwrap();
 
         let wrong_epoch_id_datapoints_mock = DatapointSourceMock {
             datapoints: make_datapoint_boxes(
@@ -631,10 +627,10 @@ mod tests {
             &wrong_epoch_id_datapoints_mock,
             5,
             MinDatapoints(4),
-            &wallet_mock,
+            mock_node_api,
             height,
+            oracle_address.clone(),
             change_address.address(),
-            &oracle_pub_key,
             None,
         );
         dbg!(&wrong_epoch_res);
@@ -680,17 +676,18 @@ mod tests {
             }),
             5,
             MinDatapoints(4),
-            &wallet_mock,
+            mock_node_api,
             height,
+            oracle_address,
             change_address.address(),
-            &oracle_pub_key,
             Some(&buyback_source),
         )
         .unwrap();
 
         assert_eq!(
             action_with_buyback
-                .tx
+                .transaction_context
+                .spending_tx
                 .output_candidates
                 .get(2)
                 .unwrap()
@@ -703,7 +700,8 @@ mod tests {
         );
         assert_eq!(
             action_with_buyback
-                .tx
+                .transaction_context
+                .spending_tx
                 .output_candidates
                 .get(2)
                 .unwrap()
@@ -718,7 +716,8 @@ mod tests {
         );
         assert_eq!(
             action_with_buyback
-                .tx
+                .transaction_context
+                .spending_tx
                 .output_candidates
                 .get(2)
                 .unwrap()
@@ -735,7 +734,8 @@ mod tests {
 
         assert_eq!(
             action_with_buyback
-                .tx
+                .transaction_context
+                .spending_tx
                 .output_candidates
                 .get(0)
                 .unwrap()
