@@ -45,7 +45,7 @@ pub struct OracleConfig {
     #[serde(skip)]
     oracle_secret_key: Option<SecretKey>,
     oracle_secret: Option<String>,
-    mnemonic: Option<String>,
+    oracle_mnemonic: Option<String>,
     change_address: Option<NetworkAddress>,
     pub data_point_source_custom_script: Option<String>,
     pub explorer_url: Option<Url>,
@@ -128,7 +128,7 @@ impl OracleConfig {
         }
 
         // Try config's mnemonic
-        if let Some(mnemonic) = &self.mnemonic {
+        if let Some(mnemonic) = &self.oracle_mnemonic {
             if let Ok(secret_key) = self.derive_secret_from_mnemonic(mnemonic) {
                 self.oracle_secret_key = Some(secret_key);
                 return Ok(());
@@ -250,7 +250,7 @@ impl Default for OracleConfig {
             oracle_address: None,
             oracle_secret: None,
             oracle_secret_key: None,
-            mnemonic: None,
+            oracle_mnemonic: None,
             oracle_network: network.clone(),
             network_prefix: Some(network_prefix),
             change_address: None,
