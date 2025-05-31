@@ -274,14 +274,15 @@ fn main() {
     log_on_launch();
     let node_api = NodeApi::new(&ORACLE_CONFIG.node_url);
 
+    let _ = node_api.get_wallet();
     if !node_api.node.indexer_status().unwrap().is_active {
         error!("Blockchain indexer is not active on the node");
         std::process::exit(exitcode::SOFTWARE);
     }
     let _ = node_api.wait_for_indexer_sync();
 
-    let change_address = ORACLE_CONFIG.change_address.clone().unwrap();
-    let network_prefix = change_address.network();
+    let change_address = ORACLE_CONFIG.get_change_address().clone();
+    let network_prefix = ORACLE_CONFIG.get_network_prefix();
 
     #[allow(clippy::wildcard_enum_match_arm)]
     match args.command {
@@ -574,11 +575,6 @@ fn log_and_continue_if_non_fatal(
 
 fn log_on_launch() {
     log::info!("{}", APP_VERSION);
-    let oracle_address_opt = ORACLE_CONFIG_OPT.as_ref().map(|c| c.oracle_address.clone());
-    if let Ok(oracle_address) = oracle_address_opt {
-        // log::info!("Token ids: {:?}", config.token_ids);
-        log::info!("Oracle address: {}", oracle_address.to_base58());
-    }
 }
 
 fn check_reward_token_opt(

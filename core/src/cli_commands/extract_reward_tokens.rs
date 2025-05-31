@@ -74,15 +74,15 @@ pub fn extract_reward_tokens(
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
     let network_prefix = rewards_destination.network();
-    let oracle_address = ORACLE_CONFIG.oracle_address.clone();
-    let change_address = ORACLE_CONFIG.change_address.clone();
+    let oracle_address = ORACLE_CONFIG.get_oracle_address().clone();
+    let change_address = ORACLE_CONFIG.get_change_address().clone();
     let (context, num_reward_tokens) = build_extract_reward_tokens_tx(
         local_datapoint_box_source,
         node_api,
         rewards_destination.address(),
         height,
         oracle_address,
-        change_address.unwrap().address(),
+        change_address.address(),
     )?;
 
     println!(

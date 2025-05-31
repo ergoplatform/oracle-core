@@ -37,7 +37,7 @@ async fn root() -> &'static str {
 async fn oracle_info() -> impl IntoResponse {
     let conf = &ORACLE_CONFIG;
     Json(json! ( {
-        "oracle_address": conf.oracle_address.to_base58(),
+        "oracle_address": conf.get_oracle_address().to_base58(),
         "base_fee": conf.base_fee,
     } ))
 }
@@ -79,7 +79,7 @@ fn oracle_status_sync(oracle_pool: Arc<OraclePool>) -> Result<Json<serde_json::V
 // Basic information about the oracle pool
 async fn pool_info() -> impl IntoResponse {
     let conf = &POOL_CONFIG;
-    let network = &ORACLE_CONFIG.oracle_address.network();
+    let network = &ORACLE_CONFIG.get_network_prefix();
     let address_encoder = AddressEncoder::new(*network);
     let pool_box_address = Address::P2S(
         conf.pool_box_wrapper_inputs
@@ -243,7 +243,7 @@ fn pool_health_sync(oracle_pool: Arc<OraclePool>) -> Result<PoolHealth, ApiError
     let current_height = (node_api.node.current_block_height()? as u32).into();
     let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;
     let pool_box_height = pool_box.get_box().creation_height.into();
-    let network_prefix = ORACLE_CONFIG.change_address.clone().unwrap().network();
+    let network_prefix = ORACLE_CONFIG.get_network_prefix();
     let pool_health = check_pool_health(
         current_height,
         pool_box_height,

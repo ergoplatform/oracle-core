@@ -85,11 +85,9 @@ pub fn update_pool(
             "Reward token id in pool_config_updated.yaml does not match the one from the command line"
         );
     }
-    let oracle_address = ORACLE_CONFIG.oracle_address.clone();
-    let (change_address, network_prefix) = {
-        let net_addr = ORACLE_CONFIG.change_address.clone().unwrap();
-        (net_addr.address(), net_addr.network())
-    };
+    let oracle_address = ORACLE_CONFIG.get_oracle_address().clone();
+    let change_address = ORACLE_CONFIG.get_change_address().clone().address();
+    let network_prefix = ORACLE_CONFIG.get_network_prefix();
 
     let new_pool_contract =
         PoolContract::checked_load(&new_pool_config.pool_box_wrapper_inputs.contract_inputs)?;

@@ -64,7 +64,7 @@ fn execute_refresh_action(
     node_api: &NodeApi,
 ) -> Result<(), ActionExecError> {
     let tx_id = node_api.sign_and_submit_transaction(action.transaction_context)?;
-    let network_prefix = &ORACLE_CONFIG.oracle_address.network();
+    let network_prefix = &ORACLE_CONFIG.get_network_prefix();
     log::info!(
         "Refresh tx published. Check status: {}",
         ergo_explorer_transaction_link(tx_id, *network_prefix)
@@ -77,7 +77,7 @@ fn execute_publish_datapoint_action(
     node_api: &NodeApi,
 ) -> Result<(), ActionExecError> {
     let tx_id = node_api.sign_and_submit_transaction(action.transaction_context)?;
-    let network_prefix = &ORACLE_CONFIG.oracle_address.network();
+    let network_prefix = &ORACLE_CONFIG.get_network_prefix();
     log::info!(
         "Datapoint tx published. Check status: {}",
         ergo_explorer_transaction_link(tx_id, *network_prefix)

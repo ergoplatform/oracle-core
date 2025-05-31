@@ -1,8 +1,7 @@
-use crate::oracle_config::ORACLE_SECRETS;
+use crate::oracle_config::ORACLE_CONFIG;
 use ergo_lib::chain::ergo_state_context::ErgoStateContext;
 use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
 use ergo_lib::chain::transaction::{Transaction, TxId};
-use ergo_lib::ergotree_ir::chain::address::AddressEncoderError;
 use ergo_lib::ergotree_ir::chain::ergo_box::box_value::BoxValue;
 use ergo_lib::ergotree_ir::chain::ergo_box::ErgoBox;
 use ergo_lib::ergotree_ir::chain::token::{Token, TokenId};
@@ -260,7 +259,7 @@ impl NodeApi {
 
     /// Get the wallet instance from the oracle secrets.
     pub fn get_wallet(&self) -> Result<Wallet, NodeApiError> {
-        let secret = ORACLE_SECRETS.secret_key.clone();
+        let secret = ORACLE_CONFIG.get_oracle_secret_key();
         Ok(Wallet::from_secrets(vec![secret]))
     }
 
@@ -328,8 +327,4 @@ pub enum NodeApiError {
     NodeInterfaceError(#[from] NodeError),
     #[error("Wallet error: {0}")]
     WalletError(#[from] WalletError),
-    #[error("AddressEncoder error: {0}")]
-    AddressEncoderError(#[from] AddressEncoderError),
-    #[error("no change address is set in node")]
-    NoChangeAddressSetInNode,
 }
