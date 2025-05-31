@@ -5,27 +5,23 @@ use std::{
 };
 
 use anyhow::Context;
+use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use ergo_lib::wallet::ext_secret_key::ExtSecretKey;
 use ergo_lib::wallet::mnemonic::Mnemonic;
 use ergo_lib::wallet::secret_key::SecretKey;
 use ergo_lib::{
     ergotree_ir::chain::address::NetworkAddress,
     ergotree_ir::{
-        chain::{
-            address::{Address},
-            ergo_box::box_value::BoxValue,
-        },
+        chain::{address::Address, ergo_box::box_value::BoxValue},
         sigma_protocol::sigma_boolean::ProveDlog,
     },
     wallet::tx_builder::{self, SUGGESTED_TX_FEE},
 };
-use ergo_lib::ergotree_ir::chain::address::NetworkPrefix;
 use log::LevelFilter;
 use once_cell::sync;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use base16;
 
 use crate::explorer_api::explorer_url::default_explorer_api_url;
 
@@ -70,9 +66,8 @@ impl OracleConfig {
 
     /// Returns network prefix (mainnet/testnet) from config
     pub fn get_network_prefix(&self) -> NetworkPrefix {
-        self.network_prefix.unwrap_or_else(|| {
-            Self::network_prefix(&self.oracle_network).unwrap()
-        })
+        self.network_prefix
+            .unwrap_or_else(|| Self::network_prefix(&self.oracle_network).unwrap())
     }
 
     /// Sets oracle address for testing purposes only
@@ -99,9 +94,10 @@ impl OracleConfig {
     fn set_mnemonic_secret(&mut self) -> Result<(), OracleConfigFileError> {
         // Try environment variable ORACLE_WALLET_SECRET
         if let Ok(secret) = std::env::var("ORACLE_WALLET_SECRET") {
-            let secret_bytes = base16::decode(&secret)
-                .map_err(|e| OracleConfigFileError::MnemonicError(format!("Invalid hex format: {}", e)))?;
-            
+            let secret_bytes = base16::decode(&secret).map_err(|e| {
+                OracleConfigFileError::MnemonicError(format!("Invalid hex format: {}", e))
+            })?;
+
             if let Ok(secret_key) = SecretKey::from_bytes(&secret_bytes) {
                 self.oracle_secret_key = Some(secret_key);
                 return Ok(());
@@ -110,9 +106,10 @@ impl OracleConfig {
 
         // Try config's oracle_secret
         if let Some(secret) = &self.oracle_secret {
-            let secret_bytes = base16::decode(secret)
-                .map_err(|e| OracleConfigFileError::MnemonicError(format!("Invalid hex format in config: {}", e)))?;
-            
+            let secret_bytes = base16::decode(secret).map_err(|e| {
+                OracleConfigFileError::MnemonicError(format!("Invalid hex format in config: {}", e))
+            })?;
+
             if let Ok(secret_key) = SecretKey::from_bytes(&secret_bytes) {
                 self.oracle_secret_key = Some(secret_key);
                 return Ok(());
@@ -138,14 +135,18 @@ impl OracleConfig {
         Err(OracleConfigFileError::MissingMnemonicSecret)
     }
 
-    fn derive_secret_from_mnemonic(&self, mnemonic: &str) -> Result<SecretKey, OracleConfigFileError> {
+    fn derive_secret_from_mnemonic(
+        &self,
+        mnemonic: &str,
+    ) -> Result<SecretKey, OracleConfigFileError> {
         let seed = Mnemonic::to_seed(mnemonic, "");
         let ext_sk = ExtSecretKey::derive_master(seed)
             .map_err(|e| OracleConfigFileError::MnemonicError(e.to_string()))?;
 
         // bip-32 path for the first key
         let path = "m/44'/429'/0'/0/0";
-        let secret_key = ext_sk.derive(path.parse().unwrap())
+        let secret_key = ext_sk
+            .derive(path.parse().unwrap())
             .map_err(|e| OracleConfigFileError::MnemonicError(e.to_string()))?
             .secret_key();
 
@@ -158,9 +159,16 @@ impl OracleConfig {
         let network_prefix = self.get_network_prefix();
         let oracle_address = NetworkAddress::new(
             network_prefix,
-            &self.oracle_secret_key.clone().unwrap().get_address_from_public_image(),
+            &self
+                .oracle_secret_key
+                .clone()
+                .unwrap()
+                .get_address_from_public_image(),
         );
-        log::info!("Oracle Address derived from secret: {}", oracle_address.to_base58());
+        log::info!(
+            "Oracle Address derived from secret: {}",
+            oracle_address.to_base58()
+        );
         Ok(oracle_address)
     }
 
@@ -175,15 +183,19 @@ impl OracleConfig {
         ))?;
         let mut config =
             Self::load_from_str(&config_str).context("failed to parse oracle config file")?;
-        
+
         // Set network prefix
-        config.network_prefix = Some(Self::network_prefix(&config.oracle_network)
-            .context("failed to parse network prefix")?);
+        config.network_prefix = Some(
+            Self::network_prefix(&config.oracle_network)
+                .context("failed to parse network prefix")?,
+        );
 
         // Derive oracle address from mnemonic
-        config.oracle_address = Some(config
-                                         .derive_oracle_address()
-                                         .context("failed to derive oracle address from mnemonic")?);
+        config.oracle_address = Some(
+            config
+                .derive_oracle_address()
+                .context("failed to derive oracle address from mnemonic")?,
+        );
 
         if config.change_address.is_none() {
             config.change_address = Some(config.oracle_address.clone().unwrap());
