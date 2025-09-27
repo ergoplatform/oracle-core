@@ -68,16 +68,15 @@ pub fn vote_update_pool(
     height: BlockHeight,
     ballot_contract: &BallotContract,
 ) -> Result<(), anyhow::Error> {
-    let oracle_address = ORACLE_CONFIG.oracle_address.clone();
-    let change_network_address = ORACLE_CONFIG.change_address.clone().unwrap();
+    let oracle_address = ORACLE_CONFIG.get_oracle_address().clone();
+    let change_network_address = ORACLE_CONFIG.get_change_address().clone();
     let network_prefix = change_network_address.network();
     let new_pool_box_address_hash = Digest32::try_from(new_pool_box_address_hash_str)?;
-    let ballot_token_owner =
-        if let Address::P2Pk(ballot_token_owner) = ORACLE_CONFIG.oracle_address.address() {
-            ballot_token_owner.h
-        } else {
-            return Err(VoteUpdatePoolError::IncorrectBallotTokenOwnerAddress.into());
-        };
+    let ballot_token_owner = if let Address::P2Pk(ballot_token_owner) = oracle_address.address() {
+        ballot_token_owner.h
+    } else {
+        return Err(VoteUpdatePoolError::IncorrectBallotTokenOwnerAddress.into());
+    };
     let context = if let Some(local_ballot_box) = local_ballot_box_source.get_ballot_box()? {
         log::debug!("Found local ballot box");
         // Note: the ballot box contains the ballot token, but the box is guarded by the contract,

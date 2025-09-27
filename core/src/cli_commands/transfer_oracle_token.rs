@@ -72,11 +72,9 @@ pub fn transfer_oracle_token(
 ) -> Result<(), anyhow::Error> {
     let rewards_destination =
         AddressEncoder::unchecked_parse_network_address_from_str(&rewards_destination_str)?;
-    let oracle_address = ORACLE_CONFIG.oracle_address.clone();
-    let (change_address, network_prefix) = {
-        let net_address = ORACLE_CONFIG.change_address.clone().unwrap();
-        (net_address.address(), net_address.network())
-    };
+    let oracle_address = ORACLE_CONFIG.get_oracle_address().clone();
+    let change_address = ORACLE_CONFIG.get_change_address().clone().address();
+    let network_prefix = ORACLE_CONFIG.get_network_prefix();
     let context = build_transfer_oracle_token_tx(
         local_datapoint_box_source,
         node_api,

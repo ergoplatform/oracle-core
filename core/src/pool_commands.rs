@@ -60,7 +60,7 @@ pub fn build_action(
     let datapoint_boxes_source = op.get_posted_datapoint_boxes_source();
     let pool_box = op.get_pool_box_source().get_pool_box()?;
     let current_epoch_counter = pool_box.epoch_counter();
-    let oracle_address = &ORACLE_CONFIG.oracle_address;
+    let oracle_address = &ORACLE_CONFIG.get_oracle_address();
     match cmd {
         PoolCommand::PublishFirstDataPoint => build_publish_first_datapoint_action(
             node_api,

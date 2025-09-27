@@ -64,11 +64,11 @@ pub fn bootstrap(config_file_name: String, node_api: &NodeApi) -> Result<(), any
     let oracle_config = &ORACLE_CONFIG;
     let s = std::fs::read_to_string(config_file_name)?;
     let config: BootstrapConfig = serde_yaml::from_str(&s)?;
-    let change_address = ORACLE_CONFIG.change_address.clone().unwrap();
+    let change_address = ORACLE_CONFIG.get_change_address().clone();
     debug!("Change address: {:?}", change_address);
     let erg_value_per_box = config.oracle_contract_parameters.min_storage_rent;
     let input = BootstrapInput {
-        oracle_address: oracle_config.oracle_address.clone(),
+        oracle_address: oracle_config.get_oracle_address().clone(),
         config,
         node_api,
         tx_fee: *BASE_FEE,

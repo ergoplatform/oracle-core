@@ -91,7 +91,7 @@ pub fn prepare_update(
     let s = std::fs::read_to_string(config_file_name)?;
     let config_serde: UpdateBootstrapConfigSerde = serde_yaml::from_str(&s)?;
 
-    let change_address = ORACLE_CONFIG.change_address.clone().unwrap().address();
+    let change_address = ORACLE_CONFIG.get_change_address().clone().address();
     let config = UpdateBootstrapConfig::try_from(config_serde)?;
     let update_bootstrap_input = PrepareUpdateInput {
         node_api,
@@ -199,7 +199,7 @@ impl<'a> PrepareUpdate<'a> {
         pool_config: &'a PoolConfig,
         oracle_config: &'a OracleConfig,
     ) -> Result<Self, PrepareUpdateError> {
-        let wallet_pk_ergo_tree = oracle_config.oracle_address.address().script()?;
+        let wallet_pk_ergo_tree = oracle_config.get_oracle_address().address().script()?;
         Ok(Self {
             input,
             wallet_pk_ergo_tree,
@@ -341,7 +341,7 @@ impl<'a> PrepareUpdate<'a> {
         let target_balance = self.calc_target_balance(self.num_transactions_left)?;
         debug!("target_balance: {:?}", target_balance);
         let unspent_boxes = self.input.node_api.get_unspent_boxes_by_address(
-            &self.oracle_config.oracle_address.to_base58(),
+            &self.oracle_config.get_oracle_address().to_base58(),
             target_balance,
             [].into(),
         )?;
@@ -617,16 +617,16 @@ token_ids:
 rescan_height: 141887
 "#).unwrap();
 
-        let old_oracle_config: OracleConfig = serde_yaml::from_str(
+        let mut old_oracle_config: OracleConfig = serde_yaml::from_str(
             r#"
 node_url: http://10.94.77.47:9052
 base_fee: 1100000
 scan_start_height: 0
 log_level: ~
 core_api_port: 9010
-oracle_address: 3Wy3BaCjGDWE3bjjZkNo3aWaMz3cYrePMFhchcKovY9uG9vhpAuW
 data_point_source: NanoErgXau
 data_point_source_custom_script: ~
+oracle_network: testnet
         "#,
         )
         .unwrap();
@@ -638,10 +638,7 @@ data_point_source_custom_script: ~
             NetworkPrefix::Testnet,
             &Address::P2Pk(secret.public_image()),
         );
-        let old_oracle_config = OracleConfig {
-            oracle_address: network_address.clone(),
-            ..old_oracle_config
-        };
+        old_oracle_config.set_oracle_address(Some(network_address.clone()));
         let ergo_tree = network_address.address().script().unwrap();
 
         let value = BASE_FEE.checked_mul_u32(10000).unwrap();
@@ -710,6 +707,6 @@ data_point_source_custom_script: ~
         let prepare =
             PrepareUpdate::new(prepare_update_input, &old_pool_config, &old_oracle_config).unwrap();
         let (new_pool_config, _) = prepare.execute(state).unwrap();
-        assert!(new_pool_config.token_ids != old_pool_config.token_ids);
+        assert_ne!(new_pool_config.token_ids, old_pool_config.token_ids);
     }
 }

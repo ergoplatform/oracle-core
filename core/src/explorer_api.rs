@@ -84,7 +84,7 @@ pub fn wait_for_tx_confirmation(tx_id: TxId) {
 }
 
 pub fn wait_for_txs_confirmation(tx_ids: Vec<TxId>) {
-    let network = ORACLE_CONFIG.oracle_address.network();
+    let network = ORACLE_CONFIG.get_network_prefix();
     let timeout = Duration::from_secs(1200);
     let explorer_url = ORACLE_CONFIG
         .explorer_url

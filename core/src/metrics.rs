@@ -338,7 +338,7 @@ pub fn update_metrics(
     node_api: &NodeApi,
 ) -> Result<(), anyhow::Error> {
     let current_height = (node_api.node.current_block_height()? as u32).into();
-    let network_prefix = ORACLE_CONFIG.change_address.clone().unwrap().network();
+    let network_prefix = ORACLE_CONFIG.get_network_prefix();
     let pool_box = &oracle_pool.get_pool_box_source().get_pool_box()?;
     {
         let rate = pool_box.rate();
@@ -362,7 +362,7 @@ pub fn update_metrics(
     update_oracle_health(&oracle_health);
     let wallet_balance: i64 = node_api
         .node
-        .nano_ergs_balance(&ORACLE_CONFIG.oracle_address.to_base58())?
+        .nano_ergs_balance(&ORACLE_CONFIG.get_oracle_address().to_base58())?
         as i64;
     ORACLE_NODE_WALLET_BALANCE.set(wallet_balance);
     POOL_BOX_REWARD_TOKEN_AMOUNT.set(pool_box.reward_token().amount.into());
