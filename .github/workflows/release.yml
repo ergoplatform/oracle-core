@@ -11,7 +11,7 @@ jobs:
       matrix:
         include:
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-20.04
+            os: ubuntu-24.04
             build_tool: cross # Use https://github.com/cross-rs/cross for ARM
           - target: x86_64-apple-darwin
             os: macos-latest
@@ -29,9 +29,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  upload-asset-x86-ubuntu-18:
+  upload-asset-x86-ubuntu-24:
     runs-on: ubuntu-latest
-    container: 'ubuntu:18.04'
+    container: 'ubuntu:24.04'
     steps:
       - name: Install dependencies
         run: |
