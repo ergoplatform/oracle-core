@@ -284,7 +284,7 @@ impl NodeApi {
                 Ok(tx)
             }
             Err(wallet_err) => {
-                log::error!("Sign Transaction Failed: {}", wallet_err.to_string());
+                log::error!("Sign Transaction Failed: {}", wallet_err);
                 Err(NodeApiError::WalletError(wallet_err))
             }
         }
