@@ -56,8 +56,10 @@ pub struct PoolConfig {
 pub enum PredefinedDataPointSource {
     NanoErgUsd,
     NanoErgXau,
+    NanoErgXag,
     NanoAdaUsd,
     NanoErgBTC,
+    RsnXag,
 }
 
 /// Holds the token ids of every important token used by the oracle pool.

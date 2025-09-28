@@ -8,8 +8,11 @@ mod coingecko;
 mod custom_ext_script;
 mod erg_btc;
 mod erg_usd;
+mod erg_xag;
 mod erg_xau;
+mod ergodex;
 mod predef;
+mod rsn_xag;
 
 use crate::oracle_types::Rate;
 use crate::pool_config::PredefinedDataPointSource;

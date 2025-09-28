@@ -1,6 +1,7 @@
 use super::assets_exchange_rate::AssetsExchangeRate;
 use super::assets_exchange_rate::Btc;
 use super::assets_exchange_rate::Usd;
+use super::erg_xag::KgAg;
 use super::erg_xau::KgAu;
 use super::DataPointSourceError;
 
@@ -44,6 +45,47 @@ pub async fn get_kgau_usd() -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSo
         per1: KgAu {},
         get: Usd {},
         rate: usd_per_kgau,
+    };
+    Ok(rate)
+}
+
+#[cfg(not(test))]
+pub async fn get_kgag_usd() -> Result<AssetsExchangeRate<KgAg, Usd>, DataPointSourceError> {
+    let url = "https://api.bitpanda.com/v1/ticker";
+    let resp = reqwest::get(url).await?;
+    let json = json::parse(&resp.text().await?)?;
+    if let Some(p) = json["XAG"]["USD"].as_str() {
+        // USD price of 1 gram of silver
+        let p_float = p
+            .parse::<f64>()
+            .map_err(|_| DataPointSourceError::JsonMissingField {
+                field: "XAG.USD as f64".to_string(),
+                json: json.dump(),
+            })?;
+        let usd_per_kgag = KgAg::from_gram(p_float);
+        let rate = AssetsExchangeRate {
+            per1: KgAg {},
+            get: Usd {},
+            rate: usd_per_kgag,
+        };
+        Ok(rate)
+    } else {
+        Err(DataPointSourceError::JsonMissingField {
+            field: "XAG.USD".to_string(),
+            json: json.dump(),
+        })
+    }
+}
+
+#[cfg(test)]
+pub async fn get_kgag_usd() -> Result<AssetsExchangeRate<KgAg, Usd>, DataPointSourceError> {
+    // USD price of 1 gram of silver
+    let p_float = 0.765;
+    let usd_per_kgag = KgAg::from_gram(p_float);
+    let rate = AssetsExchangeRate {
+        per1: KgAg {},
+        get: Usd {},
+        rate: usd_per_kgag,
     };
     Ok(rate)
 }
@@ -97,6 +139,13 @@ mod tests {
         let pair: AssetsExchangeRate<KgAu, Usd> = tokio_test::block_on(get_kgau_usd()).unwrap();
         assert!(pair.rate > 0.0);
     }
+
+    #[test]
+    fn test_kgag_usd_price() {
+        let pair: AssetsExchangeRate<KgAg, Usd> = tokio_test::block_on(get_kgag_usd()).unwrap();
+        assert!(pair.rate > 0.0);
+    }
+
     #[test]
     fn test_btc_usd_price() {
         let pair: AssetsExchangeRate<Btc, Usd> = tokio_test::block_on(get_btc_usd()).unwrap();
