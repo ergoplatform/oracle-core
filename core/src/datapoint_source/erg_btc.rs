@@ -4,7 +4,7 @@ use futures::Future;
 
 use super::{
     assets_exchange_rate::{convert_rate, AssetsExchangeRate, Btc, NanoErg},
-    bitpanda, coincap, coingecko, DataPointSourceError,
+    bitpanda, coingecko, coinpaprika, DataPointSourceError,
 };
 
 #[allow(clippy::type_complexity)]
@@ -13,24 +13,24 @@ pub fn nanoerg_btc_sources() -> Vec<
 > {
     vec![
         Box::pin(coingecko::get_btc_nanoerg()),
-        Box::pin(get_btc_nanoerg_coincap()),
+        Box::pin(get_btc_nanoerg_coinpaprika()),
         Box::pin(get_btc_nanoerg_bitpanda()),
     ]
 }
 
 // Calculate ERG/BTC through ERG/USD and USD/BTC
-async fn get_btc_nanoerg_coincap() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError>
-{
+async fn get_btc_nanoerg_coinpaprika(
+) -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError> {
     Ok(convert_rate(
-        coincap::get_usd_nanoerg().await?,
-        coincap::get_btc_usd().await?,
+        coinpaprika::get_usd_nanoerg().await?,
+        coinpaprika::get_btc_usd().await?,
     ))
 }
 
 async fn get_btc_nanoerg_bitpanda() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError>
 {
     Ok(convert_rate(
-        coincap::get_usd_nanoerg().await?,
+        coinpaprika::get_usd_nanoerg().await?,
         bitpanda::get_btc_usd().await?,
     ))
 }
@@ -39,10 +39,10 @@ async fn get_btc_nanoerg_bitpanda() -> Result<AssetsExchangeRate<Btc, NanoErg>, 
 mod test {
     use super::coingecko;
     use super::get_btc_nanoerg_bitpanda;
-    use super::get_btc_nanoerg_coincap;
+    use super::get_btc_nanoerg_coinpaprika;
     #[test]
     fn test_btc_nanoerg_combined() {
-        let combined = tokio_test::block_on(get_btc_nanoerg_coincap()).unwrap();
+        let combined = tokio_test::block_on(get_btc_nanoerg_coinpaprika()).unwrap();
         let coingecko = tokio_test::block_on(coingecko::get_btc_nanoerg()).unwrap();
         let bitpanda = tokio_test::block_on(get_btc_nanoerg_bitpanda()).unwrap();
         let deviation_from_coingecko = (combined.rate - coingecko.rate).abs() / coingecko.rate;
