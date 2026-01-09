@@ -21,7 +21,11 @@ pub fn generate_current_price(datapoint: u64) -> f64 {
 /// Acquires the price of Ergs in USD from CoinGecko, convert it
 /// into nanoErgs per 1 USD, and return it.
 fn get_nanoerg_usd_price() -> Result<u64> {
-    let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .get(CG_RATE_URL)
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
+        .send()?;
     let price_json = json::parse(&resp.text()?)?;
     if let Some(p) = price_json["ergo"]["usd"].as_f64() {
         // Convert from price Erg/USD to nanoErgs per 1 USD
