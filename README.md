@@ -10,6 +10,8 @@ The current oracle core is built to run the protocol specified in the [EIP-0023 
 
 AMD64 and ARM64 images are available from [Docker Hub Repo](https://hub.docker.com/r/ergoplatform/oracle-core)
 
+IF running in Ubuntu read section below
+
 The container runs under oracle-core user (9010 uid), if using bind mount for container's /data folder (where config files and other data lives), set the container's uid for the host's folder ownership ( ex: chown -R 9010:9010 oracle_data ).
 
 An example docker run command:
@@ -242,3 +244,69 @@ Check these values against those described in EIP-23.
 
 Prometheus metrics are disabled by default and can be enabled by setting `metrics_port` parameter in the oracle config file.
 The dashboard for Grafana is available in the `scripts` folder.
+
+## Ubuntu Install Instructions
+
+Installing Ergo Oracle Core on Ubuntu 24.04 requires setting up a Rust environment and then building the off-chain component.
+
+### Install Prerequisites
+Ergo Oracle Core is written in Rust. You must install the Rust toolchain and necessary system libraries:
+- System Dependencies:
+  ```bash
+     sudo apt update
+     sudo apt install build-essential libssl-dev pkg-config git
+  ```
+- Rust Toolchain: Install via rustup.rs:
+  ```bash
+     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+     "$HOME/.cargo/env"
+- Check Rust installed:
+  ```bash
+     rustc --version
+  
+### Clone & Build Oracle core
+- Clone the Repository:
+  ``` bash
+      ~git clone https://github.com/ergoplatform/oracle-core
+      cd oracle-core
+- Build the binary:
+  ``` bash
+      cargo build --release
+  ```
+- The compiled binary will be located at ./target/release/oracle-core.
+
+### Setup Oracle Core
+1) Generate an oracle config file from the default template with:
+```bash
+   console
+   oracle-core generate-oracle-config
+```
+2) Edit the `oracle_config.yaml` and set the required parameters:
+- `change_address` - a node's address that will be used by this oracle-core instance(pay tx fees, keep tokens, etc.). Make sure it has the oracle tokens & enough ERG;
+- `node_url`: The URL of your Ergo node (e.g. ;
+- `oracle_network`: mainnet
+- `node_api_key`: YOUR_NODE_API_KEY  *note this isn't in the config file, you'll have to add this line*
+- `metrics port`: 9090 IF you plan on installing graphana to view the prebuilt oracle status dashboards
+- `oracle_secret`: null
+- `oracle_mnemonic`: null  *by setting this "null", you ensure that the application does **not** look for a mnemonic inside that file. Instead, it will search for the environment variable you are about to set
+
+3) How to use the `.secrets` file (the README method)
+To avoid storing your mnemonic key in your terminal command nor shell history, follow this specific recommendation:
+- Create the hidden secrets file:
+  ```bash
+     nano .secrets
+- Add your mnemonic as an export command:
+  Inside the file, type:
+  ```bash
+     export ORACLE_WALLET_MNEMONIC="your tweleve or fifteen or however many word mnemonci phrase here"
+     ```
+     **Save an exit (Ctrl+X)
+- Load the secrets into your environment:
+  ```bash
+     source .secrets
+  ```
+  *Note, you will need to run this command each new terminal or reboot of computer*
+
+4) Obtain a Pool Configuration - *if joining an existing pool* contact the pool operator to get their `pool_config.yaml` and place that in `/oracle-core/` folder
+5) Start the Oracle - *load your source secrets* from above; cd to folder and run command `oracle-core run`. IF everything is correct, you will see logs indicating the oracle is scanning for the pool box and waiting for the next epoch.
+   - on the second or third line you'll see "Oracle Address derived from secret: 9xxxxxx" <<< ensure this matches your node wallet (otherwise you didn't input your mnemonic properly).
