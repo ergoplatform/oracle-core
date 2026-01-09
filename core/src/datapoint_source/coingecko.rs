@@ -7,10 +7,18 @@ use super::assets_exchange_rate::Btc;
 use super::assets_exchange_rate::Usd;
 use super::erg_xau::KgAu;
 
+const MAC_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
+const WINDOWS_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
+
 #[cfg(not(test))]
 pub async fn get_kgau_nanoerg() -> Result<AssetsExchangeRate<KgAu, NanoErg>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=XAU";
-    let resp = reqwest::get(url).await?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, MAC_USER_AGENT)
+        .send()
+        .await?;
     let price_json = json::parse(&resp.text().await?)?;
     if let Some(p) = price_json["ergo"]["xau"].as_f64() {
         // Convert from price Erg/XAU to nanoErgs per 1 XAU
@@ -45,7 +53,12 @@ pub async fn get_kgau_nanoerg() -> Result<AssetsExchangeRate<KgAu, NanoErg>, Dat
 #[cfg(not(test))]
 pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD";
-    let resp = reqwest::get(url).await?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, WINDOWS_USER_AGENT)
+        .send()
+        .await?;
     let price_json = json::parse(&resp.text().await?)?;
     if let Some(p) = price_json["ergo"]["usd"].as_f64() {
         // Convert from price Erg/USD to nanoErgs per 1 USD
@@ -79,7 +92,12 @@ pub async fn get_usd_nanoerg() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataP
 #[cfg(not(test))]
 pub async fn get_usd_lovelace() -> Result<AssetsExchangeRate<Usd, Lovelace>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=cardano&vs_currencies=USD";
-    let resp = reqwest::get(url).await?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, WINDOWS_USER_AGENT)
+        .send()
+        .await?;
     let price_json = json::parse(&resp.text().await?)?;
     if let Some(p) = price_json["cardano"]["usd"].as_f64() {
         // Convert from price Erg/USD to nanoErgs per 1 USD
@@ -113,7 +131,12 @@ pub async fn get_usd_lovelace() -> Result<AssetsExchangeRate<Usd, Lovelace>, Dat
 #[cfg(not(test))]
 pub async fn get_btc_nanoerg() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=BTC";
-    let resp = reqwest::get(url).await?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, MAC_USER_AGENT)
+        .send()
+        .await?;
     let price_json = json::parse(&resp.text().await?)?;
     if let Some(p) = price_json["ergo"]["btc"].as_f64() {
         // Convert from price BTC/ERG to nanoERG/BTC
