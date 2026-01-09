@@ -21,7 +21,11 @@ pub fn generate_current_price(datapoint: u64) -> f64 {
 /// Acquires the price of Ada in USD from CoinGecko, convert it
 /// into Lovelaces per 1 USD, and return it.
 fn get_lovelace_usd_price() -> Result<u64> {
-    let resp = reqwest::blocking::Client::new().get(CG_RATE_URL).send()?;
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .get(CG_RATE_URL)
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
+        .send()?;
     let price_json = json::parse(&resp.text()?)?;
     if let Some(p) = price_json["cardano"]["usd"].as_f64() {
         let lovelace_price = (1.0 / p) * LOVELACE_CONVERSION;
