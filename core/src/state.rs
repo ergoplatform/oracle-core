@@ -34,11 +34,12 @@ pub fn process(
             if let Some(local_datapoint_box_state) = live_epoch.local_datapoint_box_state {
                 match local_datapoint_box_state {
                     Collected { height: _ } => {
-                        // publish datapoint after some blocks have passed after the pool box published
-                        // to avoid some oracle box become stale on the next refresh
-                        // (datapoint posted on the first block of the epoch go out of the epoch window too fast)
-                        if current_height.0
-                            > live_epoch.latest_pool_box_height.0 + (epoch_length.0 as u32) / 2
+                        // publish datapoint in the second part of the epoch
+                        // to avoid some oracle boxes becoming stale on next refresh
+                        // (datapoint posted on the first block of the epoch goes out of the epoch window too fast)
+                        if (current_height.0 - live_epoch.latest_pool_box_height.0)
+                            % epoch_length.0 as u32
+                            > (epoch_length.0 as u32) / 2
                         {
                             Some(PoolCommand::PublishSubsequentDataPoint { republish: false })
                         } else {
