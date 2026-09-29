@@ -17,7 +17,7 @@ use super::erg_xau::KgAu;
 use super::DataPointSourceError;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-// CoinMarketCap answers 403 to reqwest's default (empty) user agent
+// some of these APIs sit behind CDNs that reject reqwest's default (empty) user agent
 const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
 
 #[allow(clippy::type_complexity)]
@@ -28,7 +28,6 @@ pub fn nanoerg_usd_sources() -> Vec<
         Box::pin(get_usd_nanoerg_kucoin()),
         Box::pin(get_usd_nanoerg_mexc()),
         Box::pin(get_usd_nanoerg_gate()),
-        Box::pin(get_usd_nanoerg_coinex()),
         Box::pin(get_usd_nanoerg_livecoinwatch()),
         Box::pin(get_usd_nanoerg_coinmarketcap()),
     ]
@@ -53,13 +52,6 @@ async fn get_usd_nanoerg_gate() -> Result<AssetsExchangeRate<Usd, NanoErg>, Data
     usd_nanoerg(&json[0], &["last"])
 }
 
-async fn get_usd_nanoerg_coinex() -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError>
-{
-    let url = "https://api.coinex.com/v2/spot/ticker?market=ERGUSDT";
-    let json = get_json(client()?.get(url)).await?;
-    usd_nanoerg(&json["data"][0], &["last"])
-}
-
 // Needs a free API key in the LCW_API_KEY env var; without it this source is skipped.
 async fn get_usd_nanoerg_livecoinwatch(
 ) -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
@@ -73,11 +65,10 @@ async fn get_usd_nanoerg_livecoinwatch(
     usd_nanoerg(&json, &["rate"])
 }
 
-// Keyless endpoint used by the coinmarketcap.com site (1762 = Ergo, 2781 = USD).
+// Keyless public API (rate limited on rapid calls; fine at datapoint cadence). 1762 = Ergo.
 async fn get_usd_nanoerg_coinmarketcap(
 ) -> Result<AssetsExchangeRate<Usd, NanoErg>, DataPointSourceError> {
-    let url =
-        "https://api.coinmarketcap.com/data-api/v3/cryptocurrency/quote/latest?id=1762&convertId=2781";
+    let url = "https://pro-api.coinmarketcap.com/public-api/v2/simple/price?id=1762&convert=USD";
     let json = get_json(client()?.get(url)).await?;
     usd_nanoerg(&json["data"][0]["quotes"][0], &["price"])
 }
