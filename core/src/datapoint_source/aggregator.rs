@@ -59,7 +59,7 @@ pub async fn fetch<PER1: Asset, GET: Asset>(
         .filter_map(|res| match res {
             Ok(Ok(rate)) => Some(rate),
             Ok(Err(e)) => {
-                log::debug!("datapoint source failed: {}", e);
+                log::debug!("datapoint source failed: {e}");
                 None
             }
             Err(_) => {

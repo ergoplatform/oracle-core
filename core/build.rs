@@ -1,3 +1,6 @@
+// warn-by-default since Rust 1.88; existing code uses positional format args throughout
+#![allow(clippy::uninlined_format_args)]
+
 use std::error::Error;
 use std::process::Command;
 

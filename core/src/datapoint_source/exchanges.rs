@@ -119,7 +119,7 @@ fn usd_nanoerg(
     let value = path.iter().fold(json, |j, key| &j[*key]);
     let usd_per_erg =
         positive_f64(value).ok_or_else(|| DataPointSourceError::JsonMissingField {
-            field: format!("{} as positive f64", field),
+            field: format!("{field} as positive f64"),
             json: json.dump(),
         })?;
     Ok(AssetsExchangeRate {
@@ -135,7 +135,7 @@ fn kgau_usd(
     field: &str,
 ) -> Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError> {
     let usd_per_oz = positive_f64(value).ok_or_else(|| DataPointSourceError::JsonMissingField {
-        field: format!("{} as positive f64", field),
+        field: format!("{field} as positive f64"),
         json: value.dump(),
     })?;
     Ok(AssetsExchangeRate {
