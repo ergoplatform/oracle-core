@@ -15,3 +15,5 @@ This makes little difference in practice, but the developer must understand befo
 1. Compile the connector via `cargo build --release`.
 2. Copy the compiled binary from `target/release/` into the same folder as your `oracle-config.yaml`.
 3. Run the connector via `./erg-usd-connector`.
+
+The price is the median of CoinGecko, CoinPaprika, CoinMarketCap, Bitpanda and the KuCoin, MEXC and Gate ERG/USDT tickers, so the connector keeps working when one of them is down. LiveCoinWatch is added when a free API key is set in the `LCW_API_KEY` environment variable (e.g. `LCW_API_KEY=... ./erg-usd-connector`).
