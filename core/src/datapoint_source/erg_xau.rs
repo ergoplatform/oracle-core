@@ -9,9 +9,12 @@ use super::assets_exchange_rate::convert_rate;
 use super::assets_exchange_rate::Asset;
 use super::assets_exchange_rate::AssetsExchangeRate;
 use super::assets_exchange_rate::NanoErg;
+use super::assets_exchange_rate::Usd;
 use super::bitpanda;
 use super::coingecko;
 use super::erg_usd::nanoerg_usd_sources;
+#[cfg(not(test))]
+use super::exchanges;
 use super::DataPointSourceError;
 
 #[derive(Debug, Clone, Copy)]
@@ -47,9 +50,23 @@ pub fn nanoerg_kgau_sources() -> Vec<
 
 pub async fn combined_kgau_nanoerg(
 ) -> Result<AssetsExchangeRate<KgAu, NanoErg>, DataPointSourceError> {
-    let kgau_usd_rate = bitpanda::get_kgau_usd().await?;
+    let kgau_usd_rate = fetch_aggregated(kgau_usd_sources()).await?;
     let aggregated_usd_nanoerg_rate = fetch_aggregated(nanoerg_usd_sources()).await?;
     Ok(convert_rate(aggregated_usd_nanoerg_rate, kgau_usd_rate))
+}
+
+#[allow(clippy::type_complexity)]
+fn kgau_usd_sources(
+) -> Vec<Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError>>>>>
+{
+    #[allow(unused_mut)]
+    let mut sources: Vec<
+        Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError>>>>,
+    > = vec![Box::pin(bitpanda::get_kgau_usd())];
+    // PAXG exchange tickers (live network, so not in tests)
+    #[cfg(not(test))]
+    sources.extend(exchanges::kgau_usd_sources());
+    sources
 }
 
 #[cfg(test)]
