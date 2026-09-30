@@ -3,6 +3,8 @@
 #![allow(clippy::redundant_clone)]
 #![allow(clippy::ptr_arg)]
 #![allow(clippy::unit_arg)]
+// warn-by-default since Rust 1.88; existing code uses positional format args throughout
+#![allow(clippy::uninlined_format_args)]
 #![forbid(unsafe_code)]
 #![deny(non_upper_case_globals)]
 #![deny(non_camel_case_types)]
@@ -328,6 +330,8 @@ fn main() {
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
                 ORACLE_CONFIG.data_point_source_custom_script.clone(),
+                ORACLE_CONFIG.min_price_sources,
+                ORACLE_CONFIG.livecoinwatch_api_key.clone(),
             )
             .unwrap();
 
