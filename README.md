@@ -287,6 +287,8 @@ Ergo Oracle Core is written in Rust. You must install the Rust toolchain and nec
 - `oracle_network`: mainnet
 - `node_api_key`: YOUR_NODE_API_KEY  *note this isn't in the config file, you'll have to add this line*
 - `metrics port`: 9090 IF you plan on installing graphana to view the prebuilt oracle status dashboards
+- `min_price_sources`: how many price sources must answer before a datapoint is posted (`erg_usd`, default 3; `gold_usd` for the ERG/XAU pool, default 2). Leave it out for the defaults
+- `livecoinwatch_api_key`: optional. A free key from livecoinwatch.com adds LiveCoinWatch as an ERG/USD source; without it the other sources are used
 - `oracle_secret`: null
 - `oracle_mnemonic`: null  *by setting this "null", you ensure that the application does **not** look for a mnemonic inside that file. Instead, it will search for the environment variable you are about to set
 

@@ -12,11 +12,13 @@ use super::PredefinedDataPointSource;
 pub fn sync_fetch_predef_source_aggregated(
     predef_datasource: &PredefinedDataPointSource,
     min_price_sources: MinPriceSources,
+    livecoinwatch_api_key: Option<&str>,
 ) -> Result<Rate, DataPointSourceError> {
     let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
     let rate = tokio_runtime.block_on(fetch_predef_source_aggregated(
         predef_datasource,
         min_price_sources,
+        livecoinwatch_api_key,
     ))?;
     Ok(rate)
 }
@@ -24,14 +26,23 @@ pub fn sync_fetch_predef_source_aggregated(
 async fn fetch_predef_source_aggregated(
     predef_datasource: &PredefinedDataPointSource,
     min_price_sources: MinPriceSources,
+    livecoinwatch_api_key: Option<&str>,
 ) -> Result<Rate, DataPointSourceError> {
     let rate_float = match predef_datasource {
         PredefinedDataPointSource::NanoErgUsd => {
-            fetch_aggregated("ERG/USD", nanoerg_usd_sources(), min_price_sources.erg_usd)
+            fetch_aggregated(
+                "ERG/USD",
+                nanoerg_usd_sources(livecoinwatch_api_key),
+                min_price_sources.erg_usd,
+            )
+            .await?
+            .rate
+        }
+        PredefinedDataPointSource::NanoErgXau => {
+            nanoerg_kgau(min_price_sources, livecoinwatch_api_key)
                 .await?
                 .rate
         }
-        PredefinedDataPointSource::NanoErgXau => nanoerg_kgau(min_price_sources).await?.rate,
         PredefinedDataPointSource::NanoAdaUsd => {
             fetch_aggregated("ADA/USD", usd_lovelace_sources(), 1)
                 .await?
@@ -54,7 +65,11 @@ mod tests {
         predef: PredefinedDataPointSource,
         min_price_sources: MinPriceSources,
     ) -> Result<Rate, DataPointSourceError> {
-        tokio_test::block_on(fetch_predef_source_aggregated(&predef, min_price_sources))
+        tokio_test::block_on(fetch_predef_source_aggregated(
+            &predef,
+            min_price_sources,
+            None,
+        ))
     }
 
     #[test]

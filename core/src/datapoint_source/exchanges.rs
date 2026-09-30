@@ -29,18 +29,19 @@ const MAX_COMEX_QUOTE_AGE: Duration = Duration::from_secs(30 * 60);
 /// How far a quote time may be ahead of this host's clock.
 const MAX_CLOCK_SKEW: Duration = Duration::from_secs(60);
 
-pub fn nanoerg_usd_sources() -> Vec<Source<Usd, NanoErg>> {
+pub fn nanoerg_usd_sources(livecoinwatch_api_key: Option<&str>) -> Vec<Source<Usd, NanoErg>> {
     let mut sources = vec![
         source("kucoin", get_usd_nanoerg_kucoin()),
         source("mexc", get_usd_nanoerg_mexc()),
         source("gate", get_usd_nanoerg_gate()),
         source("coinmarketcap", get_usd_nanoerg_coinmarketcap()),
     ];
-    // needs a free API key; without one it is left out rather than failing every round
-    if let Some(api_key) = std::env::var("LCW_API_KEY").ok().filter(|k| !k.is_empty()) {
+    // needs a free API key (`livecoinwatch_api_key` in oracle_config.yaml); without
+    // one it is left out rather than failing every round
+    if let Some(api_key) = livecoinwatch_api_key.filter(|k| !k.is_empty()) {
         sources.push(source(
             "livecoinwatch",
-            get_usd_nanoerg_livecoinwatch(api_key),
+            get_usd_nanoerg_livecoinwatch(api_key.to_string()),
         ));
     }
     sources

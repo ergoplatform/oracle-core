@@ -47,6 +47,10 @@ pub struct OracleConfig {
     pub data_point_source_custom_script: Option<String>,
     #[serde(default, deserialize_with = "min_price_sources_or_default")]
     pub min_price_sources: MinPriceSources,
+    /// LiveCoinWatch (free key from livecoinwatch.com) is an ERG/USD source only
+    /// when this is set.
+    #[serde(default)]
+    pub livecoinwatch_api_key: Option<String>,
     pub explorer_url: Option<Url>,
     pub metrics_port: Option<u16>,
 }
@@ -280,6 +284,7 @@ impl Default for OracleConfig {
             core_api_port: 9010,
             data_point_source_custom_script: None,
             min_price_sources: MinPriceSources::default(),
+            livecoinwatch_api_key: None,
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
             node_url: Url::parse("http://127.0.0.1:9053").unwrap(),
@@ -348,9 +353,25 @@ metrics_port: ~
     }
 
     #[test]
+    fn test_livecoinwatch_api_key() {
+        // absent (an older config), null, empty and set
+        let config = OracleConfig::load_from_str(OLD_CONFIG).unwrap();
+        assert_eq!(config.livecoinwatch_api_key, None);
+        let config =
+            OracleConfig::load_from_str(&format!("{OLD_CONFIG}livecoinwatch_api_key: ~\n"))
+                .unwrap();
+        assert_eq!(config.livecoinwatch_api_key, None);
+        let config =
+            OracleConfig::load_from_str(&format!("{OLD_CONFIG}livecoinwatch_api_key: abc123\n"))
+                .unwrap();
+        assert_eq!(config.livecoinwatch_api_key.as_deref(), Some("abc123"));
+    }
+
+    #[test]
     fn test_default_config_round_trip() {
         let yaml = serde_yaml::to_string(&OracleConfig::default()).unwrap();
         assert!(yaml.contains("min_price_sources"));
+        assert!(yaml.contains("livecoinwatch_api_key"));
         let config = OracleConfig::load_from_str(&yaml).unwrap();
         assert_eq!(config.min_price_sources, MinPriceSources::default());
     }

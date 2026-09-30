@@ -36,9 +36,12 @@ impl KgAu {
 /// The ERG/XAU datapoint: the combined rate, averaged with CoinGecko's direct
 /// ERG/XAU quote when that answers. The combined rate must meet its quorums;
 /// CoinGecko's single quote is never posted on its own.
-pub async fn nanoerg_kgau(min_price_sources: MinPriceSources) -> RateResult<KgAu, NanoErg> {
+pub async fn nanoerg_kgau(
+    min_price_sources: MinPriceSources,
+    livecoinwatch_api_key: Option<&str>,
+) -> RateResult<KgAu, NanoErg> {
     let (combined, mut rates) = futures::join!(
-        combined_kgau_nanoerg(min_price_sources),
+        combined_kgau_nanoerg(min_price_sources, livecoinwatch_api_key),
         fetch(
             "ERG/XAU",
             vec![source("coingecko", coingecko::get_kgau_nanoerg())]
@@ -52,11 +55,16 @@ pub async fn nanoerg_kgau(min_price_sources: MinPriceSources) -> RateResult<KgAu
 /// own quorum.
 pub async fn combined_kgau_nanoerg(
     min_price_sources: MinPriceSources,
+    livecoinwatch_api_key: Option<&str>,
 ) -> RateResult<KgAu, NanoErg> {
     // both legs at once, so the round takes as long as the slower leg, not both
     let (kgau_usd_rate, aggregated_usd_nanoerg_rate) = futures::join!(
         fetch_aggregated("gold/USD", kgau_usd_sources(), min_price_sources.gold_usd),
-        fetch_aggregated("ERG/USD", nanoerg_usd_sources(), min_price_sources.erg_usd),
+        fetch_aggregated(
+            "ERG/USD",
+            nanoerg_usd_sources(livecoinwatch_api_key),
+            min_price_sources.erg_usd
+        ),
     );
     Ok(convert_rate(aggregated_usd_nanoerg_rate?, kgau_usd_rate?))
 }
@@ -77,7 +85,7 @@ mod tests {
     #[test]
     fn test_kgau_nanoerg_combined() {
         let combined =
-            tokio_test::block_on(combined_kgau_nanoerg(MinPriceSources::default())).unwrap();
+            tokio_test::block_on(combined_kgau_nanoerg(MinPriceSources::default(), None)).unwrap();
         let coingecko = tokio_test::block_on(coingecko::get_kgau_nanoerg()).unwrap();
         let deviation_from_coingecko = (combined.rate - coingecko.rate).abs() / coingecko.rate;
         assert!(
@@ -85,7 +93,8 @@ mod tests {
             "up to 5% deviation is allowed"
         );
         // the datapoint is the mean of the combined rate and CoinGecko's quote
-        let datapoint = tokio_test::block_on(nanoerg_kgau(MinPriceSources::default())).unwrap();
+        let datapoint =
+            tokio_test::block_on(nanoerg_kgau(MinPriceSources::default(), None)).unwrap();
         assert_eq!(datapoint.rate, (combined.rate + coingecko.rate) / 2.0);
     }
 
@@ -93,7 +102,10 @@ mod tests {
     fn test_kgau_nanoerg_combined_quorum() {
         // the mocks give 3 gold votes and at least 7 ERG/USD sources
         let combined = |erg_usd, gold_usd| {
-            tokio_test::block_on(combined_kgau_nanoerg(MinPriceSources { erg_usd, gold_usd }))
+            tokio_test::block_on(combined_kgau_nanoerg(
+                MinPriceSources { erg_usd, gold_usd },
+                None,
+            ))
         };
         assert!(combined(7, 3).is_ok());
         assert!(matches!(
