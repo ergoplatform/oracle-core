@@ -122,3 +122,104 @@ fn check_rate(rate: f64) -> Result<(), DataPointSourceError> {
         Err(DataPointSourceError::InvalidRate(rate))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::datapoint_source::assets_exchange_rate::{NanoErg, Usd};
+
+    fn rate(r: f64) -> AssetsExchangeRate<Usd, NanoErg> {
+        AssetsExchangeRate {
+            per1: Usd {},
+            get: NanoErg {},
+            rate: r,
+        }
+    }
+
+    fn ok(name: &'static str, r: f64) -> Source<Usd, NanoErg> {
+        source(name, futures::future::ready(Ok(rate(r))))
+    }
+
+    fn failing(name: &'static str) -> Source<Usd, NanoErg> {
+        source(
+            name,
+            futures::future::ready(Err(DataPointSourceError::NoDataPoints)),
+        )
+    }
+
+    fn aggregated(sources: Vec<Source<Usd, NanoErg>>, min: usize) -> RateResult<Usd, NanoErg> {
+        tokio_test::block_on(fetch_aggregated("ERG/USD", sources, min))
+    }
+
+    #[test]
+    fn test_aggregate_median() {
+        let median = |rs: &[f64]| aggregate(rs.iter().map(|r| rate(*r)).collect()).rate;
+        assert_eq!(median(&[5.0]), 5.0);
+        assert_eq!(median(&[5.0, 3.0]), 4.0);
+        assert_eq!(median(&[5.0, 1.0, 3.0]), 3.0);
+        assert_eq!(median(&[5.0, 1.0, 100.0, 3.0]), 4.0);
+        // one outlier among several does not move it
+        assert_eq!(median(&[3.0, 3.1, 2.9, 3.0, 1000.0]), 3.0);
+    }
+
+    #[test]
+    fn test_quorum_boundaries() {
+        let sources = |n: usize| {
+            ["a", "b", "c", "d"][..n]
+                .iter()
+                .map(|name| ok(name, 3.0))
+                .collect::<Vec<_>>()
+        };
+        // min - 1
+        assert!(matches!(
+            aggregated(sources(2), 3),
+            Err(DataPointSourceError::NotEnoughSources { got: 2, min: 3, .. })
+        ));
+        // min
+        assert_eq!(aggregated(sources(3), 3).unwrap().rate, 3.0);
+        // min + 1
+        assert_eq!(aggregated(sources(4), 3).unwrap().rate, 3.0);
+    }
+
+    #[test]
+    fn test_failed_sources_do_not_count() {
+        let sources = vec![ok("a", 1.0), ok("b", 2.0), failing("c"), failing("d")];
+        assert!(matches!(
+            aggregated(sources, 3),
+            Err(DataPointSourceError::NotEnoughSources { got: 2, min: 3, .. })
+        ));
+        let sources = vec![ok("a", 1.0), ok("b", 2.0), failing("c"), ok("d", 3.0)];
+        assert_eq!(aggregated(sources, 3).unwrap().rate, 2.0);
+    }
+
+    #[test]
+    fn test_invalid_rates_do_not_count() {
+        let sources = vec![
+            ok("a", 1.0),
+            ok("b", 2.0),
+            ok("nan", f64::NAN),
+            ok("inf", f64::INFINITY),
+            ok("zero", 0.0),
+            ok("negative", -2.0),
+        ];
+        assert!(matches!(
+            aggregated(sources, 3),
+            Err(DataPointSourceError::NotEnoughSources { got: 2, min: 3, .. })
+        ));
+        let sources = vec![ok("a", 1.0), ok("b", 2.0), ok("nan", f64::NAN)];
+        assert_eq!(aggregated(sources, 1).unwrap().rate, 1.5);
+    }
+
+    #[test]
+    fn test_no_sources() {
+        assert!(matches!(
+            aggregated(vec![failing("a")], 1),
+            Err(DataPointSourceError::NoDataPoints)
+        ));
+        // a minimum of 0 still needs one source
+        assert!(matches!(
+            aggregated(vec![], 0),
+            Err(DataPointSourceError::NoDataPoints)
+        ));
+    }
+}

@@ -9,7 +9,6 @@ use super::assets_exchange_rate::Usd;
 use super::bitpanda;
 use super::coingecko;
 use super::erg_usd::nanoerg_usd_sources;
-#[cfg(not(test))]
 use super::exchanges;
 use super::MinPriceSources;
 
@@ -53,10 +52,7 @@ pub async fn combined_kgau_nanoerg(
 
 /// Independent gold prices: Bitpanda, COMEX futures and PAXG (see exchanges.rs)
 fn kgau_usd_sources() -> Vec<Source<KgAu, Usd>> {
-    #[allow(unused_mut)]
     let mut sources = vec![source("bitpanda", bitpanda::get_kgau_usd())];
-    // live network, so not in tests
-    #[cfg(not(test))]
     sources.extend(exchanges::kgau_usd_sources());
     sources
 }
@@ -68,12 +64,8 @@ mod tests {
 
     #[test]
     fn test_kgau_nanoerg_combined() {
-        // test builds have only the Bitpanda gold mock
-        let min_price_sources = MinPriceSources {
-            erg_usd: 3,
-            gold_usd: 1,
-        };
-        let combined = tokio_test::block_on(combined_kgau_nanoerg(min_price_sources)).unwrap();
+        let combined =
+            tokio_test::block_on(combined_kgau_nanoerg(MinPriceSources::default())).unwrap();
         let coingecko = tokio_test::block_on(coingecko::get_kgau_nanoerg()).unwrap();
         let deviation_from_coingecko = (combined.rate - coingecko.rate).abs() / coingecko.rate;
         assert!(

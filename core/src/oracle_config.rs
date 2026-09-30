@@ -290,3 +290,57 @@ lazy_static! {
         .map(|c| BoxValue::try_from(c.base_fee).unwrap())
         .unwrap_or_else(|_| SUGGESTED_TX_FEE());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // an oracle_config.yaml written before min_price_sources existed
+    const OLD_CONFIG: &str = r#"
+node_url: http://127.0.0.1:9053
+base_fee: 1100000
+log_level: ~
+core_api_port: 9010
+oracle_network: mainnet
+data_point_source_custom_script: ~
+explorer_url: ~
+metrics_port: ~
+"#;
+
+    #[test]
+    fn test_old_config_loads_with_default_min_price_sources() {
+        let config = OracleConfig::load_from_str(OLD_CONFIG).unwrap();
+        assert_eq!(config.min_price_sources, MinPriceSources::default());
+        assert_eq!(config.min_price_sources.erg_usd, 3);
+        assert_eq!(config.min_price_sources.gold_usd, 2);
+    }
+
+    #[test]
+    fn test_min_price_sources() {
+        let config = OracleConfig::load_from_str(&format!(
+            "{OLD_CONFIG}min_price_sources:\n  erg_usd: 5\n  gold_usd: 1\n"
+        ))
+        .unwrap();
+        assert_eq!(
+            config.min_price_sources,
+            MinPriceSources {
+                erg_usd: 5,
+                gold_usd: 1
+            }
+        );
+        // a key left out takes its default
+        let config =
+            OracleConfig::load_from_str(&format!("{OLD_CONFIG}min_price_sources:\n  erg_usd: 4\n"))
+                .unwrap();
+        assert_eq!(config.min_price_sources.erg_usd, 4);
+        assert_eq!(config.min_price_sources.gold_usd, 2);
+    }
+
+    #[test]
+    fn test_default_config_round_trip() {
+        let yaml = serde_yaml::to_string(&OracleConfig::default()).unwrap();
+        assert!(yaml.contains("min_price_sources"));
+        let config = OracleConfig::load_from_str(&yaml).unwrap();
+        assert_eq!(config.min_price_sources, MinPriceSources::default());
+    }
+}
