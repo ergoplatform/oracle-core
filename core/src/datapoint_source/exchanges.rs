@@ -26,6 +26,8 @@ const MAX_QUOTE_AGE: Duration = Duration::from_secs(5 * 60);
 /// Yahoo's COMEX quote runs ~10 min behind, so an older quote means the market
 /// is closed (weekend, holiday, the daily CME break).
 const MAX_COMEX_QUOTE_AGE: Duration = Duration::from_secs(30 * 60);
+/// How far a quote time may be ahead of this host's clock.
+const MAX_CLOCK_SKEW: Duration = Duration::from_secs(60);
 
 pub fn nanoerg_usd_sources() -> Vec<Source<Usd, NanoErg>> {
     let mut sources = vec![
@@ -100,6 +102,8 @@ async fn get_kgau_usd_comex() -> RateResult<KgAu, Usd> {
     Ok(kgau_usd(yahoo_price(&json, now_ms())?))
 }
 
+// Both venues use REQUEST_TIMEOUT (10 s), so this vote ends inside the
+// aggregator's 15 s per-source timeout.
 async fn get_kgau_usd_paxg() -> RateResult<KgAu, Usd> {
     let venues = vec![
         source("kraken", get_kgau_usd_kraken_paxg()),
@@ -192,7 +196,9 @@ fn now_ms() -> i64 {
     tests::FIXTURE_NOW_MS
 }
 
-/// Fails if a quote from `quote_ms` (unix ms) is older than `max_age` at `now_ms`.
+/// Fails if a quote from `quote_ms` (unix ms) is older than `max_age` at `now_ms`,
+/// or more than MAX_CLOCK_SKEW ahead of it (a timestamp in another unit, or a host
+/// clock that is off, would otherwise pass any age check).
 fn check_fresh(
     quote_ms: i64,
     now_ms: i64,
@@ -200,7 +206,12 @@ fn check_fresh(
     field: &str,
 ) -> Result<(), DataPointSourceError> {
     let age_ms = now_ms - quote_ms;
-    if age_ms > max_age.as_millis() as i64 {
+    if -age_ms > MAX_CLOCK_SKEW.as_millis() as i64 {
+        Err(DataPointSourceError::FutureQuote {
+            field: field.to_string(),
+            ahead_secs: -age_ms / 1000,
+        })
+    } else if age_ms > max_age.as_millis() as i64 {
         Err(DataPointSourceError::StaleQuote {
             field: field.to_string(),
             age_secs: age_ms / 1000,
@@ -367,6 +378,31 @@ pub(super) mod tests {
             &yahoo,
             1_790_763_274_000 + 30 * min + 1000
         )));
+    }
+
+    #[test]
+    fn test_future_quotes_rejected() {
+        let future = |r: Result<f64, DataPointSourceError>| {
+            matches!(r, Err(DataPointSourceError::FutureQuote { .. }))
+        };
+        let kucoin_ms = 1_790_763_843_281;
+        let kucoin = parse(KUCOIN_ERG);
+        // up to a minute of clock skew is fine
+        assert!(kucoin_price(&kucoin, kucoin_ms - 60_000).is_ok());
+        assert!(future(kucoin_price(&kucoin, kucoin_ms - 61_000)));
+        // a time in another unit: nanoseconds from KuCoin, milliseconds from Yahoo
+        let kucoin_ns = with(
+            KUCOIN_ERG,
+            &["data", "time"],
+            1_790_763_843_281_000_000_i64.into(),
+        );
+        assert!(future(kucoin_price(&kucoin_ns, FIXTURE_NOW_MS)));
+        let yahoo_ms = with(
+            YAHOO_GC,
+            &["chart", "result", "0", "meta", "regularMarketTime"],
+            1_790_763_274_000_i64.into(),
+        );
+        assert!(future(yahoo_price(&yahoo_ms, FIXTURE_NOW_MS)));
     }
 
     #[test]

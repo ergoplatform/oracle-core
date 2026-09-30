@@ -53,6 +53,8 @@ pub enum DataPointSourceError {
         age_secs: i64,
         max_age_secs: u64,
     },
+    #[error("Quote time {field} is {ahead_secs} s in the future")]
+    FutureQuote { field: String, ahead_secs: i64 },
 }
 
 /// Minimum number of price sources that must answer before a datapoint is

@@ -47,7 +47,7 @@ pub fn aggregate<PER1: Asset, GET: Asset>(
 
 /// Median of the sources that answered with a valid rate. Fails if fewer than
 /// `min_sources` (at least 1) did: skipping a datapoint is safer than posting a
-/// price that too few sources agree on.
+/// price from too few sources.
 pub async fn fetch_aggregated<PER1: Asset, GET: Asset>(
     pair: &'static str,
     sources: Vec<Source<PER1, GET>>,

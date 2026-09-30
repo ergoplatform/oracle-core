@@ -45,10 +45,18 @@ pub struct OracleConfig {
     oracle_mnemonic: Option<String>,
     change_address: Option<NetworkAddress>,
     pub data_point_source_custom_script: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "min_price_sources_or_default")]
     pub min_price_sources: MinPriceSources,
     pub explorer_url: Option<Url>,
     pub metrics_port: Option<u16>,
+}
+
+/// `min_price_sources: ~` (the style of the other optional keys) means the defaults.
+fn min_price_sources_or_default<'de, D>(deserializer: D) -> Result<MinPriceSources, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<MinPriceSources>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 impl OracleConfig {
@@ -328,6 +336,9 @@ metrics_port: ~
                 gold_usd: 1
             }
         );
+        let config =
+            OracleConfig::load_from_str(&format!("{OLD_CONFIG}min_price_sources: ~\n")).unwrap();
+        assert_eq!(config.min_price_sources, MinPriceSources::default());
         // a key left out takes its default
         let config =
             OracleConfig::load_from_str(&format!("{OLD_CONFIG}min_price_sources:\n  erg_usd: 4\n"))
