@@ -6,31 +6,47 @@ use super::erg_btc::nanoerg_btc_sources;
 use super::erg_usd::nanoerg_usd_sources;
 use super::erg_xau::nanoerg_kgau_sources;
 use super::DataPointSourceError;
+use super::MinPriceSources;
 use super::PredefinedDataPointSource;
 
 pub fn sync_fetch_predef_source_aggregated(
     predef_datasource: &PredefinedDataPointSource,
+    min_price_sources: MinPriceSources,
 ) -> Result<Rate, DataPointSourceError> {
     let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
-    let rate = tokio_runtime.block_on(fetch_predef_source_aggregated(predef_datasource))?;
+    let rate = tokio_runtime.block_on(fetch_predef_source_aggregated(
+        predef_datasource,
+        min_price_sources,
+    ))?;
     Ok(rate)
 }
 
 async fn fetch_predef_source_aggregated(
     predef_datasource: &PredefinedDataPointSource,
+    min_price_sources: MinPriceSources,
 ) -> Result<Rate, DataPointSourceError> {
     let rate_float = match predef_datasource {
         PredefinedDataPointSource::NanoErgUsd => {
-            fetch_aggregated(nanoerg_usd_sources()).await?.rate
+            fetch_aggregated("ERG/USD", nanoerg_usd_sources(), min_price_sources.erg_usd)
+                .await?
+                .rate
         }
         PredefinedDataPointSource::NanoErgXau => {
-            fetch_aggregated(nanoerg_kgau_sources()).await?.rate
+            // CoinGecko's ERG/XAU and the combined gold/USD x ERG/USD rate; the quorums
+            // apply inside the combined rate
+            fetch_aggregated("ERG/XAU", nanoerg_kgau_sources(min_price_sources), 1)
+                .await?
+                .rate
         }
         PredefinedDataPointSource::NanoAdaUsd => {
-            fetch_aggregated(usd_lovelace_sources()).await?.rate
+            fetch_aggregated("ADA/USD", usd_lovelace_sources(), 1)
+                .await?
+                .rate
         }
         PredefinedDataPointSource::NanoErgBTC => {
-            fetch_aggregated(nanoerg_btc_sources()).await?.rate
+            fetch_aggregated("ERG/BTC", nanoerg_btc_sources(), 1)
+                .await?
+                .rate
         }
     };
     Ok((rate_float as i64).into())

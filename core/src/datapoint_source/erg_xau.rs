@@ -1,13 +1,9 @@
 //! Obtains the nanoErg per 1 XAU (troy ounce of gold) rate
 
-use std::pin::Pin;
-
-use futures::Future;
-
 use super::aggregator::fetch_aggregated;
+use super::aggregator::{source, RateResult, Source};
 use super::assets_exchange_rate::convert_rate;
 use super::assets_exchange_rate::Asset;
-use super::assets_exchange_rate::AssetsExchangeRate;
 use super::assets_exchange_rate::NanoErg;
 use super::assets_exchange_rate::Usd;
 use super::bitpanda;
@@ -15,7 +11,7 @@ use super::coingecko;
 use super::erg_usd::nanoerg_usd_sources;
 #[cfg(not(test))]
 use super::exchanges;
-use super::DataPointSourceError;
+use super::MinPriceSources;
 
 #[derive(Debug, Clone, Copy)]
 pub struct KgAu {}
@@ -38,32 +34,28 @@ impl KgAu {
     }
 }
 
-#[allow(clippy::type_complexity)]
-pub fn nanoerg_kgau_sources() -> Vec<
-    Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<KgAu, NanoErg>, DataPointSourceError>>>>,
-> {
+pub fn nanoerg_kgau_sources(min_price_sources: MinPriceSources) -> Vec<Source<KgAu, NanoErg>> {
     vec![
-        Box::pin(coingecko::get_kgau_nanoerg()),
-        Box::pin(combined_kgau_nanoerg()),
+        source("coingecko", coingecko::get_kgau_nanoerg()),
+        source("combined", combined_kgau_nanoerg(min_price_sources)),
     ]
 }
 
 pub async fn combined_kgau_nanoerg(
-) -> Result<AssetsExchangeRate<KgAu, NanoErg>, DataPointSourceError> {
-    let kgau_usd_rate = fetch_aggregated(kgau_usd_sources()).await?;
-    let aggregated_usd_nanoerg_rate = fetch_aggregated(nanoerg_usd_sources()).await?;
+    min_price_sources: MinPriceSources,
+) -> RateResult<KgAu, NanoErg> {
+    let kgau_usd_rate =
+        fetch_aggregated("gold/USD", kgau_usd_sources(), min_price_sources.gold_usd).await?;
+    let aggregated_usd_nanoerg_rate =
+        fetch_aggregated("ERG/USD", nanoerg_usd_sources(), min_price_sources.erg_usd).await?;
     Ok(convert_rate(aggregated_usd_nanoerg_rate, kgau_usd_rate))
 }
 
-#[allow(clippy::type_complexity)]
-fn kgau_usd_sources(
-) -> Vec<Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError>>>>>
-{
+/// Independent gold prices: Bitpanda, COMEX futures and PAXG (see exchanges.rs)
+fn kgau_usd_sources() -> Vec<Source<KgAu, Usd>> {
     #[allow(unused_mut)]
-    let mut sources: Vec<
-        Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<KgAu, Usd>, DataPointSourceError>>>>,
-    > = vec![Box::pin(bitpanda::get_kgau_usd())];
-    // PAXG exchange tickers (live network, so not in tests)
+    let mut sources = vec![source("bitpanda", bitpanda::get_kgau_usd())];
+    // live network, so not in tests
     #[cfg(not(test))]
     sources.extend(exchanges::kgau_usd_sources());
     sources
@@ -76,7 +68,12 @@ mod tests {
 
     #[test]
     fn test_kgau_nanoerg_combined() {
-        let combined = tokio_test::block_on(combined_kgau_nanoerg()).unwrap();
+        // test builds have only the Bitpanda gold mock
+        let min_price_sources = MinPriceSources {
+            erg_usd: 3,
+            gold_usd: 1,
+        };
+        let combined = tokio_test::block_on(combined_kgau_nanoerg(min_price_sources)).unwrap();
         let coingecko = tokio_test::block_on(coingecko::get_kgau_nanoerg()).unwrap();
         let deviation_from_coingecko = (combined.rate - coingecko.rate).abs() / coingecko.rate;
         assert!(

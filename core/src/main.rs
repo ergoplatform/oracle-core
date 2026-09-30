@@ -330,6 +330,7 @@ fn main() {
             let datapoint_source = RuntimeDataPointSource::new(
                 POOL_CONFIG.data_point_source,
                 ORACLE_CONFIG.data_point_source_custom_script.clone(),
+                ORACLE_CONFIG.min_price_sources,
             )
             .unwrap();
 

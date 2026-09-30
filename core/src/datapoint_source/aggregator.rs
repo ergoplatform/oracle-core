@@ -9,6 +9,24 @@ use super::DataPointSourceError;
 
 const SOURCE_TIMEOUT: Duration = Duration::from_secs(15);
 
+pub type RateResult<PER1, GET> = Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError>;
+
+/// A price source: its name (for the logs) and the future that fetches its rate.
+pub struct Source<PER1: Asset, GET: Asset> {
+    pub name: &'static str,
+    pub rate: Pin<Box<dyn Future<Output = RateResult<PER1, GET>>>>,
+}
+
+pub fn source<PER1: Asset, GET: Asset>(
+    name: &'static str,
+    rate: impl Future<Output = RateResult<PER1, GET>> + 'static,
+) -> Source<PER1, GET> {
+    Source {
+        name,
+        rate: Box::pin(rate),
+    }
+}
+
 pub fn aggregate<PER1: Asset, GET: Asset>(
     rates: Vec<AssetsExchangeRate<PER1, GET>>,
 ) -> AssetsExchangeRate<PER1, GET> {
@@ -27,46 +45,80 @@ pub fn aggregate<PER1: Asset, GET: Asset>(
     }
 }
 
-#[allow(clippy::type_complexity)]
+/// Median of the sources that answered with a valid rate. Fails if fewer than
+/// `min_sources` (at least 1) did: skipping a datapoint is safer than posting a
+/// price that too few sources agree on.
 pub async fn fetch_aggregated<PER1: Asset, GET: Asset>(
-    sources: Vec<
-        Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError>>>>,
-    >,
-) -> Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError> {
-    let ok_results: Vec<AssetsExchangeRate<PER1, GET>> = fetch(sources).await?;
-    if ok_results.is_empty() {
+    pair: &'static str,
+    sources: Vec<Source<PER1, GET>>,
+    min_sources: usize,
+) -> RateResult<PER1, GET> {
+    let rates = fetch(pair, sources).await;
+    let min_sources = min_sources.max(1);
+    if rates.is_empty() {
         return Err(DataPointSourceError::NoDataPoints);
     }
-    let rate = aggregate(ok_results);
+    if rates.len() < min_sources {
+        return Err(DataPointSourceError::NotEnoughSources {
+            pair,
+            got: rates.len(),
+            min: min_sources,
+        });
+    }
+    let count = rates.len();
+    let rate = aggregate(rates);
+    check_rate(rate.rate)?;
+    log::debug!("{pair}: {} (median of {count} sources)", rate.rate);
     Ok(rate)
 }
 
-#[allow(clippy::type_complexity)]
+/// Fetches all sources concurrently and returns the valid rates. Failed, timed
+/// out and invalid (non-finite or non-positive) sources are logged and left out.
 pub async fn fetch<PER1: Asset, GET: Asset>(
-    sources: Vec<
-        Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<PER1, GET>, DataPointSourceError>>>>,
-    >,
-) -> Result<Vec<AssetsExchangeRate<PER1, GET>>, DataPointSourceError> {
+    pair: &'static str,
+    sources: Vec<Source<PER1, GET>>,
+) -> Vec<AssetsExchangeRate<PER1, GET>> {
+    let names: Vec<&str> = sources.iter().map(|s| s.name).collect();
     // a source that hangs must not hold up the others
     let results = futures::future::join_all(
         sources
             .into_iter()
-            .map(|s| tokio::time::timeout(SOURCE_TIMEOUT, s)),
+            .map(|s| tokio::time::timeout(SOURCE_TIMEOUT, s.rate)),
     )
     .await;
-    let ok_results: Vec<AssetsExchangeRate<PER1, GET>> = results
+    names
         .into_iter()
-        .filter_map(|res| match res {
-            Ok(Ok(rate)) => Some(rate),
+        .zip(results)
+        .filter_map(|(name, res)| match res {
+            Ok(Ok(rate)) => match check_rate(rate.rate) {
+                Ok(()) => {
+                    log::debug!("{pair} source {name}: {}", rate.rate);
+                    Some(rate)
+                }
+                Err(e) => {
+                    log::warn!("{pair} source {name} failed: {e}");
+                    None
+                }
+            },
             Ok(Err(e)) => {
-                log::debug!("datapoint source failed: {e}");
+                log::warn!("{pair} source {name} failed: {e}");
                 None
             }
             Err(_) => {
-                log::debug!("datapoint source timed out");
+                log::warn!(
+                    "{pair} source {name} timed out after {} s",
+                    SOURCE_TIMEOUT.as_secs()
+                );
                 None
             }
         })
-        .collect();
-    Ok(ok_results)
+        .collect()
+}
+
+fn check_rate(rate: f64) -> Result<(), DataPointSourceError> {
+    if rate.is_finite() && rate > 0.0 {
+        Ok(())
+    } else {
+        Err(DataPointSourceError::InvalidRate(rate))
+    }
 }

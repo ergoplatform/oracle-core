@@ -23,6 +23,7 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::datapoint_source::MinPriceSources;
 use crate::explorer_api::explorer_url::default_explorer_api_url;
 
 pub const DEFAULT_ORACLE_CONFIG_FILE_NAME: &str = "oracle_config.yaml";
@@ -44,6 +45,8 @@ pub struct OracleConfig {
     oracle_mnemonic: Option<String>,
     change_address: Option<NetworkAddress>,
     pub data_point_source_custom_script: Option<String>,
+    #[serde(default)]
+    pub min_price_sources: MinPriceSources,
     pub explorer_url: Option<Url>,
     pub metrics_port: Option<u16>,
 }
@@ -268,6 +271,7 @@ impl Default for OracleConfig {
             change_address: None,
             core_api_port: 9010,
             data_point_source_custom_script: None,
+            min_price_sources: MinPriceSources::default(),
             base_fee: *tx_builder::SUGGESTED_TX_FEE().as_u64(),
             log_level: LevelFilter::Info.into(),
             node_url: Url::parse("http://127.0.0.1:9053").unwrap(),
