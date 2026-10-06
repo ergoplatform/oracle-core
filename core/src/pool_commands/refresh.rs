@@ -401,6 +401,8 @@ mod tests {
     use crate::box_kind::PostedOracleBox;
     use crate::box_kind::RefreshBoxWrapper;
     use crate::box_kind::RefreshBoxWrapperInputs;
+    use crate::contracts::oracle::OracleContract;
+    use crate::contracts::oracle::OracleContractInputs;
     use crate::contracts::oracle::OracleContractParameters;
     use crate::contracts::pool::PoolContractParameters;
     use crate::contracts::refresh::RefreshContract;
@@ -417,6 +419,8 @@ mod tests {
     };
     use crate::pool_config::TokenIds;
     use crate::spec_token::TokenIdKind;
+    use ergo_lib::ergotree_ir::ergo_tree::ErgoTree;
+    use ergo_lib::ergotree_ir::mir::constant::TryExtractInto;
 
     use super::*;
 
@@ -773,5 +777,218 @@ mod tests {
             filtered_oracle_boxes_by_rate(vec![95, 96, 97, 98, 99, 200, 200], 5).unwrap(),
             vec![95, 96, 97, 98, 99]
         );
+    }
+
+    /// Wraps `base` as `base && sizeOf(tag) == 32`, where `tag` is a 32-byte constant.
+    /// Every distinct `tag` gives a distinct tree (as with per-operator constants)
+    /// whose spending conditions are those of `base`. Constant segregation keeps the
+    /// constants of `base` at their original indices, so the pool NFT and min storage
+    /// rent are still found where `OracleContractParameters` expects them.
+    fn per_operator_oracle_tree(base: &ErgoTree, tag: u8) -> ErgoTree {
+        use ergo_lib::ergotree_ir::ergo_tree::ErgoTreeHeader;
+        use ergo_lib::ergotree_ir::mir::bin_op::{BinOp, BinOpKind, RelationOp};
+        use ergo_lib::ergotree_ir::mir::bool_to_sigma::BoolToSigmaProp;
+        use ergo_lib::ergotree_ir::mir::coll_size::SizeOf;
+        use ergo_lib::ergotree_ir::mir::constant::Constant;
+        use ergo_lib::ergotree_ir::mir::expr::Expr;
+        use ergo_lib::ergotree_ir::mir::sigma_and::SigmaAnd;
+
+        let tag_bytes: Constant = vec![tag; 32].into();
+        let thirty_two: Constant = 32i32.into();
+        let extra: Expr = BoolToSigmaProp {
+            input: Box::new(
+                BinOp {
+                    kind: BinOpKind::Relation(RelationOp::Eq),
+                    left: Box::new(
+                        SizeOf {
+                            input: Box::new(tag_bytes.into()),
+                        }
+                        .into(),
+                    ),
+                    right: Box::new(thirty_two.into()),
+                }
+                .into(),
+            ),
+        }
+        .into();
+        let root: Expr = SigmaAnd::new(vec![base.proposition().unwrap(), extra])
+            .unwrap()
+            .into();
+        ErgoTree::new(ErgoTreeHeader::v0(true), &root).unwrap()
+    }
+
+    /// Oracle boxes need not share one ErgoTree (e.g. per-operator constants).
+    /// `test_refresh_pool` builds every oracle box with the same tree, so it cannot
+    /// tell whether refresh gives each collected box its own tree back. Here every
+    /// box has a different tree; reusing one tree for all outputs fails signing.
+    #[test]
+    fn test_refresh_pool_preserves_each_oracle_box_tree() {
+        use ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId;
+        use ergo_lib::ergotree_ir::mir::constant::Constant;
+
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = BlockHeight(ctx.pre_header.height);
+        let pool_contract_parameters = PoolContractParameters::default();
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let token_ids = generate_token_ids();
+
+        let refresh_contract_inputs = RefreshContractInputs::build_with(
+            RefreshContractParameters::default(),
+            token_ids.oracle_token_id.clone(),
+            token_ids.pool_nft_token_id.clone(),
+        )
+        .unwrap();
+        let inputs = RefreshBoxWrapperInputs {
+            refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
+            contract_inputs: refresh_contract_inputs,
+        };
+        let epoch = EpochCounter(1);
+        let in_refresh_box = make_refresh_box(*BASE_FEE, &inputs, height - EpochLength(32));
+        let in_pool_box = make_pool_box(
+            200,
+            epoch,
+            *BASE_FEE,
+            height - EpochLength(32),
+            &pool_contract_parameters,
+            &token_ids,
+        );
+        let secret = force_any_val::<DlogProverInput>();
+        let oracle_address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image().clone()),
+        );
+        // distinct keys, so each output can be matched to its input by R4
+        let mut pub_keys = vec![*secret.public_image().h.clone()];
+        pub_keys.extend((0..5).map(|_| *DlogProverInput::random().public_image().h));
+        let rates: Vec<i64> = vec![199, 70, 196, 197, 198, 200];
+
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters.clone(), &token_ids))
+                .unwrap();
+        let base_tree = OracleContract::checked_load(
+            &OracleContractInputs::build_with(
+                oracle_contract_parameters,
+                token_ids.pool_nft_token_id.clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+        .ergo_tree();
+
+        let in_oracle_boxes: Vec<PostedOracleBox> = pub_keys
+            .iter()
+            .zip(rates)
+            .enumerate()
+            .map(|(i, (pub_key, rate))| {
+                let tokens = vec![
+                    Token::from((
+                        token_ids.oracle_token_id.token_id(),
+                        1u64.try_into().unwrap(),
+                    )),
+                    Token::from((
+                        token_ids.reward_token_id.token_id(),
+                        100u64.try_into().unwrap(),
+                    )),
+                ]
+                .try_into()
+                .unwrap();
+                let b = ErgoBox::new(
+                    BASE_FEE.checked_mul_u32(100).unwrap(),
+                    per_operator_oracle_tree(&base_tree, i as u8),
+                    Some(tokens),
+                    NonMandatoryRegisters::new(
+                        vec![
+                            (NonMandatoryRegisterId::R4, Constant::from(pub_key.clone())),
+                            (NonMandatoryRegisterId::R5, Constant::from(epoch.0 as i32)),
+                            (NonMandatoryRegisterId::R6, Constant::from(rate)),
+                        ]
+                        .into_iter()
+                        .collect(),
+                    )
+                    .unwrap(),
+                    (height - EpochLength(9)).0,
+                    force_any_val::<TxId>(),
+                    0,
+                )
+                .unwrap();
+                PostedOracleBox::new(b, &oracle_box_wrapper_inputs).unwrap()
+            })
+            .collect();
+        for (i, a) in in_oracle_boxes.iter().enumerate() {
+            for b in &in_oracle_boxes[i + 1..] {
+                assert_ne!(a.get_box().ergo_tree, b.get_box().ergo_tree);
+                assert_ne!(a.public_key(), b.public_key());
+            }
+        }
+
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
+        let mock_node_api = &MockNodeApi {
+            unspent_boxes: vec![make_wallet_unspent_box(
+                secret.public_image(),
+                BASE_FEE.checked_mul_u32(10000).unwrap(),
+                None,
+            )],
+            ctx: ctx.clone(),
+            secrets: vec![secret.clone().into()],
+            submitted_txs: &SubmitTxMock::default().transactions,
+            chain_submit_tx: None,
+        };
+
+        let (action, report) = build_refresh_action(
+            &PoolBoxMock {
+                pool_box: in_pool_box,
+            },
+            &RefreshBoxMock {
+                refresh_box: in_refresh_box,
+            },
+            &(DatapointSourceMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
+            5,
+            MinDatapoints(4),
+            mock_node_api,
+            height,
+            oracle_address,
+            change_address.address(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(report.oracle_boxes_collected.len(), 5);
+
+        // Each collected oracle output is matched to its input by its R4 key
+        // (all keys differ) and must keep that input's tree and key.
+        let oracle_outputs: Vec<_> = action
+            .transaction_context
+            .spending_tx
+            .output_candidates
+            .iter()
+            .filter(|o| {
+                o.tokens.as_ref().is_some_and(|t| {
+                    t.get(0).unwrap().token_id == token_ids.oracle_token_id.token_id()
+                })
+            })
+            .collect();
+        assert_eq!(oracle_outputs.len(), 5);
+        for out in oracle_outputs {
+            let key = out
+                .additional_registers
+                .get_constant(NonMandatoryRegisterId::R4)
+                .unwrap()
+                .clone()
+                .try_extract_into::<EcPoint>()
+                .unwrap();
+            let input = in_oracle_boxes
+                .iter()
+                .find(|b| b.public_key() == key)
+                .unwrap();
+            assert_eq!(out.ergo_tree, input.get_box().ergo_tree);
+        }
+
+        let _signed_tx = mock_node_api
+            .sign_transaction(action.transaction_context)
+            .unwrap();
     }
 }
