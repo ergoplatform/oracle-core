@@ -1,0 +1,56 @@
+version: "3"
+
+volumes:
+  ergo_node_storage:
+
+services:
+  node:
+    image: ergoplatform/ergo:v3.3.1
+    restart: unless-stopped
+    volumes:
+      - "ergo_node_storage:/home/ergo/.ergo"
+      - "${PWD}/docker/ergo.conf:/etc/ergo.conf"
+    command: --mainnet -c /etc/ergo.conf
+    ports:
+     - 9030:9030
+     - 9053:9053
+
+  oracle-core-erg-usd:
+    build: .
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/scripts/erg-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    depends_on:
+      - node 
+
+  erg-usd-connector:
+    build: connectors/erg-usd-connector/
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/scripts/erg-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    ports:
+      - 9092:9092
+    depends_on:
+      - oracle-core-erg-usd
+
+  oracle-core-ada-usd:
+    build: .
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/scripts/ada-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    depends_on:
+      - node
+
+  ada-usd-connector:
+    build: connectors/ada-usd-connector/
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "${PWD}/scripts/ada-usd-oracle/oracle-config.yaml:/oracle-config.yaml"
+    ports:
+      - 9082:9082
+    depends_on:
+      - oracle-core-ada-usd
