@@ -1,20 +1,14 @@
-use std::pin::Pin;
-
-use futures::Future;
-
 use super::{
+    aggregator::{source, Source},
     assets_exchange_rate::{convert_rate, AssetsExchangeRate, Btc, NanoErg},
     bitpanda, coingecko, coinpaprika, DataPointSourceError,
 };
 
-#[allow(clippy::type_complexity)]
-pub fn nanoerg_btc_sources() -> Vec<
-    Pin<Box<dyn Future<Output = Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError>>>>,
-> {
+pub fn nanoerg_btc_sources() -> Vec<Source<Btc, NanoErg>> {
     vec![
-        Box::pin(coingecko::get_btc_nanoerg()),
-        Box::pin(get_btc_nanoerg_coinpaprika()),
-        Box::pin(get_btc_nanoerg_bitpanda()),
+        source("coingecko", coingecko::get_btc_nanoerg()),
+        source("coinpaprika", get_btc_nanoerg_coinpaprika()),
+        source("bitpanda", get_btc_nanoerg_bitpanda()),
     ]
 }
 
