@@ -304,20 +304,26 @@ impl NodeApi {
         self.submit_transaction(&tx)
     }
 
-    /// Waits for the indexer to sync. This function will block until the indexer is fully synced.
+    /// Waits for the node's blockchain indexer to sync. Blocks until the indexer is synced,
+    /// re-querying the node once per second.
     pub fn wait_for_indexer_sync(&self) -> Result<(), NodeApiError> {
-        let indexer_status = self.node.indexer_status()?;
-        if indexer_status.is_sync {
-            log::debug!("Your indexer is already synced.");
-            return Ok(());
-        }
-        Ok(loop {
+        let mut waiting_logged = false;
+        loop {
+            let indexer_status = self.node.indexer_status()?;
             if indexer_status.is_sync {
-                log::debug!("Your indexer synced successfully.");
-                break;
+                if waiting_logged {
+                    log::info!("Node's blockchain indexer synced successfully.");
+                } else {
+                    log::debug!("Node's blockchain indexer is already synced.");
+                }
+                return Ok(());
+            }
+            if !waiting_logged {
+                log::info!("Waiting for the node's blockchain indexer to sync...");
+                waiting_logged = true;
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
-        })
+        }
     }
 }
 
