@@ -116,14 +116,19 @@ impl UpdateContract {
     pub fn checked_load(inputs: &UpdateContractInputs) -> Result<Self, UpdateContractError> {
         let ergo_tree =
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
-        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_base16 = Self::build_with(inputs)
-                .unwrap()
-                .ergo_tree
-                .to_base16_bytes()
-                .unwrap();
-            UpdateContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
-        })?;
+        let contract =
+            Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+                match Self::build_with(inputs)
+                    .ok()
+                    .and_then(|c| c.ergo_tree.to_base16_bytes().ok())
+                {
+                    Some(expected_base16) => UpdateContractError::WrappedWithExpectedP2SAddress(
+                        expected_base16,
+                        e.into(),
+                    ),
+                    None => e,
+                }
+            })?;
         Ok(contract)
     }
     pub fn from_ergo_tree(
@@ -395,5 +400,32 @@ mod tests {
         );
         assert_eq!(c.ballot_token_id(), token_ids.ballot_token_id.token_id(),);
         assert_eq!(c.min_votes(), new_parameters.min_votes);
+    }
+
+    #[test]
+    fn test_checked_load_errors_without_panicking() {
+        let invalid_params = UpdateContractParameters {
+            pool_nft_index: 999,
+            ..Default::default()
+        };
+        let token_ids = generate_token_ids();
+        let invalid_inputs = UpdateContractInputs {
+            contract_parameters: invalid_params,
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+            ballot_token_id: token_ids.ballot_token_id.clone(),
+        };
+        let res = UpdateContract::checked_load(&invalid_inputs);
+        assert!(matches!(res, Err(UpdateContractError::NoPoolNftId)));
+
+        let mismatch_inputs = UpdateContractInputs {
+            contract_parameters: UpdateContractParameters::default(),
+            pool_nft_token_id: token_ids.pool_nft_token_id,
+            ballot_token_id: token_ids.ballot_token_id,
+        };
+        let mismatch_res = UpdateContract::checked_load(&mismatch_inputs);
+        assert!(matches!(
+            mismatch_res,
+            Err(UpdateContractError::WrappedWithExpectedP2SAddress(_, _))
+        ));
     }
 }

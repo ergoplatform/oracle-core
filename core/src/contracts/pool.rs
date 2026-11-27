@@ -86,14 +86,18 @@ impl PoolContract {
     pub fn checked_load(inputs: &PoolContractInputs) -> Result<Self, PoolContractError> {
         let ergo_tree =
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
-        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_base16 = Self::build_with(inputs)
-                .unwrap()
-                .ergo_tree
-                .to_base16_bytes()
-                .unwrap();
-            PoolContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
-        })?;
+        let contract =
+            Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+                match Self::build_with(inputs)
+                    .ok()
+                    .and_then(|c| c.ergo_tree.to_base16_bytes().ok())
+                {
+                    Some(expected_base16) => {
+                        PoolContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
+                    }
+                    None => e,
+                }
+            })?;
         Ok(contract)
     }
 
@@ -220,7 +224,7 @@ impl PoolContractParameters {
             .try_extract_into::<TokenId>()?;
 
         let _update_nft = ergo_tree
-            .get_constant(refresh_nft_index)
+            .get_constant(update_nft_index)
             .map_err(|_| PoolContractParametersError::NoUpdateNftId)?
             .ok_or(PoolContractParametersError::NoUpdateNftId)?
             .try_extract_into::<TokenId>()?;
@@ -288,5 +292,58 @@ mod tests {
             c.update_nft_token_id(),
             token_ids.update_nft_token_id.token_id(),
         );
+    }
+
+    #[test]
+    fn test_parameters_checked_load_validates_update_nft_index() {
+        let default_params = PoolContractParameters::default();
+        assert!(PoolContractParameters::checked_load(
+            default_params.ergo_tree_bytes(),
+            default_params.refresh_nft_index(),
+            default_params.update_nft_index(),
+        )
+        .is_ok());
+
+        let err = PoolContractParameters::checked_load(
+            default_params.ergo_tree_bytes(),
+            default_params.refresh_nft_index(),
+            999,
+        )
+        .unwrap_err();
+        assert!(matches!(err, PoolContractParametersError::NoUpdateNftId));
+    }
+
+    #[test]
+    fn test_checked_load_errors_without_panicking() {
+        let default_params = PoolContractParameters::default();
+        let token_ids = generate_token_ids();
+
+        // Invalid constant index causes both from_ergo_tree and build_with to fail cleanly.
+        let invalid_index_inputs = PoolContractInputs {
+            contract_parameters: PoolContractParameters {
+                ergo_tree_bytes: default_params.ergo_tree_bytes(),
+                refresh_nft_index: 999,
+                update_nft_index: default_params.update_nft_index(),
+            },
+            refresh_nft_token_id: token_ids.refresh_nft_token_id.clone(),
+            update_nft_token_id: token_ids.update_nft_token_id.clone(),
+        };
+        let err = PoolContract::checked_load(&invalid_index_inputs).unwrap_err();
+        assert!(matches!(
+            err,
+            PoolContractError::ParametersError(PoolContractParametersError::NoRefreshNftId)
+        ));
+
+        // Mismatched token ID still reports WrappedWithExpectedP2SAddress.
+        let mismatch_inputs = PoolContractInputs {
+            contract_parameters: default_params,
+            refresh_nft_token_id: token_ids.refresh_nft_token_id,
+            update_nft_token_id: token_ids.update_nft_token_id,
+        };
+        let mismatch_err = PoolContract::checked_load(&mismatch_inputs).unwrap_err();
+        assert!(matches!(
+            mismatch_err,
+            PoolContractError::WrappedWithExpectedP2SAddress(_, _)
+        ));
     }
 }
