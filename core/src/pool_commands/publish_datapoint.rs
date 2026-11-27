@@ -6,7 +6,7 @@ use ergo_lib::wallet::signing::{TransactionContext, TxSigningError};
 use ergo_lib::{
     chain::ergo_box::box_builder::ErgoBoxCandidateBuilderError,
     ergotree_interpreter::sigma_protocol::prover::ContextExtension,
-    ergotree_ir::chain::{address::Address, token::TokenAmount},
+    ergotree_ir::chain::{address::Address, ergo_box::box_value::BoxValue, token::TokenAmount},
     wallet::{
         box_selector::BoxSelectorError,
         tx_builder::{TxBuilder, TxBuilderError},
@@ -83,8 +83,20 @@ pub fn build_subsequent_publish_datapoint_action(
     )?;
     let box_selector = SimpleBoxSelector::new();
     let tx_fee = *BASE_FEE;
-    let mut unspent_boxes =
-        node_api.get_unspent_boxes_by_address(&oracle_address.to_base58(), tx_fee, vec![])?;
+    let is_reward_token_rotation = reward_token_id != &in_oracle_box.reward_token().token_id;
+    let (wallet_target_balance, wallet_target_tokens) = if is_reward_token_rotation {
+        (
+            tx_fee.checked_add(&BoxValue::SAFE_USER_MIN).unwrap(),
+            vec![outbox_reward_tokens.clone().into()],
+        )
+    } else {
+        (tx_fee, vec![])
+    };
+    let mut unspent_boxes = node_api.get_unspent_boxes_by_address(
+        &oracle_address.to_base58(),
+        wallet_target_balance,
+        wallet_target_tokens,
+    )?;
     let target_tokens = vec![
         in_oracle_box.oracle_token().into(),
         outbox_reward_tokens.into(),
@@ -480,6 +492,204 @@ mod tests {
 
         let _signed_tx = mock_node_api
             .sign_transaction(action.transaction_context)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_subsequent_publish_datapoint_rotation_requests_new_reward_token() {
+        use std::cell::RefCell;
+
+        use crate::node_interface::node_api::NodeApiError;
+        use ergo_lib::chain::transaction::unsigned::UnsignedTransaction;
+        use ergo_lib::chain::transaction::Transaction;
+        use ergo_lib::ergo_chain_types::Digest32;
+        use ergo_lib::wallet::Wallet;
+        use ergo_node_interface::P2PKAddressString;
+
+        struct SelectingMockNodeApi<'a> {
+            inner: MockNodeApi<'a>,
+            requested_target_tokens: RefCell<Vec<Vec<Token>>>,
+        }
+
+        impl NodeApiTrait for SelectingMockNodeApi<'_> {
+            fn get_unspent_boxes_by_address_with_token_filter_option(
+                &self,
+                address: &P2PKAddressString,
+                target_balance: BoxValue,
+                target_tokens: Vec<Token>,
+                filter_boxes_token_ids: Vec<TokenId>,
+            ) -> Result<Vec<ErgoBox>, BoxSelectorError> {
+                self.inner
+                    .get_unspent_boxes_by_address_with_token_filter_option(
+                        address,
+                        target_balance,
+                        target_tokens,
+                        filter_boxes_token_ids,
+                    )
+            }
+
+            fn get_unspent_boxes_by_address(
+                &self,
+                _address: &P2PKAddressString,
+                target_balance: BoxValue,
+                target_tokens: Vec<Token>,
+            ) -> Result<Vec<ErgoBox>, BoxSelectorError> {
+                self.requested_target_tokens
+                    .borrow_mut()
+                    .push(target_tokens.clone());
+                let selection = SimpleBoxSelector::new().select(
+                    self.inner.unspent_boxes.clone(),
+                    target_balance,
+                    target_tokens.as_slice(),
+                )?;
+                Ok(selection.boxes.to_vec())
+            }
+
+            fn get_unspent_boxes_by_token_id(
+                &self,
+                token_id: &TokenId,
+            ) -> Result<Vec<ErgoBox>, NodeApiError> {
+                self.inner.get_unspent_boxes_by_token_id(token_id)
+            }
+
+            fn get_state_context(&self) -> Result<ErgoStateContext, NodeApiError> {
+                self.inner.get_state_context()
+            }
+
+            fn get_wallet(&self) -> Result<Wallet, NodeApiError> {
+                self.inner.get_wallet()
+            }
+
+            fn sign_transaction(
+                &self,
+                transaction_context: TransactionContext<UnsignedTransaction>,
+            ) -> Result<Transaction, NodeApiError> {
+                self.inner.sign_transaction(transaction_context)
+            }
+
+            fn submit_transaction(&self, tx: &Transaction) -> Result<TxId, NodeApiError> {
+                self.inner.submit_transaction(tx)
+            }
+
+            fn sign_and_submit_transaction(
+                &self,
+                transaction_context: TransactionContext<UnsignedTransaction>,
+            ) -> Result<TxId, NodeApiError> {
+                self.inner.sign_and_submit_transaction(transaction_context)
+            }
+        }
+
+        let ctx = force_any_val::<ErgoStateContext>();
+        let height = BlockHeight(ctx.pre_header.height);
+        let token_ids = generate_token_ids();
+        let new_reward_token_id =
+            RewardTokenId::from_token_id_unchecked(TokenId::from(Digest32::from([0xCC; 32])));
+        assert_ne!(new_reward_token_id, token_ids.reward_token_id);
+        let oracle_contract_parameters = OracleContractParameters::default();
+        let pool_box_epoch_id = EpochCounter(1);
+        let secret = force_any_val::<DlogProverInput>();
+        let oracle_address = NetworkAddress::new(
+            NetworkPrefix::Mainnet,
+            &Address::P2Pk(secret.public_image().clone()),
+        );
+        let oracle_pub_key = secret.public_image().h;
+
+        let oracle_box_wrapper_inputs =
+            OracleBoxWrapperInputs::try_from((oracle_contract_parameters, &token_ids)).unwrap();
+        let oracle_box = OracleBoxWrapper::new(
+            make_datapoint_box(
+                *oracle_pub_key,
+                200,
+                EpochCounter(pool_box_epoch_id.0 - 1),
+                &token_ids,
+                oracle_box_wrapper_inputs
+                    .contract_inputs
+                    .contract_parameters()
+                    .min_storage_rent,
+                height - EpochLength(99),
+                100,
+            ),
+            &oracle_box_wrapper_inputs,
+        )
+        .unwrap();
+
+        let change_address = AddressEncoder::unchecked_parse_network_address_from_str(
+            "9iHyKxXs2ZNLMp9N9gbUT9V8gTbsV7HED1C1VhttMfBUMPDyF7r",
+        )
+        .unwrap();
+
+        // First box has enough ERG for tx_fee but no reward token; second box holds the rotated reward token.
+        let erg_only_box = make_wallet_unspent_box(
+            secret.public_image(),
+            BASE_FEE.checked_mul_u32(10000).unwrap(),
+            None,
+        );
+        let reward_token_box = make_wallet_unspent_box(
+            secret.public_image(),
+            *BASE_FEE,
+            Some(
+                vec![Token {
+                    token_id: new_reward_token_id.token_id(),
+                    amount: 1u64.try_into().unwrap(),
+                }]
+                .try_into()
+                .unwrap(),
+            ),
+        );
+        let submit_tx_mock = SubmitTxMock::default();
+        let selecting_node_api = SelectingMockNodeApi {
+            inner: MockNodeApi {
+                unspent_boxes: vec![erg_only_box, reward_token_box],
+                ctx: ctx.clone(),
+                secrets: vec![secret.clone().into()],
+                submitted_txs: &submit_tx_mock.transactions,
+                chain_submit_tx: None,
+            },
+            requested_target_tokens: RefCell::new(vec![]),
+        };
+
+        let datapoint_source = MockDatapointSource {
+            datapoint: 201.into(),
+        };
+        let (action, _) = build_subsequent_publish_datapoint_action(
+            &oracle_box,
+            &selecting_node_api,
+            height,
+            oracle_address.clone(),
+            change_address.address(),
+            &datapoint_source,
+            pool_box_epoch_id,
+            &new_reward_token_id,
+        )
+        .unwrap();
+
+        assert_eq!(
+            selecting_node_api.requested_target_tokens.borrow()[0],
+            vec![Token {
+                token_id: new_reward_token_id.token_id(),
+                amount: 1u64.try_into().unwrap(),
+            }]
+        );
+
+        let _signed_tx = selecting_node_api
+            .sign_transaction(action.transaction_context)
+            .unwrap();
+
+        // When reward token has not rotated, no target tokens are requested from the wallet.
+        let (same_token_action, _) = build_subsequent_publish_datapoint_action(
+            &oracle_box,
+            &selecting_node_api,
+            height,
+            oracle_address,
+            change_address.address(),
+            &datapoint_source,
+            pool_box_epoch_id,
+            &token_ids.reward_token_id,
+        )
+        .unwrap();
+        assert!(selecting_node_api.requested_target_tokens.borrow()[1].is_empty());
+        let _signed_same_tx = selecting_node_api
+            .sign_transaction(same_token_action.transaction_context)
             .unwrap();
     }
 }

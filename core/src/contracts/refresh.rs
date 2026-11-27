@@ -59,14 +59,19 @@ impl RefreshContract {
     pub fn checked_load(inputs: &RefreshContractInputs) -> Result<Self, RefreshContractError> {
         let ergo_tree =
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
-        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_base16 = Self::build_with(inputs)
-                .unwrap()
-                .ergo_tree
-                .to_base16_bytes()
-                .unwrap();
-            RefreshContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
-        })?;
+        let contract =
+            Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+                match Self::build_with(inputs)
+                    .ok()
+                    .and_then(|c| c.ergo_tree.to_base16_bytes().ok())
+                {
+                    Some(expected_base16) => RefreshContractError::WrappedWithExpectedP2SAddress(
+                        expected_base16,
+                        e.into(),
+                    ),
+                    None => e,
+                }
+            })?;
         Ok(contract)
     }
 
@@ -690,5 +695,37 @@ mod tests {
             new_contract.pool_nft_token_id(),
             inputs.pool_nft_token_id.token_id()
         );
+    }
+
+    #[test]
+    fn test_checked_load_errors_without_panicking() {
+        let invalid_params = RefreshContractParameters {
+            pool_nft_index: 999,
+            ..Default::default()
+        };
+        let token_ids = generate_token_ids();
+        let invalid_inputs = RefreshContractInputs {
+            contract_parameters: invalid_params,
+            oracle_token_id: token_ids.oracle_token_id.clone(),
+            pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+        };
+        let res = RefreshContract::checked_load(&invalid_inputs);
+        assert!(matches!(
+            res,
+            Err(RefreshContractError::Parameters(
+                RefreshContractParametersError::NoPoolNftId
+            ))
+        ));
+
+        let mismatch_inputs = RefreshContractInputs {
+            contract_parameters: RefreshContractParameters::default(),
+            oracle_token_id: token_ids.oracle_token_id,
+            pool_nft_token_id: token_ids.pool_nft_token_id,
+        };
+        let mismatch_res = RefreshContract::checked_load(&mismatch_inputs);
+        assert!(matches!(
+            mismatch_res,
+            Err(RefreshContractError::WrappedWithExpectedP2SAddress(_, _))
+        ));
     }
 }

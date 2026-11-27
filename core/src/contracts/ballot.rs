@@ -84,14 +84,19 @@ impl BallotContract {
     pub fn checked_load(inputs: &BallotContractInputs) -> Result<Self, BallotContractError> {
         let ergo_tree =
             ErgoTree::sigma_parse_bytes(inputs.contract_parameters.ergo_tree_bytes.as_slice())?;
-        let contract = Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
-            let expected_base16 = Self::build_with(inputs)
-                .unwrap()
-                .ergo_tree
-                .to_base16_bytes()
-                .unwrap();
-            BallotContractError::WrappedWithExpectedP2SAddress(expected_base16, e.into())
-        })?;
+        let contract =
+            Self::from_ergo_tree(ergo_tree, inputs).map_err(|e| {
+                match Self::build_with(inputs)
+                    .ok()
+                    .and_then(|c| c.ergo_tree.to_base16_bytes().ok())
+                {
+                    Some(expected_base16) => BallotContractError::WrappedWithExpectedP2SAddress(
+                        expected_base16,
+                        e.into(),
+                    ),
+                    None => e,
+                }
+            })?;
         Ok(contract)
     }
 
@@ -346,5 +351,34 @@ mod tests {
             new_update_nft_token_id.token_id()
         );
         assert_eq!(new_contract.min_storage_rent(), new_min_storage_rent);
+    }
+
+    #[test]
+    fn test_checked_load_errors_without_panicking() {
+        let invalid_params = BallotContractParameters {
+            update_nft_index: 999,
+            ..Default::default()
+        };
+        let update_nft_token_id =
+            UpdateTokenId::from_token_id_unchecked(force_any_val::<TokenId>());
+        let invalid_inputs = BallotContractInputs {
+            contract_parameters: invalid_params,
+            update_nft_token_id: update_nft_token_id.clone(),
+        };
+        let err = BallotContract::checked_load(&invalid_inputs).unwrap_err();
+        assert!(matches!(
+            err,
+            BallotContractError::ParametersError(BallotContractParametersError::NoUpdateNftId)
+        ));
+
+        let mismatch_inputs = BallotContractInputs {
+            contract_parameters: BallotContractParameters::default(),
+            update_nft_token_id,
+        };
+        let mismatch_err = BallotContract::checked_load(&mismatch_inputs).unwrap_err();
+        assert!(matches!(
+            mismatch_err,
+            BallotContractError::WrappedWithExpectedP2SAddress(_, _)
+        ));
     }
 }

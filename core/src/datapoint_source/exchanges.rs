@@ -131,7 +131,7 @@ fn kucoin_price(json: &JsonValue, now_ms: i64) -> Result<f64, DataPointSourceErr
     let time_ms = json["data"]["time"]
         .as_i64()
         .ok_or_else(|| missing_field(json, "data.time as integer"))?;
-    check_fresh(time_ms, now_ms, MAX_QUOTE_AGE, "data.time")?;
+    check_fresh(i128::from(time_ms), now_ms, MAX_QUOTE_AGE, "data.time")?;
     price(json, &json["data"]["price"], "data.price")
 }
 
@@ -142,7 +142,12 @@ fn coinmarketcap_price(json: &JsonValue, now_ms: i64) -> Result<f64, DataPointSo
         .as_str()
         .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
         .ok_or_else(|| missing_field(json, &format!("{field} as RFC 3339 time")))?;
-    check_fresh(updated.timestamp_millis(), now_ms, MAX_QUOTE_AGE, field)?;
+    check_fresh(
+        i128::from(updated.timestamp_millis()),
+        now_ms,
+        MAX_QUOTE_AGE,
+        field,
+    )?;
     price(json, &quote["price"], "data[0].quotes[0].price")
 }
 
@@ -152,7 +157,12 @@ fn yahoo_price(json: &JsonValue, now_ms: i64) -> Result<f64, DataPointSourceErro
     let time_s = meta["regularMarketTime"]
         .as_i64()
         .ok_or_else(|| missing_field(json, &format!("{field} as integer")))?;
-    check_fresh(time_s * 1000, now_ms, MAX_COMEX_QUOTE_AGE, field)?;
+    check_fresh(
+        i128::from(time_s) * 1000,
+        now_ms,
+        MAX_COMEX_QUOTE_AGE,
+        field,
+    )?;
     price(
         json,
         &meta["regularMarketPrice"],
@@ -188,7 +198,7 @@ async fn get_json(req: reqwest::RequestBuilder) -> Result<JsonValue, DataPointSo
 fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as i64)
+        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
 }
 
 // the time the fixtures were recorded
@@ -201,21 +211,23 @@ fn now_ms() -> i64 {
 /// or more than MAX_CLOCK_SKEW ahead of it (a timestamp in another unit, or a host
 /// clock that is off, would otherwise pass any age check).
 fn check_fresh(
-    quote_ms: i64,
+    quote_ms: i128,
     now_ms: i64,
     max_age: Duration,
     field: &str,
 ) -> Result<(), DataPointSourceError> {
-    let age_ms = now_ms - quote_ms;
-    if -age_ms > MAX_CLOCK_SKEW.as_millis() as i64 {
+    let age_ms = i128::from(now_ms) - quote_ms;
+    if age_ms < -(MAX_CLOCK_SKEW.as_millis() as i128) {
+        let ahead_secs = (-age_ms / 1000).min(i128::from(i64::MAX)) as i64;
         Err(DataPointSourceError::FutureQuote {
             field: field.to_string(),
-            ahead_secs: -age_ms / 1000,
+            ahead_secs,
         })
-    } else if age_ms > max_age.as_millis() as i64 {
+    } else if age_ms > max_age.as_millis() as i128 {
+        let age_secs = (age_ms / 1000).min(i128::from(i64::MAX)) as i64;
         Err(DataPointSourceError::StaleQuote {
             field: field.to_string(),
-            age_secs: age_ms / 1000,
+            age_secs,
             max_age_secs: max_age.as_secs(),
         })
     } else {
@@ -404,6 +416,60 @@ pub(super) mod tests {
             1_790_763_274_000_i64.into(),
         );
         assert!(future(yahoo_price(&yahoo_ms, FIXTURE_NOW_MS)));
+    }
+
+    #[test]
+    fn test_extreme_timestamps_do_not_overflow() {
+        let future = |r: Result<f64, DataPointSourceError>| {
+            matches!(r, Err(DataPointSourceError::FutureQuote { .. }))
+        };
+        let stale = |r: Result<f64, DataPointSourceError>| {
+            matches!(r, Err(DataPointSourceError::StaleQuote { .. }))
+        };
+
+        let yahoo_max = with(
+            YAHOO_GC,
+            &["chart", "result", "0", "meta", "regularMarketTime"],
+            i64::MAX.into(),
+        );
+        assert!(future(yahoo_price(&yahoo_max, FIXTURE_NOW_MS)));
+
+        let yahoo_min = with(
+            YAHOO_GC,
+            &["chart", "result", "0", "meta", "regularMarketTime"],
+            (i64::MIN + 1).into(),
+        );
+        assert!(stale(yahoo_price(&yahoo_min, FIXTURE_NOW_MS)));
+
+        let kucoin_min = with(KUCOIN_ERG, &["data", "time"], (i64::MIN + 1).into());
+        assert!(stale(kucoin_price(&kucoin_min, FIXTURE_NOW_MS)));
+
+        let kucoin_max = with(KUCOIN_ERG, &["data", "time"], i64::MAX.into());
+        assert!(future(kucoin_price(&kucoin_max, FIXTURE_NOW_MS)));
+
+        // Direct boundary checks at exact i64::MIN and i64::MAX.
+        assert!(matches!(
+            check_fresh(i128::from(i64::MIN), FIXTURE_NOW_MS, MAX_QUOTE_AGE, "time"),
+            Err(DataPointSourceError::StaleQuote { .. })
+        ));
+        assert!(matches!(
+            check_fresh(
+                i128::from(i64::MIN) * 1000,
+                FIXTURE_NOW_MS,
+                MAX_COMEX_QUOTE_AGE,
+                "time",
+            ),
+            Err(DataPointSourceError::StaleQuote { .. })
+        ));
+        assert!(matches!(
+            check_fresh(
+                i128::from(i64::MAX) * 1000,
+                FIXTURE_NOW_MS,
+                MAX_COMEX_QUOTE_AGE,
+                "time",
+            ),
+            Err(DataPointSourceError::FutureQuote { .. })
+        ));
     }
 
     #[test]

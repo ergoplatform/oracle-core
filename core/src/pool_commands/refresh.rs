@@ -62,6 +62,10 @@ pub enum RefreshActionError {
     ErgoBoxCandidateBuilderError(#[from] ErgoBoxCandidateBuilderError),
     #[error("failed to found my own oracle box in the filtered posted oracle boxes")]
     MyOracleBoxNoFound,
+    #[error(
+        "invalid output pool reward token amount (available: {available}, decrement: {decrement})"
+    )]
+    InvalidPoolRewardTokenAmount { available: u64, decrement: u64 },
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -147,38 +151,51 @@ pub fn build_refresh_action(
         valid_in_oracle_boxes.len()
     );
 
-    let out_pool_box = build_out_pool_box(&in_pool_box, height, rate, reward_decrement, None)?;
-    let mut output_candidates = vec![out_pool_box, out_refresh_box];
-    if let Some(buyback_box) = in_buyback_box_opt {
+    let buyback_transfer = in_buyback_box_opt.and_then(|buyback_box| {
         log::debug!("Found buyback box id {:?}", buyback_box.get_box().box_id());
-        if let Some(buyback_reward_token) = buyback_box.reward_token() {
-            log::debug!(
-                "Found reward tokens in buyback box and including it in the tx. Amount: {:?}",
-                buyback_reward_token.amount
-            );
-            input_boxes.push(buyback_box.get_box().clone());
-            let out_pool_box_w_buyback_rewards = build_out_pool_box(
-                &in_pool_box,
-                height,
-                rate,
-                reward_decrement,
-                Some(
-                    (buyback_reward_token.amount.as_u64() - 1)
-                        .try_into()
-                        .unwrap(),
-                ),
-            )?;
-            let out_buyback_box = buyback_box.new_with_one_reward_token(height);
-            output_candidates.remove(0);
-            output_candidates.insert(0, out_pool_box_w_buyback_rewards);
-            // should be at index 2 (checked in the contract of the buyback input box)
-            output_candidates.push(out_buyback_box);
-        } else {
-            log::debug!("No reward tokens in buyback box");
+        let buyback_reward_token = match buyback_box.reward_token() {
+            Some(token) => token,
+            None => {
+                log::debug!("No matching reward tokens in buyback box");
+                return None;
+            }
+        };
+        if buyback_reward_token.token_id != in_pool_box.reward_token().token_id {
+            log::debug!("Buyback box reward token id does not match pool reward token id");
+            return None;
         }
-    };
+        let transferable = buyback_reward_token.amount.as_u64().saturating_sub(1);
+        match TokenAmount::try_from(transferable) {
+            Ok(amount) => {
+                log::debug!(
+                    "Found reward tokens in buyback box and including it in the tx. Amount: {:?}",
+                    buyback_reward_token.amount
+                );
+                Some((buyback_box, amount))
+            }
+            Err(_) => {
+                log::debug!(
+                    "Buyback box has {} reward token(s); skipping buyback",
+                    buyback_reward_token.amount.as_u64()
+                );
+                None
+            }
+        }
+    });
+
+    let buyback_reward = buyback_transfer.as_ref().map(|(_, amount)| *amount);
+    let out_pool_box =
+        build_out_pool_box(&in_pool_box, height, rate, reward_decrement, buyback_reward)?;
+    let mut output_candidates = vec![out_pool_box, out_refresh_box];
+    if let Some((buyback_box, _)) = buyback_transfer {
+        input_boxes.push(buyback_box.get_box().clone());
+        let out_buyback_box = buyback_box.new_with_one_reward_token(height);
+        // should be at index 2 (checked in the contract of the buyback input box)
+        output_candidates.push(out_buyback_box);
+    }
     input_boxes.append(&mut valid_in_oracle_raw_boxes);
     input_boxes.append(selection.boxes.as_vec().clone().as_mut());
+    let out_oracle_boxes_offset = output_candidates.len() as i32;
     output_candidates.append(&mut out_oracle_boxes);
 
     let box_selection = BoxSelection {
@@ -202,7 +219,7 @@ pub fn build_refresh_action(
         .iter()
         .enumerate()
         .for_each(|(idx, ob)| {
-            let outindex = (idx as i32 + 2).into(); // first two output boxes are pool box and refresh box
+            let outindex = (idx as i32 + out_oracle_boxes_offset).into();
             let ob_ctx_ext = ContextExtension {
                 values: vec![(0, outindex)].into_iter().collect(),
             };
@@ -307,15 +324,16 @@ fn build_out_pool_box(
 ) -> Result<ErgoBoxCandidate, RefreshActionError> {
     let new_epoch_counter = EpochCounter(in_pool_box.epoch_counter().0 + 1);
     let reward_token = in_pool_box.reward_token();
-    let decremented = reward_token
-        .amount
-        .checked_sub(&reward_decrement.try_into().unwrap())
-        .unwrap();
-    let new_reward_amount = if let Some(buyback_reward) = buyback_reward {
-        decremented.checked_add(&buyback_reward).unwrap()
-    } else {
-        decremented
-    };
+    let in_reward_amount = *reward_token.amount.as_u64();
+    let buyback_amount = buyback_reward.map(|amount| *amount.as_u64()).unwrap_or(0);
+    let new_reward_amount = in_reward_amount
+        .checked_add(buyback_amount)
+        .and_then(|total| total.checked_sub(reward_decrement))
+        .and_then(|amount| TokenAmount::try_from(amount).ok())
+        .ok_or(RefreshActionError::InvalidPoolRewardTokenAmount {
+            available: in_reward_amount.saturating_add(buyback_amount),
+            decrement: reward_decrement,
+        })?;
     let new_reward_token: SpecToken<RewardTokenId> = SpecToken {
         token_id: reward_token.token_id,
         amount: new_reward_amount,
@@ -678,7 +696,7 @@ mod tests {
             MinDatapoints(4),
             mock_node_api,
             height,
-            oracle_address,
+            oracle_address.clone(),
             change_address.address(),
             Some(&buyback_source),
         )
@@ -748,7 +766,254 @@ mod tests {
                 .as_u64(),
             &189,
             "reward tokens should be added to the pool box"
+        );
+
+        let _signed_buyback_tx = mock_node_api
+            .sign_transaction(action_with_buyback.transaction_context)
+            .unwrap();
+
+        // Buyback box with only 1 reward token is skipped rather than underflowing.
+        let one_token_buyback_box = make_wallet_unspent_box(
+            secret.public_image(),
+            *BASE_FEE,
+            Some(
+                vec![
+                    Token {
+                        token_id: buyback_token_id,
+                        amount: 1u64.try_into().unwrap(),
+                    },
+                    Token {
+                        token_id: token_ids.reward_token_id.token_id(),
+                        amount: 1u64.try_into().unwrap(),
+                    },
+                ]
+                .try_into()
+                .unwrap(),
+            ),
+        );
+        let one_token_buyback_source = BuybackBoxSourceMock {
+            buyback_box: BuybackBoxWrapper::new(
+                one_token_buyback_box,
+                token_ids.reward_token_id.clone(),
+            ),
+        };
+        let (action_skip_one_token_buyback, _) = build_refresh_action(
+            &pool_box_mock,
+            &refresh_box_mock,
+            &(DatapointSourceMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
+            5,
+            MinDatapoints(4),
+            mock_node_api,
+            height,
+            oracle_address.clone(),
+            change_address.address(),
+            Some(&one_token_buyback_source),
         )
+        .unwrap();
+        assert_eq!(
+            action_skip_one_token_buyback
+                .transaction_context
+                .spending_tx
+                .output_candidates
+                .get(0)
+                .unwrap()
+                .tokens
+                .as_ref()
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .amount
+                .as_u64(),
+            &90,
+            "buyback with a single reward token should be skipped"
+        );
+        let _signed_skip_one_tx = mock_node_api
+            .sign_transaction(action_skip_one_token_buyback.transaction_context)
+            .unwrap();
+
+        // Buyback box with a mismatched reward token id is skipped cleanly.
+        let wrong_reward_token_id = ergo_lib::ergotree_ir::chain::token::TokenId::from(
+            ergo_lib::ergo_chain_types::Digest32::from([0xAA; 32]),
+        );
+        assert_ne!(wrong_reward_token_id, token_ids.reward_token_id.token_id());
+        let wrong_token_buyback_box = make_wallet_unspent_box(
+            secret.public_image(),
+            *BASE_FEE,
+            Some(
+                vec![
+                    Token {
+                        token_id: buyback_token_id,
+                        amount: 1u64.try_into().unwrap(),
+                    },
+                    Token {
+                        token_id: wrong_reward_token_id,
+                        amount: 100u64.try_into().unwrap(),
+                    },
+                ]
+                .try_into()
+                .unwrap(),
+            ),
+        );
+        let wrong_token_buyback_source = BuybackBoxSourceMock {
+            buyback_box: BuybackBoxWrapper::new(
+                wrong_token_buyback_box,
+                token_ids.reward_token_id.clone(),
+            ),
+        };
+        let (action_skip_wrong_token_buyback, _) = build_refresh_action(
+            &pool_box_mock,
+            &refresh_box_mock,
+            &(DatapointSourceMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
+            5,
+            MinDatapoints(4),
+            mock_node_api,
+            height,
+            oracle_address.clone(),
+            change_address.address(),
+            Some(&wrong_token_buyback_source),
+        )
+        .unwrap();
+        assert_eq!(
+            action_skip_wrong_token_buyback
+                .transaction_context
+                .spending_tx
+                .output_candidates
+                .get(0)
+                .unwrap()
+                .tokens
+                .as_ref()
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .amount
+                .as_u64(),
+            &90
+        );
+        let _signed_skip_wrong_token_tx = mock_node_api
+            .sign_transaction(action_skip_wrong_token_buyback.transaction_context)
+            .unwrap();
+
+        // Low pool reward balance succeeds when buyback refills it, and returns Err without buyback.
+        let pool_contract_inputs = crate::contracts::pool::PoolContractInputs::build_with(
+            pool_contract_parameters,
+            token_ids.refresh_nft_token_id.clone(),
+            token_ids.update_nft_token_id.clone(),
+        )
+        .unwrap();
+        let low_reward_pool_box = PoolBoxWrapper::new(
+            ErgoBox::new(
+                *BASE_FEE,
+                crate::contracts::pool::PoolContract::build_with(&pool_contract_inputs)
+                    .unwrap()
+                    .ergo_tree(),
+                Some(
+                    vec![
+                        Token::from((
+                            token_ids.pool_nft_token_id.token_id(),
+                            1u64.try_into().unwrap(),
+                        )),
+                        Token::from((
+                            token_ids.reward_token_id.token_id(),
+                            5u64.try_into().unwrap(),
+                        )),
+                    ]
+                    .try_into()
+                    .unwrap(),
+                ),
+                NonMandatoryRegisters::new(
+                    vec![
+                        (
+                            ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R4,
+                            ergo_lib::ergotree_ir::mir::constant::Constant::from(200i64),
+                        ),
+                        (
+                            ergo_lib::ergotree_ir::chain::ergo_box::NonMandatoryRegisterId::R5,
+                            ergo_lib::ergotree_ir::mir::constant::Constant::from(
+                                pool_box_epoch_id.0 as i32,
+                            ),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                )
+                .unwrap(),
+                (height - EpochLength(32)).0,
+                force_any_val::<TxId>(),
+                0,
+            )
+            .unwrap(),
+            &crate::box_kind::PoolBoxWrapperInputs {
+                contract_inputs: pool_contract_inputs,
+                pool_nft_token_id: token_ids.pool_nft_token_id.clone(),
+                reward_token_id: token_ids.reward_token_id.clone(),
+            },
+        )
+        .unwrap();
+        let low_reward_pool_mock = PoolBoxMock {
+            pool_box: low_reward_pool_box,
+        };
+
+        let low_without_buyback = build_refresh_action(
+            &low_reward_pool_mock,
+            &refresh_box_mock,
+            &(DatapointSourceMock {
+                datapoints: in_oracle_boxes.clone(),
+            }),
+            5,
+            MinDatapoints(4),
+            mock_node_api,
+            height,
+            oracle_address.clone(),
+            change_address.address(),
+            None,
+        );
+        assert!(matches!(
+            low_without_buyback,
+            Err(RefreshActionError::InvalidPoolRewardTokenAmount {
+                available: 5,
+                decrement: 10,
+            })
+        ));
+
+        let (low_with_buyback, _) = build_refresh_action(
+            &low_reward_pool_mock,
+            &refresh_box_mock,
+            &(DatapointSourceMock {
+                datapoints: in_oracle_boxes,
+            }),
+            5,
+            MinDatapoints(4),
+            mock_node_api,
+            height,
+            oracle_address,
+            change_address.address(),
+            Some(&buyback_source),
+        )
+        .unwrap();
+        assert_eq!(
+            low_with_buyback
+                .transaction_context
+                .spending_tx
+                .output_candidates
+                .get(0)
+                .unwrap()
+                .tokens
+                .as_ref()
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .amount
+                .as_u64(),
+            &94,
+            "low pool reward balance should be refilled by buyback without underflow"
+        );
+        let _signed_low_with_buyback_tx = mock_node_api
+            .sign_transaction(low_with_buyback.transaction_context)
+            .unwrap();
     }
 
     #[test]

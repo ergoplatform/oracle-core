@@ -24,7 +24,7 @@ async fn get_btc_nanoerg_coinpaprika(
 async fn get_btc_nanoerg_bitpanda() -> Result<AssetsExchangeRate<Btc, NanoErg>, DataPointSourceError>
 {
     Ok(convert_rate(
-        coinpaprika::get_usd_nanoerg().await?,
+        bitpanda::get_usd_nanoerg().await?,
         bitpanda::get_btc_usd().await?,
     ))
 }
